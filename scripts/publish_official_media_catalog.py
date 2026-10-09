@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from novelvideo.official_media_catalog_schema import validate_official_media_catalog
+from novelvideo.catalog.official_media_catalog_schema import validate_official_media_catalog
 
 _REVISION_RE = re.compile(r"^[0-9a-f]{7,64}$")
 

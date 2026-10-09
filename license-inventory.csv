@@ -2377,6 +2377,7 @@ src/novelvideo/time_of_day.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml
 src/novelvideo/ui/__init__.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 src/novelvideo/upstream_capabilities.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 src/novelvideo/upstream_catalog.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
+src/novelvideo/usage/__init__.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 src/novelvideo/usage/audio_request_usage.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 src/novelvideo/usage/image_request_usage.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 src/novelvideo/usage/video_billing.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation

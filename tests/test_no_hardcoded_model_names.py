@@ -88,7 +88,7 @@ CATALOG_CORE_FILES = frozenset(
         "upstream_catalog.py",
         "model_gateway_settings.py",
         "newapi_provisioner.py",
-        "media_model_discovery.py",
+        "catalog/media_model_discovery.py",
         "model_plaza.py",
     }
 )
@@ -183,7 +183,7 @@ DIRECT_VENDOR_ALLOWLIST: dict[str, tuple[str, frozenset[str]]] = {
         "Seedance2 直连流程默认工作流参数",
         frozenset({"seedance-2.0"}),
     ),
-    "video_duration.py": (
+    "usage/video_duration.py": (
         "按已选中直连模型名派生的时长区间键",
         frozenset({"seedance-2.0-mini"}),
     ),
