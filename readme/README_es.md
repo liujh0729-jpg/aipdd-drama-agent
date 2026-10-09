@@ -51,7 +51,7 @@ Seguiremos derribando muros.
 <strong>Y sí, puedes ganar dinero con ello.</strong><br/>
 DramaClaw está bajo <a href="../LICENSES/Elastic-2.0.txt">Elastic License 2.0</a>. Ejecútalo, modifícalo, vende lo que construyas con él —<br/>
 la versión independiente es gratuita para uso comercial, sin permiso.<br/>
-Solo pedimos una cosa: un pequeño «Powered by DramaClaw» en una esquina de tu UI.<br/>
+Solo pedimos una cosa: un pequeño «Powered by AIPDD & DramaClaw» en una esquina de tu UI.<br/>
 La única puerta aún cerrada es empaquetarlo como un SaaS alojado para otras personas; esa licencia aún no está abierta.<br/>
 Por qué, y las FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#475</a>.
 
@@ -447,7 +447,7 @@ Las personas que construyen DramaClaw — gracias. 💜
 
 ## Licencia
 
-[Elastic License 2.0](../LICENSES/Elastic-2.0.txt). Libre de usar, modificar, redistribuir y vender lo que construyas con él; conserva un pequeño «Powered by DramaClaw» en tu UI. La única restricción es que no puedes ofrecer el software en sí como un servicio alojado a otros. Consulta la [explicación de la licencia](../docs/en/license.md) y la [declaración de licencia](https://github.com/dramaclaw/dramaclaw/issues/475).
+[Elastic License 2.0](../LICENSES/Elastic-2.0.txt). Libre de usar, modificar, redistribuir y vender lo que construyas con él; conserva un pequeño «Powered by AIPDD & DramaClaw» en tu UI. La única restricción es que no puedes ofrecer el software en sí como un servicio alojado a otros. Consulta la [explicación de la licencia](../docs/en/license.md) y la [declaración de licencia](https://github.com/dramaclaw/dramaclaw/issues/475).
 
 <br/>
 

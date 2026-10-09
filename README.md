@@ -24,8 +24,6 @@ If the answer is always Big Tech,<br/>
 then AI isn't empowerment.<br/>
 It's just a new wall.<br/>
 <br/>
-I'm Eric.<br/>
-<br/>
 This isn't a demo.<br/>
 Not a toy.<br/>
 Not a crippled edition.<br/>
@@ -53,7 +51,7 @@ We'll keep tearing down walls.
 
 AIPDD-Agent-Claw is <a href="./LICENSES/Elastic-2.0.txt">Elastic License 2.0</a>. Run it, modify it, sell what you build with it —<br/>
 the standalone version is free for commercial use, no permission needed.<br/>
-We ask for one thing: a small "Powered by DramaClaw" in the corner of your UI.<br/>
+We ask for one thing: a small "Powered by AIPDD & DramaClaw" in the corner of your UI.<br/>
 The only door still closed is wrapping it up as a hosted SaaS for other people; that license isn't open yet.<br/>
 Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#475</a>.
 
@@ -115,22 +113,10 @@ Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#4
       <b>师兄你怎么不舔了</b><br/>
       <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-ep01.mp4">▶ 第 1 集</a>
     </td>
-  </tr>
-  <tr>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-cover.png?v=2" width="185" alt="天命不可欺"/><br/>
       <b>天命不可欺</b><br/>
       <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep02.mp4">▶ 第 02 集</a> &nbsp;·&nbsp; <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep58.mp4">第 58 集</a>
-    </td>
-    <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-cover.png?v=2" width="185" alt="乌龙仙途"/><br/>
-      <b>乌龙仙途</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-ep01.mp4">▶ 第 1 集</a>
-    </td>
-    <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu-cover.png?v=2" width="185" alt="非遗㑇舞"/><br/>
-      <b>非遗㑇舞</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu.mp4">▶ 播放</a>
     </td>
   </tr>
 </table>
@@ -445,51 +431,9 @@ We continuously curate and label [`good first issue`](https://github.com/liujh07
 
 <br/>
 
-## Contributors
-
-The people building DramaClaw — thank you. 💜
-
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/bopy-zou"><img src="https://github.com/bopy-zou.png?size=100" width="72" alt="bopy-zou"/><br/><sub>bopy-zou</sub></a></td>
-    <td align="center"><a href="https://github.com/Handanhhhy"><img src="https://github.com/Handanhhhy.png?size=100" width="72" alt="Handanhhhy"/><br/><sub>Handanhhhy</sub></a></td>
-    <td align="center"><a href="https://github.com/Hanlin-Gabriel"><img src="https://github.com/Hanlin-Gabriel.png?size=100" width="72" alt="Hanlin-Gabriel"/><br/><sub>Hanlin-Gabriel</sub></a></td>
-    <td align="center"><a href="https://github.com/ryanhuang-duat"><img src="https://github.com/ryanhuang-duat.png?size=100" width="72" alt="ryanhuang-duat"/><br/><sub>ryanhuang-duat</sub></a></td>
-    <td align="center"><a href="https://github.com/lywaterman"><img src="https://github.com/lywaterman.png?size=100" width="72" alt="lywaterman"/><br/><sub>lywaterman</sub></a></td>
-    <td align="center"><a href="https://github.com/n7s4"><img src="https://github.com/n7s4.png?size=100" width="72" alt="n7s4"/><br/><sub>n7s4</sub></a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/NewYuee"><img src="https://github.com/NewYuee.png?size=100" width="72" alt="NewYuee"/><br/><sub>NewYuee</sub></a></td>
-    <td align="center"><a href="https://github.com/SimonRen"><img src="https://github.com/SimonRen.png?size=100" width="72" alt="SimonRen"/><br/><sub>SimonRen</sub></a></td>
-    <td align="center"><a href="https://github.com/vkiki"><img src="https://github.com/vkiki.png?size=100" width="72" alt="vkiki"/><br/><sub>vkiki</sub></a></td>
-    <td align="center"><a href="https://github.com/wangwenqq"><img src="https://github.com/wangwenqq.png?size=100" width="72" alt="wangwenqq"/><br/><sub>wangwenqq</sub></a></td>
-    <td align="center"><a href="https://github.com/zhen2025109"><img src="https://github.com/zhen2025109.png?size=100" width="72" alt="zhen2025109"/><br/><sub>zhen2025109</sub></a></td>
-    <td align="center"><a href="https://github.com/revolutionarybukhari"><img src="https://github.com/revolutionarybukhari.png?size=100" width="72" alt="revolutionarybukhari"/><br/><sub>revolutionarybukhari</sub></a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/yhay81"><img src="https://github.com/yhay81.png?size=100" width="72" alt="yhay81"/><br/><sub>yhay81</sub></a></td>
-    <td align="center"><a href="https://github.com/hoanglongggggggggg"><img src="https://github.com/hoanglongggggggggg.png?size=100" width="72" alt="hoanglongggggggggg"/><br/><sub>hoanglongggggggggg</sub></a></td>
-  </tr>
-</table>
-
-<br/>
-
-## Produced By
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/partners/neoflying-lab-dark.png">
-    <img src="./assets/partners/neoflying-lab.png" alt="Neo Flying AI Laboratory" height="48">
-  </picture>
-</p>
-
-<p align="center"><sub>Logo is a trademark of its respective owner, shown with permission.</sub></p>
-
-<br/>
-
 ## License
 
-[Elastic License 2.0](./LICENSES/Elastic-2.0.txt). Free to use, modify, redistribute and sell what you build with it; keep a small "Powered by DramaClaw" in your UI. The only restriction is that you may not offer the software itself as a hosted service to others. See the [license explainer](./docs/en/license.md) and the [licensing statement](https://github.com/dramaclaw/dramaclaw/issues/475).
+[Elastic License 2.0](./LICENSES/Elastic-2.0.txt). Free to use, modify, redistribute and sell what you build with it; keep a small "Powered by AIPDD & DramaClaw" in your UI. The only restriction is that you may not offer the software itself as a hosted service to others. See the [license explainer](./docs/en/license.md) and the [licensing statement](https://github.com/dramaclaw/dramaclaw/issues/475).
 
 This repo is **multi-licensed**. The application source is Elastic-2.0; third-party components vendored under [`third_party/`](./third_party/README.md) keep their own licenses and are aggregated at arm's length, each under its SPDX id in [`REUSE.toml`](./REUSE.toml) / [`license-inventory.csv`](./license-inventory.csv):
 

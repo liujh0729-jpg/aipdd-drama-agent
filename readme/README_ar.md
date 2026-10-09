@@ -52,7 +52,7 @@
 <strong>ونعم، يمكنك أن تكسب المال به.</strong><br/>
 DramaClaw مرخّص بـ <a href="../LICENSES/Elastic-2.0.txt">رخصة Elastic 2.0</a>. شغّله، وعدّله، وبع ما تبنيه به —<br/>
 النسخة المستقلة مجانية للاستخدام التجاري، دون إذن.<br/>
-نطلب شيئاً واحداً فقط: عبارة صغيرة «Powered by DramaClaw» في زاوية واجهتك.<br/>
+نطلب شيئاً واحداً فقط: عبارة صغيرة «Powered by AIPDD & DramaClaw» في زاوية واجهتك.<br/>
 الباب الوحيد الذي ما زال مغلقاً هو أن تُلفّه كخدمة SaaS مستضافة تبيعها للآخرين؛ هذه الرخصة ليست مفتوحة بعد.<br/>
 السبب والأسئلة الشائعة: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#475</a>.
 
@@ -541,7 +541,7 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 <div dir="rtl">
 
-[رخصة Elastic 2.0](../LICENSES/Elastic-2.0.txt).حرٌّ لك الاستخدام والتعديل وإعادة التوزيع وبيع ما تبنيه به؛ أبقِ عبارة صغيرة «Powered by DramaClaw» في واجهتك. القيد الوحيد أنك لا تقدّم البرنامج نفسه كخدمة مستضافة للآخرين. راجع [شرح الرخصة](../docs/en/license.md) و[بيان الترخيص](https://github.com/dramaclaw/dramaclaw/issues/475).
+[رخصة Elastic 2.0](../LICENSES/Elastic-2.0.txt).حرٌّ لك الاستخدام والتعديل وإعادة التوزيع وبيع ما تبنيه به؛ أبقِ عبارة صغيرة «Powered by AIPDD & DramaClaw» في واجهتك. القيد الوحيد أنك لا تقدّم البرنامج نفسه كخدمة مستضافة للآخرين. راجع [شرح الرخصة](../docs/en/license.md) و[بيان الترخيص](https://github.com/dramaclaw/dramaclaw/issues/475).
 
 </div>
 

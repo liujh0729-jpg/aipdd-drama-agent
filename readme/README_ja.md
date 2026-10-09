@@ -51,7 +51,7 @@ Big Tech だけが持っていた産業化されたドラマ製作の力を、<b
 <strong>そして、これで稼ぐこともできる。</strong><br/>
 DramaClaw は <a href="../LICENSES/Elastic-2.0.txt">Elastic License 2.0</a> です。実行も改変も、それで作ったものを売ることも自由 ——<br/>
 スタンドアロン版は商用利用無料、許可不要。<br/>
-お願いはひとつだけ：UI の片隅に小さな "Powered by DramaClaw" を置いてください。<br/>
+お願いはひとつだけ：UI の片隅に小さな "Powered by AIPDD & DramaClaw" を置いてください。<br/>
 唯一閉じたままのドアは、それを他の人のためにホスト型 SaaS として提供すること。このライセンスはまだ開放していません。<br/>
 理由と FAQ：<a href="https://github.com/dramaclaw/dramaclaw/issues/475">#475</a>。
 
@@ -447,7 +447,7 @@ DramaClaw を作る人たち —— ありがとう。💜
 
 ## ライセンス
 
-[Elastic License 2.0](../LICENSES/Elastic-2.0.txt)。利用・改変・再配布、そしてそれで作ったものを販売することが自由；UI の片隅に小さな "Powered by DramaClaw" を残してください。唯一の制限は、ソフトウェアそのものを他者へホスト型サービスとして提供できないことです。[ライセンス解説](../docs/en/license.md) と [ライセンス声明](https://github.com/dramaclaw/dramaclaw/issues/475) 参照。
+[Elastic License 2.0](../LICENSES/Elastic-2.0.txt)。利用・改変・再配布、そしてそれで作ったものを販売することが自由；UI の片隅に小さな "Powered by AIPDD & DramaClaw" を残してください。唯一の制限は、ソフトウェアそのものを他者へホスト型サービスとして提供できないことです。[ライセンス解説](../docs/en/license.md) と [ライセンス声明](https://github.com/dramaclaw/dramaclaw/issues/475) 参照。
 
 <br/>
 

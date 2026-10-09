@@ -52,7 +52,7 @@ Chúng tôi sẽ tiếp tục phá tường.
 <strong>Và đúng vậy, bạn có thể kiếm tiền với nó.</strong><br/>
 DramaClaw dùng giấy phép <a href="../LICENSES/Elastic-2.0.txt">Elastic License 2.0</a>. Chạy nó, sửa nó, bán những gì bạn xây bằng nó —<br/>
 phiên bản độc lập được dùng thương mại miễn phí, không cần xin phép.<br/>
-Chúng tôi chỉ xin một điều: một dòng nhỏ "Powered by DramaClaw" ở góc giao diện của bạn.<br/>
+Chúng tôi chỉ xin một điều: một dòng nhỏ "Powered by AIPDD & DramaClaw" ở góc giao diện của bạn.<br/>
 Cánh cửa duy nhất còn đóng là đóng gói nó thành SaaS lưu trữ để bán cho người khác; giấy phép đó chưa mở.<br/>
 Lý do và các câu hỏi thường gặp: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#475</a>.
 
@@ -458,7 +458,7 @@ Những người đang xây dựng DramaClaw — cảm ơn các bạn. 💜
 
 ## Giấy phép
 
-[Elastic License 2.0](../LICENSES/Elastic-2.0.txt). Tự do sử dụng, sửa đổi, phân phối lại và bán những gì bạn xây bằng nó; giữ một dòng nhỏ "Powered by DramaClaw" trong giao diện của bạn. Hạn chế duy nhất là bạn không được cung cấp chính phần mềm này như một dịch vụ lưu trữ cho người khác. Xem [giải thích giấy phép](../docs/en/license.md) và [tuyên bố cấp phép](https://github.com/dramaclaw/dramaclaw/issues/475).
+[Elastic License 2.0](../LICENSES/Elastic-2.0.txt). Tự do sử dụng, sửa đổi, phân phối lại và bán những gì bạn xây bằng nó; giữ một dòng nhỏ "Powered by AIPDD & DramaClaw" trong giao diện của bạn. Hạn chế duy nhất là bạn không được cung cấp chính phần mềm này như một dịch vụ lưu trữ cho người khác. Xem [giải thích giấy phép](../docs/en/license.md) và [tuyên bố cấp phép](https://github.com/dramaclaw/dramaclaw/issues/475).
 
 <br/>
 
