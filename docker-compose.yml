@@ -2,13 +2,13 @@
 #   cp .env.example .env && docker compose up -d --build
 # 运行定义（env / 端口 / 卷 / 健康检查）全部 extends 自 docker-compose.release.yml（它现在同样源码构建），这里叠加 build 与本地镜像名。
 # 网关源码默认取仓内内置的 ./third_party/dramaclaw-gateway；想改用外部 checkout：.env 设 DRAMACLAW_GATEWAY_SRC=<路径>。
-# 本地构建的镜像命名为 dramaclaw-local/*。零外部镜像，拉下即用。
+# 本地构建的镜像命名为 aipdd/*。零外部镜像，拉下即用。
 services:
   api:
     extends:
       file: docker-compose.release.yml
       service: api
-    image: dramaclaw-local/api
+    image: aipdd/api
     build:
       context: .
       dockerfile: Dockerfile
@@ -21,7 +21,7 @@ services:
     extends:
       file: docker-compose.release.yml
       service: newapi
-    image: dramaclaw-local/gateway
+    image: aipdd/gateway
     build:
       context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
       dockerfile: Dockerfile
@@ -29,7 +29,7 @@ services:
     extends:
       file: docker-compose.release.yml
       service: web
-    image: dramaclaw-local/web
+    image: aipdd/web
     build:
       context: ./frontend
       dockerfile: Dockerfile

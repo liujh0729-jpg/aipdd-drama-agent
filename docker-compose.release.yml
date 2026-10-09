@@ -14,7 +14,7 @@ services:
       dockerfile: Dockerfile
       args:
         INSTALL_WORLD: "${INSTALL_WORLD:-0}"
-    image: dramaclaw-local/api
+    image: aipdd/api
     restart: unless-stopped
     # 运行时从宿主 .env 注入 model/LLM key；镜像版允许没有 .env（首启后再补也行）。
     # environment: 块仍覆盖此处同名变量，保持 CE inline 模式强制不变。
@@ -71,7 +71,7 @@ services:
     build:
       context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
       dockerfile: Dockerfile
-    image: dramaclaw-local/gateway
+    image: aipdd/gateway
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
@@ -98,7 +98,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: dramaclaw-local/web
+    image: aipdd/web
     restart: unless-stopped
     environment:
       BACKEND_HOST: api

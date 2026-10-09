@@ -37,7 +37,7 @@ def test_compose_builds_all_three_from_source() -> None:
     for name, service in services.items():
         assert "build" in service, f"{name} must carry a source build block"
         assert "pull_policy" not in service, f"{name} must not set pull_policy"
-        assert service["image"].startswith("dramaclaw-local/"), name
+        assert service["image"].startswith("aipdd/"), name
         assert service.get("restart") == "unless-stopped", name
 
 
@@ -47,15 +47,15 @@ def test_gateway_builds_from_vendored_source() -> None:
         "context": "${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}",
         "dockerfile": "Dockerfile",
     }, newapi["build"]
-    assert newapi["image"] == "dramaclaw-local/gateway"
+    assert newapi["image"] == "aipdd/gateway"
 
 
 def test_ce_images_are_local_build_tags_and_zero_external() -> None:
     # Fork is source-build only: api/web produce local tags, and no service pulls
     # a published registry image (the old claymorelab image-mode is retired).
     services = _compose()["services"]
-    assert services["api"]["image"] == "dramaclaw-local/api"
-    assert services["web"]["image"] == "dramaclaw-local/web"
+    assert services["api"]["image"] == "aipdd/api"
+    assert services["web"]["image"] == "aipdd/web"
     text = (REPOSITORY_ROOT / RELEASE_FILE).read_text()
     assert "claymorelab" not in text
     assert "${DRAMACLAW_VERSION" not in text
@@ -128,9 +128,9 @@ def test_source_file_extends_release_and_builds_all_three() -> None:
         assert set(service) == {"extends", "image", "build"}, f"{name} keys: {set(service)}"
         assert service["extends"] == {"file": RELEASE_FILE, "service": name}
 
-    assert services["api"]["image"] == "dramaclaw-local/api"
-    assert services["newapi"]["image"] == "dramaclaw-local/gateway"
-    assert services["web"]["image"] == "dramaclaw-local/web"
+    assert services["api"]["image"] == "aipdd/api"
+    assert services["newapi"]["image"] == "aipdd/gateway"
+    assert services["web"]["image"] == "aipdd/web"
 
     assert services["api"]["build"] == {
         "context": ".",
