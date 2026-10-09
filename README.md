@@ -51,8 +51,7 @@ We'll keep tearing down walls.
 
 <p align="left">
 
-<strong>And yes, you can make money with it.</strong><br/>
-DramaClaw is <a href="./LICENSES/Elastic-2.0.txt">Elastic License 2.0</a>. Run it, modify it, sell what you build with it —<br/>
+AIPDD-Agent-Claw is <a href="./LICENSES/Elastic-2.0.txt">Elastic License 2.0</a>. Run it, modify it, sell what you build with it —<br/>
 the standalone version is free for commercial use, no permission needed.<br/>
 We ask for one thing: a small "Powered by DramaClaw" in the corner of your UI.<br/>
 The only door still closed is wrapping it up as a hosted SaaS for other people; that license isn't open yet.<br/>
