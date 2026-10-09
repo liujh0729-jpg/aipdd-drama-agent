@@ -32,11 +32,9 @@ Once installed:
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalNewAPI, built from ../dramaclaw-gateway
-cd dramaclaw
+cd aipdd-drama-agent     # the gateway is already vendored under third_party/dramaclaw-gateway — no separate clone
 cp .env.example .env        # at minimum, change PROMPT_EXPORT_PASSWORD to a non-default value
-docker compose up -d --build    # builds api, web and the gateway from the two checkouts
-# no build? docker compose -f docker-compose.release.yml up -d   # pulls published images, no gateway clone needed
+docker compose up -d --build    # builds api, web and the gateway from source (this single checkout)
 ```
 
 After it's up, open **`http://localhost:8080`** in your browser (the app UI); the REST API is at `http://localhost:8780`. Go to Settings → Model Configuration → Official Channel, paste your DC key, save, and you're ready. For the full walkthrough see [Quickstart](quickstart.md); for start/stop/backup see the [Self-Hosting Handbook](../guides/self-hosting.md).
@@ -79,16 +77,17 @@ curl http://localhost:8780/api/v1/config   # a 200 response means it's working
 
 ### 4. Gateway (only for Custom / LocalNewAPI + Official Hybrid mode)
 
-Official mode needs nothing else. For the other two modes the API expects a gateway on `127.0.0.1:3000` (the `NEWAPI_ADMIN_BASE_URL` default in `.env`) whose SQLite file is `./state/newapi/one-api.db`, which is what **Initialize** in Settings writes to. Run the published image with that directory mounted:
+Official mode needs nothing else. For the other two modes the API expects a gateway on `127.0.0.1:3000` (the `NEWAPI_ADMIN_BASE_URL` default in `.env`) whose SQLite file is `./state/newapi/one-api.db`, which is what **Initialize** in Settings writes to. Build and run the vendored gateway from source with that directory mounted:
 
 ```bash
 mkdir -p state/newapi
+docker build -t aipdd/gateway ./third_party/dramaclaw-gateway
 docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
   -v "$PWD/state/newapi:/data" \
-  claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
+  aipdd/gateway
 ```
 
-or build and run the gateway from the sibling `dramaclaw-gateway` checkout with `SQLITE_PATH` pointing at that file. See [Configuring Models](configuring-models.md) for the mode setup.
+or build and run the gateway from the vendored `third_party/dramaclaw-gateway` source with `SQLITE_PATH` pointing at that file. See [Configuring Models](configuring-models.md) for the mode setup.
 
 ---
 

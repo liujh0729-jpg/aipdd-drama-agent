@@ -7,7 +7,7 @@
 
 CE ships three containers: `api` + `newapi` (LocalNewAPI, idle until you switch to Custom or LocalNewAPI + Official Hybrid mode) + `web`, with **no PostgreSQL / no Redis / no Celery** (`ST_EDITION=ce`; tasks run inline within the process). Models go through the official DramaClaw gateway by default.
 
-Two compose files ship in the repo: `docker-compose.yml` builds all three services from source (the default entry point — `docker compose up -d --build`), and `docker-compose.release.yml` only pulls published images (`docker compose -f docker-compose.release.yml up -d`). `docker-compose.yml` extends `docker-compose.release.yml` for the shared runtime definition (env / ports / volumes / healthchecks) and only adds `build:` plus local image names.
+Two compose files ship in the repo, and **both build everything from source — no published images are ever pulled**. `docker-compose.release.yml` is the single source of the runtime definition for all three services (env / ports / volumes / healthchecks) and also carries their `build:` blocks; `docker-compose.yml` (the default entry point) simply `extends` it. The DramaClaw gateway is vendored under `third_party/dramaclaw-gateway` (AGPL-3.0), so you do **not** clone it separately. Build with `docker compose up -d --build`.
 
 ## 1. Prerequisites
 
@@ -20,25 +20,24 @@ Two compose files ship in the repo: `docker-compose.yml` builds all three servic
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # only for the source build; image mode does not need it
-cd dramaclaw
+cd aipdd-drama-agent   # the gateway is already vendored under third_party/dramaclaw-gateway — no separate clone
 cp .env.example .env
 ```
 
-Two files, already set for you, no changes needed:
+Both files build all three services from source; no changes needed:
 
-| File | Mode | Command |
+| File | Role | Command |
 |---|---|---|
-| `docker-compose.yml` | Source build (default) — builds `api` and `web` from this checkout and LocalNewAPI from `../dramaclaw-gateway` (override with `DRAMACLAW_GATEWAY_SRC`, a path or a git URL) | `docker compose up -d --build` |
-| `docker-compose.release.yml` | Image only — pulls published images, never builds | `docker compose -f docker-compose.release.yml up -d` |
+| `docker-compose.yml` | Default entry point — `extends` the file below and adds local build tags | `docker compose up -d --build` |
+| `docker-compose.release.yml` | Runtime-definition base — also builds `api`/gateway/`web` from source | `docker compose -f docker-compose.release.yml up -d --build` |
 
 Key points shared by both (defined once in `docker-compose.release.yml`, reused by `docker-compose.yml` via `extends`):
 
 | Item | Value | Notes |
 |---|---|---|
-| Services | `api` + `newapi` + `web` | No PG/Redis; `newapi` is LocalNewAPI |
-| Images (release) | `${DRAMACLAW_IMAGE_PREFIX:-claymorelab}/...` | Pulled from Docker Hub; set `DRAMACLAW_IMAGE_PREFIX` in `.env` to use the ACR mirror (pinned tags only) |
-| Versions (release) | `DRAMACLAW_VERSION` (api/web), `DRAMACLAW_GATEWAY_VERSION` | Defaults: `2.0.2` / the gateway tag baked into the file |
+| Services | `api` + `newapi` + `web` | No PG/Redis; `newapi` is LocalNewAPI, built from the vendored `third_party/dramaclaw-gateway` |
+| Build context | `api` = `.` · `newapi` = `${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}` · `web` = `./frontend` | Local build tags `aipdd/api`, `aipdd/gateway`, `aipdd/web`; zero external images |
+| Gateway source | `third_party/dramaclaw-gateway` (vendored) | To build from your own checkout instead, set `DRAMACLAW_GATEWAY_SRC=<path>` in `.env` |
 | Port | `8780:8780` | REST API |
 | Gateway admin port | `${ST_NEWAPI_BIND:-127.0.0.1}:${ST_NEWAPI_PORT:-3000}:3000` | Bound to `127.0.0.1` by default; set `ST_NEWAPI_BIND=0.0.0.0` in `.env` to widen it. **[aipdd fork] `docker-compose.aipdd.yml` no longer maps this port**: the gateway is an internal transport only, reachable externally via the web port's `/gateway/v1/` (that is `NEWAPI_PUBLIC_BASE_URL`, used by the model plaza call examples) |
 | Enforced environment | `ST_EDITION=ce`, control-plane/Redis/Celery cleared | CE mode cannot be downgraded |
@@ -63,7 +62,6 @@ LocalNewAPI must map DramaClaw's logical models to real upstream models. The ref
 
 ```bash
 docker compose up -d --build                              # source build: start (builds on first run)
-docker compose -f docker-compose.release.yml up -d         # image mode: start (pulls images on first run)
 docker compose ps                                          # status
 docker compose logs -f api                                 # logs
 docker compose down                                        # stop (keeps the data volume)
@@ -106,27 +104,16 @@ docker run --rm -v dramaclaw-ce_newapi-data:/data -v "$PWD":/backup alpine \
 
 ## 6. Upgrades
 
-Source build (both checkouts):
+Source build:
 
 ```bash
-git -C ../dramaclaw-gateway pull   # first time after upgrading from an older checkout: git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway
 git pull
 docker compose up -d --build
 ```
 
-`docker compose up -d --build` also rebuilds LocalNewAPI from `../dramaclaw-gateway` (Go + bun, several minutes); `git pull` there too when you want a newer gateway. When only DramaClaw code changed, rebuild just the two local services: `docker compose up -d --build api web`; when only the gateway changed, `docker compose up -d --build newapi`.
-
-Image mode:
-
-```bash
-# edit .env: DRAMACLAW_VERSION=2.1.0 (and DRAMACLAW_GATEWAY_VERSION if the release notes say so)
-docker compose -f docker-compose.release.yml pull
-docker compose -f docker-compose.release.yml up -d
-```
+`docker compose up -d --build` also rebuilds the gateway from the vendored `third_party/dramaclaw-gateway` (Go + bun, several minutes). When only this repo's code changed, rebuild just the two local services: `docker compose up -d --build api web`; when only the vendored gateway changed, `docker compose up -d --build newapi`.
 
 Your `.env` is never touched by the upgrade. The `ce-data` and `newapi-data` volumes are reused.
-
-The `DRAMACLAW_VERSION` / `DRAMACLAW_GATEWAY_VERSION` defaults baked into `docker-compose.release.yml` are kept current by the release packaging workflow: after each packaging run that publishes a compose bundle it opens a PR here pinning both defaults to that release's CE and gateway tags, so pulling `main` picks up the latest defaults even if your `.env` sets nothing.
 
 If an older release wrote media to `/app/output` inside the container, run the one-time migration **before** starting the new version (zip users: download `scripts/migrate_docker_output.py` from GitHub instead of `git pull`):
 
@@ -152,10 +139,9 @@ The script copies only missing files, never overwrites or deletes the source, an
 
 | Before | Now |
 |---|---|
-| `docker compose up -d --build` (official gateway, source build) | Same command, **after** `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (or `DRAMACLAW_GATEWAY_SRC=https://github.com/dramaclaw/dramaclaw-gateway.git#main` in `.env` to skip the clone); it now also builds LocalNewAPI (host-only by default, idle until used). Without the clone the build stops with `unable to prepare context: path ".../dramaclaw-gateway" not found` |
-| `docker compose -f docker-compose.release.yml up -d` | Same command; the gateway image is now `claymorelab/dramaclaw-gateway` |
-| `docker compose -f docker-compose.selfhosted.yml up -d --build` | Clone the gateway as above, then `docker compose up -d --build`; the `newapi-data` volume is reused — back it up first (rc.21 → rc.24 only adds tables) |
-| `docker compose -f docker-compose.selfhosted.release.yml up -d` | Use `docker compose -f docker-compose.release.yml up -d` instead; same as above |
+| `docker compose up -d --build` (source build with a `../dramaclaw-gateway` sibling clone) | Same command; the gateway now comes from the vendored `third_party/dramaclaw-gateway`, so no sibling clone is needed |
+| `docker compose -f docker-compose.release.yml up -d` (image mode) | Image mode is retired — `docker-compose.release.yml` now builds from source too; add `--build` |
+| `docker compose -f docker-compose.selfhosted.yml ...` / `docker-compose.selfhosted.release.yml ...` | Use `docker-compose.yml` / `docker-compose.release.yml` (both source build); the `newapi-data` volume is reused — back it up first |
 | `.env`'s `NEWAPI_BASE_URL` / `NEWAPI_API_KEY` / `ST_*_PORT` / `INSTALL_WORLD` / `NEWAPI_PROVISIONER_ENABLED` | Unchanged, still effective |
 
 ## 7. Troubleshooting

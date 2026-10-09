@@ -37,8 +37,8 @@
 | Symptom | Diagnosis |
 |---|---|
 | **Data gone after a rebuild** | Data lives in the named volume `ce-data` (`/data` inside the container). `docker compose down` keeps the volume—**do not add `-v`** (it deletes the volume). For backups see the [self-hosting handbook](self-hosting.md#5-where-the-data-lives--backups). |
-| **`unable to prepare context: path ".../dramaclaw-gateway" not found`** | The source build expects the gateway checkout next to this repo. `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway`, or set `DRAMACLAW_GATEWAY_SRC` in `.env` to your clone's path or to `https://github.com/dramaclaw/dramaclaw-gateway.git#main`. |
-| **Config error after an upgrade** | Source build (`docker-compose.yml`): `git -C ../dramaclaw-gateway pull && git pull && docker compose up -d --build`. Prebuilt images (`docker-compose.release.yml`): `docker compose -f docker-compose.release.yml pull && docker compose -f docker-compose.release.yml up -d` (bump `DRAMACLAW_VERSION` / `DRAMACLAW_GATEWAY_VERSION` in `.env` if you pin them). See the self-hosting guide §6. |
+| **`unable to prepare context: path ".../dramaclaw-gateway" not found`** | The gateway builds from the vendored `third_party/dramaclaw-gateway`, so this only happens if you overrode `DRAMACLAW_GATEWAY_SRC` to a path that doesn't exist. Unset it to use the vendored copy, or point `DRAMACLAW_GATEWAY_SRC` in `.env` at a valid gateway checkout path. |
+| **Config error after an upgrade** | Everything is source-built now (`docker-compose.yml` and `docker-compose.release.yml`): `git pull && docker compose up -d --build`. The old image-pull mode is retired. See the self-hosting guide §6. |
 
 ## world features (3DGS/SHARP)
 

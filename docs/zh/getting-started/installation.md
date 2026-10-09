@@ -32,11 +32,9 @@ DramaClaw CE 是单机服务,**无需 PostgreSQL / Redis**。Docker 起 `api` + 
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalNewAPI，从 ../dramaclaw-gateway 构建
-cd dramaclaw
+cd aipdd-drama-agent     # 网关已 vendored 在 third_party/dramaclaw-gateway，无需单独 clone
 cp .env.example .env        # 至少把 PROMPT_EXPORT_PASSWORD 改成非默认值
-docker compose up -d --build    # 用两个 checkout 从源码构建 api、web 与网关
-# 免构建：docker compose -f docker-compose.release.yml up -d   # 拉已发布镜像，不需要 clone 网关
+docker compose up -d --build    # 从这一份 checkout 源码构建 api、web 与网关
 ```
 
 起好后浏览器打开 **`http://localhost:8080`**(应用界面);REST API 在 `http://localhost:8780`。进入设置 → 模型配置 → 官方渠道,粘贴 DC key 保存即用。完整步骤见 [快速开始](quickstart.md),起停/备份见 [自托管手册](../guides/self-hosting.md)。
@@ -79,16 +77,17 @@ curl http://localhost:8780/api/v1/config   # 返回 200 即正常
 
 ### 4. 网关（仅自定义 / LocalNewAPI + 官方混合模式需要）
 
-官方模式什么都不用再跑。另外两种模式下，API 需要一个跑在 `127.0.0.1:3000` 的网关（`.env` 里 `NEWAPI_ADMIN_BASE_URL` 的默认值），且它的 SQLite 文件在 `./state/newapi/one-api.db`，设置页的「初始化」写的就是这个文件。用发布镜像并把这个目录挂进去：
+官方模式什么都不用再跑。另外两种模式下，API 需要一个跑在 `127.0.0.1:3000` 的网关（`.env` 里 `NEWAPI_ADMIN_BASE_URL` 的默认值），且它的 SQLite 文件在 `./state/newapi/one-api.db`，设置页的「初始化」写的就是这个文件。从 vendored 源码构建网关并把这个目录挂进去：
 
 ```bash
 mkdir -p state/newapi
+docker build -t aipdd/gateway ./third_party/dramaclaw-gateway
 docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
   -v "$PWD/state/newapi:/data" \
-  claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
+  aipdd/gateway
 ```
 
-或者在旁边的 `dramaclaw-gateway` checkout 里构建并用 `SQLITE_PATH` 指向该文件来启动。模式配置见[配置模型供应商](configuring-models.md)。
+或者直接在 vendored 的 `third_party/dramaclaw-gateway` 源码里构建并用 `SQLITE_PATH` 指向该文件来启动。模式配置见[配置模型供应商](configuring-models.md)。
 
 ---
 

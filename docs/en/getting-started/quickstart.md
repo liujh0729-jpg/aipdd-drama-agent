@@ -15,19 +15,17 @@ DramaClaw is the Community Edition (CE): it runs on a single machine with no Pos
 ## Steps
 
 ```bash
-# 1. Get the code — DramaClaw and LocalNewAPI, side by side
+# 1. Get the code — the gateway is vendored under third_party/dramaclaw-gateway, no separate clone
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git
-cd dramaclaw
+cd aipdd-drama-agent
 
 # 2. Prepare configuration
 cp .env.example .env
 #    Open .env and at minimum change PROMPT_EXPORT_PASSWORD to a non-default value.
 #    Configure the model channel and key in the web UI, not in .env.
 
-# 3. Start — brings up api / newapi / web
-docker compose up -d --build   # builds api, web (this checkout) and the gateway (../dramaclaw-gateway) from source
-# no build? docker compose -f docker-compose.release.yml up -d   # pulls published images, no gateway clone needed
+# 3. Start — brings up api / newapi / web, all built from source
+docker compose up -d --build   # builds api, web (this checkout) and the gateway (third_party/dramaclaw-gateway)
 
 # 4. Confirm it's up
 docker compose ps   # api, newapi, and web should all be running

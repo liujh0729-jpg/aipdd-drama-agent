@@ -15,22 +15,20 @@ DramaClaw 是社区版(CE),单机运行、无需 PostgreSQL / Redis。默认 `do
 ## 步骤
 
 ```bash
-# 1. 取得代码 —— DramaClaw 和 LocalNewAPI 并排放
+# 1. 取得代码 —— 网关已 vendored 在 third_party/dramaclaw-gateway，无需单独 clone
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git
-cd dramaclaw
+cd aipdd-drama-agent
 
 # 2. 准备配置
 cp .env.example .env
 #    打开 .env,至少把 PROMPT_EXPORT_PASSWORD 改成非默认值。
 #    模型渠道和 key 在下一步通过网页配置，不写入 .env。
 
-# 3. 启动 —— 起 api / newapi / web 三个服务
-docker compose up -d --build   # 从源码构建 api、web（本仓）与网关（../dramaclaw-gateway）
-# 免构建：docker compose -f docker-compose.release.yml up -d   # 拉已发布镜像，不需要 clone 网关
+# 3. 启动 —— 起 api / newapi / web 三个服务，全部源码构建
+docker compose up -d --build   # 从源码构建 api、web（本仓）与网关（third_party/dramaclaw-gateway）
 
-# 4. 确认已起
-docker compose ps   # api、newapi、web 均应 running
+# 4. 确认已启动
+docker compose ps   # api, newapi, web 应该都在运行
 ```
 
 ## 填入 DC key(必做一次)
