@@ -1,7 +1,11 @@
 <div align="center">
 
 <!-- TBD: replace with official logo assets/logo.svg -->
-<h1>DramaClaw</h1>
+<h1>AIPDD Drama Agent</h1>
+
+### A self-contained, multi-license fork of DramaClaw
+
+<p align="center"><sub>Built to run fully from source with <b>zero external images</b> and <b>zero default outbound calls</b>; the gateway (AGPL-3.0), DA-2 (Apache-2.0) and ml-sharp (Apple) are vendored under <a href="./third_party/README.md"><code>third_party/</code></a>. Upstream project, license and attribution: <a href="https://github.com/dramaclaw/dramaclaw">DramaClaw</a>.</sub></p>
 
 ## Make Your Own DC.
 
@@ -294,24 +298,21 @@ No terminal commands needed. Get the code (clone or **Download ZIP**, then unzip
 | **1 · Install** | double-click `安装环境-Setup.command` | double-click `安装环境-Setup.bat` |
 | **2 · Start** | double-click `启动系统-Start.command` | double-click `启动系统-Start.bat` |
 
-- **The Setup launcher installs everything**: Xcode Command Line Tools → Homebrew → Colima (the Docker VM) → Docker CLI + compose on macOS, or WSL2 → Docker Desktop on Windows; then it generates `.env` from `.env.example`, builds the first `api` / `web` images and pulls the gateway image. **The Start launcher** brings the stack up, waits until the site actually answers, and opens your browser at <http://localhost:8080>.
+- **The Setup launcher installs everything**: Xcode Command Line Tools → Homebrew → Colima (the Docker VM) → Docker CLI + compose on macOS, or WSL2 → Docker Desktop on Windows; then it generates `.env` from `.env.example` and builds the first `api` / `web` / gateway images from source (the gateway is vendored under `third_party/dramaclaw-gateway`, so nothing is pulled from a registry). **The Start launcher** brings the stack up, waits until the site actually answers, and opens your browser at <http://localhost:8080>.
 - **Every step is idempotent** — if something fails, fix the cause and double-click again to resume. On success the window closes by itself; a failure stays open so you can read it.
 - **macOS first launch**: Gatekeeper may block an unsigned `.command` — right-click the file → **Open** (or allow it under System Settings → Privacy & Security).
 - **Windows**: do **not** "Run as administrator" — Docker Desktop installs per-user and an elevated window would put it where the launcher can't find it. (WSL setup raises its own one-time system consent — that's expected.)
 - **Rebuild after a code change**: `bash 启动系统-Start.command --rebuild` (macOS) / `启动系统-Start.bat --rebuild` (Windows). The default double-click never rebuilds, so it stays fast.
 
-> This path uses `docker-compose.aipdd.yml`: `api` + `web` built from source, LocalNewAPI pulled as an image, SQLite + in-process tasks, no Postgres/Redis/Celery. The first build can take 40–90 minutes on a slow connection (subsequent starts are seconds). See [First run](#first-run) for signing in and connecting models.
+> This path uses `docker-compose.aipdd.yml`: `api`, `web` and the gateway are all built from source (the gateway from the vendored `third_party/dramaclaw-gateway`), with SQLite + in-process tasks, no Postgres/Redis/Celery and **no external images pulled**. The first build can take 40–90 minutes on a slow connection (subsequent starts are seconds). See [First run](#first-run) for signing in and connecting models.
 
-### Docker (recommended)
+### Docker (source build)
 
-Every GitHub Release publishes multi-arch (amd64/arm64) images to Docker Hub.
-
-**Source build (default)** — clone DramaClaw and LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) side by side; `docker compose up -d --build` builds all three services from those two checkouts.
+This fork is **source-build only** — it never pulls a published image. The DramaClaw gateway is already vendored under `third_party/dramaclaw-gateway` (AGPL-3.0; see [`third_party/README.md`](./third_party/README.md)), so you do **not** clone it separately. `docker compose up -d --build` builds all three services (`api` / `newapi` gateway / `web`) from this single checkout.
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalNewAPI, built from ../dramaclaw-gateway
-cd dramaclaw
+cd aipdd-drama-agent
 
 cp .env.example .env
 # Edit .env — set PROMPT_EXPORT_PASSWORD to a non-default value.
@@ -319,13 +320,7 @@ cp .env.example .env
 docker compose up -d --build   # builds and starts three services: api / newapi (LocalNewAPI) / web
 ```
 
-Both checkouts are plain git repos: edit, `git pull`, rebuild. Only DramaClaw code changed? `docker compose up -d --build api web`. Only the gateway? `docker compose up -d --build newapi`. Gateway clone somewhere else, or prefer Docker to fetch it from git? Set `DRAMACLAW_GATEWAY_SRC` in `.env` to that path or to `https://github.com/dramaclaw/dramaclaw-gateway.git#main`.
-
-**No build** — pull published images instead (no gateway clone needed):
-
-```bash
-docker compose -f docker-compose.release.yml up -d
-```
+Only this repo's code changed? `docker compose up -d --build api web`. Only the vendored gateway? `docker compose up -d --build newapi`. Want to build the gateway from your own checkout instead of the vendored copy? Set `DRAMACLAW_GATEWAY_SRC` in `.env` to that path.
 
 Open the app at <http://localhost:8080>; the REST API is at <http://localhost:8780>. In **Settings → Model Config** pick one of:
 
@@ -335,15 +330,13 @@ Open the app at <http://localhost:8080>; the REST API is at <http://localhost:87
 
 Full steps in the [Quick Start](docs/en/getting-started/quickstart.md).
 
-Pin versions or switch registry in `.env` (`DRAMACLAW_VERSION`, `DRAMACLAW_GATEWAY_VERSION`, `DRAMACLAW_IMAGE_PREFIX`) — these apply to the image mode (`docker-compose.release.yml`) only. Mainland China: set `DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` and pin both versions (the ACR mirror carries pinned tags only).
-
-> Migrating from an older checkout? For the source build, first `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (the gateway is now built from that sibling checkout; without it the build stops with `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` have been removed — use `docker-compose.yml` (source build) / `docker-compose.release.yml` (images). Service names and the `ce-data` / `newapi-data` volumes are unchanged; existing data is reused as-is. LocalNewAPI's port now binds only to `127.0.0.1` by default; set `ST_NEWAPI_BIND=0.0.0.0` in `.env` if you need remote access to it.
+> LocalNewAPI's port binds only to `127.0.0.1` by default; set `ST_NEWAPI_BIND=0.0.0.0` in `.env` if you need remote access to it.
 
 ### Local development (uv + Python 3.11+)
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-cd dramaclaw
+cd aipdd-drama-agent
 
 uv sync
 cp .env.example .env && $EDITOR .env
@@ -353,16 +346,17 @@ uv run novelvideo api --port 8780   # start the REST API (CE defaults to inline 
 
 Frontend in a second terminal: `cd frontend && pnpm install && pnpm dev`.
 
-**Gateway.** In **Official** mode you need nothing else. For **Custom** or **LocalNewAPI + Official Hybrid** the API expects a gateway on `127.0.0.1:3000` whose SQLite file is `./state/newapi/one-api.db` (that is what "Initialize" in Settings writes to; `NEWAPI_ADMIN_BASE_URL` in `.env` already points there). Either run the published image with that directory mounted:
+**Gateway.** In **Official** mode you need nothing else. For **Custom** or **LocalNewAPI + Official Hybrid** the API expects a gateway on `127.0.0.1:3000` whose SQLite file is `./state/newapi/one-api.db` (that is what "Initialize" in Settings writes to; `NEWAPI_ADMIN_BASE_URL` in `.env` already points there). Build and run the vendored gateway from source with that directory mounted:
 
 ```bash
 mkdir -p state/newapi
+docker build -t aipdd/gateway ./third_party/dramaclaw-gateway
 docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
   -v "$PWD/state/newapi:/data" \
-  claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
+  aipdd/gateway
 ```
 
-or run the gateway from source in the sibling checkout (`make dev-api` / `make dev-web` in [dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway#develop), or `go build` and start the binary with `SQLITE_PATH=<path to>/dramaclaw/state/newapi/one-api.db`).
+or run the gateway from source directly in `third_party/dramaclaw-gateway` (`make dev-api` / `make dev-web`, or `go build` and start the binary with `SQLITE_PATH=<path to>/state/newapi/one-api.db`).
 
 <br/>
 
@@ -497,6 +491,14 @@ The people building DramaClaw — thank you. 💜
 ## License
 
 [Elastic License 2.0](./LICENSES/Elastic-2.0.txt). Free to use, modify, redistribute and sell what you build with it; keep a small "Powered by DramaClaw" in your UI. The only restriction is that you may not offer the software itself as a hosted service to others. See the [license explainer](./docs/en/license.md) and the [licensing statement](https://github.com/dramaclaw/dramaclaw/issues/475).
+
+This repo is **multi-licensed**. The application source is Elastic-2.0; third-party components vendored under [`third_party/`](./third_party/README.md) keep their own licenses and are aggregated at arm's length, each under its SPDX id in [`REUSE.toml`](./REUSE.toml) / [`license-inventory.csv`](./license-inventory.csv):
+
+- **`third_party/dramaclaw-gateway`** — AGPL-3.0-only (an independent service reached over HTTP; mere aggregation). [`LICENSES/AGPL-3.0-only.txt`](./LICENSES/AGPL-3.0-only.txt)
+- **`third_party/DA-2`** — Apache-2.0. [`LICENSES/Apache-2.0.txt`](./LICENSES/Apache-2.0.txt)
+- **`third_party/ml-sharp`** — Apple sample code (LicenseRef-Apple-Sample-Code) plus the **Apple ML Research Model** weights under a **non-commercial** license (LicenseRef-Apple-ML-Research-Model). [`LICENSES/`](./LICENSES/) for both notices
+
+The full bill of materials is in [`NOTICE`](./NOTICE).
 
 <br/>
 
