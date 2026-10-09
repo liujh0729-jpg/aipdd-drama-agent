@@ -13,7 +13,7 @@ monkeypatch 打点面完全不变：本 __init__ 全量 re-export 子模块符�
 - factory        create_video_generator
 """
 
-from novelvideo.authz_retry import retry_authz_read
+from novelvideo.authz.authz_retry import retry_authz_read
 from novelvideo.egress_context import ambient_egress_context
 from novelvideo.i18n_message import lmsg
 from novelvideo.ports import (

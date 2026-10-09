@@ -27,7 +27,7 @@ import random
 from typing import AsyncIterator
 from uuid import uuid4
 
-from novelvideo.authz_retry import retry_authz_read
+from novelvideo.authz.authz_retry import retry_authz_read
 from novelvideo.egress_context import TrustedEgressContext
 from novelvideo.model_gateway_runtime import model_gateway_request_scope
 from novelvideo.ports.authz import AdmissionContext, AuthzError

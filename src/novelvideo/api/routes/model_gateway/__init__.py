@@ -69,7 +69,7 @@ from novelvideo.newapi_provisioner import (  # noqa: F401
     update_provider_channel_credentials,
     upsert_channel,
 )
-from novelvideo.service_operation_gate import (  # noqa: F401
+from novelvideo.authz.service_operation_gate import (  # noqa: F401
     require_legacy_local_service_operation,
 )
 from novelvideo.shared.runtime_env import is_ce_effective  # noqa: F401

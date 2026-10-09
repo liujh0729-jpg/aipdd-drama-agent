@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from novelvideo.identity_prerequisites import (
+from novelvideo.authz.identity_prerequisites import (
     IDENTITY_CHARACTERS_REQUIRED_CODE,
     IDENTITY_CHARACTERS_REQUIRED_MESSAGE,
     IdentityCharactersRequiredError,

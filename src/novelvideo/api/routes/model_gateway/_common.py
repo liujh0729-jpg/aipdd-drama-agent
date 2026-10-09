@@ -22,7 +22,7 @@ from novelvideo.newapi_provisioner import (
     build_channel_payload,
     mask_token,
 )
-from novelvideo.service_operation_gate import ServiceOperationExcluded
+from novelvideo.authz.service_operation_gate import ServiceOperationExcluded
 
 
 class NewApiDatabaseBody(BaseModel):

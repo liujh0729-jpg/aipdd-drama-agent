@@ -373,7 +373,7 @@ def _project_task_failure_for_exception(
 ) -> tuple[str, dict[str, Any], bool]:
     from novelvideo.freezone.audio_node import VoicePrerequisiteError
     from novelvideo.generators.render_identity_guard import RenderIdentityDetectionRequired
-    from novelvideo.identity_prerequisites import IdentityPlanningPrerequisiteError
+    from novelvideo.authz.identity_prerequisites import IdentityPlanningPrerequisiteError
     from novelvideo.novel_source import NovelImportRequiredError
     from novelvideo.scene_prerequisites import ScenePlanningPrerequisiteError
     from novelvideo.video_prompt_prerequisite import VideoPromptPrerequisiteError

@@ -608,7 +608,7 @@ async def test_plan_episode_identities_rejects_empty_character_library_before_en
 ):
     from novelvideo.api import deps
     from novelvideo.api.routes import episodes
-    from novelvideo.identity_prerequisites import (
+    from novelvideo.authz.identity_prerequisites import (
         IDENTITY_CHARACTERS_REQUIRED_CODE,
         IDENTITY_CHARACTERS_REQUIRED_MESSAGE,
     )
@@ -662,7 +662,7 @@ async def test_plan_episode_identities_rejects_active_character_build_before_enq
 ):
     from novelvideo.api import deps
     from novelvideo.api.routes import episodes
-    from novelvideo.identity_prerequisites import (
+    from novelvideo.authz.identity_prerequisites import (
         IDENTITY_CHARACTERS_BUILDING_CODE,
         IDENTITY_CHARACTERS_BUILDING_MESSAGE,
     )

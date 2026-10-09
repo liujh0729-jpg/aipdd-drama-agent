@@ -29,7 +29,7 @@ from novelvideo.novel_source import (
     novel_import_required_response,
     resolve_uploaded_novel_filename,
 )
-from novelvideo.identity_prerequisites import (
+from novelvideo.authz.identity_prerequisites import (
     IdentityCharactersBuildingError,
     IdentityPlanningPrerequisiteError,
     identity_prerequisite_response,

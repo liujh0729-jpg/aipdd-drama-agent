@@ -13,7 +13,7 @@ import threading
 import time
 from typing import Any
 
-from novelvideo.authz_retry import retry_authz_read
+from novelvideo.authz.authz_retry import retry_authz_read
 from novelvideo.ports import get_cancellation_store
 from novelvideo.ports.authz import AuthzError, detach_authz_error
 from novelvideo.ports.tasks import QueuedTask, cancel_key, display_metadata_for_task

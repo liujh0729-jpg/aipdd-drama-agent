@@ -14,7 +14,7 @@ from novelvideo.ports.authz import (
 
 @pytest.mark.asyncio
 async def test_retry_authz_read_logs_scheduled_and_recovered_events(caplog) -> None:
-    from novelvideo.authz_retry import retry_authz_read
+    from novelvideo.authz.authz_retry import retry_authz_read
 
     attempts = 0
 
@@ -50,7 +50,7 @@ async def test_retry_authz_read_logs_scheduled_and_recovered_events(caplog) -> N
 async def test_retry_authz_read_accepts_an_explicit_retryable_boundary_type(
     caplog,
 ) -> None:
-    from novelvideo.authz_retry import retry_authz_read
+    from novelvideo.authz.authz_retry import retry_authz_read
 
     class BoundaryUnavailable(RuntimeError):
         failure_kind = "unavailable"
@@ -88,7 +88,7 @@ async def test_retry_authz_read_accepts_an_explicit_retryable_boundary_type(
 async def test_retry_authz_read_logs_exhaustion_without_exception_details(
     caplog,
 ) -> None:
-    from novelvideo.authz_retry import retry_authz_read
+    from novelvideo.authz.authz_retry import retry_authz_read
 
     async def operation() -> None:
         raise AuthzServiceUnavailable()
@@ -115,7 +115,7 @@ async def test_retry_authz_read_logs_exhaustion_without_exception_details(
 
 @pytest.mark.asyncio
 async def test_retry_authz_read_does_not_retry_service_fault(caplog) -> None:
-    from novelvideo.authz_retry import retry_authz_read
+    from novelvideo.authz.authz_retry import retry_authz_read
 
     attempts = 0
 
@@ -141,7 +141,7 @@ async def test_retry_authz_read_does_not_retry_service_fault(caplog) -> None:
 
 @pytest.mark.asyncio
 async def test_retry_authz_read_recovers_with_full_jitter() -> None:
-    from novelvideo.authz_retry import retry_authz_read
+    from novelvideo.authz.authz_retry import retry_authz_read
 
     attempts = 0
     delays: list[float] = []
@@ -178,7 +178,7 @@ async def test_retry_authz_read_recovers_with_full_jitter() -> None:
 async def test_retry_authz_read_uses_max_retries_after_the_initial_call(
     failure_type,
 ) -> None:
-    from novelvideo.authz_retry import retry_authz_read
+    from novelvideo.authz.authz_retry import retry_authz_read
 
     attempts = 0
     delays: list[float] = []
@@ -207,7 +207,7 @@ async def test_retry_authz_read_uses_max_retries_after_the_initial_call(
 
 @pytest.mark.asyncio
 async def test_retry_authz_read_does_not_retry_deterministic_denial() -> None:
-    from novelvideo.authz_retry import retry_authz_read
+    from novelvideo.authz.authz_retry import retry_authz_read
 
     attempts = 0
     delays: list[float] = []
@@ -236,7 +236,7 @@ async def test_retry_authz_read_does_not_retry_deterministic_denial() -> None:
 
 @pytest.mark.asyncio
 async def test_retry_authz_read_propagates_cancellation_without_sleep() -> None:
-    from novelvideo.authz_retry import retry_authz_read
+    from novelvideo.authz.authz_retry import retry_authz_read
 
     delays: list[float] = []
 
@@ -268,7 +268,7 @@ async def test_retry_authz_read_propagates_cancellation_without_sleep() -> None:
     ],
 )
 def test_retry_authz_read_rejects_invalid_policy(kwargs, message) -> None:
-    from novelvideo.authz_retry import validate_authz_retry_policy
+    from novelvideo.authz.authz_retry import validate_authz_retry_policy
 
     values = {"max_retries": 2, "base_delay": 1.0, "cap_delay": 8.0}
     values.update(kwargs)

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from novelvideo.api.routes import model_gateway
 from novelvideo import newapi_provisioner
 from novelvideo.ports import registry
-from novelvideo.service_operation_gate import (
+from novelvideo.authz.service_operation_gate import (
     SERVICE_OPERATION_DENIED,
     ServiceOperationExcluded,
     require_legacy_local_service_operation,

@@ -17,7 +17,7 @@ from typing import Any, Callable, Optional
 
 import aiohttp
 
-from novelvideo.authz_retry import retry_authz_read
+from novelvideo.authz.authz_retry import retry_authz_read
 from novelvideo.generators import video_generator as _video_generator
 from novelvideo.i18n_message import lmsg
 from novelvideo.newapi_asset_library import is_asset_reference

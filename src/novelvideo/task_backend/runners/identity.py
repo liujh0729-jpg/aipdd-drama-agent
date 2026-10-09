@@ -6,7 +6,7 @@ import asyncio
 from typing import Any
 
 from novelvideo.model_gateway_runtime import model_gateway_scope_for_runner
-from novelvideo.identity_prerequisites import (
+from novelvideo.authz.identity_prerequisites import (
     IdentityCharactersBuildingError,
     require_identity_characters,
 )

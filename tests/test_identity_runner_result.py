@@ -129,7 +129,7 @@ async def test_identity_runner_preserves_task_billing_context(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_identity_runner_rechecks_character_prerequisite(monkeypatch):
-    from novelvideo.identity_prerequisites import IdentityCharactersRequiredError
+    from novelvideo.authz.identity_prerequisites import IdentityCharactersRequiredError
     from novelvideo.task_backend.runners import identity
 
     class FakeTaskManager:
