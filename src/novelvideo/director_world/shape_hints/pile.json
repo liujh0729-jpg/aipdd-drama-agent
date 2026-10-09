@@ -1,0 +1,8 @@
+{
+  "id": "pile",
+  "label_zh": "堆叠物",
+  "default_scale": [1.2, 1.0, 1.2],
+  "default_affordances": ["blocking_mass"],
+  "default_attachment_points": [],
+  "sketch_description_zh": "堆叠物 staging 轮廓，真实物件由 semantic_label 决定。"
+}

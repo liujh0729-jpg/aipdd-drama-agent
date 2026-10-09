@@ -1,0 +1,10 @@
+{
+  "id": "anime",
+  "name": "Anime Style",
+  "style_instructions": "Create a high-quality stylized 2D anime cel-animation render with crisp medium-weight outlines, flat color fills, controlled two-layer cel shading, clean color separation, and a polished anime production key-frame finish. Apply this style only to the rendering medium, linework, color treatment, shading, and finish; do not infer or change facial features, eye proportions, hairstyles, body proportions, clothing, props, environments, or backgrounds from the style preset. Always follow explicit character descriptions, reference images, beat, scene, and prop descriptions; do not override them with the style preset.",
+  "avoid_instructions": "FORBIDDEN: photorealistic rendering, 3D CGI, photograph textures. NOT realistic skin pores or film grain. No gradient shading or soft blending — use FLAT cel-shading only. No watermarks, signatures, or text overlays. No bad anatomy, extra limbs, or mutated hands.",
+  "style_tag": "ANIME",
+  "label": "动漫风格",
+  "style_family": "animation",
+  "animation_subtype": "2d"
+}

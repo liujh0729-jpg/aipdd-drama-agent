@@ -1,0 +1,25 @@
+name: dco
+
+# REPO-19：每个 PR commit 须含 Signed-off-by(DCO 签署)。缺则失败、PR 标红。
+# 贡献者签署说明见 CONTRIBUTING.md 与 DCO。
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check DCO sign-off
+        run: |
+          python3 scripts/check_dco.py \
+            "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"

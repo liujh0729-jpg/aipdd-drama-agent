@@ -1,0 +1,219 @@
+# [aipdd fork delta] 方案 A-1 部署编排：源码构建 api + web（含本 fork 的 #5/#6/#A 改动），
+# LocalNewAPI（dramaclaw-gateway）拉发布镜像；SQLite、CE inline、无 PostgreSQL。
+#   用法： docker-compose -f docker-compose.aipdd.yml up -d --build
+#   拓扑与 env 完全对齐 docker-compose.release.yml，仅把 api/web 的 image 换成本地 build。
+#   首启打开 http://localhost:8080 → 设置 → 模型：选「自定义」一键初始化 LocalNewAPI，
+#   再在网关里把 aipdd / susciyuan / comfyui 作为上游渠道开通、同步模型、按组件绑定默认模型。
+#   可选剪辑服务 VectCut（剪映/CapCut 草稿组装，见 services/vectcut/）：默认不启动，需要时
+#     docker-compose -f docker-compose.aipdd.yml --profile vectcut up -d vectcut
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # 默认精简镜像；需 3DGS/SHARP world 特性时 INSTALL_WORLD=1（Mac 无 GPU）。
+        INSTALL_WORLD: "${INSTALL_WORLD:-0}"
+    image: aipdd/dramaclaw-api:${DRAMACLAW_VERSION:-2.0.99}
+    # [aipdd fork delta] 固定容器名：MCP 栏目「本地 Agent 工具」写入的
+    # aipdd-drama 条目以 docker exec 进本容器启动 MCP server，需要稳定可寻址的名字
+    #（品牌改名前为 dramaclaw-api，外部已接入的配置在重新连接后迁移）。
+    container_name: aipdd-drama-api
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # CE inline 模式：无控制面 / Redis / Celery，任务在进程内跑。
+      ST_EDITION: ce
+      ST_CONTROL_PLANE_DSN: ""
+      # [aipdd fork delta] CE 最小可用多用户隔离：登录制，账户/会话存在
+      # /data/state/local/auth.db；引导账户口令取 .env 的 ST_LOCAL_PASSWORD
+      # （未设置则启动时生成随机口令并打印一次 WARNING 日志）。
+      ST_CE_MULTI_USER: "${ST_CE_MULTI_USER:-true}"
+      # [aipdd fork delta] 本编排走 http://:8080，Secure cookie 会被浏览器丢弃，必须显式关。
+      ST_COOKIE_SECURE: "${ST_COOKIE_SECURE:-false}"
+      ST_REDIS_URL: ""
+      ST_CELERY_BROKER_URL: ""
+      ST_CELERY_RESULT_BACKEND: ""
+      # SQLite 与产物全部落在持久卷 /data。
+      NOVELVIDEO_DATA_ROOT: /data
+      NOVELVIDEO_OUTPUT_DIR: /data/output
+      NOVELVIDEO_STATE_DIR: /data/state
+      NOVELVIDEO_RUNTIME_DIR: /data/runtime
+      DRAMACLAW_CHAT_BACKEND: hermes
+      HERMES_CLI_PATH: /root/.local/bin/hermes
+      # 运行时用哪个网关由应用设置（settings.db 的 model_gateway_mode）决定，CE 不回退到 env。
+      # [aipdd fork delta req41] 这里**不预填任何站点地址**（旧默认曾钉过一个具体域名）：
+      # 网关在哪是部署者在「设置 › 模型」里填的数据，换网关 / 换域名都不该改编排文件。
+      # 留空 = 未配置；需要 env 兜底时在 .env 写 NEWAPI_BASE_URL=<你的网关地址>。
+      NEWAPI_BASE_URL: "${NEWAPI_BASE_URL:-}"
+      # 以下四项供 provisioner 一键初始化 LocalNewAPI（compose 强制覆盖 .env 里的 127.0.0.1 地址）。
+      NEWAPI_ADMIN_BASE_URL: http://newapi:3000
+      NEWAPI_SQL_DSN: local
+      NEWAPI_SQLITE_PATH: /newapi-data/one-api.db
+      NEWAPI_ADMIN_USERNAME: root
+      # [aipdd fork delta req41] 模型广场调用示例里对外可复制的网关地址：本编排里网关不再
+      # 暴露宿主机端口（见下面 newapi 服务的 expose），对外统一走 web 的 /gateway/v1/ 出口。
+      # 但「走哪个主机名 / 哪个端口」是部署形态数据（本机？局域网？域名反代？），编排文件
+      # 不猜：留空时由请求 Host 推导（见 model_plaza.newapi_public_base_url），需要固定就在
+      # .env 里写 NEWAPI_PUBLIC_BASE_URL=https://你的域名/gateway/v1。
+      NEWAPI_PUBLIC_BASE_URL: "${NEWAPI_PUBLIC_BASE_URL:-}"
+      NEWAPI_PROVISIONER_ENABLED: "${NEWAPI_PROVISIONER_ENABLED:-true}"
+      # [aipdd fork delta req41] 全局文本模型兜底**不写死模型名**。旧默认钉在具体某个
+      # 渠道的具体模型上，那份数据其实是部署方在「设置 › 模型」里选的：换渠道即失效，
+      # 模型下架后更会变成一条「代码里写着一个已不存在的模型」的死链（本批 req40 修的正是
+      # 这类死名）。
+      # 现在解析链只认：具体功能 env → 本项（若 .env 显式设了）→ 「设置 › 模型」里绑定的
+      # DC-*-LLM 槽位；三者都没有则任务前置拒 400，提示去设置页从渠道目录选模型。
+      # 想给一批功能定同一个文本模型：.env 里覆盖 TEXT_MODEL_FALLBACK=<provider>::<模型名>。
+      TEXT_MODEL_FALLBACK: "${TEXT_MODEL_FALLBACK:-}"
+      # [aipdd fork delta req41] 全局视觉模型兜底同上：不写死模型名，也不在编排里预设默认。
+      # 带图请求（草图/首尾帧/参考图、视频解读、风格分析、带图分镜脚本）绝不能被纯文本
+      # 兜底接管（网关会回 400「当前模型不支持请求所需的图片能力」）；代码侧已把这些调用
+      # 隔离到 VISION_MODEL_FALLBACK 这一档。
+      # 未绑定时同样前置拒 400，指引去设置页给视觉槽位选一个实测带图可用的模型；
+      # 需要 env 兜底时覆盖 VISION_MODEL_FALLBACK=<provider>::<模型名>。
+      VISION_MODEL_FALLBACK: "${VISION_MODEL_FALLBACK:-}"
+      # [aipdd fork delta] 解除任务准入并发闸。上游默认“项目闸 12 + 人均闸 3”
+      # （default 车道）是给多租户 SaaS 做公平性用的，本 fork 是单机自建部署：
+      # 一个人几百个图/草图/五官垫图的批量派发会被卡在“lane is full (3/3)”
+      # 直接 429 拒掉，视频车道更是人均 1。这里全部置 0（task_backend/limits.py
+      # 约定：<=0 = 该闸完全不判）→ 任务不再被拒，改为全部进队列排队执行。
+      # 真正并行多少仍由下方 CE inline 执行并发封顶，不会无限打网关。
+      ST_PROJECT_MAX_ACTIVE_DEFAULT_TASKS: "${ST_PROJECT_MAX_ACTIVE_DEFAULT_TASKS:-0}"
+      ST_PROJECT_USER_MAX_ACTIVE_DEFAULT_TASKS: "${ST_PROJECT_USER_MAX_ACTIVE_DEFAULT_TASKS:-0}"
+      ST_PROJECT_MAX_ACTIVE_VIDEO_TASKS: "${ST_PROJECT_MAX_ACTIVE_VIDEO_TASKS:-0}"
+      ST_PROJECT_USER_MAX_ACTIVE_VIDEO_TASKS: "${ST_PROJECT_USER_MAX_ACTIVE_VIDEO_TASKS:-0}"
+      ST_PROJECT_MAX_ACTIVE_WORLD_TASKS: "${ST_PROJECT_MAX_ACTIVE_WORLD_TASKS:-0}"
+      ST_PROJECT_USER_MAX_ACTIVE_WORLD_TASKS: "${ST_PROJECT_USER_MAX_ACTIVE_WORLD_TASKS:-0}"
+      ST_PROJECT_MAX_ACTIVE_FFMPEG_TASKS: "${ST_PROJECT_MAX_ACTIVE_FFMPEG_TASKS:-0}"
+      ST_PROJECT_USER_MAX_ACTIVE_FFMPEG_TASKS: "${ST_PROJECT_USER_MAX_ACTIVE_FFMPEG_TASKS:-0}"
+      # [aipdd fork delta] 实际同时调模型的上限（图片走 default 车道，默认 8）。
+      # 这一档不能置 0（代码里 floor 到 1），想放慢/加快在 .env 里覆盖即可；
+      # 网关批量并发易撞 429/400 时把它调小比改准入闸更合适。
+      ST_CE_GLOBAL_MAX_ACTIVE_DEFAULT_TASKS: "${ST_CE_GLOBAL_MAX_ACTIVE_DEFAULT_TASKS:-8}"
+      # [aipdd fork delta] VectCut 剪辑服务地址（MCP 插件的 vectcut_* 工具组调用）。
+      # hermes worker 与 api 同容器，经容器网络访问 vectcut:9001；未启用 vectcut
+      # profile 时连不通，工具会提示启动方式，不影响其他功能。
+      VECTCUT_BASE_URL: "${VECTCUT_BASE_URL:-http://vectcut:9001}"
+      # [aipdd fork delta] 客户自带 Chrome 的调试端口（内置 Chrome MCP 与抖音
+      # 文案提取共用）：Docker Desktop 经 host.docker.internal 访问宿主机 Chrome。
+      ST_CHROME_CDP_URL: "${ST_CHROME_CDP_URL:-http://host.docker.internal:9222}"
+      # [aipdd fork delta] MCP 栏目「本地 Agent 工具」：检测并写配置本机的
+      # Workbuddy / Claude Code / Cursor / Codex。宿主 home 可选挂载见 volumes；
+      # 本项声明容器内挂载点（local_tools 的探测根，缺省即 /host-home）。
+      HOST_HOME_PATH: /host-home
+      # [aipdd fork delta] 宿主应用目录只读挂载点：本地 Agent 工具的「应用本体」
+      # 证据（macOS 的 /Applications/Cursor.app、WorkBuddy.app 等——用于区分
+      # 「真安装」与「卸载后的配置残留」，见 req20）。未挂载 / 不存在时该级
+      # 证据自动跳过，检测退回 home 内候选与配置痕迹。
+      HOST_APPS_PATH: /host-applications
+    ports:
+      - "${ST_API_PORT:-8780}:8780"
+    volumes:
+      - ce-data:/data
+      # 与 newapi 容器共享同一 SQLite（网关侧挂在 /data）。
+      - newapi-data:/newapi-data
+      # [aipdd fork delta] MCP 栏目「本地 Agent 工具」接入：宿主 home 挂进容器
+      # （读写，容器内 /host-home），用于检测安装痕迹并把 dramaclaw 条目写进
+      # ~/.workbuddy/mcp.json、~/.claude.json、~/.cursor/mcp.json、
+      # ~/.codex/config.toml（写入前 .bak 备份）。mac/Linux 用 shell 的 $HOME；
+      # 缺失时退到空目录（功能显示不可用，不影响其余服务）。
+      - "${HOME:-/tmp/empty-dramaclaw-home}:/host-home"
+      # [aipdd fork delta] 宿主应用目录（macOS 的 /Applications）只读挂进容器，
+      # 用于「应用本体」级安装证据（~/Applications 下用户级安装已经 home 可见；
+      # Windows 的安装目录在 home 内不经此挂载）。HOST_APPS_DIR 可换成本系统
+      # 的应用目录，或指向任一已存在目录以避免在多机部署时创建空目录。
+      # Colima（Lima）用户：Colima 默认只共享 $HOME，须先执行
+      #   colima stop && colima start --mount ~:w --mount /Applications
+      # 使 VM 内可见 /Applications；--mount 为替换语义，务必同时保留 ~
+      # （否则会顶掉默认 home 共享，/host-home 挂载随之失效）。
+      - "${HOST_APPS_DIR:-/Applications}:/host-applications:ro"
+    # 只等网关容器启动，不等其健康：网关拉不到/端口冲突不应拖垮 api。
+    depends_on:
+      newapi:
+        condition: service_started
+
+  # LocalNewAPI（OpenAI 兼容），源码 https://github.com/dramaclaw/dramaclaw-gateway 。
+  # 拉发布镜像（A-1 选镜像模式，省一次源码构建）。国内慢：.env 设
+  #   DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw
+  newapi:
+    image: ${DRAMACLAW_IMAGE_PREFIX:-claymorelab}/dramaclaw-gateway:${DRAMACLAW_GATEWAY_VERSION:-v1.0.0-rc.24-dramaclaw.2}
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      # 留空 = 内置 SQLite（容器内 /data/one-api.db），与 api 侧 /newapi-data/one-api.db 同一文件。
+      SQL_DSN: ""
+    # [aipdd fork delta] 不再映射宿主机端口：网关只做项目内部的 OpenAI 兼容传输层，
+    # 对外统一从 web(8080) 的 /gateway/v1/ 出口暴露（frontend/docker/nginx.conf.template）。
+    # 网关自带后台页面因此不再对外；临时直连排查可在本服务加回一行
+    #   ports: ["127.0.0.1:13000:3000"]
+    # 后 `docker-compose -f docker-compose.aipdd.yml up -d newapi`，用完删掉重启。
+    # 容器内 3000 与 healthcheck 不变，api 走容器网络 http://newapi:3000，不受影响。
+    expose:
+      - "3000"
+    volumes:
+      - newapi-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/status >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # 前端 SPA（本 fork 源码构建，含“去掉官方栏”的网关品牌改动）。nginx 反代 /api 到 api:8780。
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: aipdd/dramaclaw-web:${DRAMACLAW_VERSION:-2.0.99}
+    restart: unless-stopped
+    environment:
+      BACKEND_HOST: api
+      BACKEND_PORT: "8780"
+      # [aipdd fork delta] /gateway/v1/ 由 web 反代到后端统一模型入口 /api/v1/openai/；
+      # 后端校验统一密钥（设置 → API 密钥）后再转发出 newapi 网关，不再直连网关容器。
+    ports:
+      - "${ST_WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+
+  # [aipdd fork delta] VectCut 剪辑服务（剪映/CapCut 草稿组装）：独立容器、独立依赖
+  #（见 services/vectcut/，上游文件原样保留 + 薄适配层 aipdd/），与主业务低耦合；
+  # 默认不启动，需要时：
+  #   docker compose -f docker-compose.aipdd.yml --profile vectcut up -d vectcut
+  # 也可脱离本项目单独调用其 HTTP 接口：http://127.0.0.1:9001（上游全部端点）。
+  # 升级上游 VectCut：按 services/vectcut/README-AIPDD.md 的 rsync 步骤覆盖即可。
+  vectcut:
+    build:
+      context: ./services/vectcut
+      dockerfile: Dockerfile
+    image: aipdd/vectcut:${VECTCUT_VERSION:-1.0.0}
+    restart: unless-stopped
+    profiles: ["vectcut"]
+    environment:
+      TZ: Asia/Shanghai
+      # 容器内必须监听 0.0.0.0，api 容器才能经容器网络访问。
+      VECTCUT_HOST: "0.0.0.0"
+      VECTCUT_PORT: "9001"
+      # 草稿落盘 bind 到宿主机（services/vectcut/drafts），便于查看/拷入剪映草稿箱。
+      VECTCUT_DRAFT_DIR: /drafts
+      # 素材根：ce-data 只读挂到 /data，与 api 容器的 /data/output、/data/state 同构。
+      VECTCUT_MEDIA_ROOTS: /data/output:/data/state
+    ports:
+      # 只绑 127.0.0.1：供单独调接口/排查；宿主端口冲突时用 VECTCUT_HOST_PORT 覆盖。
+      - "127.0.0.1:${VECTCUT_HOST_PORT:-9001}:9001"
+    volumes:
+      - ce-data:/data:ro
+      - ./services/vectcut/drafts:/drafts
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:9001/aipdd/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  ce-data:
+  newapi-data:

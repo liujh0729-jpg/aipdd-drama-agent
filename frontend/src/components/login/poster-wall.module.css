@@ -1,0 +1,108 @@
+/* SPDX-License-Identifier: Elastic-2.0 */
+/* Copyright (c) 2026 ClaymoreLab */
+/* ---------- Wall grid ---------- */
+.wall {
+  position: absolute;
+  inset: -15%;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  transform: rotate(-8deg) scale(1.2);
+  transform-origin: center;
+  filter: saturate(1.15) contrast(1.05);
+  pointer-events: none;
+}
+
+@media (max-width: 1279px) {
+  .wall { grid-template-columns: repeat(5, 1fr); transform: rotate(-7deg) scale(1.2); }
+}
+@media (max-width: 767px) {
+  .wall { grid-template-columns: repeat(4, 1fr); transform: rotate(-6deg) scale(1.22); gap: 10px; }
+}
+@media (max-width: 639px) {
+  .wall { grid-template-columns: repeat(3, 1fr); transform: rotate(-5deg) scale(1.25); gap: 8px; }
+}
+
+/* ---------- Column + track ---------- */
+.column {
+  overflow: hidden;
+}
+
+.track {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  will-change: transform;
+}
+
+.trackUp {
+  animation-name: marquee-up;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.trackDown {
+  animation-name: marquee-down;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes marquee-up   { from { transform: translateY(0); }     to { transform: translateY(-50%); } }
+@keyframes marquee-down { from { transform: translateY(-50%); }  to { transform: translateY(0); } }
+
+/* ---------- Tile (one poster) ---------- */
+.tile {
+  aspect-ratio: 2 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.tileImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ---------- Finish stack ---------- */
+.veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(10, 8, 30, 0.10) 0%,
+    rgba(0, 0, 0, 0.82) 62%,
+    rgba(0, 0, 0, 0.94) 100%
+  );
+}
+
+.grain {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* ---------- Hide columns 4/5/6 at narrow breakpoints ---------- */
+.hideBelowSm { }
+.hideBelowMd { }
+.hideBelowXl { }
+
+@media (max-width: 639px) {
+  .hideBelowSm { display: none; }
+}
+@media (max-width: 767px) {
+  .hideBelowMd { display: none; }
+}
+@media (max-width: 1279px) {
+  .hideBelowXl { display: none; }
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .trackUp, .trackDown { animation: none !important; transform: none !important; }
+}

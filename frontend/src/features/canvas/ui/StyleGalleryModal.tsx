@@ -1,0 +1,528 @@
+// SPDX-License-Identifier: Elastic-2.0
+// Copyright (c) 2026 ClaymoreLab
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, Check, ImageUp, Loader2, Sparkles, Trash2, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+
+import type { FreezoneStyleTemplate } from '@/api/ops';
+import type { TFn } from '@/lib/i18n-types';
+import { StyleCoverModelPicker, resolveStyleCoverModel } from '@/components/model-picker/StyleCoverModelPicker';
+import { StyleAssetImage } from '@/features/canvas/ui/StyleAssetImage';
+import { bustStyleTemplateCover } from '@/features/canvas/hooks/useFreezoneStyleTemplates';
+import { readLastImageModel, writeLastImageModel } from '@/features/canvas/domain/lastImageModel';
+import { readUrl } from '@/lib/url-params';
+import {
+  useDeleteStyleGalleryCover,
+  useGenerateStyleGalleryCover,
+  useStyleGalleryImageModels,
+  useStyleGalleryStyles,
+  useUploadStyleGalleryCover,
+} from '@/lib/queries/style-gallery';
+import { useAuthStore } from '@/stores/auth-store';
+
+// 与后端 _STYLE_GALLERY_ALLOWED 对齐：png/jpg/webp/gif。
+const ACCEPT_IMAGE = 'image/png,image/jpeg,image/webp,image/gif';
+
+const STYLE_GALLERY_MODAL_CLASS =
+  'relative flex w-[min(1120px,92vw)] flex-col overflow-hidden rounded-[10px] border border-white/[0.12] bg-[#15161b]/96 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-md';
+const STYLE_GALLERY_LIST_SIZE_CLASS = 'h-[min(720px,82vh)]';
+const STYLE_GALLERY_DETAIL_SIZE_CLASS = 'max-h-[82vh]';
+
+const ALL_CATEGORIES = '__all__';
+const OTHER_CATEGORY = '__other__';
+
+/** 后端 category 的出现顺序就是展示顺序,没填分类的统一落到最后的「其他」。 */
+export function collectStyleCategories(
+  templates: FreezoneStyleTemplate[],
+  t: TFn,
+): Array<{ key: string; label: string }> {
+  const seen: string[] = [];
+  let hasOther = false;
+  for (const item of templates) {
+    const category = item.category?.trim() ?? '';
+    if (!category) {
+      hasOther = true;
+      continue;
+    }
+    if (!seen.includes(category)) seen.push(category);
+  }
+  const list = seen.map((category) => ({ key: category, label: category }));
+  if (hasOther) list.push({ key: OTHER_CATEGORY, label: t('canvas.styleGallery.other') });
+  return list;
+}
+
+export function filterStylesByCategory(
+  templates: FreezoneStyleTemplate[],
+  category: string,
+): FreezoneStyleTemplate[] {
+  if (category === ALL_CATEGORIES) return templates;
+  if (category === OTHER_CATEGORY) {
+    return templates.filter((item) => !item.category?.trim());
+  }
+  return templates.filter((item) => item.category?.trim() === category);
+}
+
+export interface StyleGalleryModalProps {
+  templates: FreezoneStyleTemplate[];
+  assetBase: string;
+  selectedId: string | null;
+  isLoading?: boolean;
+  /**
+   * [aipdd fork delta] 封面管理写回图墙缓存用；不传时从 URL 取当前项目。
+   */
+  project?: string | null;
+  /** 只回调,不自己关闭;关闭由调用方决定。 */
+  onSelect: (id: string | null) => void;
+  onClose: () => void;
+}
+
+export function StyleGalleryModal({
+  templates,
+  assetBase,
+  selectedId,
+  isLoading = false,
+  project: projectOverride,
+  onSelect,
+  onClose,
+}: StyleGalleryModalProps) {
+  const { t } = useTranslation();
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [category, setCategory] = useState<string>(ALL_CATEGORIES);
+  const detail = detailId
+    ? templates.find((item) => item.id === detailId) ?? null
+    : null;
+  const categories = useMemo(() => collectStyleCategories(templates, t), [templates, t]);
+  const visible = useMemo(
+    () => filterStylesByCategory(templates, category),
+    [templates, category],
+  );
+  // [aipdd fork delta] 每个风格的封面管理就放在图墙里：此前只能去「设置 → 风格管理」
+  // 上传，用户在画布上选风格时发现没图却没有就近的入口。写入闸门和设置页一致——
+  // 只对超管开放（单用户模式下人人都是 owner），后端端点本身也是 require_owner 兜底。
+  const role = useAuthStore((state) => state.role);
+  const canManage = role === 'owner';
+  const project =
+    projectOverride !== undefined ? projectOverride : readUrl().project ?? null;
+  const uploadCover = useUploadStyleGalleryCover();
+  const generateCover = useGenerateStyleGalleryCover();
+  const deleteCover = useDeleteStyleGalleryCover();
+  // 已上传封面的风格集合，供「删除封面」按钮判断；非管理层不拉这个 owner-only 列表。
+  const { data: galleryMeta } = useStyleGalleryStyles(canManage);
+  const coveredStyleIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of galleryMeta?.data ?? []) {
+      if (item.has_cover) set.add(item.id);
+    }
+    return set;
+  }, [galleryMeta]);
+  const [coverTargetId, setCoverTargetId] = useState<string | null>(null);
+  const coverInputRef = useRef<HTMLInputElement | null>(null);
+  const coverBusy =
+    uploadCover.isPending || generateCover.isPending || deleteCover.isPending;
+  // [aipdd fork delta] AI 生成封面的模型选择：目录与生成端同源（仅超管），
+  // 初始值延续「上次所选图片模型」，与画布图片节点的继承链是同一个值。
+  const coverModels = useStyleGalleryImageModels(canManage);
+  const [coverModelId, setCoverModelId] = useState<string | null>(() => readLastImageModel());
+  const coverModelList = coverModels.data ?? [];
+  const coverModelSelected = resolveStyleCoverModel(coverModelList, coverModelId);
+  const handleCoverModelSelect = (modelId: string) => {
+    setCoverModelId(modelId);
+    writeLastImageModel(modelId);
+  };
+
+  const afterCoverChange = (
+    styleId: string,
+    label: string,
+    messageKey: string,
+    extra?: Record<string, string>,
+  ) => {
+    // 封面响应带 5 分钟浏览器缓存，换图后得换 URL 才立刻看得到新图。
+    if (project) bustStyleTemplateCover(project, styleId);
+    toast.success(t(messageKey, { label, ...extra }));
+  };
+  const coverErrorToast = (err: unknown, fallbackKey: string) => {
+    toast.error(err instanceof Error ? err.message : t(fallbackKey));
+  };
+  const openCoverPicker = (styleId: string) => {
+    if (coverBusy) return;
+    setCoverTargetId(styleId);
+    coverInputRef.current?.click();
+  };
+  const handleCoverFile = (file: File | null) => {
+    const styleId = coverTargetId;
+    setCoverTargetId(null);
+    if (!file || !styleId) return;
+    const label = templates.find((item) => item.id === styleId)?.label ?? styleId;
+    uploadCover.mutate(
+      { styleId, file },
+      {
+        onSuccess: () => afterCoverChange(styleId, label, 'canvas.styleGallery.coverUploaded'),
+        onError: (err) => coverErrorToast(err, 'canvas.styleGallery.coverUploadFailed'),
+      },
+    );
+  };
+  const handleGenerateCover = (styleId: string, label: string) => {
+    if (coverBusy || !coverModelSelected) return;
+    generateCover.mutate(
+      { styleId, model: coverModelSelected.id },
+      {
+        onSuccess: () =>
+          afterCoverChange(styleId, label, 'canvas.styleGallery.coverGenerated', {
+            model: coverModelSelected.label,
+          }),
+        onError: (err) => coverErrorToast(err, 'canvas.styleGallery.coverGenerateFailed'),
+      },
+    );
+  };
+  const handleDeleteCover = (styleId: string, label: string) => {
+    if (coverBusy) return;
+    deleteCover.mutate(styleId, {
+      onSuccess: () => afterCoverChange(styleId, label, 'canvas.styleGallery.coverDeleted'),
+      onError: (err) => coverErrorToast(err, 'canvas.styleGallery.coverDeleteFailed'),
+    });
+  };
+
+  useEffect(() => {
+    // 冒泡阶段监听，跟画布上别的弹层一个路数（见 CanvasHistoryAssetsModal）。
+    // 早先挂在 capture 上还 stopPropagation，等于把 Esc 从整个页面手里抢走 ——
+    // 事件连 target 都到不了，别人的输入法/内嵌弹层就都失灵了。详情页先自己吃掉
+    // 一次 Esc（退回图墙），第二次才关整个弹层。
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.isComposing) return;
+      if (detailId) setDetailId(null);
+      else onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [detailId, onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/55"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      {/* 卡片与详情页的上传入口共用一个隐藏 input：先记下目标风格，再触发选择。 */}
+      <input
+        ref={coverInputRef}
+        type="file"
+        accept={ACCEPT_IMAGE}
+        className="hidden"
+        aria-label={t('canvas.styleGallery.uploadCover')}
+        onChange={(event) => {
+          handleCoverFile(event.target.files?.[0] ?? null);
+          event.target.value = '';
+        }}
+      />
+      <div
+        className={`${STYLE_GALLERY_MODAL_CLASS} ${
+          detail ? STYLE_GALLERY_DETAIL_SIZE_CLASS : STYLE_GALLERY_LIST_SIZE_CLASS
+        }`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={
+          detail ? t('canvas.style.thumbAria', { label: detail.label }) : t('canvas.styleGallery.title')
+        }
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        {detail ? (
+          <div className="flex h-12 shrink-0 items-center justify-between px-4">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDetailId(null)}
+                aria-label={t('common.back')}
+                className="flex size-7 items-center justify-center rounded-md text-text-muted/90 transition-colors hover:bg-white/[0.08] hover:text-text-dark"
+              >
+                <ArrowLeft className="size-4" />
+              </button>
+              <span className="text-sm font-medium text-text-dark">{detail.label}</span>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t('common.close')}
+              className="flex size-7 items-center justify-center rounded-md text-text-muted/90 transition-colors hover:bg-white/[0.08] hover:text-text-dark"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        ) : null}
+
+        {detail ? (
+          <div className="flex min-h-0 gap-4 overflow-hidden p-4">
+            <div className="ui-scrollbar grid min-h-0 flex-1 grid-cols-2 content-start gap-2 overflow-y-auto">
+              {/* 同一条风格里出现两张同名示例图并非不可能（外部清单是运维自己写的），
+                  用路径当 key 会撞车，索引才是这里稳定的身份。 */}
+              {detail.samples.map((sample, index) => (
+                <StyleAssetImage
+                  key={`${detail.id}-${index}`}
+                  rel={sample}
+                  assetBase={assetBase}
+                  alt={t('canvas.styleGallery.sampleAlt', {
+                    label: detail.label,
+                    index: index + 1,
+                  })}
+                  loading="lazy"
+                  className="aspect-video w-full rounded-[8px] border border-white/[0.08] object-cover"
+                />
+              ))}
+            </div>
+            <div className="w-[320px] shrink-0">
+              <div className="flex max-h-[min(420px,calc(82vh-96px))] flex-col gap-4 rounded-[8px] border border-white/[0.08] bg-white/[0.03] p-3">
+                <p className="ui-scrollbar min-h-0 overflow-y-auto whitespace-pre-line text-xs leading-relaxed text-text-dark/80">
+                  {detail.style_prompt}
+                </p>
+                {/* [aipdd fork delta] 就近管理这套风格的图：上传/AI 生成/删除封面，
+                    就是画布图墙里显示的那张。仅超管可见，与设置页闸门一致。 */}
+                {canManage ? (
+                  <div className="flex shrink-0 flex-col gap-2 border-t border-white/[0.08] pt-3">
+                    <p className="text-[11px] leading-relaxed text-text-muted">
+                      {t('canvas.styleGallery.manageHint')}
+                    </p>
+                    {/* [aipdd fork delta] 生成前先选图片模型：触发器上的渠道胶囊就是模型出处。 */}
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 text-[11px] text-text-muted">
+                        {t('canvas.styleGallery.generateModel')}
+                      </span>
+                      <StyleCoverModelPicker
+                        className="min-w-0 flex-1"
+                        models={coverModelList}
+                        selectedId={coverModelId}
+                        onSelect={handleCoverModelSelect}
+                        isLoading={coverModels.isLoading}
+                        disabled={coverBusy}
+                        ariaLabel={t('canvas.styleGallery.generateModel')}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={coverBusy}
+                        onClick={() => openCoverPicker(detail.id)}
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-[6px] bg-white/[0.08] text-[11px] font-medium text-text-dark transition-colors hover:bg-white/[0.14] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {uploadCover.isPending &&
+                        uploadCover.variables?.styleId === detail.id ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <ImageUp className="size-3.5" />
+                        )}
+                        {t('canvas.styleGallery.uploadCover')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={coverBusy || !coverModelSelected}
+                        onClick={() => handleGenerateCover(detail.id, detail.label)}
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-[6px] bg-white/[0.08] text-[11px] font-medium text-text-dark transition-colors hover:bg-white/[0.14] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {generateCover.isPending &&
+                        generateCover.variables?.styleId === detail.id ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="size-3.5 text-violet-300" />
+                        )}
+                        {t('canvas.styleGallery.generateCover')}
+                      </button>
+                      {coveredStyleIds.has(detail.id) ? (
+                        <button
+                          type="button"
+                          aria-label={t('canvas.styleGallery.deleteCover')}
+                          title={t('canvas.styleGallery.deleteCover')}
+                          disabled={coverBusy}
+                          onClick={() => handleDeleteCover(detail.id, detail.label)}
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-white/[0.08] text-rose-300 transition-colors hover:bg-rose-400/15 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {deleteCover.isPending &&
+                          deleteCover.variables === detail.id ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-3.5" />
+                          )}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => onSelect(detail.id)}
+                  className="h-8 shrink-0 rounded-[6px] bg-white/[0.92] text-sm font-medium text-black transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent-rgb))]"
+                >
+                  {t('common.use')}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex shrink-0 items-center gap-2 px-4 pb-2 pr-12 pt-4">
+              {categories.length > 1 ? (
+                <div className="ui-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+                  {[
+                    { key: ALL_CATEGORIES, label: t('canvas.styleGallery.all') },
+                    ...categories,
+                  ].map((entry) => {
+                    const isActive = entry.key === category;
+                    return (
+                      <button
+                        key={entry.key}
+                        type="button"
+                        onClick={() => setCategory(entry.key)}
+                        className={`h-7 shrink-0 rounded-[6px] px-2.5 text-xs font-medium transition-colors ${
+                          isActive
+                            ? 'bg-white/[0.14] text-text-dark'
+                            : 'text-text-dark/62 hover:bg-white/[0.08] hover:text-text-dark'
+                        }`}
+                      >
+                        {entry.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex-1" />
+              )}
+              {selectedId ? (
+                <button
+                  type="button"
+                  onClick={() => onSelect(null)}
+                  className="h-7 shrink-0 rounded-md px-2 text-[11px] font-medium text-text-dark/78 transition-colors hover:bg-white/[0.08] hover:text-text-dark"
+                >
+                  {t('canvas.style.clear')}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t('common.close')}
+                className="absolute right-4 top-2.5 flex size-7 items-center justify-center rounded-md text-text-muted/90 transition-colors hover:bg-white/[0.08] hover:text-text-dark"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            {/* 空态和网格是二选一：以前两块都挂 flex-1 同时渲染，
+                「加载中」被挤到上半屏，下半屏是一片空白网格。 */}
+            {templates.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center text-xs text-text-muted">
+                {isLoading ? t('canvas.styleGallery.loading') : t('canvas.styleGallery.empty')}
+              </div>
+            ) : (
+              <div className="ui-scrollbar flex-1 overflow-y-auto p-4 [scrollbar-gutter:stable]">
+                <div className="grid grid-cols-4 gap-3">
+                  {visible.map((item) => {
+                    const isActive = item.id === selectedId;
+                    return (
+                      <div
+                        key={item.id}
+                        className={`group relative overflow-hidden rounded-[12px] border bg-white/[0.04] shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition-[border-color,box-shadow] duration-300 ease-out hover:border-cyan-100/40 hover:shadow-[0_20px_44px_rgba(0,0,0,0.34),0_0_24px_rgba(103,232,249,0.08)] focus-within:border-cyan-100/40 ${
+                          isActive
+                            ? 'border-white/[0.30] ring-1 ring-white/24'
+                            : 'border-white/[0.10]'
+                        }`}
+                      >
+                        {/* 卡片主体进详情：一张封面看不出这套风格怎么处理不同年龄性别的
+                            人物，那四张示例图才看得出来，所以详情是主路径不是彩蛋。 */}
+                        <button
+                          type="button"
+                          onClick={() => setDetailId(item.id)}
+                          aria-label={t('canvas.styleGallery.detailAria', { label: item.label })}
+                          className="block w-full cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgb(var(--accent-rgb))]"
+                        >
+                          <StyleAssetImage
+                            rel={item.cover}
+                            assetBase={assetBase}
+                            alt={item.label}
+                            loading="lazy"
+                            className="aspect-video w-full origin-top object-cover transition-transform duration-300 ease-out will-change-transform group-hover:scale-[1.02] group-focus-within:scale-[1.02]"
+                          />
+                        </button>
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-white/[0.04] opacity-80 transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100" />
+                        <div className="pointer-events-none absolute bottom-2.5 left-3 right-16 truncate text-xs font-medium text-white/92">
+                          {item.label}
+                        </div>
+                        {isActive && (
+                          <Check className="pointer-events-none absolute right-2 top-2 size-4 text-[rgb(var(--accent-rgb))]" />
+                        )}
+                        {/* [aipdd fork delta] 快捷换封面：hover / 键盘聚焦时出现，不必先进详情；
+                            与「使用」按钮同一条原则，键盘可达靠 focus-visible 变体。 */}
+                        {canManage ? (
+                          <button
+                            type="button"
+                            disabled={coverBusy}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openCoverPicker(item.id);
+                            }}
+                            aria-label={t('canvas.styleGallery.uploadCoverAria', { label: item.label })}
+                            title={t('canvas.styleGallery.uploadCoverAria', { label: item.label })}
+                            className="absolute left-2 top-2 z-10 flex size-6 items-center justify-center rounded-[6px] bg-black/55 text-white opacity-0 transition-opacity hover:bg-black/75 focus-visible:opacity-100 disabled:cursor-not-allowed group-hover:opacity-100"
+                          >
+                            {uploadCover.isPending &&
+                            uploadCover.variables?.styleId === item.id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <ImageUp className="size-3.5" />
+                            )}
+                          </button>
+                        ) : null}
+                        {/* 快路径：已经知道要哪套的人不该被逼着走一趟详情。常驻可见而不是
+                            hover 才出 —— opacity-0 没有 focus 变体时，键盘 Tab 聚焦上去
+                            按钮照样透明，这个入口对键盘用户等于不存在。绝对定位盖在标题行
+                            上，没嵌进上面那颗 button：button 里套 button 是非法结构。 */}
+                        <button
+                          type="button"
+                          onClick={() => onSelect(item.id)}
+                          aria-label={t('canvas.styleGallery.useAria', { label: item.label })}
+                          className="absolute bottom-2 right-2 h-6 rounded-[6px] bg-white/[0.16] px-2 text-[11px] font-medium text-white transition-colors hover:bg-white/[0.28] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent-rgb))]"
+                        >
+                          {t('common.use')}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+export function describeStyleSelection(
+  selectedId: string | null,
+  templates: FreezoneStyleTemplate[],
+): FreezoneStyleTemplate | null {
+  if (!selectedId) return null;
+  return templates.find((item) => item.id === selectedId) ?? null;
+}
+
+/**
+ * 「选了风格」和「查得到这个风格」是两件事：清单还在路上、拉取失败、id 是旧画布
+ * 留下的失效值，三种情况下 describeStyleSelection 都返回 null。UI 不能把它们一律
+ * 当成「没选」—— 那个 id 照样会跟着生成请求发给后端。
+ */
+export type StyleSelectionState =
+  | 'none'
+  | 'ready'
+  | 'loading'
+  | 'failed'
+  | 'missing';
+
+export function resolveStyleSelectionState(
+  selectedId: string | null,
+  template: FreezoneStyleTemplate | null,
+  source: { isLoading: boolean; hasError: boolean },
+): StyleSelectionState {
+  if (!selectedId) return 'none';
+  if (template) return 'ready';
+  if (source.isLoading) return 'loading';
+  if (source.hasError) return 'failed';
+  return 'missing';
+}

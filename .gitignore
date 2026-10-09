@@ -1,0 +1,88 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+.env
+.env1
+/.venv/
+/.playwright-mcp
+/.nicegui
+/output
+/state
+/runtime
+logs/
+jr_error.log
+/launchd/
+
+# 测试数据与产物，勿提交
+/data/
+/rag_storage/
+/inputs/
+/*.log
+/*.mp3
+/*.zip
+
+# 本地参考资料（嵌入的第三方仓库，不跟踪）
+/awesome-nano-banana-pro-prompts/
+/awesome-nanobanana-pro/
+
+# Deploy secrets
+deploy/compose/windows/novelvideo.env
+deploy/compose/windows/users.json
+
+# Claude Code
+# settings.json 是本机的 worktree 开关，不是团队约定，和 local 一样不进仓。
+.claude/settings.json
+.claude/settings.local.json
+.claude/skills/**/*-workspace/
+*.skill
+/scripts/output
+node_modules/
+/.pnpm-store/
+/docs/issues
+scripts/incident_drills/.drill.local.env
+.obsidian/
+
+# 验收日志（证据归档在本地/CI 工件，不进 git）
+/acceptance-logs/
+docs/oss-split/
+
+# 内部过程文档不进公开仓（迁至 dc workspace docs）
+docs/changes/
+docs/adr/
+docs/compliance/
+docs/superpowers/
+
+# git worktree 统一目录(主目录永远 main)
+/.worktrees/
+/frontend/bun.lock
+
+# 临时工作目录（会话对照快照/中间产物），不进仓。
+/.tmp_*/
+
+# 风格图墙的图片改由 OSS 提供(后端配 STYLE_GALLERY_ASSET_BASE),不再随仓库
+# 发布。scripts/build_style_gallery.py 仍会把产物写到这里，属本地中间物。
+/frontend/public/style-gallery/
+
+# =============================================================================
+# 发布就绪排除（开源到公开仓前的一次性收口）
+#   本地状态/备份/内部文档绝不进公开仓：这些是部署侧历史快照与开发杂物，
+#   不进 git ≠ 从磁盘删除（保留在本地作还原点与缓存，只是不外发）。
+# =============================================================================
+# 状态库历史快照（含 auth/settings/oneapi/tasks 等 .db，内有口令与凭据）——最高危。
+backups/
+# 需求/ 目录：内嵌第三方参考源码(321M)、含 PAT 明文的测试问题记录、原始 dump 都不外发；
+# 仅保留《环境说明.md》——一键启动脚本(Dockerfile/.command/.sh/.ps1)的用户提示都指向它，
+# 整目录排除会让这些公开脚本报出用户打不开的悬空文档路径。该文件经核无凭据。
+/需求/参考源码/
+/需求/测试问题发现.md
+/需求/1280X1280.PNG
+/需求/newapi_models_raw.json
+# 本地 agent/skill 工作目录与规格变更流程，非产品内容。
+/.codex/
+/.hermes/
+/openspec/
+# 任意层级的本地虚拟环境兜底（根 /.venv/ 只盖住了顶层）。
+.venv/
+*.local

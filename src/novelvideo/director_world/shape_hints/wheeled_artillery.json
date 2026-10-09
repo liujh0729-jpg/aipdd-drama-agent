@@ -1,0 +1,17 @@
+{
+  "id": "wheeled_artillery",
+  "label_zh": "带轮炮械",
+  "default_scale": [1.4, 1.0, 2.4],
+  "default_affordances": ["operable", "aimable", "blocking_mass"],
+  "default_attachment_points": [
+    {
+      "id": "operator",
+      "kind": "operate",
+      "offset": [-1.2, 0, -0.8],
+      "facing_delta": 0,
+      "actor_state": "operating",
+      "description_zh": "操作位"
+    }
+  ],
+  "sketch_description_zh": "带轮炮械类 staging 轮廓，真实物件由 semantic_label 决定。"
+}

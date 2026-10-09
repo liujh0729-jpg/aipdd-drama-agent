@@ -1,0 +1,10 @@
+{
+  "id": "republican_era_drama",
+  "name": "Republican Era Drama",
+  "style_instructions": "Create a live-action Republican-era Chinese drama image with grounded historical realism and a 1920s to 1940s atmosphere when the beat or scene context calls for it. Use natural lighting appropriate to the time of day with soft realistic falloff and restrained contrast. Keep the image photographic and human, with realistic skin texture, visible pores, subtle imperfections, and no beauty-retouching. Use a natural 50mm cinematic lens feel with moderate depth of field. Favor vintage wardrobe, shikumen houses, old Shanghai streets, period interiors, wood, stone, fabric, paper, brass, and practical materials only when they fit the explicit scene. Follow the beat, scene, character, and prop descriptions for exact era, wardrobe, architecture, technology, and materials; do not override explicit modern, ancient, foreign, or traversal-story details. Keep color grading restrained and filmic with a warm neutral palette and subtle film grain.",
+  "avoid_instructions": "Do not create anime, cartoon, or illustration styles. Never add plastic skin, airbrushed texture, or wax figure appearance. Ensure no AI artifacts, oversaturated colors, or HDR overprocessing. Do not include extra limbs, mutated hands, or deformed faces. No text, watermarks, or labels on image.",
+  "style_tag": "VINTAGE FADED FILM, WARM NOSTALGIC GRADE",
+  "label": "民国年代剧",
+  "style_family": "live_action",
+  "animation_subtype": ""
+}

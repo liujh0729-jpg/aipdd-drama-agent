@@ -1,0 +1,17 @@
+{
+  "id": "flying_craft",
+  "label_zh": "飞行器",
+  "default_scale": [3.0, 1.0, 4.0],
+  "default_affordances": ["seatable", "blocking_mass"],
+  "default_attachment_points": [
+    {
+      "id": "passenger",
+      "kind": "seat",
+      "offset": [0, 1.0, 0],
+      "facing_delta": 0,
+      "actor_state": "sitting",
+      "description_zh": "乘坐点"
+    }
+  ],
+  "sketch_description_zh": "飞行器类 staging 轮廓，真实物件由 semantic_label 决定。"
+}

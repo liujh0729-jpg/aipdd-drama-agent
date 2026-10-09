@@ -1,0 +1,470 @@
+<div align="center">
+
+<h1>DramaClaw</h1>
+
+## Make Your Own DC.
+
+<p align="left">
+
+Говорят, что ты устарел.<br/>
+Возможно, устарела сама идея «работать на кого-то другого».<br/>
+<br/>
+В эпоху ИИ настоящий вопрос не в том, заменят ли машины людей.<br/>
+Настоящий вопрос в том:<br/>
+Кому принадлежат машины?<br/>
+Кому принадлежит конвейер?<br/>
+Кому принадлежит индустриализированная производительность?<br/>
+<br/>
+Если ответ всегда Big Tech,<br/>
+то ИИ — это не сила.<br/>
+Это просто новая стена.<br/>
+<br/>
+Меня зовут Eric.<br/>
+<br/>
+Это не демо.<br/>
+Не игрушка.<br/>
+Не урезанная версия.<br/>
+<br/>
+Это индустриализированная производственная линия дорам, которую наша собственная команда запускает каждый день.<br/>
+От сценария до раскадровки, от ассетов до готового фильма — вся цепочка.<br/>
+<br/>
+Потому что люди — не вьючный скот.<br/>
+Потому что креативность — последняя линия обороны человечества.<br/>
+<br/>
+То, что хочет сделать DramaClaw, просто:<br/>
+<br/>
+<strong>Снести стену.</strong><br/>
+<br/>
+Вернуть силу индустриализированного производства дорам, которая была только у Big Tech,<br/>
+в руки обычных создателей.<br/>
+<br/>
+Код здесь.<br/>
+Если это отзывается, оставь ⭐.<br/>
+Мы будем и дальше сносить стены.
+
+</p>
+
+<p align="left">
+
+<strong>И да, на этом можно зарабатывать.</strong><br/>
+DramaClaw распространяется под <a href="../LICENSES/Elastic-2.0.txt">Elastic License 2.0</a>. Запускай, изменяй, продавай то, что ты на нём построил —<br/>
+автономная версия бесплатна для коммерческого использования, без разрешения.<br/>
+Мы просим лишь об одном: маленькую надпись «Powered by DramaClaw» в углу твоего интерфейса.<br/>
+Единственная закрытая дверь — упаковать это как хостинговый SaaS для других; эта лицензия пока не открыта.<br/>
+Почему и FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#475</a>.
+
+</p>
+
+<br/>
+
+[![License](https://img.shields.io/badge/License-Elastic_2.0-blue.svg)](../LICENSES/Elastic-2.0.txt)
+[![GitHub stars](https://img.shields.io/github/stars/liujh0729-jpg/aipdd-drama-agent?style=social)](https://github.com/liujh0729-jpg/aipdd-drama-agent/stargazers)
+[![Release](https://img.shields.io/github/v/release/liujh0729-jpg/aipdd-drama-agent?include_prereleases&sort=semver)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](#быстрый-старт)
+
+[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; **Русский** &nbsp;|&nbsp; [Сайт](https://dramaclaw.ai) &nbsp;|&nbsp; [Документация](../docs/en/README.md) &nbsp;|&nbsp; [Быстрый старт](../docs/en/getting-started/quickstart.md)
+
+</div>
+
+<br/>
+
+<p align="center">
+  <img src="../assets/hero.png" alt="DramaClaw — storytellers, back in front of the camera" width="820"/>
+</p>
+
+<p align="center">
+  <sub>🎬 Трейлер: <a href="https://www.bilibili.com/video/BV1iQV26cE4S">Bilibili</a> &nbsp;·&nbsp; <a href="https://www.youtube.com/watch?v=64apa3maxK0">YouTube</a></sub>
+</p>
+
+<br/>
+
+<div align="center">
+
+## 🎬 Сделано на DramaClaw
+
+<sub>Настоящие короткометражные дорамы, которые наша команда произвела на этом же конвейере — нажми на ссылку, чтобы посмотреть.</sub>
+
+<table>
+  <tr>
+    <td align="center" width="205" valign="top">
+      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-cover.png?v=2" width="185" alt="归灵司"/><br/>
+      <b>归灵司</b><br/>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-ep01.mp4">▶ Серия 1</a>
+    </td>
+    <td align="center" width="205" valign="top">
+      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-cover.png?v=2" width="185" alt="鲁班"/><br/>
+      <b>鲁班</b><br/>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-ep01.mp4">▶ Серия 1</a>
+    </td>
+    <td align="center" width="205" valign="top">
+      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-cover.png?v=2" width="185" alt="师兄你怎么不舔了"/><br/>
+      <b>师兄你怎么不舔了</b><br/>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-ep01.mp4">▶ Серия 1</a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="205" valign="top">
+      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-cover.png?v=2" width="185" alt="天命不可欺"/><br/>
+      <b>天命不可欺</b><br/>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep02.mp4">▶ Серия 02</a> &nbsp;·&nbsp; <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep58.mp4">Серия 58</a>
+    </td>
+    <td align="center" width="205" valign="top">
+      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-cover.png?v=2" width="185" alt="乌龙仙途"/><br/>
+      <b>乌龙仙途</b><br/>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-ep01.mp4">▶ Серия 1</a>
+    </td>
+    <td align="center" width="205" valign="top">
+      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu-cover.png?v=2" width="185" alt="非遗㑇舞"/><br/>
+      <b>非遗㑇舞</b><br/>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu.mp4">▶ Смотреть</a>
+    </td>
+  </tr>
+</table>
+
+<sub>Ещё клипы:
+<a href="https://nfg-web-assets.cdnfg.com/dramaclaw/3d-anime-montage-demo/3d-anime-montage-demo.mp4">демо 3D-аниме нарезки</a> &nbsp;·&nbsp;
+<a href="https://nfg-web-assets.cdnfg.com/dramaclaw/dongtai-dadou/dongtai-dadou.mp4">динамичный бой</a></sub>
+
+</div>
+
+<br/>
+
+## Что такое DramaClaw?
+
+DramaClaw — это **source-available производственная линия для ИИ-дорам** — и всё больше для любой визуальной истории, которую ты хочешь рассказать генеративными моделями. У неё два лица, которые делят одну библиотеку ассетов и одного агента:
+
+- **XiaHua — бесконечный холст.** Основанный на узлах верстак, где ты свободно генерируешь, редактируешь и соединяешь изображения, видео, аудио, 3D-сцены и сценарии, а затем продвигаешь понравившееся обратно в сериал. Именно здесь сегодня происходит большая часть нашей творческой работы, и сюда стремится DramaClaw.
+- **Series (XiaJi) — конвейер.** Загрузи рукопись или сценарий — и DramaClaw берёт на себя тяжёлую работу: структурирование истории, планирование серий, написание сценариев, отрисовку раскадровок и первых кадров, синтез закадрового голоса и финальный монтаж.
+
+Встроенный агент **Xia Director** работает поверх обоих: он отвечает на вопросы о проекте, ведёт задачи конвейера и может строить и запускать графы узлов на холсте за тебя.
+
+Он создан для авторов, инди-студий и креативных инженеров — запусти всю «фабрику дорам» на своей машине, не склеивая дюжину несвязанных инструментов и не отдавая свой материал в непрозрачное облако. Хотя ядро — это дорамы, те же холст и конвейер переносятся на короткую рекламу, видео товаров для e-commerce и другие визуальные форматы.
+
+<br/>
+
+## Ключевые возможности
+
+### XiaHua — бесконечный холст
+
+<p align="center">
+  <img src="../assets/xiahua-canvas.jpg" width="900" alt="XiaHua canvas: a 17-node short-film workflow that Xia Director laid out and ran from one prompt"/>
+</p>
+<p align="center"><sub>Один промпт к Xia Director (справа) превратился в этот рабочий процесс из 17 узлов и 32 связей на холсте (слева): бриф → направление истории → референсы персонажей и сцен → первые кадры пяти планов → видео пяти планов → закадровый голос и музыка → финальный монтаж.</sub></p>
+
+- **18 типов узлов на одном холсте** — загрузка, генерация / редактирование изображения, генерация раскадровки, сценарий, контекст битов, видео, композ видео, видео-история, аудио, стиль, скилл, группа, текстовая аннотация, панорамный просмотрщик 360°, 3D-мир, экспорт и другое. Соединяй свободно; каждый узел хранит свою историю генераций.
+- **Инструменты изображения** — генерация, редактирование, перерисовка, расширение (outpaint), пересветка, апскейл, мультиракурс, редактирование по шаблону, обратный промпт, детекция меток; **стена стилей из 45 образов коротких дорам** для image-to-image
+- **Инструменты видео** — текст / изображение / ключевой кадр в видео, омни-референсная генерация с **референсами из файла, веб-ссылки и прямо на холсте**, редактирование видео, удаление, апскейл, разделение аудио, камеры-шаблоны, анализ кадра; Seedance 2.5 есть в рекомендованном каталоге
+- **Аудио** — синтез речи с библиотекой голосов, референсными голосами, генерация музыки
+- **Скиллы холста** — скиллы в один клик, такие как эскиз-из-контекста, кадр-из-контекста, задать-фон, scene-360, просмотр кадра и планирование графа битов
+- **Создано для больших холстов** — вкладки холста, аутлайн элементов, миникарта и закладки вьюпорта, привязка-выравнивание, LOD-рендер, множественный выбор и групповые узлы, горячие клавиши, история ревизий с восстановлением, похолстовая блокировка
+- **Зафиксировать в сериал** — предпросмотри эффект, затем продвинь один узел или целый батч в библиотеку ассетов или в серию; спроецируй сериал обратно на холст из пресетов
+- **Director World — пространственно согласованные сцены** — изображение → 3D Gaussian Splat сцена и панорамы scene-360 как узлы холста: виртуальная сцена с кадрированием, которая фиксирует пространственную структуру, блокировку персонажей и расстановку камеры, чтобы одно и то же место оставалось согласованным между планами; кадрируй план в 3D-просмотрщике, снимай его и используй как фон для следующей генерации
+
+#### Director World
+
+<p align="center">
+  <img src="../assets/readme/director-world.jpg" width="900" alt="Director World"/>
+</p>
+<p align="center"><sub>Иллюстрация функции по скриншоту; детали интерфейса могут отличаться от текущей версии.</sub></p>
+
+### Series (XiaJi) — конвейер
+
+<p align="center">
+  <img src="../assets/pipeline.png" alt="DramaClaw pipeline — Ingest, Plan, Produce, Deliver" width="760"/>
+</p>
+
+У каждого шага свой интерфейс — выполняй по порядку, пропускай шаги, возобновляй с любой контрольной точки, или даже подключи собственный оркестратор.
+
+- **Структурированный импорт** — новые проекты строят серии, персонажей и сцены прямо из рукописи или сценария (поддерживается Fountain), без графа знаний и эмбеддингов; путь графа истории Cognee сохранён для legacy-проектов
+- **Библиотека ассетов и консистентность идентичности** — персонажи, сцены, реквизит и голоса, организованные по назначению и папкам; стабильные идентичности между сериями, портреты персонажей и варианты по сериям
+- **Планирование серий и генерация сценариев** — сегментация по главам, планирование битов, много-серийные арки; режимы сценария адаптивный / буквальный / поэтапный с циклами проверки-и-починки
+- **Раскадровки и первые кадры** — стилизованная генерация по битам, разбиение на сетку, выбор из пула изображений
+- **Закадровый голос, композ видео и экспорт** — эмоциональный синтез речи, сборка серии, экспорт видео + субтитров и полный пак ассетов
+- **Visual Style** — загрузи референсное изображение, чтобы извлечь параметры стиля и применить их ко всему проекту
+- **Task Center** — статус, прогресс, логи, отмена / повтор, возобновление с контрольной точки для долгих прогонов; предусловия проверяются до постановки задачи в очередь
+
+#### XiaTang — библиотека ассетов
+
+<p align="center">
+  <img src="../assets/readme/asset-library.jpg" width="900" alt="XiaTang — asset library"/>
+</p>
+<p align="center"><sub>Иллюстрация функции по скриншоту; детали интерфейса могут отличаться от текущей версии.</sub></p>
+
+#### Раскадровки и первые кадры
+
+<p align="center">
+  <img src="../assets/readme/storyboards.jpg" width="900" alt="Storyboards & first frames"/>
+</p>
+<p align="center"><sub>Иллюстрация функции по скриншоту; детали интерфейса могут отличаться от текущей версии.</sub></p>
+
+### Xia Director — агент
+
+<p align="center">
+  <img src="../assets/readme/xia-director.jpg" width="900" alt="Xia Director — project context and reviewed actions"/>
+</p>
+<p align="center"><sub>Иллюстрация функции по скриншоту; детали интерфейса могут отличаться от текущей версии.</sub></p>
+
+**Сегодня**
+
+- **Знает твой проект** — проверяет прогресс, продвигает задачи сценария / кадра, аудитирует полноту результатов и подсказывает следующие шаги
+- **Открыт другим агентам** — локальный MCP-сервер, который открывает DramaClaw для Claude Code, Codex и любого MCP-клиента (только loopback, явный флаг доверия); см. [MCP для Claude Code](../docs/en/guides/mcp-claude-code.md)
+
+**Далее**
+
+- **Работает на холсте** — скриншот выше показывает, куда мы идём: опиши фильм, и Xia Director создаст и соединит узлы, разложит их, запустит и проверит результаты, при этом каждая команда холста сначала подтверждается в твоём браузере. Холст + агент — это ядро DramaClaw отныне; см. [В разработке](#in-development).
+
+<br/>
+
+## Почему DramaClaw?
+
+**Холст, который понимает дорамы, и агент, который на нём работает.** Универсальные узловые холсты соединят что угодно, но не знают ничего о сериях, персонажах и планах; инструменты сериалов знают ремесло, но запирают тебя в мастер. XiaHua даёт свободный холст с узлами и скиллами, понимающими дорамы, а Xia Director строится, чтобы раскладывать, запускать и проверять эти графы за тебя. Именно это сочетание — то, куда движется DramaClaw.
+
+**Создан от романа к короткой дораме.** Универсальные рабочий-инструменты могут соединять узлы, но не знают, что такое «бит серии», не понимают, почему важна консистентность идентичности персонажа между сценами, и не берегут эмоциональную арку главы сквозь изображение + голос + монтаж. DramaClaw встраивает всё это суждение прямо в инструмент.
+
+**Холст и конвейер, а не холст или конвейер.** Большинство инструментов дают либо свободный узловой холст, либо жёсткий мастер. DramaClaw ведёт оба как два параллельных направления над одной библиотекой ассетов: исследуй на холсте, фиксируй работающее в сериал, проецируй сериал обратно на холст. Агент работает над обоими.
+
+**Каждый шаг разложим.** Каждая стадия — независимая асинхронная задача со своим интерфейсом. Выполняй последовательно, пропускай, возобновляй на середине — сам инструментарий и есть продукт, без скрытого чёрного ящика.
+
+**Самостоятельное размещение, модельная нейтральность.** Твоя рукопись, твои персонажи, твои модели, твои серверы. Используй закрытые передовые модели, когда нужен лучший результат; переходи на open-weight модели, когда нужен полный контроль. DramaClaw не привязывает тебя к одному вендору.
+
+### Как DramaClaw сравнивается
+
+Преимущество не в «генерировать больше» — оно в том, чтобы организовать весь производственный цикл короткой дорамы (сценарий → ассеты → планы → холст → финальный монтаж) в нечто переиспользуемое, совместное и масштабируемое.
+
+<sub>Легенда: ✅ Полный · ◐ Частично · ○ Планируется · ❌ Нет — названия конкурентов частично замаскированы; сравнение основано на общедоступной документации продуктов и позиционировании.</sub>
+
+| Возможность | L\*TV | R\*Hub | T\*Now | S\*ko | U\*dream | O\*II | J\*/K\* | **DramaClaw** |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| Предпросмотр раскадровки (сценарий→планы, щиты) | ◐ | ✅ | ◐ | ✅ | ◐ | ❌ | ❌ | ✅ |
+| Интерактивные сериалы (много-серийность, ветвления, IP) | ◐ | ◐ | ◐ | ✅ | ◐ | ❌ | ❌ | ✅ |
+| Библиотека ассетов (персонажи/сцены/реквизит/голоса) | ◐ | ❌ | ◐ | ✅ | ◐ | ○ | ❌ | ✅ |
+| Согласованность сцен (варианты, 360°, много состояний) | ✅ | ◐ | ❌ | ❌ | ○ | ❌ | ❌ | ✅ |
+| Мир режиссёра (360°/3D сцена, камера, кадрирование) | ✅ | ◐ | ❌ | ❌ | ◐ | ❌ | ❌ | ✅ |
+| Финальная сдача (мульти-план, субтитры/SRT, пак) | ✅ | ○ | ○ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Командная работа (шеринг, роли, задачи, стоимость) | ✅ | ✅ | ○ | ✅ | ○ | ○ | ○ | ✅ |
+| Бесконечный холст (узловой, свободное исследование) | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Два направления (основной конвейер + исследование на холсте) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Свой стиль (шаблоны, промпты, негативы) | ✅ | ◐ | ○ | ✅ | ◐ | ○ | ◐ | ✅ |
+| Встроенный агент (ассистент, скиллы, подсказки) | ✅ | ✅ | ✅ | ○ | ✅ | ○ | ✅ | ✅ |
+| Творческий компаньон (персона, подталкивания, фидбек) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Source-available (самостоятельное размещение, форк, кастомизация) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+<br/>
+
+## Системные требования
+
+DramaClaw выполняет весь инференс через **OpenAI-совместимый шлюз** — либо официальный сервис шлюза DramaClaw, либо LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)), маршрутизирующий к настроенным тобой провайдерам. Ничто не запускает модели на твоей машине, поэтому локальный след лёгкий. Достаточно обычного ноутбука или небольшого VPS.
+
+| Параметр | Требование |
+|---|---|
+| **CPU / RAM** | ≥ 2 vCPU / 4 ГБ рекомендуется (без учёта инференса моделей — он идёт на шлюзе) |
+| **GPU** | Не требуется для стандартного конвейера. Лишь опциональный extra `world` (воксель / панорама-в-3D) требует GPU + образ CUDA |
+| **Диск** | Несколько ГБ под образы плюс сгенерированные медиа/состояние под томом `ce-data` (строгого минимума нет) |
+| **ОС** | macOS (Apple Silicon / Intel), Windows (Docker Desktop + бэкенд WSL2), Linux (Docker Engine + плагин compose) |
+| **Docker** | Docker + `docker compose` |
+| **Порты** | `8080` веб-UI · `8780` REST API · `3000` админ-UI LocalNewAPI (по умолчанию только хост, можно расширить) |
+| **Хранилища данных** | Не требуются — нет Postgres, Redis, Celery или Ray. Задачи идут in-process; состояние живёт в локальной файловой системе (SQLite + файлы) |
+| **Сеть** | Исходящий доступ к официальному шлюзу `susciyuan.com` и/или к провайдерам моделей, настроенным в LocalNewAPI |
+
+> Для локальной разработки (без Docker) дополнительно нужны Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg`. Полный список предусловий — в [руководстве по самостоятельному размещению](../docs/en/guides/self-hosting.md).
+
+<br/>
+
+## <a name="быстрый-старт"></a>Быстрый старт
+
+### Docker (рекомендуется)
+
+Каждый релиз на GitHub публикует мультиархитектурные образы (amd64/arm64) на Docker Hub.
+
+**Сборка из исходников (по умолчанию)** — склонируй DramaClaw и LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) рядом; `docker compose up -d --build` соберёт все три сервиса из этих двух чекаутов.
+
+```bash
+git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalNewAPI, собирается из ../dramaclaw-gateway
+cd dramaclaw
+
+cp .env.example .env
+# Отредактируй .env — задай PROMPT_EXPORT_PASSWORD не-значение-по-умолчанию.
+
+docker compose up -d --build   # собирает и запускает три сервиса: api / newapi (LocalNewAPI) / web
+```
+
+Оба чекаута — обычные git-репозитории: правь, `git pull`, пересобирай. Изменился только код DramaClaw? `docker compose up -d --build api web`. Только шлюз? `docker compose up -d --build newapi`. Склонировал шлюз в другое место или предпочитаешь, чтобы Docker тянул его из git? Задай `DRAMACLAW_GATEWAY_SRC` в `.env` на этот путь или на `https://github.com/dramaclaw/dramaclaw-gateway.git#main`.
+
+**Без сборки** — потяни опубликованные образы (клонировать шлюз не нужно):
+
+```bash
+docker compose -f docker-compose.release.yml up -d
+```
+
+Открой приложение на <http://localhost:8080>; REST API — на <http://localhost:8780>. В **Settings → Model Config** выбери одно из:
+
+- **Official** — вставь свой DC-ключ (получи на <https://susciyuan.com>); маппинг моделей не нужен. LocalNewAPI остаётся в простое.
+- **Custom** — один клик инициализирует LocalNewAPI; затем добавь свои upstream-каналы.
+- **LocalNewAPI + Official Hybrid** — официальный для основного конвейера, LocalNewAPI для доп. каналов.
+
+Полные шаги — в [Быстром старте](../docs/en/getting-started/quickstart.md).
+
+Зафиксируй версии или смени реестр в `.env` (`DRAMACLAW_VERSION`, `DRAMACLAW_GATEWAY_VERSION`, `DRAMACLAW_IMAGE_PREFIX`) — это применимо только к режиму образов (`docker-compose.release.yml`). Материковый Китай: задай `DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` и зафиксируй обе версии (ACR-зеркало несёт только зафиксированные теги).
+
+> Мигрируешь со старого чекаута? Для сборки из исходников сначала `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (теперь шлюз собирается из соседнего чекаута; без него сборка останавливается с `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` удалены — используй `docker-compose.yml` (сборка из исходников) / `docker-compose.release.yml` (образы). Имена сервисов и тома `ce-data` / `newapi-data` не изменились; существующие данные переиспользуются как есть. Порт LocalNewAPI теперь по умолчанию привязан только к `127.0.0.1`; задай `ST_NEWAPI_BIND=0.0.0.0` в `.env`, если нужен удалённый доступ к нему.
+
+### Локальная разработка (uv + Python 3.11+)
+
+```bash
+git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
+cd dramaclaw
+
+uv sync
+cp .env.example .env && $EDITOR .env
+
+uv run novelvideo api --port 8780   # запускает REST API (CE по умолчанию в inline-задачах, без Ray/Redis)
+```
+
+Фронтенд во втором терминале: `cd frontend && pnpm install && pnpm dev`.
+
+**Шлюз.** В режиме **Official** больше ничего не нужно. В режимах **Custom** и **LocalNewAPI + Official Hybrid** API ожидает шлюз на `127.0.0.1:3000`, чей файл SQLite — `./state/newapi/one-api.db` (именно туда пишет «Initialize» в настройках; `NEWAPI_ADMIN_BASE_URL` в `.env` уже указывает туда). Либо запусти опубликованный образ с примонтированным каталогом:
+
+```bash
+mkdir -p state/newapi
+docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
+  -v "$PWD/state/newapi:/data" \
+  claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
+```
+
+либо запусти шлюз из исходников в соседнем чекауте (`make dev-api` / `make dev-web` в [dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway#develop), или `go build` и запусти бинарник с `SQLITE_PATH=<путь к>/dramaclaw/state/newapi/one-api.db`).
+
+<br/>
+
+## Поддерживаемые модели и провайдеры
+
+DramaClaw остаётся модельно-нейтральным — все текстовые / имиджевые / видео / аудиомодели подключаются через **OpenAI-совместимый шлюз**. Выбери режим в **Settings → Model Config**:
+
+- **Official (рекомендуется)** — вставь свой DC-ключ (получи на <https://susciyuan.com>), сохрани, готово. Официальный шлюз уже несёт все маппинги моделей, нужные DramaClaw; настраивать нечего.
+- **Custom** — один клик инициализирует LocalNewAPI, затем добавь свои каналы провайдеров (API-ключи, ID моделей) в его админ-UI. Вся модель, которую вызывает DramaClaw, идёт через твои каналы.
+- **LocalNewAPI + Official Hybrid** — оставь официальные модели для основного конвейера и добавь доп. каналы (например локальный видео-воркфлоу ComfyUI) через LocalNewAPI.
+
+Полный путь — в [Настройка моделей](../docs/en/getting-started/configuring-models.md).
+
+### LocalNewAPI: dramaclaw-gateway
+
+Сервис `newapi` в `docker-compose.yml` — это [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), собственный форк [New API](https://github.com/QuantumNous/new-api) от DramaClaw. Он говорит по контракту **DC-Media**, который DramaClaw использует для изображения / видео / аудио (роли медиа, референсы, первый / последний кадр) и превращает каждый запрос в нативный API провайдера. Образ: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) на Docker Hub, фиксируется через `DRAMACLAW_GATEWAY_VERSION` в `.env`. В режиме Official он в простое и используется только после перехода в **Custom** или **LocalNewAPI + Official Hybrid**.
+
+Адаптеры провайдеров, уже входящие в шлюз (статус проверки — в [матрице поддержки каналов](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md)): ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Нужен другой провайдер? У шлюза есть [генератор заготовки и руководство по вкладу](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
+
+| Этап             | Режим Official                              | Режим Custom / Hybrid (LocalNewAPI)                    |
+|----------------------|----------------------------------------------------|-----------------------------------------------------------|
+| **Текст / LLM**  | модели `DC-*-LLM`, без маппинга                  | любой OpenAI-совместимый чат-канал                        |
+| **Изображение**  | gpt-image · nano-banana                            | любой имиджевый канал, зарегистрированный в шлюзе         |
+| **Видео**        | Seedance серии 1.0 / 1.5 / 2.0 · happyhorse       | любой видео-адаптер DC-Media (Seedance, Hailuo, Kling, ComfyUI, …) |
+| **Закадровый голос** | IndexTTS2                                          | любой аудиоканал, зарегистрированный в шлюзе              |
+| **Граф истории** | Cognee (`DC-cognee-embedding`)                     | любой embedding-канал                                     |
+| **Исполнение задач** | inline in-process (без Ray / Redis / Celery)        | то же                                                     |
+| **Хранилище**    | локальная файловая система                         | то же                                                     |
+
+<br/>
+
+## <a name="in-development"></a>В разработке
+
+Это строится открыто и пока не вошло в релиз. Следи за ветками или приходи помогать.
+
+- **Xia Director на холсте** — агент создаёт и соединяет узлы, обновляет данные узлов, раскладывает и группирует узлы, запускает действия и строит целые графы рабочих процессов, при этом каждая команда холста сначала подтверждается в открытом браузере.
+- **Каталог рабочих процессов и комьюнити-скиллы** — каталог из 11 скиллов рабочего процесса и 60 рецептов (короткие дорамы, e-commerce реклама, реклама IP-персонажей, социальные кампании, аниме / Pixar / LEGO / kung-fu стили…), которые раскладывают целые графы генерации; скиллы и рецепты как устанавливаемые, экспортируемые, делимые бандлы
+- **agent-kit** — переносимый пакет, который приносит те же рабочие процессы DramaClaw в Hermes, OpenClaw, WorkBuddy, Claude Code и Codex
+- **Сцена Previz** — 3D-сцена блокировки в браузере как узел холста: многодорожечный таймлайн, риги и траектории персонажей, реальная модель объектива / сенсора камеры, слежение за крупным планом, а затем снимок кадированного плана прямо в следующий узел. Ветка: `feat/previz-canvas-node`
+- **Интерактивные истории** — точки ветвления на холсте, компилируемые в ink-историю и экспортируемые как автономный HTML-плеер, со статистикой плейтеста и покрытием путей. Ветка: `feat/canvas-fmv`
+- **Интерактивная реклама** — рекламные скиллы и рецепты выше в сочетании с ветвящимся воспроизведением, для видео товаров, которыми зритель может управлять
+
+<br/>
+
+## <a name="documentation"></a>Документация
+
+- [**Руководство пользователя продукта**](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) — полный обзор интерфейса (Feishu)
+- [Обзор возможностей](../docs/en/concepts/features.md)
+- [Архитектура](../docs/en/concepts/architecture.md)
+- [Быстрый старт](../docs/en/getting-started/quickstart.md)
+- [Руководство по самостоятельному размещению](../docs/en/guides/self-hosting.md)
+- [Настройка провайдеров моделей](../docs/en/getting-started/configuring-models.md)
+- [Больше документации &rarr;](../docs/en/README.md)
+
+<br/>
+
+## Сообщество / Вклад
+
+- [Сообщить о баге](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=bug_report.yml)
+- [Запросить функцию](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=feature_request.yml)
+- [Присоединиться к обсуждению](https://github.com/liujh0729-jpg/aipdd-drama-agent/discussions)
+- [Руководство по вкладу](../CONTRIBUTING.md)
+- [Политика безопасности](../SECURITY.md)
+
+Мы постоянно курируем и маркируем [`good first issue`](https://github.com/liujh0729-jpg/aipdd-drama-agent/labels/good%20first%20issue) — отличное место для старта.
+
+<br/>
+
+## Участники
+
+Те, кто строит DramaClaw — спасибо. 💜
+
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/bopy-zou"><img src="https://github.com/bopy-zou.png?size=100" width="72" alt="bopy-zou"/><br/><sub>bopy-zou</sub></a></td>
+    <td align="center"><a href="https://github.com/Handanhhhy"><img src="https://github.com/Handanhhhy.png?size=100" width="72" alt="Handanhhhy"/><br/><sub>Handanhhhy</sub></a></td>
+    <td align="center"><a href="https://github.com/Hanlin-Gabriel"><img src="https://github.com/Hanlin-Gabriel.png?size=100" width="72" alt="Hanlin-Gabriel"/><br/><sub>Hanlin-Gabriel</sub></a></td>
+    <td align="center"><a href="https://github.com/ryanhuang-duat"><img src="https://github.com/ryanhuang-duat.png?size=100" width="72" alt="ryanhuang-duat"/><br/><sub>ryanhuang-duat</sub></a></td>
+    <td align="center"><a href="https://github.com/lywaterman"><img src="https://github.com/lywaterman.png?size=100" width="72" alt="lywaterman"/><br/><sub>lywaterman</sub></a></td>
+    <td align="center"><a href="https://github.com/n7s4"><img src="https://github.com/n7s4.png?size=100" width="72" alt="n7s4"/><br/><sub>n7s4</sub></a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/NewYuee"><img src="https://github.com/NewYuee.png?size=100" width="72" alt="NewYuee"/><br/><sub>NewYuee</sub></a></td>
+    <td align="center"><a href="https://github.com/SimonRen"><img src="https://github.com/SimonRen.png?size=100" width="72" alt="SimonRen"/><br/><sub>SimonRen</sub></a></td>
+    <td align="center"><a href="https://github.com/vkiki"><img src="https://github.com/vkiki.png?size=100" width="72" alt="vkiki"/><br/><sub>vkiki</sub></a></td>
+    <td align="center"><a href="https://github.com/wangwenqq"><img src="https://github.com/wangwenqq.png?size=100" width="72" alt="wangwenqq"/><br/><sub>wangwenqq</sub></a></td>
+    <td align="center"><a href="https://github.com/zhen2025109"><img src="https://github.com/zhen2025109.png?size=100" width="72" alt="zhen2025109"/><br/><sub>zhen2025109</sub></a></td>
+    <td align="center"><a href="https://github.com/revolutionarybukhari"><img src="https://github.com/revolutionarybukhari.png?size=100" width="72" alt="revolutionarybukhari"/><br/><sub>revolutionarybukhari</sub></a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/yhay81"><img src="https://github.com/yhay81.png?size=100" width="72" alt="yhay81"/><br/><sub>yhay81</sub></a></td>
+    <td align="center"><a href="https://github.com/hoanglongggggggggg"><img src="https://github.com/hoanglongggggggggg.png?size=100" width="72" alt="hoanglongggggggggg"/><br/><sub>hoanglongggggggggg</sub></a></td>
+  </tr>
+</table>
+
+<br/>
+
+## Produced By
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/partners/neoflying-lab-dark.png">
+    <img src="../assets/partners/neoflying-lab.png" alt="Neo Flying AI Laboratory" height="48">
+  </picture>
+</p>
+
+<p align="center"><sub>Логотип является товарным знаком соответствующего владельца, показан с разрешения.</sub></p>
+
+<br/>
+
+## Лицензия
+
+[Elastic License 2.0](../LICENSES/Elastic-2.0.txt). Свободно использовать, изменять, распространять и продавать то, что ты на этом построил; оставь маленькую надпись «Powered by DramaClaw» в своём UI. Единственное ограничение: нельзя предлагать само ПО как хостинговый сервис другим. См. [пояснение лицензии](../docs/en/license.md) и [заявление о лицензировании](https://github.com/dramaclaw/dramaclaw/issues/475).
+
+<br/>
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=dramaclaw%2Fdramaclaw&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=liujh0729-jpg/aipdd-drama-agent&type=date&theme=dark&legend=top-left&sealed_token=CWTXgm9EqgQmnSFWk0inuf_iZSml5r1nclyIsUyisWgYhUzFVJdI8G61vyFACIQe14weeMtjWSxpkzWdtFqyb93uV4uaRElaXWQv2kFxFFyL8KbUQBCOBUWXDtZc81J8YlaSiBVVXeOygLYZliOK4VQo4i1Ioqkxn5js-Bq0gbqVOH_wF3GCQ_EnMGLy" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=liujh0729-jpg/aipdd-drama-agent&type=date&legend=top-left&sealed_token=CWTXgm9EqgQmnSFWk0inuf_iZSml5r1nclyIsUyisWgYhUzFVJdI8G61vyFACIQe14weeMtjWSxpkzWdtFqyb93uV4uaRElaXWQv2kFxFFyL8KbUQBCOBUWXDtZc81J8YlaSiBVVXeOygLYZliOK4VQo4i1Ioqkxn5js-Bq0gbqVOH_wF3GCQ_EnMGLy" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=liujh0729-jpg/aipdd-drama-agent&type=date&legend=top-left&sealed_token=CWTXgm9EqgQmnSFWk0inuf_iZSml5r1nclyIsUyisWgYhUzFVJdI8G61vyFACIQe14weeMtjWSxpkzWdtFqyb93uV4uaRElaXWQv2kFxFFyL8KbUQBCOBUWXDtZc81J8YlaSiBVVXeOygLYZliOK4VQo4i1Ioqkxn5js-Bq0gbqVOH_wF3GCQ_EnMGLy" />
+ </picture>
+</a>
+
+<br/><br/>
+
+<div align="center">
+  <sub>Создано для рассказчиков. Исходники — открыты для всех.</sub>
+</div>
+
+## Уведомления
+
+См. `NOTICE` для обязательных упоминаний бренда и атрибуций третьих сторон.

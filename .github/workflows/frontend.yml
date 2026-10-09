@@ -1,0 +1,73 @@
+name: frontend
+
+# 前端 CI。与 frontend/Dockerfile 一致：pnpm（packageManager 锁 11.5.0）+ node 22。
+# 跑「编译 + 类型检查」(pnpm build = tsc -b && vite build) 与单元测试 (vitest)。
+# 仅在前端相关文件变更时触发，避免无关改动空跑。
+
+on:
+  push:
+    paths:
+      - "frontend/**"
+      - "scripts/check_frontend_i18n.py"
+      - "scripts/check_frontend_i18n_keys.py"
+      - "scripts/frontend_i18n_keys_allowlist.json"
+      - ".github/workflows/frontend.yml"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "scripts/check_frontend_i18n.py"
+      - "scripts/check_frontend_i18n_keys.py"
+      - "scripts/frontend_i18n_keys_allowlist.json"
+      - ".github/workflows/frontend.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  # 硬编码中文棘轮 + i18n 键命中。文案棘轮的存量已清零，所以没有 allowlist 文件（缺文件等于空 allowlist），
+  # 任何新命中都直接失败。确需保留中文的行加 `// i18n-exempt`，整块协议值表用
+  # `// i18n-exempt-start` / `// i18n-exempt-end`。
+  i18n-hardcoded-copy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check for hardcoded Chinese copy in frontend/src
+        run: python3 scripts/check_frontend_i18n.py
+      # i18n **键命中**：按调用点字面量验 `t("a.b.c")` 在三份 locale 里真存在。req44 复盘补的关卡
+      # ——两个 label 键被插进同名不同父的 `assets.scenes.fields`，三语同错所以「三语集合一致」全绿，
+      # 页面却把键原文当标签渲染。baseline 是棘轮（只许减不许增），当前 0 条。
+      - name: Check that literal i18n keys resolve in all locales
+        run: python3 scripts/check_frontend_i18n_keys.py
+
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm (reads packageManager from package.json)
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Build (tsc typecheck + vite build)
+        run: pnpm build
+      - name: Unit tests (vitest)
+        run: pnpm test
+      - name: Validate rendered Nginx configuration
+        run: docker build --target nginx-config-test --file Dockerfile .

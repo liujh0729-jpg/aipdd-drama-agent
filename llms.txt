@@ -1,0 +1,13 @@
+# DramaClaw
+
+> source-available（ELv2）的小说→成片自托管管线（社区版 / CE）。单机运行，无需 PostgreSQL/Redis。
+
+## 文档
+
+- [文档总览](docs/README.md): 对外文档入口
+- [功能总览](docs/features.md): DramaClaw 能做什么（小说→成片全流程能力）
+- [架构](docs/architecture.md): 系统怎么运作（流程 / 代码结构 / 端口与适配器）
+- [快速开始](docs/quickstart.md): 本地 Docker 一条命令跑起 CE
+- [自托管手册](docs/self-hosting.md): 部署、配置、升级、备份
+- [配置模型供应商](docs/configuring-models.md): 接入你自己的 OpenAI 兼容网关
+- [许可证说明](docs/license.md): 能做什么 / 商业限制（source available）

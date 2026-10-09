@@ -1,0 +1,18 @@
+.git
+.github
+node_modules
+dist
+coverage
+.DS_Store
+*.log
+.vscode
+.idea
+.env
+.env.*
+# Keep worker/ in the build context: tsc -b (via `pnpm build`) compiles the
+# test suite under src/, and src/__tests__/worker/cache-headers.test.ts imports
+# worker/index. Excluding worker/ breaks the Docker build with TS2307 even
+# though the nginx runtime image never ships it.
+wrangler.jsonc
+.wrangler
+.cache

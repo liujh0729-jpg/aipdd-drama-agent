@@ -1,0 +1,12 @@
+{
+  "_note": "本地宠物目录。加宠物：把官网下载的精灵图放到 public/petdex/<slug>.webp，并在 pets 里加一条。spritesheetUrl 用同源 /petdex/ 路径。仅收录自有/无版权争议的角色——请勿加入第三方版权角色（公开仓库即侵权证据上网）。",
+  "pets": [
+    { "slug": "zhizhi", "displayName": "枝枝", "spritesheetUrl": "/petdex/zhizhi.webp" },
+    { "slug": "yinyue-2", "displayName": "银月", "spritesheetUrl": "/petdex/yinyue-2.webp", "submittedBy": "is_coward" },
+    { "slug": "gugugaga-2", "displayName": "咕咕嘎嘎", "spritesheetUrl": "/petdex/gugugaga-2.webp", "submittedBy": "c u." }
+  ],
+  "_hidden_note": "暂时隐藏、后面再打开的宠物。加载器只读 pets，这里的条目不会显示。恢复：把对应条目移回上面的 pets 数组。",
+  "_hidden": [
+    { "slug": "lulu-capybara-2", "displayName": "噜噜", "spritesheetUrl": "/petdex/lulu-capybara-2.webp", "submittedBy": "gitcjp" }
+  ]
+}

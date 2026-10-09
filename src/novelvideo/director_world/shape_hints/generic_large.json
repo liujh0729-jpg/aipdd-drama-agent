@@ -1,0 +1,8 @@
+{
+  "id": "generic_large",
+  "label_zh": "大型占位物",
+  "default_scale": [2.0, 1.6, 1.2],
+  "default_affordances": ["blocking_mass"],
+  "default_attachment_points": [],
+  "sketch_description_zh": "通用大型 staging 占位物，语义由 semantic_label 决定。"
+}

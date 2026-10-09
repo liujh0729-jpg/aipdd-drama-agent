@@ -1,0 +1,493 @@
+"""Killable subprocess helpers for inline project task runners."""
+
+from __future__ import annotations
+
+import contextlib
+import contextvars
+import os
+import signal
+import subprocess
+import threading
+import time
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from novelvideo.egress_context import (
+    TrustedEgressContext,
+    ambient_organization_egress_context,
+)
+from novelvideo.task_backend.cancel import (
+    TaskCancelled,
+    TaskTimedOut,
+    is_cancel_requested_sync,
+)
+
+_TASK_PROCESS_SCOPE: contextvars.ContextVar[dict[str, Any] | None] = (
+    contextvars.ContextVar(
+        "project_task_subprocess_scope",
+        default=None,
+    )
+)
+_REGISTRY_LOCK = threading.Lock()
+_PROCESSES_BY_TASK: dict[str, set[subprocess.Popen]] = {}
+_CANCEL_KILLED_PROCS: set[int] = set()
+
+
+_BOUNDARY_MESSAGES = {
+    "TASK_ENVELOPE_INVALID": "trusted task context is invalid",
+    "ORG_CREDENTIAL_VERSION_MISMATCH": "organization credential version mismatch",
+    "ORG_CREDENTIAL_DECRYPT_FAILED": "organization credential could not be resolved",
+    "EGRESS_OPERATION_NOT_RESTARTED": "existing egress operation cannot be restarted",
+    "ORG_EGRESS_DENIED": "organization egress is denied",
+    "ORG_SERVICE_EGRESS_DENIED": "organization service egress is denied",
+    "ORG_CONTEXT_REQUIRED": "organization context required",
+}
+
+
+class EgressBoundaryError(RuntimeError):
+    """Stable execution-boundary failure without command or secret details."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(_BOUNDARY_MESSAGES.get(code, "egress boundary rejected"))
+        self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class RestrictedSubprocessPolicy:
+    """Exact, caller-owned allowlist for one local command invocation."""
+
+    command: tuple[str, ...]
+    cwd: Path
+    env: dict[str, str]
+
+    def __post_init__(self) -> None:
+        if not self.command or any(
+            type(part) is not str or not part for part in self.command
+        ):
+            raise ValueError("command must contain non-empty strings")
+        if not isinstance(self.cwd, Path) or not self.cwd.is_absolute():
+            raise ValueError("cwd must be an absolute path")
+        if type(self.env) is not dict or any(
+            type(key) is not str or type(value) is not str
+            for key, value in self.env.items()
+        ):
+            raise ValueError("env must contain strings")
+        if any(_is_secret_env_name(key) for key in self.env):
+            raise ValueError("restricted env cannot contain secrets")
+
+
+def _is_secret_env_name(name: str) -> bool:
+    upper = name.upper()
+    return any(
+        marker in upper
+        for marker in ("KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL")
+    )
+
+
+_RESTRICTED_BINARY_NAMES = {
+    "ffmpeg",
+    "ffprobe",
+    "node",
+    "python",
+    "python3",
+    "python3.11",
+    "python3.12",
+}
+
+
+def _has_network_argument(args: Sequence[str]) -> bool:
+    return any(
+        "://" in part or part.lower().startswith(("tcp:", "udp:", "rtmp:", "rtsp:"))
+        for part in args[1:]
+    )
+
+
+def resolve_organization_egress_context(
+    egress_context: TrustedEgressContext | None,
+) -> TrustedEgressContext | None:
+    """Return the organization context in force, or None for platform/personal."""
+
+    if egress_context is None:
+        egress_context = ambient_organization_egress_context()
+    if egress_context is None:
+        return None
+    if type(egress_context) is not TrustedEgressContext:
+        raise EgressBoundaryError("TASK_ENVELOPE_INVALID")
+    return egress_context if egress_context.is_organization else None
+
+
+def require_direct_model_egress_allowed(
+    egress_context: TrustedEgressContext | None,
+) -> None:
+    """Preserve platform behavior and deny direct model egress for organizations."""
+
+    if resolve_organization_egress_context(egress_context) is not None:
+        raise EgressBoundaryError("ORG_EGRESS_DENIED")
+
+
+#: Platform model credentials that must not survive into a gateway-routed child.
+#: `run_project_subprocess` passes ``env=None`` by default, so an uncurated child
+#: inherits the whole parent environment and can resolve a platform key on its own.
+_PLATFORM_MODEL_ENV_NAMES = (
+    "NEWAPI_API_KEY",
+    "NEWAPI_BASE_URL",
+    "MODEL_API_KEY",
+    "MODEL_BASE_URL",
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
+    "OPENROUTER_API_KEY",
+    "OPENROUTER_BASE_URL",
+    "ANTHROPIC_API_KEY",
+    "VOLCENGINE_API_KEY",
+)
+
+ORG_EGRESS_MODE_ENV = "ST_ORG_EGRESS_MODE"
+ORG_GATEWAY_API_KEY_ENV = "ST_ORG_GATEWAY_API_KEY"
+ORG_GATEWAY_BASE_URL_ENV = "ST_ORG_GATEWAY_BASE_URL"
+
+
+def build_model_child_env(
+    source: dict[str, str],
+    *,
+    egress_context: TrustedEgressContext | None,
+    gateway_credential: Any | None = None,
+) -> dict[str, str]:
+    """Build a model child's environment, denying orgs without a gateway credential.
+
+    Identity never crosses the process boundary — a ContextVar does not survive
+    ``fork``/``exec``. Only an already-claimed, already-resolved credential does,
+    and only through this chokepoint. Callers that pass no ``gateway_credential``
+    keep the legacy behavior exactly: platform children unchanged, orgs denied.
+    """
+
+    organization = resolve_organization_egress_context(egress_context)
+    if organization is None:
+        return dict(source)
+    if gateway_credential is None:
+        raise EgressBoundaryError("ORG_EGRESS_DENIED")
+
+    api_key = str(getattr(gateway_credential, "api_key", "") or "").strip()
+    base_url = str(getattr(gateway_credential, "base_url", "") or "").strip()
+    if not api_key or not base_url:
+        raise EgressBoundaryError("ORG_CONTEXT_REQUIRED")
+
+    child = {
+        key: value
+        for key, value in source.items()
+        if key not in _PLATFORM_MODEL_ENV_NAMES
+    }
+    child[ORG_EGRESS_MODE_ENV] = "1"
+    child[ORG_GATEWAY_API_KEY_ENV] = api_key
+    child[ORG_GATEWAY_BASE_URL_ENV] = base_url
+    return child
+
+
+def _restricted_launch_values(
+    *,
+    args: Sequence[str],
+    cwd: str | os.PathLike[str] | None,
+    env: dict[str, str] | None,
+    context: TrustedEgressContext | None,
+    policy: RestrictedSubprocessPolicy | None,
+) -> tuple[str | os.PathLike[str] | None, dict[str, str] | None]:
+    if context is None:
+        return cwd, env
+    if type(context) is not TrustedEgressContext:
+        raise EgressBoundaryError("ORG_SERVICE_EGRESS_DENIED")
+    if not context.is_organization:
+        return cwd, env
+    if type(policy) is not RestrictedSubprocessPolicy:
+        raise EgressBoundaryError("ORG_SERVICE_EGRESS_DENIED")
+    actual_cwd = Path(cwd).resolve() if cwd is not None else None
+    if tuple(args) != policy.command or actual_cwd != policy.cwd.resolve():
+        raise EgressBoundaryError("ORG_SERVICE_EGRESS_DENIED")
+    if Path(str(args[0])).name not in _RESTRICTED_BINARY_NAMES:
+        raise EgressBoundaryError("ORG_SERVICE_EGRESS_DENIED")
+    if _has_network_argument(args):
+        raise EgressBoundaryError("ORG_SERVICE_EGRESS_DENIED")
+    if env is not None and env != policy.env:
+        raise EgressBoundaryError("ORG_SERVICE_EGRESS_DENIED")
+    if any(_is_secret_env_name(key) for key in policy.env):
+        raise EgressBoundaryError("ORG_SERVICE_EGRESS_DENIED")
+    return policy.cwd, dict(policy.env)
+
+
+@contextlib.contextmanager
+def project_task_subprocess_context(
+    *,
+    project_id: str,
+    task_type: str,
+    episode: int,
+    task_id: str,
+    beat_num: int | None = None,
+    scope: str | None = None,
+    deadline_monotonic: float | None = None,
+    timeout_seconds: int | None = None,
+) -> Iterator[None]:
+    token = _TASK_PROCESS_SCOPE.set(
+        {
+            "project_id": project_id,
+            "task_type": task_type,
+            "episode": episode,
+            "task_id": task_id,
+            "beat_num": beat_num,
+            "scope": scope,
+            "deadline_monotonic": deadline_monotonic,
+            "timeout_seconds": timeout_seconds,
+        }
+    )
+    try:
+        yield
+    finally:
+        _TASK_PROCESS_SCOPE.reset(token)
+
+
+def active_subprocess_count(task_id: str | None = None) -> int:
+    with _REGISTRY_LOCK:
+        if task_id is not None:
+            return sum(
+                1
+                for proc in _PROCESSES_BY_TASK.get(task_id, set())
+                if proc.poll() is None
+            )
+        return sum(
+            1
+            for processes in _PROCESSES_BY_TASK.values()
+            for proc in processes
+            if proc.poll() is None
+        )
+
+
+def _register_process(task_id: str, proc: subprocess.Popen) -> None:
+    if not task_id:
+        return
+    with _REGISTRY_LOCK:
+        _PROCESSES_BY_TASK.setdefault(task_id, set()).add(proc)
+
+
+def _unregister_process(task_id: str, proc: subprocess.Popen) -> None:
+    if not task_id:
+        return
+    with _REGISTRY_LOCK:
+        processes = _PROCESSES_BY_TASK.get(task_id)
+        if not processes:
+            return
+        processes.discard(proc)
+        if not processes:
+            _PROCESSES_BY_TASK.pop(task_id, None)
+        _CANCEL_KILLED_PROCS.discard(id(proc))
+
+
+def _mark_cancel_killed(proc: subprocess.Popen) -> None:
+    with _REGISTRY_LOCK:
+        _CANCEL_KILLED_PROCS.add(id(proc))
+
+
+def _consume_cancel_killed(proc: subprocess.Popen) -> bool:
+    with _REGISTRY_LOCK:
+        proc_id = id(proc)
+        if proc_id not in _CANCEL_KILLED_PROCS:
+            return False
+        _CANCEL_KILLED_PROCS.discard(proc_id)
+        return True
+
+
+def _kill_process_group(proc: subprocess.Popen) -> None:
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        # Windows 没有 killpg;taskkill /T 按父子关系终止整棵进程树,
+        # 对齐 POSIX 进程组语义(cancel/deadline 必须连孙进程一起杀)。
+        with contextlib.suppress(Exception):
+            subprocess.run(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                capture_output=True,
+                check=False,
+                timeout=15,
+            )
+        if proc.poll() is None:
+            with contextlib.suppress(Exception):
+                proc.kill()
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    except Exception:
+        with contextlib.suppress(Exception):
+            proc.kill()
+
+
+def kill_task_processes(task_id: str) -> int:
+    with _REGISTRY_LOCK:
+        processes = list(_PROCESSES_BY_TASK.get(task_id, set()))
+    killed = 0
+    for proc in processes:
+        if proc.poll() is None:
+            _mark_cancel_killed(proc)
+            _kill_process_group(proc)
+            killed += 1
+    return killed
+
+
+def _scope_from_envelope(envelope: dict[str, Any] | None) -> dict[str, Any]:
+    if envelope is None:
+        return dict(_TASK_PROCESS_SCOPE.get() or {})
+    payload = envelope.get("payload") or {}
+    return {
+        "project_id": str(envelope.get("project_id") or ""),
+        "task_type": str(envelope.get("task_type") or ""),
+        "episode": int(envelope.get("episode") or payload.get("episode") or 0),
+        "task_id": str(envelope.get("__run_task_id") or ""),
+        "beat_num": envelope.get("beat_num"),
+        "scope": envelope.get("scope") or None,
+        "deadline_monotonic": envelope.get("__deadline_monotonic"),
+        "timeout_seconds": envelope.get("__timeout_seconds"),
+    }
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _cancel_requested_sync(scope: dict[str, Any]) -> bool:
+    task_id = str(scope.get("task_id") or "")
+    if not task_id:
+        return False
+    # [O4] 走同步读出口：避免看门狗每 0.1s 轮询都冷启一个短命事件循环。
+    return is_cancel_requested_sync(
+        project_id=str(scope.get("project_id") or ""),
+        task_type=str(scope.get("task_type") or ""),
+        episode=int(scope.get("episode") or 0),
+        task_id=task_id,
+        beat_num=scope.get("beat_num"),
+        scope=scope.get("scope"),
+    )
+
+
+def _deadline_for(scope: dict[str, Any], timeout: int | float | None) -> float | None:
+    deadlines: list[float] = []
+    scope_deadline = _optional_float(scope.get("deadline_monotonic"))
+    if scope_deadline is not None:
+        deadlines.append(scope_deadline)
+    if timeout is not None:
+        deadlines.append(time.monotonic() + max(float(timeout), 0.001))
+    if not deadlines:
+        return None
+    return min(deadlines)
+
+
+def run_project_subprocess(
+    args: Sequence[str],
+    *,
+    envelope: dict[str, Any] | None = None,
+    timeout: int | float | None = None,
+    capture_output: bool = False,
+    text: bool = False,
+    check: bool = False,
+    cwd: str | os.PathLike[str] | None = None,
+    env: dict[str, str] | None = None,
+    egress_context: TrustedEgressContext | None = None,
+    restricted_policy: RestrictedSubprocessPolicy | None = None,
+    poll_seconds: float = 0.1,
+) -> subprocess.CompletedProcess:
+    """Run a subprocess in its own process group and kill it on cancel/deadline."""
+    # 这里**不**回落到作用域身份：本参数的含义是「调用方已为这条组织命令备好
+    # 受限启动策略」，属调用方准备工作，不是策略判决。全仓 16 个调用点只有
+    # `freezone/jobs.py:503` 传了 `restricted_policy`，回落会让其余 15 处
+    # （`video_composer.py:22`、`generators/video_generator/egress.py` 等本地 ffmpeg）对组织
+    # 一律 `ORG_SERVICE_EGRESS_DENIED`——那些命令不带凭据也不出网，拒掉是功能
+    # 损坏而非安全收益。真正的凭据出网闸门是 `build_model_child_env`，它已回落。
+    restricted = (
+        type(egress_context) is TrustedEgressContext and egress_context.is_organization
+    )
+    cwd, env = _restricted_launch_values(
+        args=args,
+        cwd=cwd,
+        env=env,
+        context=egress_context,
+        policy=restricted_policy,
+    )
+    scope = _scope_from_envelope(envelope)
+    task_id = str(scope.get("task_id") or "")
+    deadline = _deadline_for(scope, timeout)
+    timeout_seconds = _optional_int(scope.get("timeout_seconds"))
+
+    stdout = subprocess.PIPE if capture_output else None
+    stderr = subprocess.PIPE if capture_output else None
+    try:
+        proc = subprocess.Popen(
+            list(args),
+            cwd=cwd,
+            env=env,
+            stdout=stdout,
+            stderr=stderr,
+            text=text,
+            start_new_session=True,
+        )
+    except Exception:
+        if restricted:
+            raise EgressBoundaryError("ORG_SERVICE_EGRESS_DENIED") from None
+        raise
+    _register_process(task_id, proc)
+    try:
+        while True:
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
+                _kill_process_group(proc)
+                with contextlib.suppress(Exception):
+                    proc.communicate(timeout=1)
+                raise TaskTimedOut(
+                    timeout_seconds=timeout_seconds or int(timeout or 30 * 60)
+                )
+            if _cancel_requested_sync(scope):
+                _kill_process_group(proc)
+                with contextlib.suppress(Exception):
+                    proc.communicate(timeout=1)
+                raise TaskCancelled()
+            wait_for = (
+                poll_seconds
+                if remaining is None
+                else min(poll_seconds, max(remaining, 0.001))
+            )
+            try:
+                out, err = proc.communicate(timeout=wait_for)
+                completed = subprocess.CompletedProcess(
+                    list(args), proc.returncode, out, err
+                )
+                if _consume_cancel_killed(proc):
+                    raise TaskCancelled()
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TaskTimedOut(
+                        timeout_seconds=timeout_seconds or int(timeout or 30 * 60)
+                    )
+                if check and completed.returncode != 0:
+                    if restricted:
+                        raise EgressBoundaryError("ORG_SERVICE_EGRESS_DENIED")
+                    raise subprocess.CalledProcessError(
+                        completed.returncode,
+                        completed.args,
+                        output=completed.stdout,
+                        stderr=completed.stderr,
+                    )
+                return completed
+            except subprocess.TimeoutExpired:
+                continue
+    finally:
+        _unregister_process(task_id, proc)

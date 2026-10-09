@@ -1,0 +1,36 @@
+{
+  "name": "capcut-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for CapCut Pro video editing API",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepare": "npm run build"
+  },
+  "bin": {
+    "capcut-mcp-server": "./dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "capcut",
+    "video-editing",
+    "ai",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "express": "^4.18.2",
+    "zod": "^3.22.4",
+    "axios": "^1.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
+  }
+}

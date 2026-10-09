@@ -1,0 +1,75 @@
+name: "🐞 Bug 报告 / Bug Report"
+description: "报告一个可复现的问题 / Report a reproducible problem"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量填全，便于我们复现。
+        Thanks for the report — please fill in as much as you can so we can reproduce it.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: "前置检查 / Pre-flight checks"
+      options:
+        - label: "我已搜索过现有 issue，确认这不是重复 / I searched existing issues and this isn't a duplicate"
+          required: true
+        - label: "我用的是最新版本，或已在下方写明所用 commit / I'm on the latest version, or stated the commit below"
+          required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: "问题描述 / What happened"
+      description: "发生了什么？ / What went wrong?"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: "复现步骤 / Steps to reproduce"
+      placeholder: |
+        1. ...
+        2. ...
+        3. 看到的错误 / the error you see
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "期望行为 / Expected behavior"
+      description: "你期望发生什么？ / What did you expect to happen?"
+    validations:
+      required: false
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: "部署方式 / Deployment"
+      options:
+        - "Docker Compose（官方 DC key / official DC key）"
+        - "Docker Compose（LocalNewAPI / self-hosted gateway）"
+        - "本地源码 / Local from source"
+        - "其他 / Other"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: "版本或 commit / Version or commit"
+      placeholder: "e.g. v0.1.0 / c297cbc"
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: "运行环境 / Environment"
+      description: "OS 与架构、Docker 版本、模型网关与所用模型 / OS & arch, Docker version, model gateway and models in use"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: "相关日志 / Relevant logs"
+      description: "粘贴关键日志，会自动渲染为代码块 / Paste key logs; auto-rendered as a code block"
+      render: shell
+    validations:
+      required: false

@@ -1,0 +1,18 @@
+packages:
+  - "."
+
+# pnpm 11 requires every dependency install/build script to be explicitly reviewed
+# in `allowBuilds`; unreviewed scripts make `pnpm install` fail with
+# ERR_PNPM_IGNORED_BUILDS (this is what broke the Docker `pnpm install` step).
+# This SPA's `vite build` and the nginx runtime need none of these native scripts:
+# esbuild/sharp ship prebuilt platform binaries, and canvas/msw/protobufjs/workerd
+# are never exercised at build time. So they are explicitly disallowed (not built).
+# Flip one to `true` only if a build genuinely starts requiring it.
+allowBuilds:
+  canvas: false
+  esbuild: false
+  msw: false
+  onnxruntime-node: false
+  protobufjs: false
+  sharp: false
+  workerd: false

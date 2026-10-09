@@ -1,0 +1,291 @@
+"""首尾帧过渡提示词生成 Agent。
+
+分析两帧之间的差异，生成描述过渡动作的提示词。
+用于支持首尾帧输入的视频生成模型。
+"""
+
+import io
+import os
+from typing import Optional
+
+from pydantic_ai import Agent, BinaryContent
+from PIL import Image as PILImage
+
+from novelvideo import prompt_library
+from novelvideo.utils.logging import log_agent_start, log_agent_end
+from novelvideo.utils.source_language import asset_language_instruction
+
+# 首尾帧过渡提示词生成器指令（英文版 SuperPower）
+
+def create_keyframe_prompt_builder_agent(language: str = "zh") -> Agent:
+    """创建首尾帧过渡提示词生成 Agent。"""
+    from novelvideo.config import get_newapi_text_pydantic_model
+    from novelvideo.official_defaults import DEFAULT_VIDEO_PROMPT_OPTIMIZER_MODEL
+
+    model = get_newapi_text_pydantic_model(
+        "KEYFRAME_PROMPT_MODEL",
+        DEFAULT_VIDEO_PROMPT_OPTIMIZER_MODEL,
+        capability="text.generate.agent",
+        # [aipdd fork delta] 分析首尾帧差异（带图），隔离到 VISION_MODEL_FALLBACK，
+        # 避免被 TEXT_MODEL_FALLBACK（ap-glm-5.2 等纯文本模型）打成 400。
+        fallback_env="VISION_MODEL_FALLBACK",
+    )
+    return Agent(
+        model,
+        system_prompt=(
+            # [aipdd fork delta] 提示词库覆盖优先（video.keyframe_transition.system）。
+            f"{prompt_library.get_prompt_text('video.keyframe_transition.system')}\n\n"
+            f"## Output Language\n{asset_language_instruction(language)}"
+        ),
+        output_type=str,
+        name="Keyframe Prompt Builder",
+    )
+
+
+class KeyframePromptBuilder:
+    """首尾帧过渡提示词构建器。
+
+    分析两帧之间的差异，生成描述过渡动作的提示词。
+    支持多模态输入：同时分析首帧和尾帧图片。
+
+    示例:
+        >>> builder = KeyframePromptBuilder()
+        >>> prompt = await builder.build(
+        ...     first_frame_path="beat_04.png",
+        ...     last_frame_path="beat_05.png",
+        ...     narration="那熟悉的侧颜，让我的心猛地一颤",
+        ... )
+    """
+
+    def __init__(self):
+        self._agents: dict[str, Agent] = {}  # 按语言缓存 agent
+        self._last_context: str = ""  # 存储上一次生成的上下文
+        # [aipdd fork delta] 提示词库版本，变化时重建 agent 缓存。
+        self._prompt_revision: str | None = None
+
+    @property
+    def last_context(self) -> str:
+        """返回上一次生成提示词时使用的上下文。"""
+        return self._last_context
+
+    def _get_agent(self, language: str = "zh") -> Agent:
+        """获取指定语言的 Agent（懒加载）。"""
+        # [aipdd fork delta] 提示词库覆盖变化后重建 agent，让新 system_prompt 生效。
+        revision = prompt_library.revision()
+        if revision != self._prompt_revision:
+            self._prompt_revision = revision
+            self._agents.clear()
+        if language not in self._agents:
+            self._agents[language] = create_keyframe_prompt_builder_agent(language)
+        return self._agents[language]
+
+    def _compress_image(self, image_path: str, compress_quality: int = 60) -> bytes:
+        """压缩图片并返回 bytes。
+
+        Args:
+            image_path: 图片文件路径
+            compress_quality: JPEG 压缩质量 (1-100)
+
+        Returns:
+            压缩后的图片字节
+        """
+        img = PILImage.open(image_path)
+        original_size = os.path.getsize(image_path)
+
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=compress_quality, optimize=True)
+        image_bytes = buffer.getvalue()
+
+        compressed_size = len(image_bytes)
+        ratio = (1 - compressed_size / original_size) * 100
+        print(
+            f"[KeyframePromptBuilder] 压缩图片: {os.path.basename(image_path)}: "
+            f"{original_size/1024:.0f}KB → {compressed_size/1024:.0f}KB "
+            f"({ratio:.0f}% 压缩)"
+        )
+
+        return image_bytes
+
+    async def build(
+        self,
+        first_frame_path: str,
+        last_frame_path: str,
+        narration: str,
+        next_narration: str = "",
+        language: str = "zh",
+        color_map_text: str = "",
+        visual_description: str = "",
+        next_visual_description: str = "",
+        audio_type: str = "narration",
+        dialogue_line: str = "",
+    ) -> str:
+        """生成首尾帧过渡提示词。
+
+        Args:
+            first_frame_path: 当前 beat 首帧路径
+            last_frame_path: 下一个 beat 首帧路径
+            narration: 当前 beat 解说词
+            next_narration: 下一个 beat 解说词（可选，提供更多上下文）
+            language: 输出语言，"en" 英文，"zh" 中文
+        Returns:
+            首尾帧过渡提示词
+        """
+        # 验证图片存在
+        if not os.path.exists(first_frame_path):
+            raise FileNotFoundError(f"First frame not found: {first_frame_path}")
+        if not os.path.exists(last_frame_path):
+            raise FileNotFoundError(f"Last frame not found: {last_frame_path}")
+
+        # 压缩首尾帧图片
+        first_frame_bytes = self._compress_image(first_frame_path)
+        last_frame_bytes = self._compress_image(last_frame_path)
+
+        first_frame_image = BinaryContent(
+            data=first_frame_bytes, media_type="image/jpeg"
+        )  # 首帧
+        last_frame_image = BinaryContent(
+            data=last_frame_bytes, media_type="image/jpeg"
+        )  # 尾帧
+
+        # 构建 dialogue 提示
+        dialogue_hint = ""
+        if audio_type == "dialogue" and dialogue_line:
+            dialogue_hint = f"\n⚠️ This Beat is DIALOGUE — speaking is the primary motion. Describe lips moving, gestures while talking. Dialogue text is appended by the system; only describe physical action.\n"
+
+        # 构建任务提示
+        if language == "en":
+            output_label = "English"
+            length_target = "4-6 sentences, ~50-90 words"
+        else:
+            output_label = "Chinese (中文)"
+            length_target = "4-6 句, ~50-90 字"
+        language_instruction = asset_language_instruction(language)
+
+        if color_map_text:
+            # English + color map mode (SuperPower)
+            task = f"""Craft a 5-second transition between these two sketches in {output_label} ({length_target}).
+
+## Images
+- Image 1: First sketch (starting point)
+- Image 2: Last sketch (ending point)
+
+## Character Color Map (sketch color marks → character appearance)
+{color_map_text}
+
+## First Frame Visual Description
+{visual_description if visual_description else "N/A"}
+## Last Frame Visual Description
+{next_visual_description if next_visual_description else "N/A"}
+
+## Narration (Story Intent)
+{narration}
+"""
+            if next_narration:
+                task += f"\n## Next Narration (Emotional Direction)\n{next_narration}\n"
+            task += f"""{dialogue_hint}
+## Rules
+- Identify characters by color marks, NEVER use character names
+- Camera must have displacement/zoom, describe camera endpoint
+- NO emotion labels → use body language
+- Include ambient audio layer
+- {length_target}
+
+## Output Language
+{language_instruction}
+
+Output the transition prompt in {output_label} directly."""
+        else:
+            task = f"""Craft an imaginative 5-second transition between these two frames in {output_label} ({length_target}).
+
+## Images
+- Image 1: First frame (starting point)
+- Image 2: Last frame (ending point)
+
+## Narration (Story Intent)
+{narration}
+"""
+            if next_narration:
+                task += f"\n## Next Narration (Emotional Direction)\n{next_narration}\n"
+            task += f"""{dialogue_hint}
+## Rules
+- Describe visible element transitions from the frames
+- Camera must have displacement/zoom, describe camera endpoint
+- NO character names → use visual features
+- NO emotion labels → use body language
+- Include ambient audio layer
+- {length_target}
+
+## Output Language
+{language_instruction}
+
+Output the transition prompt in {output_label} directly."""
+
+        lang_hint = output_label
+        log_agent_start("首尾帧过渡提示词生成师", f"生成过渡描述 ({lang_hint})")
+
+        # 存储上下文供调试
+        self._last_context = task
+
+        try:
+            agent = self._get_agent(language)
+            response = await agent.run([task, first_frame_image, last_frame_image])
+
+            # 提取过渡描述
+            result = (
+                response.output.strip() if response.output else str(response).strip()
+            )
+
+            # 检测错误响应
+            error_indicators = [
+                "ClientResponse",
+                "Service Unavailable",
+                "503",
+                "500",
+                "UNAVAILABLE",
+                "overloaded",
+            ]
+            if any(indicator in result for indicator in error_indicators):
+                raise RuntimeError(f"API 返回错误响应: {result[:200]}")
+
+            log_agent_end(
+                "首尾帧过渡提示词生成师", success=True, result=f"{len(result)}字"
+            )
+            # dialogue beat：追加台词内容
+            if audio_type == "dialogue" and dialogue_line:
+                if language == "en":
+                    result = f'{result} Says: "{dialogue_line}"'
+                else:
+                    result = f"{result}，说：{dialogue_line}"
+            return result
+
+        except Exception as e:
+            log_agent_end("首尾帧过渡提示词生成师", success=False, result=str(e))
+            # 失败时回退到默认提示词
+            return self._fallback_build(language)
+
+    def _fallback_build(
+        self,
+        language: str = "zh",
+    ) -> str:
+        """回退方案：生成默认过渡提示词。"""
+        if language == "en":
+            return (
+                "The character adjusts their posture naturally as the camera "
+                "tracks the movement into a smooth transition."
+            )
+        return "角色姿态自然调整，身体轻微移动，镜头平稳跟随，场景渐变过渡。"
+
+
+# 模块级单例
+_keyframe_prompt_builder: Optional[KeyframePromptBuilder] = None
+
+
+def get_keyframe_prompt_builder() -> KeyframePromptBuilder:
+    """获取 KeyframePromptBuilder 单例。"""
+    global _keyframe_prompt_builder
+    if _keyframe_prompt_builder is None:
+        _keyframe_prompt_builder = KeyframePromptBuilder()
+    return _keyframe_prompt_builder

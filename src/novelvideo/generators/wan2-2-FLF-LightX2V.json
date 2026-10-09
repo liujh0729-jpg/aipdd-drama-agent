@@ -1,0 +1,477 @@
+{
+  "6": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码器 (正向)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "色调艳丽，过曝，静态，场景切换,细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码器 (负向)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "58",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "38": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "CLIP加载器"
+    }
+  },
+  "39": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAE加载器"
+    }
+  },
+  "54": {
+    "inputs": {
+      "shift": 8.000000000000002,
+      "model": [
+        "69",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "模型采样算法SD3 (高噪声)"
+    }
+  },
+  "55": {
+    "inputs": {
+      "shift": 8,
+      "model": [
+        "68",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "模型采样算法SD3 (低噪声)"
+    }
+  },
+  "56": {
+    "inputs": {
+      "unet_name": "Wan/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "fp8_e4m3fn_fast"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNET加载器 (低噪声)"
+    }
+  },
+  "57": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 1014889645523476,
+      "steps": 6,
+      "cfg": 1,
+      "sampler_name": "lcm",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": 3,
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "54",
+        0
+      ],
+      "positive": [
+        "122",
+        0
+      ],
+      "negative": [
+        "122",
+        1
+      ],
+      "latent_image": [
+        "122",
+        2
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "K采样器(高级) - 高噪声"
+    }
+  },
+  "58": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 0,
+      "steps": 6,
+      "cfg": 1,
+      "sampler_name": "lcm",
+      "scheduler": "simple",
+      "start_at_step": 3,
+      "end_at_step": 10000,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "55",
+        0
+      ],
+      "positive": [
+        "122",
+        0
+      ],
+      "negative": [
+        "122",
+        1
+      ],
+      "latent_image": [
+        "57",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "K采样器(高级) - 低噪声"
+    }
+  },
+  "63": {
+    "inputs": {
+      "lora_name": "Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors",
+      "strength_model": 5.000000000000001,
+      "model": [
+        "71",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器(仅模型)"
+    }
+  },
+  "67": {
+    "inputs": {
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "video/ComfyUI",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "合并为视频"
+    }
+  },
+  "68": {
+    "inputs": {
+      "sage_attention": "sageattn_qk_int8_pv_fp16_triton",
+      "allow_compile": false,
+      "model": [
+        "74",
+        0
+      ]
+    },
+    "class_type": "PathchSageAttentionKJ",
+    "_meta": {
+      "title": "Patch Sage Attention KJ (低噪声)"
+    }
+  },
+  "69": {
+    "inputs": {
+      "nag_scale": 11,
+      "nag_alpha": 0.25,
+      "nag_tau": 2.5,
+      "input_type": "default",
+      "model": [
+        "70",
+        0
+      ],
+      "conditioning": [
+        "122",
+        1
+      ]
+    },
+    "class_type": "WanVideoNAG",
+    "_meta": {
+      "title": "WanVideoNAG"
+    }
+  },
+  "70": {
+    "inputs": {
+      "model": [
+        "72",
+        0
+      ]
+    },
+    "class_type": "CFGZeroStar",
+    "_meta": {
+      "title": "CFGZeroStar"
+    }
+  },
+  "71": {
+    "inputs": {
+      "unet_name": "Wan/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "fp8_e4m3fn_fast"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNET加载器 (高噪声)"
+    }
+  },
+  "72": {
+    "inputs": {
+      "lora_name": "Wan/Wan22_PusaV1_lora_HIGH_resized_dynamic_avg_rank_98_bf16.safetensors",
+      "strength_model": 1.5000000000000002,
+      "model": [
+        "63",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器(仅模型)"
+    }
+  },
+  "74": {
+    "inputs": {
+      "lora_name": "Wan/Wan22_PusaV1_lora_LOW_resized_dynamic_avg_rank_98_bf16.safetensors",
+      "strength_model": 1.3000000000000003,
+      "model": [
+        "129",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器(仅模型)"
+    }
+  },
+  "93": {
+    "inputs": {
+      "width": [
+        "112",
+        0
+      ],
+      "height": [
+        "114",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "keep_proportion": "crop",
+      "pad_color": "0, 0, 0",
+      "crop_position": "center",
+      "divisible_by": 2,
+      "device": "cpu",
+      "image": [
+        "119",
+        0
+      ]
+    },
+    "class_type": "ImageResizeKJv2",
+    "_meta": {
+      "title": "缩放首帧图像"
+    }
+  },
+  "108": {
+    "inputs": {
+      "clip_name": "clip_vision_h.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "CLIP视觉加载器"
+    }
+  },
+  "112": {
+    "inputs": {
+      "value": 720
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "宽度"
+    }
+  },
+  "114": {
+    "inputs": {
+      "value": 1280
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "高度"
+    }
+  },
+  "119": {
+    "inputs": {
+      "image": "first_frame.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载首帧"
+    }
+  },
+  "122": {
+    "inputs": {
+      "width": [
+        "112",
+        0
+      ],
+      "height": [
+        "114",
+        0
+      ],
+      "length": 81,
+      "batch_size": 1,
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ],
+      "clip_vision_start_image": [
+        "123",
+        0
+      ],
+      "clip_vision_end_image": [
+        "124",
+        0
+      ],
+      "start_image": [
+        "93",
+        0
+      ],
+      "end_image": [
+        "126",
+        0
+      ]
+    },
+    "class_type": "WanFirstLastFrameToVideo",
+    "_meta": {
+      "title": "WanFirstLastFrameToVideo"
+    }
+  },
+  "123": {
+    "inputs": {
+      "crop": "center",
+      "clip_vision": [
+        "108",
+        0
+      ],
+      "image": [
+        "93",
+        0
+      ]
+    },
+    "class_type": "CLIPVisionEncode",
+    "_meta": {
+      "title": "CLIP视觉编码 (首帧)"
+    }
+  },
+  "124": {
+    "inputs": {
+      "crop": "center",
+      "clip_vision": [
+        "108",
+        0
+      ],
+      "image": [
+        "126",
+        0
+      ]
+    },
+    "class_type": "CLIPVisionEncode",
+    "_meta": {
+      "title": "CLIP视觉编码 (尾帧)"
+    }
+  },
+  "125": {
+    "inputs": {
+      "image": "last_frame.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载尾帧"
+    }
+  },
+  "126": {
+    "inputs": {
+      "width": [
+        "112",
+        0
+      ],
+      "height": [
+        "114",
+        0
+      ],
+      "upscale_method": "nearest-exact",
+      "keep_proportion": "crop",
+      "pad_color": "0, 0, 0",
+      "crop_position": "center",
+      "divisible_by": 2,
+      "device": "cpu",
+      "image": [
+        "125",
+        0
+      ]
+    },
+    "class_type": "ImageResizeKJv2",
+    "_meta": {
+      "title": "缩放尾帧图像"
+    }
+  },
+  "129": {
+    "inputs": {
+      "lora_name": "Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors",
+      "strength_model": 2.0000000000000004,
+      "model": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器(仅模型)"
+    }
+  }
+}

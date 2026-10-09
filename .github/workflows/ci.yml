@@ -1,0 +1,52 @@
+name: ci
+
+# INFRA-01：CI 地基。安装 uv（启用依赖缓存，按 uv.lock 取键）、校验锁文件一致性、
+# 按锁文件安装依赖。依赖含 torch/cuda（约 1GB）：首跑写满缓存，之后 run 命中缓存。
+# 在同一 job 内复用已装好的依赖，跑 ruff lint（必过门，存量走基线豁免）+ 端口闭合守栏 + pytest。
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv (with cache)
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Verify lockfile is in sync with pyproject
+        run: uv lock --check
+      - name: Install dependencies (frozen, populates/restores cache)
+        run: uv sync --frozen
+      # REPO-09：端口闭合守栏（cp-port）。ST_EDITION=ce 下所有 ports.* 须由
+      # novelvideo.ports.local.* 满足、无外部适配器。需装好依赖故挂在 deps job。
+      - name: Check port closure
+        run: uv run python scripts/check_ce_port_closure.py
+      # Lint：合入必过门，只管新增代码——存量以 per-file-ignores 基线豁免（见
+      # pyproject [tool.ruff.lint.per-file-ignores]），逐文件治理、修完删条目。
+      # 规则集冻结在 pyproject，ruff 版本锁定于 dev 依赖组，CI 与本地同版。
+      - name: Lint (ruff)
+        run: uv run ruff check --output-format=github .
+      # 单元测试：pytest 默认 addopts 已排除 ee/e2e；-n auto 走 xdist 并行。
+      - name: Run tests
+        run: uv run pytest -n auto
+
+  # i18n 棘轮：后端面向前端的进度/日志/toast 文案不许再新增硬编码中文。
+  # 只认 scripts/backend_i18n_allowlist.json 里的存量预算，且只许降不许升。
+  # 纯 AST 扫描不需要业务依赖，所以独立成 job，不等 deps 装 torch。
+  backend-i18n-ratchet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check for hardcoded Chinese in backend user-facing copy
+        run: python3 scripts/check_backend_i18n.py

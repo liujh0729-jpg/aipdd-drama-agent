@@ -1,0 +1,35 @@
+name: "📝 文档问题 / Documentation"
+description: "报告文档缺失、过时或写错 / Report missing, outdated, or incorrect docs"
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: location
+    attributes:
+      label: "涉及的文档 / Affected docs"
+      description: "页面链接或文件路径，如 docs/getting-started/quickstart.md / Page link or file path"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: "类型 / Kind"
+      options:
+        - "内容缺失 / Missing"
+        - "已过时 / Outdated"
+        - "有错误 / Incorrect"
+        - "不清楚 / 易误解 / Unclear or confusing"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: "问题 / What's wrong"
+      description: "缺什么、哪里过时、哪里写错 / What's missing, outdated, or incorrect"
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: "建议改法 / Suggested fix"
+    validations:
+      required: false

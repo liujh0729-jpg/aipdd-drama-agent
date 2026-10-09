@@ -1,0 +1,25 @@
+{
+  "id": "long_vehicle",
+  "label_zh": "长载具",
+  "default_scale": [1.2, 1.4, 3.6],
+  "default_affordances": ["seatable", "blocking_mass"],
+  "default_attachment_points": [
+    {
+      "id": "passenger_front",
+      "kind": "seat",
+      "offset": [0, 0.7, 0.8],
+      "facing_delta": 0,
+      "actor_state": "sitting",
+      "description_zh": "前座"
+    },
+    {
+      "id": "passenger_back",
+      "kind": "seat",
+      "offset": [0, 0.7, -0.8],
+      "facing_delta": 0,
+      "actor_state": "sitting",
+      "description_zh": "后座"
+    }
+  ],
+  "sketch_description_zh": "长形载具或轿类 staging 轮廓，真实物件由 semantic_label 决定。"
+}

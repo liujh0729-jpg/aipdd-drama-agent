@@ -1,0 +1,540 @@
+"""Celery runner for character portrait and identity image assets."""
+
+from __future__ import annotations
+
+import asyncio
+import re
+import shutil
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from novelvideo.project_context import ProjectContext
+from novelvideo.task_backend.cancel import await_envelope_with_cancel_watch
+from novelvideo.task_backend.registry import register_project_task_runner
+from novelvideo.task_state import get_task_manager
+from novelvideo.egress_context import (
+    TRUSTED_EGRESS_CONTEXT_KEY,
+    TrustedEgressContext,
+    TrustedRunnerEnvelope,
+)
+
+
+def _image_egress_context(envelope: dict[str, Any]) -> TrustedEgressContext | None:
+    if type(envelope) is not TrustedRunnerEnvelope:
+        return None
+    context = envelope.get(TRUSTED_EGRESS_CONTEXT_KEY)
+    if type(context) is not TrustedEgressContext:
+        raise TypeError("trusted runner envelope is missing egress context")
+    return context
+
+
+def _safe_asset_name(name: str) -> str:
+    return re.sub(r'[/\\:*?"<>|]', "_", str(name or "").strip()) or "untitled"
+
+
+def _strip_known_style_prefix(prompt: str) -> str:
+    text = str(prompt or "").strip()
+    prefixes = [
+        "写实古装剧风格，",
+        "写实古装剧风格,",
+        "anime style,",
+        "anime风格，",
+        "动漫风格，",
+        "蜘蛛宇宙风格，",
+        "蜘蛛宇宙风格,",
+        "realistic style,",
+        "chinese period drama style,",
+    ]
+    for prefix in prefixes:
+        if text.lower().startswith(prefix.lower()):
+            return text[len(prefix) :].strip()
+    return text
+
+
+def _asset_suffix() -> str:
+    return datetime.now().strftime("%Y%m%d%H%M%S%f")
+
+
+def _archive_existing_asset(path: Path) -> Path | None:
+    if not path.exists():
+        return None
+    archived = path.with_name(f"{path.stem}_{_asset_suffix()}{path.suffix}")
+    path.replace(archived)
+    return archived
+
+
+def _replace_canonical_asset(source_path: Path, target_path: Path) -> Path:
+    if not source_path.exists() or source_path.stat().st_size <= 0:
+        raise RuntimeError("图像模型未返回有效文件")
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    archived = _archive_existing_asset(target_path)
+    try:
+        shutil.move(str(source_path), str(target_path))
+    except Exception:
+        if archived is not None and archived.exists() and not target_path.exists():
+            archived.replace(target_path)
+        raise
+    return target_path
+
+
+def _find_identity(character, identity_id: str, identity_name: str):
+    for identity in character.identities or []:
+        if identity_id and identity.identity_id == identity_id:
+            return identity
+        if identity_name and identity.identity_name == identity_name:
+            return identity
+    return None
+
+
+def run_character_image(envelope: dict[str, Any], ctx: ProjectContext) -> dict[str, Any] | None:
+    return asyncio.run(
+        await_envelope_with_cancel_watch(
+            _run_character_image(envelope, ctx),
+            envelope,
+            task_type=str(envelope.get("task_type") or "character_portrait"),
+        )
+    )
+
+
+async def _run_character_image(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+) -> dict[str, Any] | None:
+    from novelvideo.cognee import CogneeStore
+    from novelvideo.project_config import load_project_config_file_from_state_dir
+
+    payload = envelope.get("payload") or {}
+    mode = str(payload["mode"])
+    character_name = str(payload["character_name"])
+    identity_id = str(payload.get("identity_id") or "")
+    identity_name = str(payload.get("identity_name") or "")
+    style = str(payload.get("style") or "")
+    model = str(payload.get("model") or "")
+    output_dir = Path(str(payload.get("output_dir") or ctx.output_dir))
+    task_type = str(envelope.get("task_type") or payload.get("task_type") or "character_portrait")
+    scope = envelope.get("scope") or payload.get("scope")
+    manager = get_task_manager()
+    egress_context = _image_egress_context(envelope)
+
+    def update(progress: float, current_task: str) -> None:
+        manager.update_progress_for_project(
+            ctx,
+            task_type,
+            0,
+            scope=scope,
+            progress=progress,
+            current_task=current_task,
+            logs=[current_task],
+        )
+
+    update(0.10, "加载角色数据...")
+    store = CogneeStore(
+        ctx.owner_project_label,
+        output_dir=str(output_dir),
+        state_dir=str(ctx.state_dir),
+    )
+    await store.initialize()
+    await store.load_graph_state()
+    try:
+        character = await store.get_character_from_graph(character_name)
+        if character is None:
+            raise RuntimeError(f"找不到角色: {character_name}")
+        project_config = load_project_config_file_from_state_dir(ctx.state_dir)
+        ethnicity = project_config.get("ethnicity", "Chinese")
+
+        update(0.25, "准备生成参数...")
+        if mode == "portrait":
+            output_path = await _generate_character_portrait(
+                character=character,
+                ethnicity=ethnicity,
+                state_dir=str(ctx.state_dir),
+                output_dir=output_dir,
+                style=style,
+                model=model,
+                task_type=task_type,
+                scope=str(scope or ""),
+                update=update,
+                egress_context=egress_context,
+            )
+        elif mode == "identity_portrait":
+            output_path = await _generate_identity_portrait(
+                store=store,
+                character=character,
+                ethnicity=ethnicity,
+                state_dir=str(ctx.state_dir),
+                identity_id=identity_id,
+                identity_name=identity_name,
+                output_dir=output_dir,
+                style=style,
+                model=model,
+                task_type=task_type,
+                scope=str(scope or ""),
+                update=update,
+                egress_context=egress_context,
+            )
+        elif mode == "identity_image":
+            output_path = await _generate_identity_image(
+                character=character,
+                ethnicity=ethnicity,
+                state_dir=str(ctx.state_dir),
+                identity_id=identity_id,
+                identity_name=identity_name,
+                output_dir=output_dir,
+                style=style,
+                model=model,
+                task_type=task_type,
+                scope=str(scope or ""),
+                update=update,
+                egress_context=egress_context,
+            )
+        elif mode == "identity_face_mat":
+            # [aipdd fork delta] 五官垫图（1:1 画布 4×4 网格设定表）。
+            output_path = await _generate_identity_face_mat(
+                store=store,
+                character=character,
+                state_dir=str(ctx.state_dir),
+                identity_id=identity_id,
+                identity_name=identity_name,
+                output_dir=output_dir,
+                style=style,
+                model=model,
+                task_type=task_type,
+                scope=str(scope or ""),
+                update=update,
+                egress_context=egress_context,
+            )
+        else:
+            raise RuntimeError(f"未知角色图像生成模式: {mode}")
+        if mode == "portrait":
+            await store.sqlite_store.touch_character_asset(character.name)
+        return {
+            "mode": mode,
+            "character_name": character.name,
+            "identity_id": identity_id,
+            "identity_name": identity_name,
+            "path": str(output_path),
+        }
+    finally:
+        await store.close()
+
+
+async def _generate_character_portrait(
+    *,
+    character,
+    ethnicity: str,
+    state_dir: str,
+    output_dir: Path,
+    style: str,
+    model: str,
+    task_type: str,
+    scope: str,
+    update,
+    egress_context: TrustedEgressContext | None = None,
+) -> Path:
+    from novelvideo.generators import generate_character_reference_unified
+
+    face_prompt = str(character.face_prompt or "").strip()
+    if not face_prompt:
+        raise RuntimeError("请先设置面部特征 (face_prompt)")
+    char_assets_dir = output_dir / "assets" / "characters" / character.name
+    portrait_path = char_assets_dir / "portrait.png"
+    temp_dir = char_assets_dir / f".tmp_portrait_{_asset_suffix()}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        update(0.45, "调用图像模型生成角色 Portrait...")
+        paths = await generate_character_reference_unified(
+            character_name=character.name,
+            appearance_prompt=_strip_known_style_prefix(face_prompt),
+            output_dir=str(temp_dir),
+            count=1,
+            use_mock=False,
+            style=style,
+            ethnicity=ethnicity,
+            model=model,
+            project_dir=str(output_dir),
+            state_dir=state_dir,
+            usage_task_type=task_type,
+            usage_scope=scope,
+            raise_on_error=True,
+            egress_context=egress_context,
+        )
+        if not paths:
+            raise RuntimeError("角色 Portrait 生成失败")
+        return _replace_canonical_asset(Path(paths[0]), portrait_path)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+async def _generate_identity_portrait(
+    *,
+    store,
+    character,
+    ethnicity: str,
+    state_dir: str,
+    identity_id: str,
+    identity_name: str,
+    output_dir: Path,
+    style: str,
+    model: str,
+    task_type: str,
+    scope: str,
+    update,
+    egress_context: TrustedEgressContext | None = None,
+) -> Path:
+    from novelvideo.generators import generate_character_reference_unified
+
+    identity = _find_identity(character, identity_id, identity_name)
+    if identity is None:
+        raise RuntimeError(f"找不到身份: {identity_id or identity_name}")
+    face_prompt = str(identity.face_prompt or "").strip()
+    if not face_prompt:
+        raise RuntimeError("该身份无 face_prompt，无需独立 Portrait")
+    safe_name = _safe_asset_name(identity.identity_name)
+    id_dir = output_dir / "assets" / "characters" / character.name / "identities"
+    portrait_path = id_dir / f"{character.name}_{safe_name}_portrait.png"
+    temp_dir = id_dir / f".tmp_identity_portrait_{safe_name}_{_asset_suffix()}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        update(0.45, "调用图像模型生成身份 Portrait...")
+        paths = await generate_character_reference_unified(
+            character_name=character.name,
+            appearance_prompt=_strip_known_style_prefix(face_prompt),
+            output_dir=str(temp_dir),
+            count=1,
+            use_mock=False,
+            style=style,
+            ethnicity=ethnicity,
+            model=model,
+            project_dir=str(output_dir),
+            state_dir=state_dir,
+            usage_task_type=task_type,
+            usage_scope=scope,
+            identity_name=identity.identity_name,
+            raise_on_error=True,
+            egress_context=egress_context,
+        )
+        if not paths:
+            raise RuntimeError("身份 Portrait 生成失败")
+        _replace_canonical_asset(Path(paths[0]), portrait_path)
+        await store.update_character_identity(
+            character.name,
+            identity.identity_id,
+            portrait_image=str(portrait_path),
+        )
+        return portrait_path
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+async def _generate_identity_face_mat(
+    *,
+    store,
+    character,
+    state_dir: str,
+    identity_id: str,
+    identity_name: str,
+    output_dir: Path,
+    style: str,
+    model: str,
+    task_type: str,
+    scope: str,
+    update,
+    egress_context: TrustedEgressContext | None = None,
+) -> Path:
+    """[aipdd fork delta] 生成身份级五官垫图（1:1 画布 4×4 网格设定表）。
+
+    参考图优先级：造型三视图 > 角色 Portrait > 身份 Portrait；三都没有就提示先生成。
+    造型三视图排在首位：五官垫图要复刻头肩比与服装，单靠脸部特写给不出身体比例。
+    """
+    from novelvideo.generators import generate_face_mat_image_unified
+    from novelvideo.utils.path_resolver import (
+        canonical_identity_face_mat_path,
+        compute_identity_face_mat_path,
+        compute_identity_path,
+        compute_identity_portrait_path,
+    )
+
+    identity = _find_identity(character, identity_id, identity_name)
+    if identity is None:
+        raise RuntimeError(f"找不到身份: {identity_id or identity_name}")
+
+    char_assets_dir = output_dir / "assets" / "characters" / character.name
+    identity_dir = char_assets_dir / "identities"
+    identity_dir.mkdir(parents=True, exist_ok=True)
+
+    update(0.35, "定位参考图（造型三视图优先）...")
+    reference_candidates = [
+        # [aipdd fork delta] 倒序：造型三视图是完整身份档案（脸 + 头肩比 + 服装），
+        # 优先拿它做锚点；Portrait 只负责补脸部细节，降到第二顺位。
+        compute_identity_path(output_dir, character.name, identity.identity_name),
+        str(char_assets_dir / "portrait.png"),
+        compute_identity_portrait_path(
+            output_dir, character.name, identity.identity_name
+        )
+        or str(identity.portrait_image or ""),
+    ]
+    reference_image_path = next(
+        (path for path in reference_candidates if path and Path(path).exists()),
+        "",
+    )
+    if not reference_image_path:
+        raise RuntimeError(
+            f"请先为角色「{character.name}」生成造型三视图或 Portrait（面部特写），"
+            "或上传身份脸部参考图"
+        )
+
+    face_desc = str(identity.face_prompt or character.face_prompt or "").strip()
+    appearance = str(identity.appearance_details or "").strip()
+    description = str(getattr(character, "description", "") or "").strip()
+    character_prompt = "\n".join(
+        part
+        for part in [
+            f"FACE: {face_desc}" if face_desc else "",
+            f"OUTFIT & HAIR: {appearance}" if appearance else "",
+            f"CHARACTER: {description}" if description else "",
+        ]
+        if part
+    )
+    if not character_prompt:
+        raise RuntimeError("请先填写角色外貌描述（face_prompt / 服装描述）")
+
+    safe_name = _safe_asset_name(identity.identity_name)
+    existing = compute_identity_face_mat_path(
+        output_dir, character.name, identity.identity_name
+    )
+    face_mat_path = Path(existing) if existing else canonical_identity_face_mat_path(
+        output_dir, character.name, identity.identity_name
+    )
+    temp_output_path = (
+        identity_dir / f".tmp_{character.name}_{safe_name}_face_mat_{_asset_suffix()}.png"
+    )
+
+    update(0.45, "调用图像模型生成五官垫图...")
+    try:
+        success = await generate_face_mat_image_unified(
+            character_name=character.name,
+            character_prompt=_strip_known_style_prefix(character_prompt),
+            reference_image_path=reference_image_path,
+            output_path=str(temp_output_path),
+            character_tag=str(identity.character_tag or ""),
+            style=style,
+            model=model,
+            project_dir=str(output_dir),
+            state_dir=state_dir,
+            usage_task_type=task_type,
+            usage_scope=scope,
+            identity_name=identity.identity_name,
+            raise_on_error=True,
+            egress_context=egress_context,
+        )
+        if not success or not temp_output_path.exists():
+            raise RuntimeError("五官垫图生成失败")
+        _replace_canonical_asset(temp_output_path, face_mat_path)
+        await store.update_character_identity(
+            character.name,
+            identity.identity_id,
+            face_mat_image=str(face_mat_path),
+        )
+        return face_mat_path
+    finally:
+        temp_output_path.unlink(missing_ok=True)
+
+
+async def _generate_identity_image(
+    *,
+    character,
+    ethnicity: str,
+    state_dir: str,
+    identity_id: str,
+    identity_name: str,
+    output_dir: Path,
+    style: str,
+    model: str,
+    task_type: str,
+    scope: str,
+    update,
+    egress_context: TrustedEgressContext | None = None,
+) -> Path:
+    from novelvideo.generators import generate_identity_image_unified
+    from novelvideo.utils.path_resolver import (
+        compute_identity_costume_path,
+        compute_identity_portrait_path,
+    )
+
+    identity = _find_identity(character, identity_id, identity_name)
+    if identity is None:
+        raise RuntimeError(f"找不到身份: {identity_id or identity_name}")
+
+    appearance_details = str(identity.appearance_details or "").strip()
+    costume_image = compute_identity_costume_path(
+        output_dir, character.name, identity.identity_name
+    ) or str(identity.costume_image or "")
+    identity_portrait = compute_identity_portrait_path(
+        output_dir, character.name, identity.identity_name
+    ) or str(identity.portrait_image or "")
+    has_costume_image = bool(costume_image and Path(costume_image).exists())
+    has_identity_portrait = bool(identity_portrait and Path(identity_portrait).exists())
+    if not appearance_details and not has_costume_image:
+        raise RuntimeError("请先设置身份服装描述或上传服装参考图")
+
+    safe_name = _safe_asset_name(identity.identity_name)
+    char_assets_dir = output_dir / "assets" / "characters" / character.name
+    identity_dir = char_assets_dir / "identities"
+    identity_dir.mkdir(parents=True, exist_ok=True)
+    output_path = identity_dir / f"{safe_name}.png"
+    temp_output_path = identity_dir / f".tmp_{safe_name}_{_asset_suffix()}.png"
+
+    identity_age = str(identity.age_group or "").strip()
+    char_age = str(character.age_group or "youth").strip() or "youth"
+    if identity_age and identity_age != char_age:
+        if has_identity_portrait:
+            identity_prompt = "" if has_costume_image else appearance_details
+            reference_image_path = identity_portrait
+        else:
+            face_override = str(identity.face_prompt or "").strip()
+            identity_prompt = (
+                face_override
+                if has_costume_image
+                else "\n".join(part for part in [face_override, appearance_details] if part)
+            )
+            reference_image_path = ""
+    else:
+        portrait_path = char_assets_dir / "portrait.png"
+        if not portrait_path.exists():
+            raise RuntimeError(f"请先为角色「{character.name}」生成 Portrait（面部特写）")
+        identity_prompt = "" if has_costume_image else appearance_details
+        reference_image_path = str(portrait_path)
+
+    update(0.45, "调用图像模型生成身份图...")
+    try:
+        result = await generate_identity_image_unified(
+            character_name=character.name,
+            identity_prompt=_strip_known_style_prefix(identity_prompt),
+            reference_image_path=reference_image_path,
+            output_path=str(temp_output_path),
+            character_tag=str(identity.character_tag or ""),
+            ethnicity=ethnicity,
+            style=style,
+            model=model,
+            project_dir=str(output_dir),
+            state_dir=state_dir,
+            costume_image_path=costume_image if has_costume_image else "",
+            usage_task_type=task_type,
+            usage_scope=scope,
+            identity_name=identity.identity_name,
+            raise_on_error=True,
+            egress_context=egress_context,
+        )
+        success = bool(result.get("success", False)) if isinstance(result, dict) else bool(result)
+        if not success:
+            raise RuntimeError("身份图生成失败")
+        return _replace_canonical_asset(temp_output_path, output_path)
+    finally:
+        temp_output_path.unlink(missing_ok=True)
+        temp_body_path = temp_output_path.with_name(f"{temp_output_path.stem}_body_temp.png")
+        temp_body_path.unlink(missing_ok=True)
+
+
+register_project_task_runner("character_portrait", run_character_image)
+register_project_task_runner("identity_image", run_character_image)

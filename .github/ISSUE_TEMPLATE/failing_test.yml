@@ -1,0 +1,35 @@
+name: "🔬 失败 / 不稳定的测试 / Failing or Flaky Test"
+description: "报告挂掉或时好时坏的测试 / Report a test that fails or is flaky"
+labels: ["bug", "test"]
+body:
+  - type: input
+    id: test-name
+    attributes:
+      label: "测试名称 / Test name"
+      placeholder: "e.g. tests/test_newapi_text_gateway.py::test_xxx"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: "类型 / Kind"
+      options:
+        - "稳定失败 / Consistently failing"
+        - "时好时坏（flaky）/ Flaky"
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: "在哪复现 / Where it fails"
+      description: "本地 / CI（贴 CI run 链接），分支或 commit / Local / CI (link the run), branch or commit"
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: "失败输出 / Failure output"
+      description: "粘贴失败的测试输出 / Paste the failing test output"
+      render: shell
+    validations:
+      required: true

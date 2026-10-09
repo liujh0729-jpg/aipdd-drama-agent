@@ -1,0 +1,386 @@
+// SPDX-License-Identifier: Elastic-2.0
+// Copyright (c) 2026 ClaymoreLab
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Position, NodeToolbar as ReactFlowNodeToolbar } from '@xyflow/react';
+import { ArrowUp, Check, ChevronDown, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+import { type CanvasNode } from '@/features/canvas/domain/canvasNodes';
+import { useCanvasStore } from '@/stores/canvasStore';
+import {
+  fetchFreezoneJobResult,
+  submitFreezoneUpscale,
+  type FreezoneUpscaleScaleFactor,
+} from '@/api/ops';
+import { awaitTaskCompletion, isTaskPollTimeoutError } from '@/api/tasks';
+import { notifyTaskStillRunning } from '@/features/canvas/application/errorDialog';
+import { generationTaskDescriptor } from '@/features/canvas/application/resumeGeneration';
+import { GENERATION_ERROR_CLEARED_PATCH } from '@/features/canvas/application/generationTaskArbitration';
+import { readUrl } from '@/lib/url-params';
+import {
+  ProviderModelPicker,
+} from '@/features/canvas/ui/ProviderModelPicker';
+import {
+  isAuthoritativeEmptyCatalog,
+  useFreezoneImageModels,
+} from '@/features/canvas/hooks/useFreezoneImageModels';
+import {
+  pickAllowedOption,
+  resolveModelSizeOptions,
+} from '@/features/canvas/domain/mediaModelOptions';
+import { NODE_TOOLBAR_CLASS } from './nodeToolbarConfig';
+import { CANVAS_NODE_TOOLBAR_CARD_CLASS } from './nodeFrameStyles';
+import { ZoomScaledToolbar } from './ZoomScaledToolbar';
+
+const SCALE_FACTORS: FreezoneUpscaleScaleFactor[] = [2, 4, 6];
+const DEFAULT_UPSCALE_SCALE_FACTOR: FreezoneUpscaleScaleFactor = 2;
+
+interface UpscalePersistedFields {
+  upscaleSourceUrl?: string;
+  upscaleModelId?: string;
+  upscaleImageSize?: string;
+  upscaleScaleFactor?: FreezoneUpscaleScaleFactor;
+}
+
+interface UpscaleEditorOverlayProps {
+  /**
+   * The upscale-result ExportImage node. The panel is always anchored beneath it
+   * while the node is selected — settings are persisted on `node.data` so they
+   * survive re-selection.
+   */
+  node: CanvasNode;
+}
+
+export const UpscaleEditorOverlay = memo(({ node }: UpscaleEditorOverlayProps) => {
+  const { t } = useTranslation();
+  const updateNodeData = useCanvasStore((state) => state.updateNodeData);
+  const deleteNode = useCanvasStore((state) => state.deleteNode);
+  const setSelectedNode = useCanvasStore((state) => state.setSelectedNode);
+
+  const persisted = node.data as UpscalePersistedFields;
+  const sourceUrl = persisted.upscaleSourceUrl ?? '';
+  // [aipdd fork delta] 不预置写死的默认模型 id：没存过就留空，selectedModel 落到
+  // 目录首模型（后台默认项）。
+  const persistedModelId =
+    typeof persisted.upscaleModelId === 'string' ? persisted.upscaleModelId : '';
+  const imageCatalog = useFreezoneImageModels();
+  const availableModels = imageCatalog.models;
+  // 后台确实一个图片模型都没配时禁止提交：后端 `_resolve_catalog_request`
+  // 对空目录直接 409，让用户点一下再收报错是最糟的体验。
+  const catalogIsEmpty = isAuthoritativeEmptyCatalog(imageCatalog);
+  const persistedScaleFactor: FreezoneUpscaleScaleFactor =
+    persisted.upscaleScaleFactor === 4 || persisted.upscaleScaleFactor === 6
+      ? persisted.upscaleScaleFactor
+      : DEFAULT_UPSCALE_SCALE_FACTOR;
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // 目录为空时故意让 selectedModel 保持 undefined。原来这里尾巴上还挂着
+  // `?? SHARED_MODELS.find(...)`，等于把前端硬编码的模型当成可用模型复活，
+  // 正是「后台没配模型，界面照样显示能用」的来源。
+  const selectedModel =
+    availableModels.find((m) => m.id === persistedModelId) ?? availableModels[0];
+  // 分辨率与画质档位来自后台对该模型的配置；节点上存的旧值若已不在档位里，
+  // 就收回到首个可用档位。
+  const sizeOptions = useMemo(
+    () => resolveModelSizeOptions(selectedModel),
+    [selectedModel],
+  );
+  const persistedImageSize = pickAllowedOption(persisted.upscaleImageSize, sizeOptions);
+  const submitDisabled = isSubmitting || catalogIsEmpty;
+
+  const handleModelChange = useCallback(
+    (modelId: string) => {
+      updateNodeData(node.id, { upscaleModelId: modelId });
+    },
+    [node.id, updateNodeData],
+  );
+
+  const handleImageSizeChange = useCallback(
+    (size: string) => {
+      updateNodeData(node.id, { upscaleImageSize: size });
+    },
+    [node.id, updateNodeData],
+  );
+
+  const handleScaleFactorChange = useCallback(
+    (factor: FreezoneUpscaleScaleFactor) => {
+      updateNodeData(node.id, { upscaleScaleFactor: factor });
+    },
+    [node.id, updateNodeData],
+  );
+
+  const handleCancel = useCallback(() => {
+    deleteNode(node.id);
+    setSelectedNode(null);
+  }, [deleteNode, node.id, setSelectedNode]);
+
+  const handleSubmit = useCallback(async () => {
+    // 按钮已经禁用，这里再挡一道：没有可用模型就绝不该发出请求。
+    if (isSubmitting || catalogIsEmpty) return;
+    if (!sourceUrl) {
+      console.error('[upscale] missing upscaleSourceUrl on node.data — cannot submit');
+      return;
+    }
+    const project = readUrl().project;
+    if (!project) {
+      console.error('[upscale] no project in URL — cannot submit');
+      return;
+    }
+
+    const apiModel =
+      selectedModel?.apiModel
+      ?? persistedModelId;
+
+    setIsSubmitting(true);
+    const generationStartedAt = Date.now();
+    // 超分是唯一原地改写源节点的编辑器（其余三个都新建结果节点），所以这里必须
+    // 把上一次失败的三个字段一起清掉，否则新一轮开始时旧请求 ID 还挂在节点上。
+    updateNodeData(node.id, {
+      isGenerating: true,
+      generationStartedAt,
+      ...GENERATION_ERROR_CLEARED_PATCH,
+    });
+
+    try {
+      const ref = await submitFreezoneUpscale(project, {
+        sourceUrl: sourceUrl.split('?')[0],
+        scaleFactor: persistedScaleFactor,
+        imageSize: persistedImageSize,
+        model: apiModel,
+      });
+      updateNodeData(node.id, generationTaskDescriptor(ref));
+      const completed = await awaitTaskCompletion(ref.task_key, project, { taskType: ref.task_type });
+      const directUrl = completed.result?.['output_url'] as string | undefined;
+      let url = directUrl;
+      if (!url) {
+        const fallback = await fetchFreezoneJobResult(project, ref.task_type, ref.job_id);
+        url = fallback.url;
+      }
+      updateNodeData(node.id, {
+        imageUrl: url,
+        previewImageUrl: url,
+        isGenerating: false,
+        generationStartedAt: null,
+        ...GENERATION_ERROR_CLEARED_PATCH,
+      });
+    } catch (err) {
+      // 轮询超时 ≠ 生成失败：后端还在跑，节点上的任务句柄仍可续接。
+      // 写错误横幅会把一个还活着的任务标成失败，并清掉句柄。
+      if (isTaskPollTimeoutError(err)) {
+        notifyTaskStillRunning(t);
+        return;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[upscale] generation failed', err);
+      updateNodeData(node.id, {
+        isGenerating: false,
+        generationStartedAt: null,
+        generationError: message,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [
+    catalogIsEmpty,
+    isSubmitting,
+    node.id,
+    persistedImageSize,
+    persistedModelId,
+    persistedScaleFactor,
+    selectedModel,
+    sourceUrl,
+    t,
+    updateNodeData,
+  ]);
+
+  return (
+    <ReactFlowNodeToolbar
+      nodeId={node.id}
+      isVisible
+      position={Position.Bottom}
+      align="center"
+      offset={12}
+      className={NODE_TOOLBAR_CLASS}
+    >
+      {/* 操作区按画布缩放同步缩放：面板挂在节点下方，锚点取顶边（贴着节点底边），
+          画布缩小时面板朝节点收缩、视觉上与节点同比变小。 */}
+      <ZoomScaledToolbar origin="top center">
+        <div
+          className={`w-[400px] p-4 ${CANVAS_NODE_TOOLBAR_CARD_CLASS}`}
+          onClick={(event) => event.stopPropagation()}
+        >
+        <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2.5">
+          <div className="text-sm font-semibold text-text-dark">
+            {t('upscaleEditor.title')}
+          </div>
+          <button
+            type="button"
+            className="text-xs text-text-muted transition-colors hover:text-text-dark"
+            onClick={handleCancel}
+            title={t('upscaleEditor.cancel')}
+          >
+            {t('common.cancel')}
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <PanelRow label={t('upscaleEditor.providerLabel')}>
+            <ProviderModelPicker
+              selectedModelId={persistedModelId}
+              onChange={handleModelChange}
+            />
+          </PanelRow>
+
+          <PanelRow label={t('upscaleEditor.qualityLabel')}>
+            <QualityPicker
+              value={persistedImageSize}
+              options={sizeOptions}
+              onChange={handleImageSizeChange}
+            />
+          </PanelRow>
+
+          <PanelRow label={t('upscaleEditor.scaleLabel')}>
+            <ScaleFactorPicker value={persistedScaleFactor} onChange={handleScaleFactorChange} />
+          </PanelRow>
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-3 border-t border-white/10 pt-3">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitDisabled}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-bg-dark transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            title={
+              catalogIsEmpty
+                ? t('modelParams.noModelsAvailable')
+                : t('upscaleEditor.submit')
+            }
+          >
+            <ArrowUp className="h-4 w-4" />
+          </button>
+        </div>
+        </div>
+      </ZoomScaledToolbar>
+    </ReactFlowNodeToolbar>
+  );
+});
+
+UpscaleEditorOverlay.displayName = 'UpscaleEditorOverlay';
+
+function PanelRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-text-muted">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+interface QualityPickerProps {
+  value: string;
+  /** 当前模型允许的分辨率档位，由后台「媒体模型」配置下发。 */
+  options: readonly string[];
+  onChange: (value: string) => void;
+}
+
+function QualityPicker({ value, options, onChange }: QualityPickerProps) {
+  const { t } = useTranslation();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(event.target as Node) ||
+        popoverRef.current?.contains(event.target as Node)
+      ) {
+        return;
+      }
+      setIsOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown, true);
+    return () => document.removeEventListener('mousedown', onPointerDown, true);
+  }, [isOpen]);
+
+  const title = t('upscaleEditor.qualityPicker.title');
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-text-dark transition-colors hover:bg-white/[0.08]"
+      >
+        <Sparkles className="h-3.5 w-3.5 text-text-muted" />
+        <span className="font-medium">{title}</span>
+        <span className="text-text-muted">·</span>
+        <span className="text-text-muted">{value}</span>
+        <ChevronDown className="h-3 w-3 text-text-muted" />
+      </button>
+      {isOpen && (
+        <div
+          ref={popoverRef}
+          className="absolute bottom-full right-0 z-50 mb-2 w-[240px] rounded-xl border border-white/10 bg-surface-dark/95 p-3 shadow-2xl backdrop-blur-md"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="mb-1 text-[11px] uppercase tracking-wide text-text-muted">{title}</div>
+          <div className="flex gap-1.5">
+            {options.map((size) => {
+              const isActive = value === size;
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => {
+                    onChange(size);
+                    setIsOpen(false);
+                  }}
+                  className={`inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full px-3 text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[rgb(var(--accent-rgb))] text-white'
+                      : 'bg-white/[0.06] text-text-dark hover:bg-white/[0.12]'
+                  }`}
+                >
+                  {isActive && <Check className="h-3 w-3" />}
+                  {size}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ScaleFactorPickerProps {
+  value: FreezoneUpscaleScaleFactor;
+  onChange: (next: FreezoneUpscaleScaleFactor) => void;
+}
+
+function ScaleFactorPicker({ value, onChange }: ScaleFactorPickerProps) {
+  return (
+    <div className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] p-0.5">
+      {SCALE_FACTORS.map((factor) => {
+        const isActive = value === factor;
+        return (
+          <button
+            key={factor}
+            type="button"
+            onClick={() => onChange(factor)}
+            className={`flex h-7 w-12 items-center justify-center rounded-md text-xs font-medium transition-colors ${
+              isActive
+                ? 'bg-white text-bg-dark'
+                : 'text-text-muted hover:bg-white/[0.06] hover:text-text-dark'
+            }`}
+          >
+            {factor}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

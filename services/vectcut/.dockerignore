@@ -1,0 +1,9 @@
+# [AIPDD] 构建上下文裁剪：运行产物与服务私有 venv 不进镜像。
+.venv/
+venv/
+__pycache__/
+*.pyc
+drafts/
+config.json
+.git/
+.flake8

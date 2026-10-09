@@ -1,0 +1,700 @@
+"""任务列表/状态/终止端点。"""
+
+import asyncio
+import json
+import logging
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any
+
+import anyio
+from fastapi import APIRouter, Depends, Query, Request
+from starlette.concurrency import run_in_threadpool
+from starlette.responses import JSONResponse
+
+from novelvideo.api.auth import (
+    get_api_user,
+    get_api_user_or_query,
+    verify_credential_for_request,
+)
+from novelvideo.api.sse_shutdown import (
+    shutdown_aware_sse_response,
+    wait_interval_or_shutdown,
+)
+from novelvideo.i18n_message import has_localizable_log, log_lines_text
+from novelvideo.ports import get_project_access, get_task_backend
+from novelvideo.project_context import ProjectContext, resolve_project_context
+from novelvideo.task_backend.limits import (
+    project_lane_effective_active_limit,
+    project_user_lane_active_limit,
+)
+from novelvideo.task_backend.queues import QUEUE_KINDS
+from novelvideo.task_identity import project_task_state_key, task_state_key
+from novelvideo.task_state import TaskState, get_task_manager, parse_task_timestamp
+from novelvideo.utils.static_urls import project_static_url
+
+logger = logging.getLogger("novelvideo.api.tasks")
+
+router = APIRouter()
+
+_SSE_REVERIFY_INTERVAL_S = 30.0
+_TASK_NOT_FOUND_GRACE_S = 10.0
+_TASK_TYPE_LABELS = {
+    "ingest_fast": "快速导入",
+    "build_characters": "构建角色",
+    "build_scenes": "构建场景",
+    "build_props": "构建道具",
+    "build_episodes": "规划剧集",
+    "identity_planner": "规划身份",
+    "script_writer": "生成剧本",
+    "novel_to_screenplay": "生成整本剧本",
+    "beat_video_prompt": "生成提示词",
+    "literal_script_writer": "生成解说稿",
+    "director_notes": "导演说明",
+    "episode_scene_planner": "规划场景",
+    "episode_prop_planner": "规划道具",
+    "character_portrait": "角色定妆",
+    "identity_image": "身份定妆",
+    "scene_reference_asset": "场景参考图",
+    "prop_reference_asset": "道具参考图",
+    "sketch_generation": "生成草图",
+    "director_control_to_sketch": "导演台转草图",
+    "sketch_grid_generation": "生成草图网格",
+    "sketch_regen": "重生成草图",
+    "mainline_sketch_from_context": "生成草图",
+    "mainline_frame_from_context": "渲染分镜",
+    "selected_regen": "重生成选区",
+    "grid_regenerate": "重生成网格",
+    "single_video": "生成单镜视频",
+    "global_optimize_video": "全局优化视频",
+    "compose_episode": "合成剧集",
+    "audio_generation": "生成音频",
+    "indextts2_audio_generation": "生成音频",
+    "audio_generation_indextts2": "生成音频",
+    # 下游一个 task_type 被多个入口共用（对口型 / 换人 / 换产品 / 画布参考生视频都是
+    # 这条 omni 路由），兜底名只说得出大类：用「视频生成」，不要把内部路径名
+    # freezone（自由区）报给用户。具体是哪个功能由前端按 metadata.source_tool 命名。
+    "freezone_video_gen": "视频生成",
+    "stage_asset": "场景资产",
+    "freezone_gen": "画布生成",
+    "freezone_edit": "画布编辑",
+    "freezone_mask_edit": "局部编辑",
+    "freezone_extract": "视频抽帧",
+    "freezone_analyze": "视频分析",
+    "freezone_video_story": "视频解读",
+    "freezone_video_clone": "视频复刻",
+    "freezone_video_mix": "混剪短视频",
+    # [aipdd fork delta] 白板动画逐笔揭示成片。
+    "freezone_whiteboard_animation": "白板动画",
+    # [aipdd fork delta] 科普讲解视频：参考资料 → 解说词 → 逐帧 MG 成片。
+    "freezone_explainer_video": "科普讲解视频",
+    "freezone_video_idea": "一句话短视频",
+    "freezone_video_erase": "视频擦除",
+    "freezone_video_upscale": "视频放大",
+    "freezone_audio_separate": "音频分离",
+    "freezone_video_compose": "视频合成",
+    "freezone_text_translate": "字幕翻译",
+    "freezone_text_generate": "AI 文本生成",
+    "freezone_story_script": "生成故事脚本",
+    "freezone_script_to_video_plan": "脚本转视频计划",
+    "freezone_audio_speech": "生成语音",
+    "freezone_audio_eleven_music": "生成音乐",
+    # [aipdd fork delta req46] 工具页「音乐创作」（MiniMax Music 3.0 直连）。
+    "freezone_music_generate": "音乐创作",
+    "freezone_image_to_3gs": "图片转世界",
+    "freezone_image_reverse_prompt": "图片反推提示词",
+}
+_STAGE_ASSET_STEP_LABELS = {
+    "pano_from_master": "Master 生成全景",
+    "pano_from_text": "文生全景",
+    "pano_sharp": "全景转 SOG",
+    "single_face_sharp": "单面转 SOG",
+    "voxel_world_from_360": "全景转体素",
+    "scene_360": "生成 360 全景",
+    "upload_package": "上传场景包",
+    "splat_collision": "生成碰撞体",
+}
+
+
+def _effective_task_status(t: TaskState) -> str:
+    if (
+        t.status in {"submitting", "queued", "running"}
+        and t.progress >= 1.0
+        and str(t.current_task or "").strip().lower() in {"完成", "completed", "done"}
+    ):
+        return "completed"
+    return t.status
+
+
+def _serialize_task_timestamp(value: str) -> str:
+    parsed = parse_task_timestamp(value)
+    if parsed is None:
+        return str(value or "")
+    return parsed.isoformat().replace("+00:00", "Z")
+
+
+async def _sse_token_still_valid(
+    request: Request, last_check: float
+) -> tuple[bool, float]:
+    now = asyncio.get_event_loop().time()
+    if now - last_check < _SSE_REVERIFY_INTERVAL_S:
+        return True, last_check
+    try:
+        user = await verify_credential_for_request(request)
+    except Exception:
+        logger.debug("SSE credential recheck failed")
+        return False, now
+    return (user is not None), now
+
+
+def _is_result_path_key(key: str) -> bool:
+    lowered = str(key or "").lower()
+    if lowered in {"path", "paths"}:
+        return True
+    return lowered.endswith("_path") or lowered.endswith("_paths")
+
+
+def _url_key_for_path_key(key: str) -> str:
+    if key == "path":
+        return "url"
+    if key == "paths":
+        return "urls"
+    if key.endswith("_paths"):
+        return f"{key[:-6]}_urls"
+    if key.endswith("_path"):
+        return f"{key[:-5]}_url"
+    return "url"
+
+
+def _is_public_url_value(value: str) -> bool:
+    lowered = value.strip().lower()
+    return (
+        lowered.startswith("/static/")
+        or lowered.startswith("http://")
+        or lowered.startswith("https://")
+        or lowered.startswith("blob:")
+        or lowered.startswith("data:")
+    )
+
+
+def _project_static_url_for_abs_path(ctx: ProjectContext, value: str) -> str | None:
+    raw = str(value or "").strip()
+    if not raw or _is_public_url_value(raw):
+        return None
+    path = Path(raw)
+    if not path.is_absolute():
+        return None
+    try:
+        resolved = path.resolve()
+        rel = resolved.relative_to(Path(ctx.output_dir).resolve()).as_posix()
+    except (OSError, ValueError):
+        return None
+    return project_static_url(ctx.project_id, rel, local_path=resolved)
+
+
+def _is_local_abs_path_value(value: str) -> bool:
+    raw = str(value or "").strip()
+    return bool(raw) and not _is_public_url_value(raw) and Path(raw).is_absolute()
+
+
+def _sanitize_task_result_for_client(value: Any, *, ctx: ProjectContext | None) -> Any:
+    if ctx is None:
+        return value
+    if isinstance(value, list):
+        return [_sanitize_task_result_for_client(item, ctx=ctx) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    sanitized: dict[str, Any] = {}
+    for key, item in value.items():
+        key_text = str(key)
+        if _is_result_path_key(key_text):
+            url_key = _url_key_for_path_key(key_text)
+            if isinstance(item, str):
+                url = _project_static_url_for_abs_path(ctx, item)
+                if url:
+                    sanitized.setdefault(url_key, url)
+                    continue
+            if isinstance(item, list):
+                urls = [
+                    url
+                    for url in (
+                        _project_static_url_for_abs_path(ctx, path)
+                        for path in item
+                        if isinstance(path, str)
+                    )
+                    if url
+                ]
+                if urls:
+                    sanitized.setdefault(url_key, urls)
+                    continue
+            if isinstance(item, str) and _is_local_abs_path_value(item):
+                continue
+            if isinstance(item, list) and any(
+                isinstance(path, str) and _is_local_abs_path_value(path)
+                for path in item
+            ):
+                continue
+        sanitized[key_text] = _sanitize_task_result_for_client(item, ctx=ctx)
+    return sanitized
+
+
+def _current_task_message_fields(metadata: dict | None) -> dict:
+    """把 current_task 的 i18n code/params 摊平到响应顶层。
+
+    存储层为了不给 CE tasks 表和 EE ee_task_states 加列，把 code/params 塞在
+    metadata 里；对外仍然给独立字段，前端不用知道这个存储细节。
+    没有 code 时不下发字段，前端直接回落到 current_task 的中文。
+    """
+    if not isinstance(metadata, dict):
+        return {}
+    message = metadata.get("current_task_message")
+    if not isinstance(message, dict) or not message.get("code"):
+        return {}
+    return {
+        "current_task_code": message["code"],
+        "current_task_params": message.get("params") or {},
+    }
+
+
+def _task_log_fields(entries: list | None) -> dict:
+    """`logs` 的对外形状。
+
+    `logs` 从一开始就是 `string[]`，老前端拿到就 `logs.join("\\n")`，所以存储层的
+    `{text, code, params}` 条目**不能**从这个字段出去——滚动发布期间新后端配老前端、
+    或者用户手上还开着缓存的旧页面，日志就会显示/下载成一串 `[object Object]`。
+    这里把它压回中文字符串，结构化条目另走 `logs_i18n`，新前端优先读它，没有再回落
+    到 `logs`。这样前后端不需要原子部署，外部调用方也不会被打断。
+    """
+    fields: dict = {"logs": log_lines_text(entries)}
+    # 没有任何一条带 code 时不下发这个字段，省得给每个任务白挂一份重复日志。
+    if has_localizable_log(entries):
+        fields["logs_i18n"] = list(entries or [])
+    return fields
+
+
+def _serialize_task(t: TaskState, *, ctx: ProjectContext | None = None) -> dict:
+    metadata = t.metadata if isinstance(t.metadata, dict) else {}
+    if t.project_id:
+        key = project_task_state_key(
+            task_type=t.task_type,
+            project_id=t.project_id,
+            episode=t.episode,
+            beat_num=t.beat_num,
+            scope=t.scope,
+        )
+    else:
+        key = task_state_key(
+            task_type=t.task_type,
+            username=t.username,
+            project=t.project,
+            episode=t.episode,
+            beat_num=t.beat_num,
+            scope=t.scope,
+        )
+    task_type_label = _TASK_TYPE_LABELS.get(t.task_type, t.task_type)
+    metadata_display_name = str(metadata.get("display_name") or "").strip()
+    episode_label = f" · ep{t.episode}" if t.episode else ""
+    display_name = metadata_display_name or f"{task_type_label}{episode_label}"
+    if t.task_type == "stage_asset":
+        scene_name = str(metadata.get("scene_name") or "").strip()
+        step = str(metadata.get("step") or "").strip()
+        step_label = _STAGE_ASSET_STEP_LABELS.get(step, step)
+        display_parts = [task_type_label]
+        if scene_name:
+            display_parts.append(scene_name)
+        if step_label:
+            display_parts.append(step_label)
+        display_name = " · ".join(display_parts)
+    payload = asdict(t)
+    for field in ("created_at", "updated_at", "completed_at", "expires_at"):
+        payload[field] = _serialize_task_timestamp(payload.get(field, ""))
+    payload.update(_task_log_fields(payload.get("logs")))
+    payload["result"] = _sanitize_task_result_for_client(payload.get("result"), ctx=ctx)
+    payload["status"] = _effective_task_status(t)
+    return {
+        **payload,
+        "error_code": metadata.get("error_code"),
+        "task_key": key,
+        "task_type_label": task_type_label,
+        "display_name": display_name,
+        # display_name 一律是中文：要么这里按 task_type 拼，要么调用方
+        # (freezone / scripts 的 task_display) 传的写死中文，两者英文界面下都不能直接用，
+        # 所以默认可本地化，前端按 task_type / metadata 重拼。
+        #
+        # 只有真正的用户自定义名称（画布名、素材名之类）不能翻译，那种由生产者在
+        # metadata 里显式标 `display_name_user_content: True` 退出本地化。注意
+        # task_display 全部由服务端构造、请求体注入不进来，所以这个标记必须是后端
+        # 自己打的，不能改成读客户端字段。
+        "display_name_localizable": not bool(metadata.get("display_name_user_content")),
+        **_current_task_message_fields(t.metadata),
+    }
+
+
+def _remaining(limit: int | None, active: int) -> int | None:
+    if limit is None:
+        return None
+    return max(limit - active, 0)
+
+
+@router.get("/projects/{project}/tasks")
+async def list_project_tasks(project: str, user: dict = Depends(get_api_user)):
+    """列出单个项目的任务。生产多节点路径由 OpenResty 路由到项目 home node。"""
+    ctx = await resolve_project_context(
+        user=user, project_id=project, required_role="viewer"
+    )
+    mgr = get_task_manager()
+    tasks = await run_in_threadpool(mgr.list_tasks_for_project, ctx)
+    tasks.sort(key=lambda task: task.updated_at or task.created_at or "", reverse=True)
+    return {"ok": True, "data": [_serialize_task(t, ctx=ctx) for t in tasks]}
+
+
+@router.get("/projects/{project}/tasks/limits")
+async def get_project_task_limits(project: str, user: dict = Depends(get_api_user)):
+    """查询单个项目各队列的项目池和当前用户额度。"""
+    ctx = await resolve_project_context(
+        user=user, project_id=project, required_role="viewer"
+    )
+    mgr = get_task_manager()
+    eligible_user_count = await get_project_access().count_project_task_eligible_users(
+        project_id=ctx.project_id,
+        owner_type=ctx.owner_type,
+        owner_id=ctx.owner_id,
+    )
+    data = {}
+    for queue_kind in sorted(QUEUE_KINDS):
+        limit = project_lane_effective_active_limit(
+            queue_kind,
+            eligible_user_count=eligible_user_count,
+        )
+        user_limit = project_user_lane_active_limit(queue_kind)
+        active, user_active = await run_in_threadpool(
+            lambda: (
+                mgr.count_active_tasks_for_project_lane(ctx, queue_kind),
+                mgr.count_active_tasks_for_project_user_lane(ctx, queue_kind),
+            )
+        )
+        data[queue_kind] = {
+            "limit": limit,
+            "active": active,
+            "remaining": _remaining(limit, active),
+            "user_limit": user_limit,
+            "user_active": user_active,
+            "user_remaining": _remaining(user_limit, user_active),
+        }
+    return {"ok": True, "data": data}
+
+
+@router.delete("/projects/{project}/tasks/completed")
+async def clear_project_completed_tasks(
+    project: str, user: dict = Depends(get_api_user)
+):
+    """删除单个项目的已完成任务记录。"""
+    ctx = await resolve_project_context(
+        user=user, project_id=project, required_role="editor"
+    )
+    mgr = get_task_manager()
+
+    def clear_completed() -> int:
+        deleted = 0
+        for task in mgr.list_tasks_for_project(ctx):
+            if _effective_task_status(task) == "completed":
+                was_deleted = mgr.delete_task_for_project(
+                    ctx,
+                    task.task_type,
+                    task.episode,
+                    beat_num=task.beat_num,
+                    scope=task.scope,
+                    expected_task_id=task.task_id,
+                )
+                if was_deleted:
+                    deleted += 1
+        return deleted
+
+    deleted = await run_in_threadpool(clear_completed)
+    return {"ok": True, "data": {"deleted": deleted}}
+
+
+@router.get("/projects/{project}/tasks/{task_type}/{episode}")
+async def get_project_task(
+    project: str,
+    task_type: str,
+    episode: int,
+    beat_num: int = Query(
+        None, description="Beat 编号（single_video 等按 beat 区分的任务需要）"
+    ),
+    scope: str | None = Query(
+        None, description="任务作用域（mode_key、grid_index 等）"
+    ),
+    user: dict = Depends(get_api_user),
+):
+    """查询单个项目内指定任务的状态。"""
+    ctx = await resolve_project_context(
+        user=user, project_id=project, required_role="viewer"
+    )
+    mgr = get_task_manager()
+    task = await run_in_threadpool(
+        mgr.get_task_for_project,
+        ctx,
+        task_type,
+        episode,
+        beat_num=beat_num,
+        scope=scope,
+    )
+    if not task:
+        return {"ok": True, "data": None, "message": "Task not found"}
+    return {"ok": True, "data": _serialize_task(task, ctx=ctx)}
+
+
+@router.get("/projects/{project}/tasks/stream")
+async def stream_project_tasks(
+    project: str,
+    request: Request,
+    interval: float = Query(2.0, ge=0.5, le=10.0),
+    heartbeat_sec: float = Query(15.0, ge=1.0, le=60.0),
+    snapshot: bool = Query(
+        True,
+        description=(
+            "If false, skip initial task_updated burst on connect "
+            "(client has already hydrated via GET project tasks)."
+        ),
+    ),
+    user: dict = Depends(get_api_user_or_query),
+):
+    """项目级 SSE 任务流。OpenResty 可按 project_id 路由到 home node。"""
+    ctx = await resolve_project_context(
+        user=user, project_id=project, required_role="viewer"
+    )
+
+    async def event_generator(shutdown: anyio.Event):
+        mgr = get_task_manager()
+        last: dict[str, tuple[str, float, str]] = {}
+        last_heartbeat = asyncio.get_event_loop().time()
+        last_auth_check = last_heartbeat
+
+        for t in await run_in_threadpool(mgr.list_tasks_for_project, ctx):
+            payload = _serialize_task(t, ctx=ctx)
+            key = payload["task_key"]
+            last[key] = (t.status, round(t.progress, 3), t.updated_at)
+            if snapshot:
+                yield {
+                    "event": "task_updated",
+                    "data": json.dumps(payload, ensure_ascii=False),
+                }
+
+        yield {
+            "event": "heartbeat",
+            "data": json.dumps({"ts": last_heartbeat}, ensure_ascii=False),
+        }
+
+        while True:
+            try:
+                still_valid, last_auth_check = await _sse_token_still_valid(
+                    request, last_auth_check
+                )
+            except Exception:
+                logger.debug("SSE credential recheck failed")
+                still_valid = False
+            if not still_valid:
+                yield {
+                    "event": "auth_revoked",
+                    "data": json.dumps({"reason": "unauthorized"}),
+                }
+                return
+
+            tasks = await run_in_threadpool(mgr.list_tasks_for_project, ctx)
+            seen: set[str] = set()
+            for t in tasks:
+                payload = _serialize_task(t, ctx=ctx)
+                key = payload["task_key"]
+                seen.add(key)
+                fp = (t.status, round(t.progress, 3), t.updated_at)
+                if last.get(key) != fp:
+                    yield {
+                        "event": "task_updated",
+                        "data": json.dumps(payload, ensure_ascii=False),
+                    }
+                    last[key] = fp
+
+            for key in list(last.keys()):
+                if key not in seen:
+                    yield {
+                        "event": "deleted",
+                        "data": json.dumps({"task_key": key}, ensure_ascii=False),
+                    }
+                    del last[key]
+
+            now = asyncio.get_event_loop().time()
+            if now - last_heartbeat >= heartbeat_sec:
+                yield {
+                    "event": "heartbeat",
+                    "data": json.dumps({"ts": now}, ensure_ascii=False),
+                }
+                last_heartbeat = now
+
+            if await wait_interval_or_shutdown(shutdown, interval):
+                return
+
+    return shutdown_aware_sse_response(event_generator)
+
+
+@router.get("/projects/{project}/tasks/{task_type}/{episode}/stream")
+async def stream_project_task(
+    project: str,
+    task_type: str,
+    episode: int,
+    request: Request,
+    beat_num: int = Query(None),
+    scope: str | None = Query(None),
+    interval: float = Query(2.0, ge=0.5, le=10.0),
+    user: dict = Depends(get_api_user_or_query),
+):
+    """项目级单任务 SSE 端点。"""
+    ctx = await resolve_project_context(
+        user=user, project_id=project, required_role="viewer"
+    )
+
+    async def event_generator(shutdown: anyio.Event):
+        last_progress = -1.0
+        last_task = ""
+        last_auth_check = asyncio.get_event_loop().time()
+        not_found_deadline = None
+        while True:
+            try:
+                still_valid, last_auth_check = await _sse_token_still_valid(
+                    request, last_auth_check
+                )
+            except Exception:
+                logger.debug("SSE credential recheck failed")
+                still_valid = False
+            if not still_valid:
+                yield {
+                    "event": "auth_revoked",
+                    "data": json.dumps({"reason": "unauthorized"}),
+                }
+                return
+
+            mgr = get_task_manager()
+            task = await run_in_threadpool(
+                mgr.get_task_for_project,
+                ctx,
+                task_type,
+                episode,
+                beat_num=beat_num,
+                scope=scope,
+            )
+
+            if not task:
+                import time
+
+                now = time.monotonic()
+                if not_found_deadline is None:
+                    not_found_deadline = now + _TASK_NOT_FOUND_GRACE_S
+                if now < not_found_deadline:
+                    if await wait_interval_or_shutdown(shutdown, interval):
+                        return
+                    continue
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"error": "Task not found"}, ensure_ascii=False),
+                }
+                return
+            not_found_deadline = None
+
+            effective_status = _effective_task_status(task)
+            changed = (task.progress != last_progress) or (
+                task.current_task != last_task
+            )
+            is_terminal = effective_status in ("completed", "failed", "cancelled")
+
+            if changed or is_terminal:
+                payload = {
+                    "status": effective_status,
+                    "progress": round(task.progress, 3),
+                    "current_task": task.current_task,
+                    **_task_log_fields(task.logs[-100:]),
+                    **_current_task_message_fields(task.metadata),
+                }
+                if is_terminal:
+                    payload["result"] = task.result
+                    payload["error"] = task.error
+                    if isinstance(task.metadata, dict):
+                        payload["error_code"] = task.metadata.get("error_code")
+
+                yield {
+                    "event": effective_status,
+                    "data": json.dumps(payload, ensure_ascii=False),
+                }
+                last_progress = task.progress
+                last_task = task.current_task
+
+            if is_terminal:
+                return
+
+            if await wait_interval_or_shutdown(shutdown, interval):
+                return
+
+    return shutdown_aware_sse_response(event_generator)
+
+
+@router.delete("/projects/{project}/tasks/{task_type}/{episode}")
+async def cancel_project_task_route(
+    project: str,
+    task_type: str,
+    episode: int,
+    beat_num: int = Query(
+        None, description="Beat 编号（single_video 等按 beat 区分的任务需要）"
+    ),
+    scope: str | None = Query(
+        None, description="任务作用域（mode_key、grid_index 等）"
+    ),
+    force: bool = Query(False, description="确认终止已开始执行的任务"),
+    # [aipdd fork delta] WP-D: 额度体系已拆除，CE 下不存在"退款"，但参数名是端口
+    # 契约的一部分（EE 侧仍按两段式确认渲染），这里只把展示文案改成中性描述。
+    acknowledge_no_refund: bool = Query(False, description="二次确认终止运行中的任务"),
+    user: dict = Depends(get_api_user),
+):
+    """终止一个项目任务。
+
+    队列态任务通过原子状态迁移取消。运行中任务首次请求返回 409，
+    只有再次明确确认后才发送协作取消标记和 Celery revoke；终止不可恢复。
+    """
+    ctx = await resolve_project_context(
+        user=user, project_id=project, required_role="editor"
+    )
+    logger.info(
+        "[%s] EP%d cancel_project_task: type=%s, beat=%s, scope=%s",
+        project,
+        episode,
+        task_type,
+        beat_num,
+        scope,
+    )
+    mgr = get_task_manager()
+    task = await run_in_threadpool(
+        mgr.get_task_for_project,
+        ctx,
+        task_type,
+        episode,
+        beat_num=beat_num,
+        scope=scope,
+    )
+    if not task:
+        logger.warning(
+            "[%s] cancel_project_task: task not found (type=%s episode=%s beat=%s scope=%s)",
+            project,
+            task_type,
+            episode,
+            beat_num,
+            scope,
+        )
+        return {"ok": False, "error": "Task not found"}
+    result = await get_task_backend().cancel_project_task(
+        ctx,
+        task,
+        force=force,
+        acknowledge_no_refund=acknowledge_no_refund,
+    )
+    if result.get("requires_confirmation"):
+        return JSONResponse(status_code=409, content=result)
+    return result

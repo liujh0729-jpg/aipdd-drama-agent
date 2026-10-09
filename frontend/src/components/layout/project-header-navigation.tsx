@@ -1,0 +1,380 @@
+// SPDX-License-Identifier: Elastic-2.0
+// Copyright (c) 2026 ClaymoreLab
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { ArrowLeft, Bot, Check, ChevronDown, Clapperboard, Library, Plug, Sparkles, Wrench } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  PROJECT_SECTION_ROUTES,
+  projectModeFromPath,
+  projectSectionFromPath,
+} from "@/components/layout/project-navigation-routes";
+import { normalizeLastEpisodeLocation, useEpisodeWorkbenchStore } from "@/stores/episode-workbench-store";
+import { isRememberedSection, useProjectNavStore } from "@/stores/project-nav-store";
+import { useAllProjectSummaries } from "@/lib/queries/projects";
+import { getProjectCover } from "@/lib/project-cover";
+import { cn } from "@/lib/utils";
+import { surfaceAccess, useProductSurfaces } from "@/lib/queries/product-surfaces";
+import { SlidingTabs, type SlidingTabItem } from "@/components/nav/sliding-tabs";
+
+// [aipdd fork delta] 「故事」是剧集流程起点（故事 → 剧本 → 分镜脚本），首次进入默认落这里。
+const XIAJI_DEFAULT_ROUTE = PROJECT_SECTION_ROUTES.story;
+
+const xiajiMenuItems = [
+  // [aipdd fork delta] 顺序即流程：故事（底稿）→ 剧本（/ingest）→ 资产 → 分镜 → 风格。
+  { labelKey: "nav.story", to: PROJECT_SECTION_ROUTES.story },
+  { labelKey: "nav.ingest", to: PROJECT_SECTION_ROUTES.ingest },
+  { labelKey: "nav.assets", to: PROJECT_SECTION_ROUTES.characters },
+  {
+    labelKey: "nav.episodes",
+    to: PROJECT_SECTION_ROUTES.episodes,
+    rememberKey: "episodes",
+  },
+  { labelKey: "nav.aiAssistant", to: PROJECT_SECTION_ROUTES.assistant },
+  { labelKey: "nav.styles", to: PROJECT_SECTION_ROUTES.styles },
+] as const;
+
+function ProjectAvatar({ name }: { name: string }) {
+  const { gradient, initial } = useMemo(() => getProjectCover(name), [name]);
+  return (
+    <span
+      className="flex size-5 shrink-0 items-center justify-center rounded text-xs font-bold text-white/95"
+      style={{ background: gradient }}
+    >
+      {initial}
+    </span>
+  );
+}
+
+export function ProjectSwitcher({ current }: { current: string }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { data: summaries } = useAllProjectSummaries();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const targetSection = projectSectionFromPath(pathname) ?? "freezone";
+  const productSurfaces = useProductSurfaces();
+  const mainlineAvailable =
+    surfaceAccess(productSurfaces.data, "mainline")?.available ?? productSurfaces.isPending;
+  const freezoneAvailable =
+    surfaceAccess(productSurfaces.data, "freezone")?.available ?? productSurfaces.isPending;
+  const assistantAvailable = surfaceAccess(productSurfaces.data, "assistant")?.available ?? false;
+  const availableTargetSection =
+    targetSection === "freezone" && !freezoneAvailable
+      ? "ingest"
+      : targetSection === "assistant" && !assistantAvailable
+        ? mainlineAvailable
+          ? "ingest"
+          : "freezone"
+        : targetSection !== "freezone" && !mainlineAvailable
+          ? "freezone"
+          : targetSection;
+  const [open, setOpen] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
+  const projects = useMemo(
+    () =>
+      (summaries ?? [])
+        .filter((project) => project.status === "active")
+        .map((project) => ({ id: project.id || project.name, name: project.name })),
+    [summaries],
+  );
+  const currentSummary = useMemo(
+    () =>
+      projects.find((project) => project.id === current) ??
+      projects.find((project) => project.name === current),
+    [current, projects],
+  );
+  const currentName = currentSummary?.name ?? current;
+
+  const cancelClose = () => {
+    if (closeTimerRef.current === null) return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  };
+  const openMenu = () => {
+    cancelClose();
+    setOpen(true);
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      closeTimerRef.current = null;
+    }, 120);
+  };
+
+  useEffect(() => cancelClose, []);
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        onMouseEnter={openMenu}
+        onMouseLeave={scheduleClose}
+        className="inline-flex h-8 max-w-[156px] cursor-pointer items-center gap-1.5 bg-transparent px-1 text-left text-[13px] leading-none text-sidebar-foreground/90 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+      >
+        <span className="min-w-0 truncate leading-none">{currentName}</span>
+        <ChevronDown className="size-3.5 shrink-0 translate-y-px text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={8}
+        onMouseEnter={openMenu}
+        onMouseLeave={scheduleClose}
+        className="w-56 rounded-md border border-white/10 bg-popover p-1 shadow-xl shadow-black/20 ring-0"
+      >
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            onClick={() => navigate({ to: "/" })}
+            className="min-h-8 gap-2 rounded-sm px-2 py-1.5 text-xs focus:bg-white/8 focus:text-current"
+          >
+            <ArrowLeft className="size-3.5" />
+            {t("project.dashboardReturn")}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+            {t("nav.switchProject")}
+          </DropdownMenuLabel>
+          {projects.map((project) => (
+            <DropdownMenuItem
+              key={project.id}
+              onClick={() =>
+                navigate({
+                  to: PROJECT_SECTION_ROUTES[availableTargetSection],
+                  params: { project: project.id },
+                })
+              }
+              className="min-h-8 gap-2 rounded-sm px-2 py-1.5 text-xs focus:bg-white/8 focus:text-current"
+            >
+              <ProjectAvatar name={project.name} />
+              <span className="flex-1 truncate">{project.name}</span>
+              {project.id === current ? (
+                <Check className="size-3.5 text-primary" aria-hidden />
+              ) : null}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * 「剧集」子页菜单，作为 header 的第二行渲染 —— 它必须在文档流里占真实高度，
+ * 而不是浮在内容之上：内容区是独立滚动容器，任何浮层都会被滚上来的内容穿过。
+ */
+export function ProjectXiajiMenu({ project }: { project: string }) {
+  const { t } = useTranslation();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const rememberedEpisodeLocation = useEpisodeWorkbenchStore(
+    (state) => state.lastEpisodeLocationByProject[project],
+  );
+  const productSurfaces = useProductSurfaces();
+  const mainlineAvailable =
+    surfaceAccess(productSurfaces.data, "mainline")?.available ?? productSurfaces.isPending;
+  const assistantAvailable = surfaceAccess(productSurfaces.data, "assistant")?.available ?? false;
+
+  if (projectModeFromPath(pathname) !== "xiaji" || !mainlineAvailable) return null;
+  const visibleMenuItems = xiajiMenuItems.filter(
+    (item) => item.to !== PROJECT_SECTION_ROUTES.assistant || assistantAvailable,
+  );
+
+  return (
+    <div className="relative flex justify-center px-4 pb-2">
+      <nav
+        aria-label={t("nav.xiajiMenu")}
+        className="flex items-center gap-3 whitespace-nowrap rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 py-px text-sidebar-foreground"
+      >
+        {visibleMenuItems.map((item) => {
+          const target =
+            "rememberKey" in item && rememberedEpisodeLocation
+              ? normalizeLastEpisodeLocation(project, rememberedEpisodeLocation) ?? item.to
+              : item.to;
+          // 高亮按栏目自身的路由判断：target 可能是带 ?query 的剧集深链，
+          // 拿它比 pathname 永远不相等（分镜里就不会高亮）。
+          const sectionPath = item.to.replace("$project", encodeURIComponent(project));
+          const active = pathname === sectionPath || pathname.startsWith(`${sectionPath}/`);
+          return (
+            <Link
+              key={item.labelKey}
+              to={target}
+              params={{ project }}
+              className={cn(
+                "flex h-7 items-center px-1.5 text-xs font-semibold transition-colors duration-150 ease-[var(--ease-out-quint)]",
+                active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+              aria-current={active ? "page" : undefined}
+            >
+              {t(item.labelKey)}
+            </Link>
+          );
+        })}
+      </nav>
+      <div
+        id="superchat-search-anchor"
+        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2"
+      />
+    </div>
+  );
+}
+
+export function ProjectHeaderNavigation({ project }: { project: string }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const activeMode = projectModeFromPath(pathname);
+  const rememberedEpisodeLocation = useEpisodeWorkbenchStore(
+    (state) => state.lastEpisodeLocationByProject[project],
+  );
+  const setLastEpisodeLocation = useEpisodeWorkbenchStore((state) => state.setLastEpisodeLocation);
+  const clearLastEpisodeLocation = useEpisodeWorkbenchStore((state) => state.clearLastEpisodeLocation);
+  const rememberSection = useProjectNavStore((state) => state.rememberSection);
+  const lastXiajiSection = useProjectNavStore(
+    (state) => state.lastXiajiSectionByProject[project],
+  );
+  const productSurfaces = useProductSurfaces();
+  const mainlineAvailable =
+    surfaceAccess(productSurfaces.data, "mainline")?.available ?? productSurfaces.isPending;
+  const freezoneAvailable =
+    surfaceAccess(productSurfaces.data, "freezone")?.available ?? productSurfaces.isPending;
+
+  // 记住当前停留的区块（画布 / 剧集子页），进项目和切「剧集」时按此恢复。
+  useEffect(() => {
+    const section = projectSectionFromPath(pathname);
+    if (isRememberedSection(section)) {
+      rememberSection(project, section);
+    }
+  }, [pathname, project, rememberSection]);
+
+  useEffect(() => {
+    const episodesRoot = `/projects/${encodeURIComponent(project)}/episodes`;
+    if (pathname === episodesRoot) {
+      clearLastEpisodeLocation(project);
+      return;
+    }
+    const match = pathname.match(/^\/projects\/([^/]+)\/episodes\/(\d+)(?:\/|$)/);
+    if (!match || decodeURIComponent(match[1]) !== project) return;
+    setLastEpisodeLocation(project, `${pathname}${window.location.search}`);
+  }, [clearLastEpisodeLocation, pathname, project, setLastEpisodeLocation]);
+
+  const changeMode = (mode: "xiahua" | "xiaji" | "tools" | "agent" | "mcp" | "models") => {
+    const needMainline =
+      mode === "xiaji" || mode === "tools" || mode === "agent" || mode === "mcp" || mode === "models";
+    if ((mode === "xiahua" && !freezoneAvailable) || (needMainline && !mainlineAvailable)) {
+      return;
+    }
+    if (mode === activeMode) return;
+    if (mode === "xiahua") {
+      navigate({ to: PROJECT_SECTION_ROUTES.freezone, params: { project } });
+      return;
+    }
+    // [aipdd fork delta] 「工具」顶层模式：直达工具栏目。
+    if (mode === "tools") {
+      navigate({ to: PROJECT_SECTION_ROUTES.tools, params: { project } });
+      return;
+    }
+    // [aipdd fork delta] 「Agent」顶层模式：直达创作代理（位于工具与 MCP 之间）。
+    if (mode === "agent") {
+      navigate({ to: PROJECT_SECTION_ROUTES.agent, params: { project } });
+      return;
+    }
+    // [aipdd fork delta] 「MCP」顶层模式：直达 MCP 接入指南。
+    if (mode === "mcp") {
+      navigate({ to: PROJECT_SECTION_ROUTES.mcp, params: { project } });
+      return;
+    }
+    // [aipdd fork delta] WP-E:「模型广场」顶层模式：直达只读模型目录。
+    if (mode === "models") {
+      navigate({ to: PROJECT_SECTION_ROUTES.models, params: { project } });
+      return;
+    }
+    // 切「剧集」时回到上次停留的子页（默认故事）；上次在分镜且有剧集深链则直达。
+    let target: string = lastXiajiSection
+      ? PROJECT_SECTION_ROUTES[lastXiajiSection]
+      : XIAJI_DEFAULT_ROUTE;
+    if (lastXiajiSection === "episodes" && rememberedEpisodeLocation) {
+      target =
+        normalizeLastEpisodeLocation(project, rememberedEpisodeLocation) ?? target;
+    }
+    navigate({ to: target, params: { project } });
+  };
+
+  if (!mainlineAvailable && !freezoneAvailable) return null;
+
+  const creationModes: SlidingTabItem<"xiahua" | "xiaji" | "tools" | "agent" | "mcp" | "models">[] = [
+    ...(freezoneAvailable
+      ? [{
+          value: "xiahua" as const,
+          label: t("nav.freezone"),
+          icon: Sparkles,
+        }]
+      : []),
+    ...(mainlineAvailable
+      ? [{
+          value: "xiaji" as const,
+          label: t("nav.xiaji"),
+          icon: Clapperboard,
+        }]
+      : []),
+    // [aipdd fork delta] 顶部导航「工具」与「Agent」位置交换：Agent 上移到剧集右侧、
+    // 工具下移到 Agent 右侧（与 MCP 相邻）。
+    // [aipdd fork delta] 「Agent」位于「剧集」与「工具」之间：独立于主线的创作代理。
+    ...(mainlineAvailable
+      ? [{
+          value: "agent" as const,
+          label: t("nav.agent"),
+          icon: Bot,
+        }]
+      : []),
+    // [aipdd fork delta] 「工具」位于「Agent」与「MCP」之间。
+    ...(mainlineAvailable
+      ? [{
+          value: "tools" as const,
+          label: t("nav.tools"),
+          icon: Wrench,
+        }]
+      : []),
+    // [aipdd fork delta] 「MCP」紧邻「工具」右侧：展示当前项目作为 MCP server 的接入方式。
+    ...(mainlineAvailable
+      ? [{
+          value: "mcp" as const,
+          label: t("nav.mcp"),
+          icon: Plug,
+        }]
+      : []),
+    // [aipdd fork delta] WP-E:「模型广场」紧邻「MCP」右侧，与 mcp 同为 mainlineAvailable 门控。
+    ...(mainlineAvailable
+      ? [{
+          value: "models" as const,
+          label: t("nav.models"),
+          icon: Library,
+        }]
+      : []),
+  ];
+
+  return (
+    <nav
+      aria-label={t("nav.creationMode")}
+      className="absolute left-1/2 top-1/2 z-30 flex -translate-x-1/2 -translate-y-1/2 items-center"
+    >
+      <SlidingTabs
+        items={creationModes}
+        value={activeMode}
+        onValueChange={changeMode}
+        className="sliding-tabs--project-modes"
+        animateActiveIcon
+        aria-label={t("nav.creationMode")}
+      />
+    </nav>
+  );
+}

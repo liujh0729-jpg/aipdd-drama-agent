@@ -1,0 +1,1023 @@
+"""WebSocket chat endpoint for the React frontend.
+
+Transport contract is typed JSON events. The backend keeps chat storage and
+agent process management behind this endpoint so dramaclaw-fe does not need to
+know whether the active backend is Hermes, Claude, or Codex.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import uuid
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
+
+from novelvideo.api.auth import (
+    AGENT_WRITE_SCOPES,
+    AUTH_COOKIE_NAME,
+    UNSUPPORTED_QUERY_CREDENTIALS,
+    _verify_agent_bearer,
+    _verify_browser_session,
+    get_api_user,
+)
+from novelvideo.api.deps import list_user_projects
+from novelvideo.api.egress_binding import request_egress_scope
+from novelvideo.chat import service as chat_service
+from novelvideo.chat.hermes_egress import EgressBoundaryError
+from novelvideo.chat.store import ChatScope, chat_store
+from novelvideo.project_context import (
+    ProjectContext,
+    resolve_project_context,
+    user_id_from_api_user,
+)
+from novelvideo.shared.billing_errors import (
+    BILLING_RULE_NOT_CONFIGURED_MESSAGE,
+    billing_error_payload,
+    billing_rule_not_configured_payload,
+    find_billing_error,
+    find_billing_rule_not_configured_error,
+)
+# [aipdd fork delta] WP-D: 额度体系已拆除，这里只判定上游账户配额。
+from novelvideo.shared.upstream_quota_errors import (
+    UPSTREAM_QUOTA_EXCEEDED_MESSAGE,
+    is_upstream_quota_error,
+    upstream_quota_payload,
+)
+
+router = APIRouter()
+
+# 出网台账里这条链路的 capability 口径。取自
+# `chat/hermes_egress.py:131` 的 `capability="agent.hermes.text"`，与 EG-07 对齐；
+# 绑定侧与账本侧必须是同一个字符串，不另取。
+HERMES_TEXT_EGRESS_TASK_TYPE = "agent.hermes.text"
+
+
+@router.post("/chat/cancel")
+async def cancel_chat_turn(user: dict = Depends(get_api_user)) -> dict[str, Any]:
+    """Best-effort cancellation for the active Hermes chat worker.
+
+    The WebSocket receive loop is blocked while a Hermes prompt is streaming,
+    so a separate HTTP endpoint gives the frontend an out-of-band stop signal.
+    Closing the worker is intentionally coarse, but it is the only reliable way
+    to interrupt long-running tool calls with the current Hermes ACP wrapper.
+    """
+    username = str(user["username"])
+    try:
+        from novelvideo.chat.hermes_pool import pool as hermes_pool
+
+        cancelled = await hermes_pool.close_user(username)
+    except Exception:
+        cancelled = False
+    try:
+        chat_service.force_release_chat_run_lock(username, "")
+    except Exception:
+        pass
+    return {"ok": True, "data": {"cancelled": cancelled}}
+
+
+class ChatScopePayload(BaseModel):
+    kind: str = "home"
+    id: str | None = None
+
+
+class ChatAttachmentIn(BaseModel):
+    id: str | None = None
+    type: str | None = None
+    kind: str | None = None
+    mimeType: str | None = None
+    fileName: str | None = None
+    fileSize: int | None = None
+    content: str | None = None
+    url: str | None = None
+    path: str | None = None
+    label: str | None = None
+
+
+class ChatMessageIn(BaseModel):
+    type: str
+    scope: ChatScopePayload | None = None
+    text: str
+    turn_id: str | None = None
+    attachments: list[ChatAttachmentIn] = []
+
+
+class ScopeSetIn(BaseModel):
+    type: str
+    scope: ChatScopePayload
+
+
+class ChatUiEventIn(BaseModel):
+    scope: ChatScopePayload
+    turn_id: str
+    event: dict[str, Any]
+
+
+class ChatNotificationIn(BaseModel):
+    scope: ChatScopePayload | None = None
+    text: str
+
+
+@router.post("/chat/notifications")
+async def append_chat_notification(
+    payload: ChatNotificationIn,
+    user: dict = Depends(get_api_user),
+) -> dict[str, Any]:
+    username = str(user["username"])
+    scope = _scope_from_model(payload.scope)
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+    if len(text) > 4000:
+        raise HTTPException(status_code=400, detail="text is too long")
+
+    if scope.kind == "project":
+        project_ctx = await _project_context_for_scope(user, scope)
+        if not scope.id:
+            raise HTTPException(status_code=400, detail="project scope id is required")
+        message = chat_service.add_assistant_message(
+            username,
+            str(scope.id),
+            text,
+            project_dir=project_ctx.output_dir if project_ctx is not None else None,
+            project_state_dir=(
+                project_ctx.state_dir if project_ctx is not None else None
+            ),
+        )
+    else:
+        message = chat_store.append_message(username, scope, "assistant", text)
+    return {"ok": True, "data": message}
+
+
+@router.post("/chat/ui-events")
+async def append_chat_ui_event(
+    payload: ChatUiEventIn,
+    user: dict = Depends(get_api_user),
+) -> dict[str, Any]:
+    username = str(user["username"])
+    scope = _scope_from_model(payload.scope)
+    if scope.kind == "project":
+        await _project_context_for_scope(user, scope)
+    turn_id = payload.turn_id.strip()
+    if not turn_id:
+        raise HTTPException(status_code=400, detail="turn_id is required")
+    try:
+        event = chat_store.append_ui_event(username, scope, turn_id, payload.event)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "data": event}
+
+
+async def _authenticate_ws(websocket: WebSocket) -> dict[str, Any]:
+    if websocket.headers.get("X-API-Key"):
+        raise HTTPException(status_code=401, detail="unsupported credential")
+    if any(name in websocket.query_params for name in UNSUPPORTED_QUERY_CREDENTIALS):
+        raise HTTPException(status_code=401, detail="unsupported credential")
+
+    bearer = websocket.headers.get("Authorization", "").strip()
+    if bearer:
+        token = (
+            bearer.partition(" ")[2].strip()
+            if bearer.lower().startswith("bearer ")
+            else ""
+        )
+        if not token:
+            raise HTTPException(status_code=401, detail="invalid authorization")
+        return await _verify_agent_bearer(token)
+
+    cookie_value = websocket.cookies.get(AUTH_COOKIE_NAME)
+    return await _verify_browser_session(cookie_value)
+
+
+def _scope_for_authenticated_user(user: dict[str, Any]) -> ChatScope:
+    if user.get("credential_kind") != "agent_session":
+        return ChatScope(kind="home")
+    kind = str(user.get("current_scope_kind") or "home")
+    project_id = user.get("current_project_id")
+    if kind == "project" and project_id:
+        return ChatScope(kind="project", id=str(project_id))
+    if kind == "home":
+        return ChatScope(kind="home")
+    raise HTTPException(status_code=403, detail="agent scope unavailable")
+
+
+def _enforce_agent_chat_scope(
+    user: dict[str, Any],
+    scope: ChatScope,
+    *,
+    require_write: bool,
+) -> None:
+    if user.get("credential_kind") != "agent_session":
+        return
+    current = _scope_for_authenticated_user(user)
+    if current.kind != scope.kind or current.id != scope.id:
+        raise HTTPException(status_code=403, detail="agent scope mismatch")
+    if require_write and set(user.get("scopes") or []).isdisjoint(AGENT_WRITE_SCOPES):
+        raise HTTPException(status_code=403, detail="agent write scope missing")
+
+
+async def _reauthenticate_ws_event(
+    websocket: WebSocket,
+    *,
+    original_user: dict[str, Any],
+    scope: ChatScope,
+    require_write: bool,
+) -> dict[str, Any]:
+    fresh = await _authenticate_ws(websocket)
+    original_id = str(original_user.get("id") or original_user.get("user_id") or "")
+    fresh_id = str(fresh.get("id") or fresh.get("user_id") or "")
+    original_kind = original_user.get("credential_kind") or "browser_session"
+    fresh_kind = fresh.get("credential_kind") or "browser_session"
+    if not original_id or fresh_id != original_id or fresh_kind != original_kind:
+        raise HTTPException(status_code=403, detail="principal changed")
+    _enforce_agent_chat_scope(fresh, scope, require_write=require_write)
+    return fresh
+
+
+async def _close_ws_unauthorized(websocket: WebSocket) -> None:
+    await _send_json_best_effort(
+        websocket, {"type": "error", "message": "unauthorized"}
+    )
+    await websocket.close(code=1008)
+
+
+def _scope_from_model(model: ChatScopePayload | None) -> ChatScope:
+    return ChatScope.from_payload(model.model_dump() if model else None)
+
+
+def _should_prewarm_on_ws_connect(scope: ChatScope) -> bool:
+    return scope.kind != "home"
+
+
+def _completion_text_or_existing(event_text: object, existing: str) -> str:
+    final_text = str(event_text or "").strip()
+    if not final_text or final_text.startswith("stop="):
+        return existing
+    if existing.strip() and _is_completion_notice(final_text):
+        if final_text in existing:
+            return existing
+        return f"{existing.rstrip()}\n\n{final_text}"
+    return final_text
+
+
+def _is_completion_notice(text: str) -> bool:
+    return text in {
+        "当前任务已开始处理。请稍后让我查看当前任务进度，或在任务完成后再继续下一步。",
+        "刚才这一步没有成功启动任务。请先根据返回的错误补齐前置条件；如果是配音缺少声线，可以到「资产」上传或录制缺失声线后再继续。",
+    }
+
+
+def _message_content(message: object) -> str:
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content")
+    if isinstance(content, str):
+        return content.strip()
+    text = message.get("text")
+    if isinstance(text, str):
+        return text.strip()
+    return ""
+
+
+def _attachment_context_block(attachments: list[ChatAttachmentIn]) -> str:
+    if not attachments:
+        return ""
+    lines = [
+        "[CHAT_ATTACHMENTS]",
+        "The browser sent these attachment records with the user message.",
+    ]
+    for index, attachment in enumerate(attachments, 1):
+        lines.append("")
+        lines.append(f"{index}. fileName={attachment.fileName or ''}")
+        lines.append(f"   type={attachment.type or ''}")
+        lines.append(f"   mimeType={attachment.mimeType or ''}")
+        if attachment.fileSize is not None:
+            lines.append(f"   fileSize={attachment.fileSize}")
+        if attachment.url:
+            lines.append(f"   url={attachment.url}")
+        if attachment.path:
+            lines.append(f"   path={attachment.path}")
+        if attachment.content:
+            lines.append("   content=present")
+    lines.append("[/CHAT_ATTACHMENTS]")
+    return "\n".join(lines)
+
+
+def _text_with_attachment_context(
+    text: str, attachments: list[ChatAttachmentIn]
+) -> str:
+    block = _attachment_context_block(attachments)
+    return f"{text}\n\n{block}" if block else text
+
+
+def _attachment_payloads(attachments: list[ChatAttachmentIn]) -> list[dict[str, Any]]:
+    payloads: list[dict[str, Any]] = []
+    for attachment in attachments:
+        payload = attachment.model_dump(exclude_none=True)
+        if payload:
+            payloads.append(payload)
+    return payloads
+
+
+def _should_emit_final_text(final_text: str, last_sent_text: str) -> bool:
+    final = " ".join(str(final_text or "").split())
+    last = " ".join(str(last_sent_text or "").split())
+    return bool(final) and final != last
+
+
+def _tool_display_payload(text: object, name: object = None) -> tuple[str, str]:
+    raw = str(text or "").strip()
+    tool_name = str(name or "").strip()
+    lines = raw.splitlines()
+    if lines and lines[0].lstrip().startswith("→ "):
+        first = lines[0].lstrip()[2:].strip()
+        head, sep, tail = first.partition(":")
+        if sep and head.strip():
+            tool_name = tool_name or head.strip()
+            lines[0] = tail.strip()
+        else:
+            tool_name = tool_name or (first.split()[0].strip() if first else "")
+            lines = lines[1:]
+    body = "\n".join(line for line in lines if line.strip()).strip()
+    return tool_name or "agent.tool", body
+
+
+async def _project_context_for_scope(
+    user: dict[str, Any], scope: ChatScope
+) -> ProjectContext | None:
+    if scope.kind != "project" or not scope.id:
+        return None
+    return await resolve_project_context(
+        user=user,
+        project_id=str(scope.id),
+        required_role="viewer",
+    )
+
+
+async def _requester_user_id_for_chat(user: dict[str, Any], scope: ChatScope) -> str:
+    if scope.kind == "project":
+        project_ctx = await _project_context_for_scope(user, scope)
+        if project_ctx is not None and project_ctx.requester_user_id:
+            return project_ctx.requester_user_id
+    return await user_id_from_api_user(user)
+
+
+async def _history(
+    username: str,
+    scope: ChatScope,
+    *,
+    project_ctx: ProjectContext | None = None,
+) -> list[dict[str, Any]]:
+    if scope.kind == "project":
+        return chat_service.list_messages(
+            username,
+            str(scope.id),
+            project_dir=project_ctx.output_dir if project_ctx is not None else None,
+            project_state_dir=(
+                project_ctx.state_dir if project_ctx is not None else None
+            ),
+        )
+    return chat_store.list_messages(username, scope)
+
+
+async def _send_scope_changed(
+    websocket: WebSocket,
+    user: dict[str, Any],
+    username: str,
+    scope: ChatScope,
+) -> ChatScope | None:
+    try:
+        project_ctx = await _project_context_for_scope(user, scope)
+    except HTTPException as exc:
+        if scope.kind != "project" or exc.status_code != 404:
+            raise
+        scope = ChatScope(kind="home")
+        project_ctx = None
+        if not await _send_json_best_effort(
+            websocket,
+            {"type": "error", "message": "项目不存在或已删除，已切回首页聊天。"},
+        ):
+            return None
+    if not await _send_json_best_effort(
+        websocket,
+        {
+            "type": "scope.changed",
+            "scope": scope.to_dict(),
+            "history": await _history(username, scope, project_ctx=project_ctx),
+            "busy": chat_service.chat_run_lock_is_active(username),
+        },
+    ):
+        return None
+    return scope
+
+
+async def _send_json_best_effort(
+    websocket: WebSocket,
+    payload: dict[str, Any],
+    send_lock: asyncio.Lock | None = None,
+) -> bool:
+    try:
+        if send_lock is None:
+            await websocket.send_json(payload)
+        else:
+            async with send_lock:
+                await websocket.send_json(payload)
+        return True
+    except Exception:
+        return False
+
+
+async def _chat_heartbeat(
+    websocket: WebSocket,
+    *,
+    scope: ChatScope,
+    turn_id: str,
+    send_lock: asyncio.Lock,
+    interval_seconds: float = 10.0,
+) -> None:
+    while True:
+        await asyncio.sleep(interval_seconds)
+        sent = await _send_json_best_effort(
+            websocket,
+            {"type": "chat.ping", "turn_id": turn_id, "scope": scope.to_dict()},
+            send_lock,
+        )
+        if not sent:
+            return
+
+
+async def _sync_running_agent_scope(username: str, scope: ChatScope) -> None:
+    try:
+        from novelvideo.chat.hermes_pool import pool as hermes_pool
+
+        await hermes_pool.set_scope_for_user(
+            username,
+            scope_kind=scope.kind,
+            project_id=scope.id if scope.kind == "project" else None,
+        )
+    except Exception:
+        # Scope switching should not spawn or break the UI if Hermes is absent.
+        return
+
+
+async def _stream_project_turn(
+    *,
+    websocket: WebSocket,
+    user: dict[str, Any],
+    username: str,
+    scope: ChatScope,
+    text: str,
+    attachments: list[ChatAttachmentIn],
+    turn_id: str,
+) -> None:
+    project = str(scope.id)
+    project_ctx = await _project_context_for_scope(user, scope)
+    if project_ctx is None:
+        # `ChatScope.from_payload`（`chat/store.py:82-83`）保证 project 态的 id 非空，
+        # 所以这里在本分支里够不着。够不着也必须 fail-closed：没有 registry 校验过的
+        # 身份就没法判定出网身份，绕过绑定直接开聊正是 OI-61 那条漏。
+        # 不新造错误码，复用既有词汇。
+        raise EgressBoundaryError("ORG_CONTEXT_REQUIRED")
+    project_dir = project_ctx.output_dir
+    project_state_dir = project_ctx.state_dir
+    agent_text = _text_with_attachment_context(text, attachments)
+    chat_service.add_user_message(
+        username,
+        project,
+        text,
+        project_dir=project_dir,
+        project_state_dir=project_state_dir,
+    )
+    send_lock = asyncio.Lock()
+    heartbeat_task = asyncio.create_task(
+        _chat_heartbeat(websocket, scope=scope, turn_id=turn_id, send_lock=send_lock)
+    )
+    done_sent = False
+    assistant_sent_text = ""
+
+    async def on_event(event: dict[str, Any]) -> None:
+        nonlocal assistant_sent_text, done_sent
+        event_type = event.get("type")
+        if event_type == "thread_started":
+            await _send_json_best_effort(
+                websocket,
+                {
+                    "type": "thread.started",
+                    "scope": scope.to_dict(),
+                    "thread_id": event.get("thread_id"),
+                    "turn_id": event.get("turn_id") or turn_id,
+                },
+                send_lock,
+            )
+        elif event_type == "assistant_delta":
+            assistant_sent_text = str(event.get("text") or "")
+            await _send_json_best_effort(
+                websocket,
+                {
+                    "type": "assistant.delta",
+                    "text": assistant_sent_text,
+                    "turn_id": turn_id,
+                    "accumulated": True,
+                },
+                send_lock,
+            )
+        elif event_type == "tool_update":
+            tool_name, tool_body = _tool_display_payload(
+                event.get("text"), event.get("name")
+            )
+            await _send_json_best_effort(
+                websocket,
+                {
+                    "type": "tool.result",
+                    "turn_id": turn_id,
+                    "name": tool_name,
+                    "success": True,
+                    "result": {"text": tool_body},
+                    "error": None,
+                },
+                send_lock,
+            )
+        elif event_type == "assistant_message":
+            message = event.get("message")
+            if isinstance(message, dict):
+                assistant_sent_text = _message_content(message)
+                await _send_json_best_effort(
+                    websocket,
+                    {
+                        "type": "assistant.message",
+                        "turn_id": turn_id,
+                        "message": message,
+                    },
+                    send_lock,
+                )
+        elif event_type == "done":
+            final_text = _message_content(event.get("message"))
+            if _should_emit_final_text(final_text, assistant_sent_text):
+                assistant_sent_text = final_text
+                await _send_json_best_effort(
+                    websocket,
+                    {
+                        "type": "assistant.delta",
+                        "text": final_text,
+                        "turn_id": turn_id,
+                        "accumulated": True,
+                    },
+                    send_lock,
+                )
+            done_sent = await _send_json_best_effort(
+                websocket,
+                {"type": "chat.done", "turn_id": turn_id, "scope": scope.to_dict()},
+                send_lock,
+            )
+
+    try:
+        # 请求路径上唯一的出网身份绑定点。放在这里而不是分发块，是为了复用
+        # `_project_context_for_scope` 已经解出的 `ProjectContext`——身份取值只走
+        # registry 校验过的 `project_ctx`，不用客户端输入的 `scope.id`，也不新增
+        # 第二次身份解析（第二条信任链就是第二个漏洞面）。
+        # 非组织身份（平台／个人／CE local／灰度未开）下 `request_egress_scope`
+        # 什么都不绑并 yield `None`；`egress_context=None` 照传，
+        # `service.py` 的 `if egress_context is not None` 会把它当平台路径跳过，
+        # 平台行为逐字节不变。刻意不写成 if/else 两条调用路径。
+        async with request_egress_scope(
+            requester_user_id=project_ctx.requester_user_id,
+            project_id=project_ctx.project_id,
+            task_type=HERMES_TEXT_EGRESS_TASK_TYPE,
+        ) as egress_context:
+            await chat_service.stream_assistant_reply(
+                username,
+                project,
+                agent_text,
+                on_event,
+                project_dir=project_dir,
+                project_state_dir=project_state_dir,
+                egress_context=egress_context,
+                requester_user_id=project_ctx.requester_user_id,
+            )
+    finally:
+        heartbeat_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await heartbeat_task
+        if not done_sent:
+            await _send_json_best_effort(
+                websocket,
+                {"type": "chat.done", "turn_id": turn_id, "scope": scope.to_dict()},
+                send_lock,
+            )
+
+
+async def _stream_home_turn(
+    *,
+    websocket: WebSocket,
+    user: dict[str, Any],
+    username: str,
+    scope: ChatScope,
+    text: str,
+    attachments: list[ChatAttachmentIn],
+    turn_id: str,
+) -> None:
+    from novelvideo.chat.hermes_egress import HOME_SCOPE_EGRESS_PROJECT_ID
+    from novelvideo.chat.hermes_pool import pool as hermes_pool
+
+    before_projects = set(list_user_projects(username))
+    previous_assistant = next(
+        (
+            str(message.get("content") or "")
+            for message in reversed(chat_store.list_messages(username, scope))
+            if message.get("role") == "assistant"
+        ),
+        "",
+    )
+    agent_text = _text_with_attachment_context(text, attachments)
+    chat_store.append_message(
+        username,
+        scope,
+        "user",
+        text,
+        media=_attachment_payloads(attachments),
+        turn_id=turn_id,
+    )
+    # home 态请求路径上唯一的出网身份绑定点。`_stream_home_turn` 是一段绕开
+    # `chat/service.py` 的独立流式循环，所以绑定必须在这里就地做——OI-61 只补了
+    # project 态，home 态因此漏到了 OI-63。
+    #
+    # 身份解析复用既有 helper，不另发明第二条信任链；home 分支会落到
+    # `user_id_from_api_user(user)`。
+    #
+    # 出网 project 身份用哨兵 `HOME_SCOPE_EGRESS_PROJECT_ID`：`TrustedEgressContext`
+    # 的 `project_id` 有非空不变量，而 home 态的**会话**身份必须是 None。两者是
+    # 两个口径，所以下面 `get_for_user` 里 `project_id` 与 `egress_project_id`
+    # 各传各的——哨兵只喂出网比对，不得漏进子进程的 DRAMACLAW_PROJECT_ID。
+    #
+    # 哨兵必须两跳一致：绑定、换 authorization、取号三处同值，否则
+    # `_strict_admission` 在 `authorize_credentialed_hermes` 与
+    # `build_hermes_child_env` 两处各比一次，任一处不一致即 TASK_ENVELOPE_INVALID。
+    #
+    # 非组织身份下 `request_egress_scope` 什么都不绑并 yield `None`，
+    # `authorize_hermes_launch` 随之返回 `None`，平台路径逐字节不变。
+    # 刻意不写成 if/else 两条调用路径。
+    requester_user_id = await _requester_user_id_for_chat(user, scope)
+    async with request_egress_scope(
+        requester_user_id=requester_user_id,
+        project_id=HOME_SCOPE_EGRESS_PROJECT_ID,
+        task_type=HERMES_TEXT_EGRESS_TASK_TYPE,
+    ) as egress_context:
+        authorization = await chat_service.authorize_hermes_launch(
+            egress_context=egress_context,
+            username=username,
+            requester_user_id=requester_user_id,
+            egress_project_id=HOME_SCOPE_EGRESS_PROJECT_ID,
+            prompt=agent_text,
+        )
+        thread = await hermes_pool.get_for_user(
+            username,
+            scope_kind="home",
+            # 会话身份：home 态恒为 None。出网身份走 egress_project_id。
+            project_id=None,
+            egress_project_id=HOME_SCOPE_EGRESS_PROJECT_ID,
+            requester_user_id=requester_user_id,
+            authorization=authorization,
+        )
+
+    assistant_text = ""
+    assistant_sent_text = ""
+    tool_text = ""
+    tool_name = ""
+    persisted = False
+    send_lock = asyncio.Lock()
+    heartbeat_task = asyncio.create_task(
+        _chat_heartbeat(websocket, scope=scope, turn_id=turn_id, send_lock=send_lock)
+    )
+    done_sent = False
+
+    def persist_partial_reply() -> dict[str, Any] | None:
+        nonlocal persisted, assistant_text
+        if persisted:
+            return None
+        final_text = chat_service._strip_replayed_chat_response(
+            assistant_text,
+            previous_assistant,
+            text,
+        ).strip()
+        if not final_text:
+            return None
+        message = chat_store.append_message(username, scope, "assistant", final_text)
+        persisted = True
+        return message
+
+    await _send_json_best_effort(
+        websocket,
+        {
+            "type": "thread.started",
+            "scope": scope.to_dict(),
+            "thread_id": getattr(thread, "id", None) or None,
+            "turn_id": turn_id,
+        },
+        send_lock,
+    )
+    try:
+        async for event in thread.stream(agent_text, current_project=None):
+            if event.type == "thread_started":
+                await _send_json_best_effort(
+                    websocket,
+                    {
+                        "type": "thread.started",
+                        "scope": scope.to_dict(),
+                        "thread_id": str(event.thread_id or "").strip() or None,
+                        "turn_id": str(event.turn_id or "").strip() or turn_id,
+                    },
+                    send_lock,
+                )
+            elif event.type == "assistant_delta":
+                assistant_text = chat_service._merge_stream_text(
+                    assistant_text, event.text
+                )
+                display_text = chat_service._strip_replayed_chat_response(
+                    assistant_text,
+                    previous_assistant,
+                    text,
+                    suppress_partial_replay=True,
+                )
+                assistant_sent_text = display_text
+                await _send_json_best_effort(
+                    websocket,
+                    {
+                        "type": "assistant.delta",
+                        "text": display_text,
+                        "turn_id": turn_id,
+                        "accumulated": True,
+                    },
+                    send_lock,
+                )
+            elif event.type == "tool_update":
+                if event.name:
+                    tool_name = event.name
+                tool_text += str(event.text or "") + "\n"
+                display_name, display_body = _tool_display_payload(tool_text, tool_name)
+                await _send_json_best_effort(
+                    websocket,
+                    {
+                        "type": "tool.result",
+                        "turn_id": turn_id,
+                        "name": display_name,
+                        "success": True,
+                        "result": {"text": display_body},
+                        "error": None,
+                    },
+                    send_lock,
+                )
+            elif event.type == "complete":
+                assistant_text = _completion_text_or_existing(
+                    event.text, assistant_text
+                )
+
+        assistant_text = chat_service._strip_replayed_chat_response(
+            assistant_text,
+            previous_assistant,
+            text,
+        )
+        assistant_text = assistant_text.strip() or "(agent returned no content)"
+        message = chat_store.append_message(
+            username, scope, "assistant", assistant_text
+        )
+        persisted = True
+        await _send_json_best_effort(
+            websocket,
+            {
+                "type": "assistant.message",
+                "turn_id": turn_id,
+                "message": message,
+            },
+            send_lock,
+        )
+        assistant_sent_text = _message_content(message)
+        if _should_emit_final_text(assistant_text, assistant_sent_text):
+            assistant_sent_text = assistant_text
+            await _send_json_best_effort(
+                websocket,
+                {
+                    "type": "assistant.delta",
+                    "text": assistant_text,
+                    "turn_id": turn_id,
+                    "accumulated": True,
+                },
+                send_lock,
+            )
+
+        after_projects = set(list_user_projects(username))
+        for project in sorted(after_projects - before_projects):
+            project_scope = ChatScope(kind="project", id=project)
+            chat_store.append_message(
+                username,
+                project_scope,
+                "system",
+                f"Created from home conversation turn {turn_id}.",
+            )
+            await _send_json_best_effort(
+                websocket,
+                {"type": "project.created", "project": project},
+                send_lock,
+            )
+
+        done_sent = await _send_json_best_effort(
+            websocket,
+            {"type": "chat.done", "turn_id": turn_id, "scope": scope.to_dict()},
+            send_lock,
+        )
+    finally:
+        heartbeat_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await heartbeat_task
+        persist_partial_reply()
+        if not done_sent:
+            await _send_json_best_effort(
+                websocket,
+                {"type": "chat.done", "turn_id": turn_id, "scope": scope.to_dict()},
+                send_lock,
+            )
+
+
+@router.websocket("/chat/ws")
+async def chat_ws(websocket: WebSocket) -> None:
+    await websocket.accept()
+    try:
+        user = await _authenticate_ws(websocket)
+    except Exception:
+        await _close_ws_unauthorized(websocket)
+        return
+
+    username = str(user["username"])
+    try:
+        current_scope = _scope_for_authenticated_user(user)
+        _enforce_agent_chat_scope(user, current_scope, require_write=False)
+        current_scope = await _send_scope_changed(
+            websocket, user, username, current_scope
+        )
+    except Exception:
+        await _close_ws_unauthorized(websocket)
+        return
+    if current_scope is None:
+        return
+    # Do not pre-warm the default home scope on connect. The React client often
+    # immediately sends scope.set for the active project; warming home first
+    # creates a worker that is then rotated and logs a noisy initialize timeout.
+    if _should_prewarm_on_ws_connect(current_scope):
+        await chat_service.prewarm_chat_backend(
+            username,
+            project=current_scope.id if current_scope.kind == "project" else None,
+        )
+
+    try:
+        while True:
+            try:
+                raw = await websocket.receive_json()
+            except RuntimeError as exc:
+                if "WebSocket is not connected" in str(exc):
+                    return
+                raise
+            event_type = str(raw.get("type") or "")
+            if event_type == "scope.set":
+                msg = ScopeSetIn.model_validate(raw)
+                requested_scope = _scope_from_model(msg.scope)
+                try:
+                    user = await _reauthenticate_ws_event(
+                        websocket,
+                        original_user=user,
+                        scope=requested_scope,
+                        require_write=False,
+                    )
+                except Exception:
+                    await _close_ws_unauthorized(websocket)
+                    return
+                current_scope = await _send_scope_changed(
+                    websocket, user, username, requested_scope
+                )
+                if current_scope is None:
+                    return
+                await _sync_running_agent_scope(username, current_scope)
+                # Switching project rotates the worker; warm the new scope now so
+                # the first message in the project doesn't cold-start.
+                await chat_service.prewarm_chat_backend(
+                    username,
+                    project=(
+                        current_scope.id if current_scope.kind == "project" else None
+                    ),
+                )
+                continue
+
+            if event_type != "chat.message":
+                await _send_json_best_effort(
+                    websocket,
+                    {"type": "error", "message": f"unsupported event: {event_type}"},
+                )
+                continue
+
+            msg = ChatMessageIn.model_validate(raw)
+            scope = _scope_from_model(msg.scope) if msg.scope else current_scope
+            turn_id = (msg.turn_id or "").strip() or uuid.uuid4().hex
+            text = msg.text.strip()
+            if not text:
+                await _send_json_best_effort(
+                    websocket,
+                    {"type": "error", "turn_id": turn_id, "message": "empty message"},
+                )
+                continue
+
+            try:
+                user = await _reauthenticate_ws_event(
+                    websocket,
+                    original_user=user,
+                    scope=scope,
+                    require_write=True,
+                )
+            except Exception:
+                await _close_ws_unauthorized(websocket)
+                return
+
+            try:
+                if scope.kind == "project":
+                    await _stream_project_turn(
+                        websocket=websocket,
+                        user=user,
+                        username=username,
+                        scope=scope,
+                        text=text,
+                        attachments=msg.attachments,
+                        turn_id=turn_id,
+                    )
+                elif scope.kind == "home":
+                    await _stream_home_turn(
+                        websocket=websocket,
+                        user=user,
+                        username=username,
+                        scope=scope,
+                        text=text,
+                        attachments=msg.attachments,
+                        turn_id=turn_id,
+                    )
+                else:
+                    await _send_json_best_effort(
+                        websocket,
+                        {
+                            "type": "error",
+                            "turn_id": turn_id,
+                            "message": f"scope not implemented: {scope.kind}",
+                        },
+                    )
+            except Exception as exc:  # noqa: BLE001
+                message = str(exc)
+                if "当前用户已有 AI 对话正在处理中" in message:
+                    await _send_json_best_effort(
+                        websocket,
+                        {
+                            "type": "chat.busy",
+                            "turn_id": turn_id,
+                            "scope": scope.to_dict(),
+                            "message": message,
+                        },
+                    )
+                    continue
+                billing_rule_error = find_billing_rule_not_configured_error(exc)
+                if billing_rule_error is not None:
+                    await _send_json_best_effort(
+                        websocket,
+                        {
+                            "type": "error",
+                            "turn_id": turn_id,
+                            "message": BILLING_RULE_NOT_CONFIGURED_MESSAGE,
+                            "data": billing_rule_not_configured_payload(
+                                billing_rule_error
+                            ),
+                        },
+                    )
+                    continue
+                if is_upstream_quota_error(exc):
+                    await _send_json_best_effort(
+                        websocket,
+                        {
+                            "type": "error",
+                            "turn_id": turn_id,
+                            "message": UPSTREAM_QUOTA_EXCEEDED_MESSAGE,
+                            "data": upstream_quota_payload(exc),
+                        },
+                    )
+                    continue
+                billing_error = find_billing_error(exc)
+                if billing_error is not None:
+                    await _send_json_best_effort(
+                        websocket,
+                        {
+                            "type": "error",
+                            "turn_id": turn_id,
+                            "message": billing_error.user_message,
+                            "data": billing_error_payload(billing_error),
+                        },
+                    )
+                    continue
+                await _send_json_best_effort(
+                    websocket, {"type": "error", "turn_id": turn_id, "message": message}
+                )
+    except WebSocketDisconnect:
+        return

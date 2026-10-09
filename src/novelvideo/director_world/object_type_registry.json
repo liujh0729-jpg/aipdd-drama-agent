@@ -1,0 +1,189 @@
+{
+  "floor": {
+    "color": "#9a9a9a",
+    "label": "floor / walkable ground object class",
+    "object_class": "floor",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "road": {
+    "color": "#4f4f4f",
+    "label": "road / vehicle lane object class",
+    "object_class": "road",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "sidewalk": {
+    "color": "#85857d",
+    "label": "sidewalk / pedestrian pavement object class",
+    "object_class": "sidewalk",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "curb": {
+    "color": "#d0c8b8",
+    "label": "curb / raised road edge object class",
+    "object_class": "curb",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "wall": {
+    "color": "#b8b8b8",
+    "label": "wall / room boundary object class",
+    "object_class": "wall",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "building": {
+    "color": "#8f8373",
+    "label": "building facade / large exterior mass object class",
+    "object_class": "building",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "window": {
+    "color": "#5aa7d6",
+    "label": "window object class",
+    "object_class": "window",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "door": {
+    "color": "#2f6f9f",
+    "label": "door / entrance object class",
+    "object_class": "door",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "counter": {
+    "color": "#d17a22",
+    "label": "counter / service counter object class",
+    "object_class": "counter",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "table": {
+    "color": "#b36bff",
+    "label": "table object class",
+    "object_class": "table",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "chair": {
+    "color": "#6f54d9",
+    "label": "chair / stool / seat object class",
+    "object_class": "chair",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "bench": {
+    "color": "#7b5bd6",
+    "label": "bench / long seat object class",
+    "object_class": "bench",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "menu_board": {
+    "color": "#e83f3f",
+    "label": "menu board / signage object class",
+    "object_class": "menu_board",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "shop_sign": {
+    "color": "#f05a28",
+    "label": "shop sign / street sign / named signboard object class",
+    "object_class": "shop_sign",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "shelf": {
+    "color": "#8a5a36",
+    "label": "shelf / storage rack object class",
+    "object_class": "shelf",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "appliance": {
+    "color": "#65727f",
+    "label": "kitchen appliance / hood / metal equipment object class",
+    "object_class": "appliance",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "decoration": {
+    "color": "#e46a8a",
+    "label": "decoration / lantern / wall ornament object class",
+    "object_class": "decoration",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "street_light": {
+    "color": "#f4d35e",
+    "label": "street light / lamp post object class",
+    "object_class": "street_light",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "traffic_signal": {
+    "color": "#2fb344",
+    "label": "traffic signal / crossing signal object class",
+    "object_class": "traffic_signal",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "vehicle": {
+    "color": "#3f7dd9",
+    "label": "vehicle / car / bus / train exterior object class",
+    "object_class": "vehicle",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "railing": {
+    "color": "#6d747c",
+    "label": "railing / fence / barrier object class",
+    "object_class": "railing",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "stairs": {
+    "color": "#a88258",
+    "label": "stairs / steps object class",
+    "object_class": "stairs",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "plant": {
+    "color": "#4da35b",
+    "label": "plant object class",
+    "object_class": "plant",
+    "sketch_color_policy": "environment_to_grayscale"
+  },
+  "prop_food": {
+    "color": "#ffb000",
+    "label": "ordinary food / bowl / cup prop object class",
+    "object_class": "prop_food",
+    "sketch_color_policy": "environment_to_grayscale",
+    "marker_role": "ordinary_prop"
+  },
+  "prop_phone": {
+    "color": "#00ffd5",
+    "label": "tracked phone / small screen prop marker",
+    "object_class": "prop_phone",
+    "sketch_color_policy": "preserve_marker_color",
+    "marker_role": "tracked_prop"
+  },
+  "prop_bag": {
+    "color": "#ff7a00",
+    "label": "tracked bag / carried prop marker",
+    "object_class": "prop_bag",
+    "sketch_color_policy": "preserve_marker_color",
+    "marker_role": "tracked_prop"
+  },
+  "prop_hero": {
+    "color": "#39ff14",
+    "label": "hero tracked prop marker",
+    "object_class": "prop_hero",
+    "sketch_color_policy": "preserve_marker_color",
+    "marker_role": "tracked_prop"
+  },
+  "actor_female": {
+    "color": "#ff00ff",
+    "label": "female character identity marker",
+    "object_class": "actor",
+    "sketch_color_policy": "preserve_marker_color",
+    "marker_role": "character_identity"
+  },
+  "actor_male": {
+    "color": "#00ffff",
+    "label": "male character identity marker",
+    "object_class": "actor",
+    "sketch_color_policy": "preserve_marker_color",
+    "marker_role": "character_identity"
+  },
+  "actor_neutral": {
+    "color": "#ccff00",
+    "label": "neutral/background character identity marker",
+    "object_class": "actor",
+    "sketch_color_policy": "preserve_marker_color",
+    "marker_role": "character_identity"
+  }
+}

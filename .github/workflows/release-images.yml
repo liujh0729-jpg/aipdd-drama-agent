@@ -1,0 +1,84 @@
+name: release-images
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要构建的 release tag(如 v1.0.2)"
+        required: true
+        type: string
+      push_latest:
+        description: "同时更新 latest tag(重建旧版本时保持关闭)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# release 事件取 tag 名(github.ref_name),手动触发取输入的 tag。
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: claymorelab/dramaclaw
+          # release: latest=auto(prerelease 不推 latest);手动触发由 push_latest 决定,
+          # 默认 false —— 重建历史版本时避免把 latest 回退到旧版。
+          tags: |
+            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
+          flavor: |
+            latest=${{ github.event_name == 'release' && 'auto' || (inputs.push_latest && 'true' || 'false') }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: claymorelab/dramaclaw-frontend
+          tags: |
+            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
+          flavor: |
+            latest=${{ github.event_name == 'release' && 'auto' || (inputs.push_latest && 'true' || 'false') }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            VITE_APP_VERSION=${{ env.RELEASE_TAG }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

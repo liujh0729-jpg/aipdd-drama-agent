@@ -1,0 +1,17 @@
+{
+  "id": "quadruped_mount",
+  "label_zh": "四足坐骑",
+  "default_scale": [1.4, 1.25, 2.2],
+  "default_affordances": ["mountable", "blocking_mass"],
+  "default_attachment_points": [
+    {
+      "id": "saddle",
+      "kind": "mount",
+      "offset": [0, 1.15, 0],
+      "facing_delta": 0,
+      "actor_state": "mounted",
+      "description_zh": "骑乘点"
+    }
+  ],
+  "sketch_description_zh": "四足坐骑类 staging 轮廓。真实物种由 semantic_label 决定。"
+}

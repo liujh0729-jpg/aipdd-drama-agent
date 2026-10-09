@@ -1,0 +1,22 @@
+name: banned-words
+
+# REPO-07：发布前禁用词 lint。对外文本含「开源 / open source」即 exit 1。
+# dramaclaw-ce 为 ELv2 source-available，不是开源。
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  banned-words:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Lint banned words
+        run: python3 scripts/lint_banned_words.py

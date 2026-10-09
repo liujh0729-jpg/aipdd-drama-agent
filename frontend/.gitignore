@@ -1,0 +1,39 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules/
+dist/
+dist-ssr
+*.local
+
+# Environment
+.env
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TanStack Router 插件的临时目录(生成 routeTree 时落的中间文件)
+.tanstack/
+
+# Jarvis
+.jarvis/
+.gstack/
+graphify-out/
+
+# Local docs editor state
+docs/.obsidian/
+/acceptance-logs

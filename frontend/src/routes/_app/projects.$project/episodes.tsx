@@ -1,0 +1,1321 @@
+// SPDX-License-Identifier: Elastic-2.0
+// Copyright (c) 2026 ClaymoreLab
+import {
+  createFileRoute,
+  Outlet,
+  useNavigate,
+  useParams,
+  useRouterState,
+} from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Ban,
+  Check,
+  ChevronDown,
+  Clapperboard,
+  Image as ImageIcon,
+  Loader2,
+  MapPinned,
+  Package,
+  Play,
+  Sparkles,
+  Users,
+  Wand2,
+  type LucideIcon,
+} from "lucide-react";
+
+import { useCharacters } from "@/lib/queries/characters";
+import {
+  derivePipelineEpisodeStatuses,
+  isPlanEpisodeAssetsResult,
+  useEpisodeDetail,
+  useEpisodes,
+  usePipelineStatus,
+  usePlanEpisodeProps,
+  usePlanEpisodeScenes,
+  usePlanEpisodes,
+  usePlanIdentities,
+} from "@/lib/queries/episodes";
+import { deriveEpisodeStats, type EpisodeStats } from "@/lib/episode-stats";
+import { episodeDisplayTitle } from "@/lib/episode-title";
+import { useStageTask } from "@/hooks/use-stage-task";
+import { useTaskController } from "@/hooks/use-task-controller";
+import { useTaskActivity } from "@/task-center/use-task-activity";
+import { TASK_TYPES } from "@/lib/task-types";
+import { queryKeys } from "@/lib/query-keys";
+import { backendErrorResponseToastMessage, backendErrorToastMessage } from "@/lib/api-errors";
+import { HealthBar } from "@/components/episode/health-bar";
+import {
+  EpisodeActionsSlotProvider,
+  useEpisodeActionsSlotActive,
+  useEpisodeActionsSlotSetter,
+} from "@/components/episode/episode-actions-slot";
+import { TaskControllerProvider } from "@/components/episode/task-controller-provider";
+import {
+  CollapsibleHeaderRegion,
+  HeaderCollapseProvider,
+} from "@/components/episode/header-collapse";
+import { StageProgressPanel } from "@/components/stage-progress-panel";
+import { EpisodeListSkeleton } from "@/components/skeletons";
+import { Button } from "@/components/ui/button";
+import { SUBTLE_HEADER_ACTION_BUTTON_CLASS } from "@/components/ui/header-action-styles";
+import { HeaderRefreshButton } from "@/components/ui/header-refresh-button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { TOP_TABS } from "@/lib/episode-nav";
+import { confirmDialog } from "@/components/confirm-dialog-host";
+import { AutoStoryboardDialog } from "@/components/episode/auto-storyboard-dialog";
+import { useEpisodeAutoPipeline } from "@/hooks/use-episode-auto-pipeline";
+import type {
+  AutoEpisodeInput,
+  AutoPipelineKind,
+  AutoStep,
+  StoryboardTarget,
+} from "@/lib/episode-auto-pipeline";
+import type { Episode } from "@/types/episode";
+
+// ─── stage descriptor (shared) ──────────────────────────────────────────────
+
+// v3 valid top-level paths + legacy sub routes that redirect to /beats.
+const KNOWN_STAGE_PATHS: readonly string[] = [
+  ...TOP_TABS.map((t) => t.routeSegment),
+  "/sketches",
+  "/audio",
+  "/video",
+  "/overview",
+];
+// 剧集内第一站是「剧本」(script)：裸链接默认落到 script，与 index 重定向、
+// topTabForPathname fallback 同一口径。历史 fork 曾用 "/story"，但剧集内
+// 已无该子路由，会导致「查看详情」跳到不存在的路径（URL 变了页面不动）。
+const DEFAULT_STAGE_PATH = "/script";
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+function useSelectedEpisodeNum(): number | null {
+  const params = useParams({ strict: false }) as { episode?: string };
+  return params.episode ? Number(params.episode) : null;
+}
+
+function useActiveStagePath(): string {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const m = pathname.match(/\/episodes\/\d+(\/[a-z-]+)?/);
+  const found = m?.[1] ?? "";
+  return KNOWN_STAGE_PATHS.includes(found) ? found : DEFAULT_STAGE_PATH;
+}
+
+function countContentLines(text: string | undefined): number {
+  const trimmed = text?.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\r?\n/).filter((line) => line.trim().length > 0).length;
+}
+
+// ─── Episode header 2-column layout ─────────────────────────────────────────
+// Left column stacks the episode chrome and the pipeline
+// step nav. Right column is a portal target that the active route can fill
+// with episode-level batch actions (e.g. BatchBar on the beats page).
+
+function EpisodeHeaderLayout({
+  episode,
+  project,
+}: {
+  episode: Episode;
+  project: string;
+}) {
+  const slotActive = useEpisodeActionsSlotActive();
+  const setSlotTarget = useEpisodeActionsSlotSetter();
+  return (
+    <CollapsibleHeaderRegion className="bg-background">
+      <div className="flex min-w-0 flex-col">
+        <HealthBar project={project} episode={episode.number} />
+        {slotActive && (
+          <div
+            ref={setSlotTarget}
+            className="flex min-h-0 w-full min-w-0 justify-center border-b border-border/30 bg-white/[0.04] px-9 py-3 shadow-[inset_0_1px_0_hsl(var(--border)/0.3)]"
+          />
+        )}
+      </div>
+    </CollapsibleHeaderRegion>
+  );
+}
+
+// ─── Top bar ────────────────────────────────────────────────────────────────
+
+function EpisodeTitleSwitcher({
+  selectedEpisode,
+  episodes,
+  onSelectEpisode,
+}: {
+  selectedEpisode: Episode;
+  episodes: Episode[];
+  onSelectEpisode: (episodeNum: number) => void;
+}) {
+  const { t } = useTranslation();
+  const currentTitle = episodeDisplayTitle(
+    selectedEpisode.number,
+    selectedEpisode.title,
+    t,
+  );
+
+  if (episodes.length <= 1) {
+    return (
+      <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
+        {currentTitle}
+      </h1>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-foreground">
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              className="group inline-flex max-w-full items-center gap-2 rounded-[8px] px-1.5 py-1 text-left transition-colors hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              aria-label={t("episode.list.switchEpisode")}
+            />
+          }
+        >
+          <span className="min-w-0 truncate">{currentTitle}</span>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+        </DropdownMenuTrigger>
+      </h1>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={8}
+        className="w-80 max-h-[min(72vh,30rem)] overflow-hidden border border-white/15 bg-background/95 p-1.5 text-foreground shadow-none ring-0 backdrop-blur-2xl"
+      >
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="px-2 py-1.5 text-[11px]">
+            {t("episode.list.switchEpisode")}
+          </DropdownMenuLabel>
+          <div className="max-h-[min(62vh,26rem)] overflow-y-auto overscroll-contain pr-1">
+            {episodes.map((episode) => {
+              const isCurrent = episode.number === selectedEpisode.number;
+              const title = episodeDisplayTitle(episode.number, episode.title, t);
+              const lines = countContentLines(
+                episode.beat_source_text || episode.raw_content,
+              );
+              const identities = episode.identity_ids?.length ?? 0;
+              const scenes = episode.scene_menu?.length ?? 0;
+              const props = episode.prop_menu?.length ?? 0;
+
+              return (
+                <DropdownMenuItem
+                  key={episode.number}
+                  onClick={() => {
+                    if (!isCurrent) onSelectEpisode(episode.number);
+                  }}
+                  className={cn(
+                    "my-1 items-start gap-3 rounded-[7px] px-2 py-2.5 hover:bg-white/[0.06] focus:bg-white/[0.06]",
+                    isCurrent && "bg-white/[0.06] text-foreground",
+                  )}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {title}
+                    </span>
+                    <span className="mt-1 block truncate text-[11px] !text-muted-foreground">
+                      {t("episode.list.episodeSwitchSummary", {
+                        lines,
+                        identities,
+                        scenes,
+                        props,
+                      })}
+                    </span>
+                  </span>
+                  <Check
+                    className={cn(
+                      "mt-0.5 size-3.5 shrink-0 !text-primary [&_*]:!text-primary",
+                      !isCurrent && "opacity-0",
+                    )}
+                  />
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function TopBar({
+  showBack,
+  onBack,
+  showPlan,
+  showReplan,
+  onPlan,
+  planPending,
+  showRefresh,
+  onRefresh,
+  refreshPending,
+  selectedEpisode,
+  episodes,
+  onSelectEpisode,
+  autoCount,
+  autoRunning,
+  autoScriptEnabled,
+  autoStoryboardEnabled,
+  onRunAutoScript,
+  onRunAutoStoryboard,
+  project,
+}: {
+  showBack: boolean;
+  onBack: () => void;
+  showPlan: boolean;
+  showReplan: boolean;
+  onPlan: () => void;
+  planPending: boolean;
+  showRefresh: boolean;
+  onRefresh: () => Promise<boolean>;
+  refreshPending: boolean;
+  selectedEpisode: Episode | null;
+  episodes: Episode[];
+  onSelectEpisode: (episodeNum: number) => void;
+  autoCount: number;
+  autoRunning: boolean;
+  autoScriptEnabled: boolean;
+  autoStoryboardEnabled: boolean;
+  onRunAutoScript: () => void;
+  onRunAutoStoryboard: () => void;
+  project: string;
+}) {
+  const { t } = useTranslation();
+  const episodeNumber = selectedEpisode?.number ?? 0;
+  const { data: episodeDetailRes } = useEpisodeDetail(project, episodeNumber);
+  const episodeDetail = episodeDetailRes?.data ?? selectedEpisode;
+  // Same `beat_count` the cards read, from the list response — this header used
+  // to pull the auto-selected episode's whole beats payload just to take
+  // `.length`. Auto-selection is not a signal the user is heading into that
+  // episode, so nothing was being usefully prefetched: it was one more full
+  // beats request (sketch/frame/video URLs, an ffprobe per audio clip) on every
+  // visit to this page, for one integer already present in the list.
+  const beatCount = selectedEpisode?.beat_count ?? 0;
+  const sourceLineCount = countContentLines(
+    episodeDetail?.beat_source_text || episodeDetail?.raw_content,
+  );
+  const identityCount = episodeDetail?.identity_ids?.length ?? 0;
+  const sceneCount = episodeDetail?.scene_menu?.length ?? 0;
+  const propCount = episodeDetail?.prop_menu?.length ?? 0;
+  const headerTitle = selectedEpisode
+    ? selectedEpisode.title || t("episode.list.episodeNumber", { n: selectedEpisode.number })
+    : t("nav.episodes");
+  const headerSubtitle = selectedEpisode
+    ? t("episode.list.selectedEpisodeSummary", {
+        lines: sourceLineCount,
+        beats: beatCount,
+        identities: identityCount,
+        scenes: sceneCount,
+        props: propCount,
+        status:
+          beatCount > 0
+            ? t("episode.list.scriptReady")
+            : t("episode.list.scriptPending"),
+      })
+    : t("episode.list.subtitle");
+
+  return (
+    <div className="flex shrink-0 flex-col gap-3 border-b border-border/30 bg-background px-9 py-5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <Clapperboard className="size-[18px]" />
+        </span>
+        <div className="min-w-0">
+          {selectedEpisode ? (
+            <EpisodeTitleSwitcher
+              selectedEpisode={selectedEpisode}
+              episodes={episodes}
+              onSelectEpisode={onSelectEpisode}
+            />
+          ) : (
+            <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
+              {headerTitle}
+            </h1>
+          )}
+          <p className="ml-1.5 mt-3 truncate text-sm leading-6 text-muted-foreground">
+            {headerSubtitle}
+          </p>
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
+        {showRefresh && (
+          <HeaderRefreshButton
+            label={t("episode.list.refresh")}
+            onRefresh={onRefresh}
+            refreshing={refreshPending}
+          />
+        )}
+        {showReplan && (
+          <Button
+            size="sm"
+            onClick={onPlan}
+            disabled={planPending}
+            className="h-8 gap-1.5 rounded-[8px] bg-primary px-3 text-xs font-normal text-primary-foreground shadow-none hover:bg-primary/85 active:bg-primary/75"
+          >
+            {planPending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Play className="size-3.5" />
+            )}
+            {t("episode.list.replanEpisodes")}
+          </Button>
+        )}
+        {showReplan && (
+          <>
+            <Button
+              size="sm"
+              onClick={onRunAutoScript}
+              disabled={autoRunning || autoCount === 0 || !autoScriptEnabled}
+              title={
+                autoCount === 0
+                  ? t("episode.list.autoSelectHint")
+                  : !autoScriptEnabled
+                    ? t("episode.storyVersion.promptMissing")
+                    : undefined
+              }
+              className="h-8 gap-1.5 rounded-[8px] border border-white/12 bg-white/[0.04] px-3 text-xs font-normal text-foreground shadow-none hover:border-primary/45 hover:bg-primary/12 hover:text-primary"
+            >
+              {autoRunning ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Wand2 className="size-3.5" />
+              )}
+              {t("episode.list.autoScript")}
+            </Button>
+            <Button
+              size="sm"
+              onClick={onRunAutoStoryboard}
+              disabled={autoRunning || autoCount === 0 || !autoStoryboardEnabled}
+              title={
+                autoCount === 0
+                  ? t("episode.list.autoSelectHint")
+                  : !autoStoryboardEnabled
+                    ? t("episode.storyVersion.promptMissing")
+                    : undefined
+              }
+              className="h-8 gap-1.5 rounded-[8px] border border-white/12 bg-white/[0.04] px-3 text-xs font-normal text-foreground shadow-none hover:border-primary/45 hover:bg-primary/12 hover:text-primary"
+            >
+              {autoRunning ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <ImageIcon className="size-3.5" />
+              )}
+              {t("episode.list.autoStoryboard")}
+            </Button>
+          </>
+        )}
+        {showPlan && (
+          <Button
+            size="sm"
+            onClick={onPlan}
+            disabled={planPending}
+            className="h-8 gap-1.5 rounded-[8px] bg-primary px-3 text-xs font-normal text-primary-foreground shadow-none hover:bg-primary/85 active:bg-primary/75"
+          >
+            {planPending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Play className="size-3.5" />
+            )}
+            {t("episode.list.planEpisodes")}
+          </Button>
+        )}
+        {showBack && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onBack}
+            className={SUBTLE_HEADER_ACTION_BUTTON_CLASS}
+          >
+            <ArrowLeft className="size-3.5" />
+            {t("episode.list.backToEpisodes")}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EpisodeStatsStrip({
+  stats,
+  totalCharacters,
+  completedEpisodes,
+}: {
+  stats: EpisodeStats;
+  totalCharacters: number;
+  completedEpisodes: number;
+}) {
+  const { t } = useTranslation();
+  const items: Array<{
+    key: string;
+    label: string;
+    value: number;
+    icon: LucideIcon;
+    tone?: "ready";
+  }> = [
+    {
+      key: "episodes",
+      label: t("episode.list.stats.totalEpisodes"),
+      value: stats.totalEpisodes,
+      icon: Clapperboard,
+    },
+    {
+      key: "completed",
+      label: t("episode.list.stats.completedEpisodes"),
+      value: completedEpisodes,
+      icon: Clapperboard,
+      tone: "ready" as const,
+    },
+    {
+      key: "characters",
+      label: t("episode.list.stats.totalCharacters"),
+      value: totalCharacters,
+      icon: Users,
+    },
+    {
+      key: "identities",
+      label: t("episode.list.stats.totalIdentities"),
+      value: stats.totalIdentities,
+      icon: Users,
+    },
+    {
+      key: "scenes",
+      label: t("episode.list.stats.totalScenes"),
+      value: stats.totalScenes,
+      icon: MapPinned,
+    },
+    {
+      key: "props",
+      label: t("episode.list.stats.totalProps"),
+      value: stats.totalProps,
+      icon: Package,
+    },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-2 py-1.5">
+      {items.map(({ key, label, value, icon: Icon, tone }) => (
+        <div key={key} className="flex items-center gap-2">
+          <Icon
+            className={cn(
+              "size-3.5 shrink-0 text-muted-foreground",
+              tone === "ready" && "text-emerald-600 dark:text-emerald-300",
+            )}
+          />
+          <div className="flex items-center gap-5">
+            <span className="truncate text-[11px] text-muted-foreground">
+              {label}
+            </span>
+            <span className="shrink-0 text-xs font-medium tabular-nums text-foreground">
+              {value}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EpisodePlanShortcut({
+  icon,
+  summary,
+  actionLabel,
+  pending,
+  disabled = false,
+  disabledReason,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  summary: string;
+  actionLabel: string;
+  pending: boolean;
+  disabled?: boolean;
+  disabledReason?: string | null;
+  onClick: () => void;
+}) {
+  return (
+    <div className="group flex min-w-0 items-center gap-2 rounded-[8px] bg-white/[0.025] px-2 py-1 transition-colors hover:bg-white/[0.045]">
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[11px] text-muted-foreground">
+        {icon}
+        <span className="truncate">{summary}</span>
+      </span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        onClick={(event) => {
+          event.stopPropagation();
+          onClick();
+        }}
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
+        disabled={pending || disabled}
+        aria-label={actionLabel}
+        title={disabledReason || actionLabel}
+        className="h-7 shrink-0 gap-1 rounded-[7px] bg-transparent px-2 text-[11px] font-normal text-foreground shadow-none transition-colors hover:bg-primary/12 hover:text-primary disabled:bg-transparent disabled:text-muted-foreground/50 [&_svg]:size-3"
+      >
+        {pending ? (
+          <Loader2 className="animate-spin" />
+        ) : (
+          <Sparkles className="size-3" />
+        )}
+        {actionLabel}
+      </Button>
+    </div>
+  );
+}
+
+// ─── Episode list item ──────────────────────────────────────────────────────
+
+function EpisodeListItem({
+  project,
+  episode,
+  onSelect,
+  identityDisabledReason,
+  sceneDisabledReason,
+  checked,
+  onToggleSelect,
+  selectDisabled,
+}: {
+  project: string;
+  episode: Episode;
+  onSelect: () => void;
+  identityDisabledReason?: string | null;
+  sceneDisabledReason?: string | null;
+  checked: boolean;
+  onToggleSelect: () => void;
+  selectDisabled: boolean;
+}) {
+  const { t } = useTranslation();
+  // 镜头数直接读列表接口带出的 beat_count。这里曾经是 useEpisodeBeats(episode.number)
+  // ——每张卡片自己拉一次该集的完整 beats 载荷，只为取 .length。列表有几集就发几个
+  // 请求，每个都要解析项目上下文、开库、给每个 beat 拼 sketch/frame/video URL 并对
+  // 每条音频 fork 一次 ffprobe。改成后端一次 GROUP BY 带出来，这一页的扇出归零。
+  const shotCount = episode.beat_count;
+  const planIdentities = usePlanIdentities(project);
+  const identityTask = useStageTask({
+    taskType: "identity_planner",
+    project,
+    episode: episode.number,
+    invalidateKeys: [
+      queryKeys.episodes(project),
+      queryKeys.episodeDetail(project, episode.number),
+      queryKeys.characters(project),
+      queryKeys.pipelineStatus(project),
+    ],
+    onComplete: (result) => {
+      const data = (result ?? {}) as {
+        new_count?: number;
+        resolved_count?: number;
+      };
+      if ((data.new_count ?? 0) > 0) {
+        toast.success(
+          t("episode.script.planIdentitiesNew", { count: data.new_count }),
+        );
+      } else if ((data.resolved_count ?? 0) > 0) {
+        toast.success(
+          t("episode.script.planIdentitiesResolved", {
+            count: data.resolved_count,
+          }),
+        );
+      } else {
+        toast.warning(t("episode.script.planIdentitiesNone"));
+      }
+    },
+  });
+  const planScenes = usePlanEpisodeScenes(project);
+  const planProps = usePlanEpisodeProps(project);
+  // 场景/道具规划走异步任务：POST 只是入队，请求返回时任务才刚开始。用任务控制器
+  // 接管进行中状态（含刷新页面后的重连），否则按钮转圈会在入队瞬间就停，和底部
+  // 任务中心的「生成中」对不上。
+  const sceneTask = useTaskController({
+    key: {
+      taskType: TASK_TYPES.EPISODE_SCENE_PLANNER,
+      project,
+      episode: episode.number,
+    },
+    invalidateKeys: [
+      queryKeys.episodes(project),
+      queryKeys.episodeDetail(project, episode.number),
+      queryKeys.scenes(project),
+      queryKeys.pipelineStatus(project),
+    ],
+    showCompleteToast: false,
+    onComplete: (result) => {
+      const data = (result ?? {}) as { total_count?: number };
+      toast.success(
+        t("episode.script.scenePlanComplete", { count: data.total_count ?? 0 }),
+      );
+    },
+  });
+  const propTask = useTaskController({
+    key: {
+      taskType: TASK_TYPES.EPISODE_PROP_PLANNER,
+      project,
+      episode: episode.number,
+    },
+    invalidateKeys: [
+      queryKeys.episodes(project),
+      queryKeys.episodeDetail(project, episode.number),
+      queryKeys.props(project),
+      queryKeys.pipelineStatus(project),
+    ],
+    showCompleteToast: false,
+    onComplete: (result) => {
+      const data = (result ?? {}) as { total_count?: number };
+      toast.success(
+        t("episode.script.propPlanComplete", { count: data.total_count ?? 0 }),
+      );
+    },
+  });
+  const title = episodeDisplayTitle(episode.number, episode.title, t);
+  const snippet = (episode.summary || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  const identityCount = episode.identity_ids?.length ?? 0;
+  const sceneCount = episode.scene_menu?.length ?? 0;
+  const propCount = episode.prop_menu?.length ?? 0;
+  const identityLabel =
+    identityCount > 0
+      ? t("episode.list.identityCount", { count: identityCount })
+      : t("episode.list.noIdentities");
+  const identitySummary = identityDisabledReason || identityLabel;
+  const sceneLabel =
+    sceneCount > 0
+      ? t("episode.list.sceneCount", { count: sceneCount })
+      : t("episode.list.noScenes");
+  const sceneSummary = sceneDisabledReason || sceneLabel;
+  const propLabel =
+    propCount > 0
+      ? t("episode.list.propCount", { count: propCount })
+      : t("episode.list.noProps");
+
+  const handlePlanIdentities = async () => {
+    try {
+      const res = await planIdentities.mutateAsync(episode.number);
+      if (res.ok === false) {
+        toast.error(backendErrorToastMessage(res.error, t));
+        return;
+      }
+      identityTask.start();
+    } catch (err) {
+      toast.error(backendErrorToastMessage(err, t));
+    }
+  };
+
+  const identityPending = planIdentities.isPending || identityTask.started;
+
+  // CE(无控制面)下后端同步跑完并直接返回结果，没有任务可订阅；EE 走队列，
+  // 返回的是 TaskResponse，此时才接上 SSE 流。
+  const handlePlanScenes = async () => {
+    try {
+      const res = await planScenes.mutateAsync(episode.number);
+      if (res.ok === false) {
+        toast.error(backendErrorToastMessage(res.error, t));
+        return;
+      }
+      if (isPlanEpisodeAssetsResult(res)) {
+        toast.success(
+          t("episode.script.scenePlanComplete", { count: res.data.total_count }),
+        );
+        return;
+      }
+      sceneTask.start({ scope: res.scope });
+    } catch (err) {
+      toast.error(backendErrorToastMessage(err, t));
+    }
+  };
+
+  const handlePlanProps = async () => {
+    try {
+      const res = await planProps.mutateAsync(episode.number);
+      if (res.ok === false) {
+        toast.error(backendErrorToastMessage(res.error, t));
+        return;
+      }
+      if (isPlanEpisodeAssetsResult(res)) {
+        toast.success(
+          t("episode.script.propPlanComplete", { count: res.data.total_count }),
+        );
+        return;
+      }
+      propTask.start({ scope: res.scope });
+    } catch (err) {
+      toast.error(backendErrorToastMessage(err, t));
+    }
+  };
+
+  const scenePending = planScenes.isPending || sceneTask.started;
+  const propPending = planProps.isPending || propTask.started;
+
+  return (
+    <div
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={cn(
+        "flex h-full min-h-[13rem] w-full flex-col gap-2 rounded-[10px] border border-white/[0.06] bg-white/[0.025] p-3 text-left transition-all duration-200 ease-out",
+        "hover:scale-[1.01] hover:border-white/[0.12] hover:bg-white/[0.04]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        checked && "border-primary/45 bg-primary/[0.06]",
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={checked}
+          aria-label={t("episode.list.selectEpisode")}
+          disabled={selectDisabled}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleSelect();
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+          className={cn(
+            "flex size-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors",
+            checked
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-white/25 bg-white/[0.04] hover:border-primary/60",
+            selectDisabled && "cursor-not-allowed opacity-50",
+          )}
+        >
+          {checked && <Check className="size-3" />}
+        </button>
+        <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">
+          {title}
+        </h3>
+      </div>
+
+      {snippet && (
+        <p className="line-clamp-2 text-xs leading-snug text-muted-foreground/80">
+          {snippet}
+        </p>
+      )}
+
+      {shotCount != null && (
+        <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+          <Clapperboard className="size-3.5 shrink-0 text-primary" />
+          <span>{t("episode.list.shotCount", { count: shotCount })}</span>
+        </div>
+      )}
+
+      <div className="grid gap-1.5 pt-1">
+        <EpisodePlanShortcut
+          icon={<Users className="size-3.5 shrink-0 text-sky-400" />}
+          summary={identitySummary}
+          actionLabel={
+            identityCount > 0
+              ? t("episode.list.replanIdentities")
+              : t("episode.list.planIdentities")
+          }
+          pending={identityPending}
+          disabled={identityPending || Boolean(identityDisabledReason)}
+          disabledReason={identityDisabledReason}
+          onClick={handlePlanIdentities}
+        />
+        <EpisodePlanShortcut
+          icon={<MapPinned className="size-3.5 shrink-0 text-emerald-400" />}
+          summary={sceneSummary}
+          actionLabel={
+            sceneCount > 0
+              ? t("episode.list.replanScenes")
+              : t("episode.list.planScenes")
+          }
+          pending={scenePending}
+          disabled={scenePending || Boolean(sceneDisabledReason)}
+          disabledReason={sceneDisabledReason}
+          onClick={handlePlanScenes}
+        />
+        <EpisodePlanShortcut
+          icon={<Package className="size-3.5 shrink-0 text-amber-400" />}
+          summary={propLabel}
+          actionLabel={
+            propCount > 0
+              ? t("episode.list.replanProps")
+              : t("episode.list.planProps")
+          }
+          pending={propPending}
+          disabled={propPending}
+          onClick={handlePlanProps}
+        />
+      </div>
+
+      <div className="mt-auto pt-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect();
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+          className="h-8 w-full justify-center gap-1.5 rounded-[8px] border-white/10 bg-white/[0.025] px-3 text-xs font-normal text-foreground shadow-none hover:border-primary/45 hover:bg-primary/12 hover:text-primary"
+        >
+          {t("episode.list.viewDetails")}
+          <ArrowRight className="size-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// [aipdd fork delta] 自动化运行横幅：显示当前集数 / 步骤 + 停止。
+function AutoPipelineBanner({
+  kind,
+  targets,
+  episode,
+  step,
+  onStop,
+}: {
+  kind: AutoPipelineKind;
+  targets: StoryboardTarget[];
+  episode: number | null;
+  step: AutoStep | null;
+  onStop: () => void;
+}) {
+  const { t } = useTranslation();
+  // 分镜图那一档的步骤表跟着勾选走：只勾草图就不该多出一个永远走不到的「渲染图」格。
+  const steps: AutoStep[] =
+    kind === "script"
+      ? ["identity", "script", "storyVersion"]
+      : targets.includes("render")
+        ? ["colors", "sketch", "frame"]
+        : ["colors", "sketch"];
+  const stepIndex = step ? steps.indexOf(step) : -1;
+  const episodeText =
+    episode != null ? t("episode.list.episodeNumber", { n: episode }) : "";
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/30 bg-primary/[0.06] px-9 py-2.5">
+      <div className="flex min-w-0 items-center gap-2 text-xs text-foreground">
+        <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+        <span className="truncate">
+          {t(
+            kind === "script"
+              ? "episode.list.autoScriptRunning"
+              : "episode.list.autoStoryboardRunning",
+            {
+              episode: episodeText,
+              step: step ? t(`episode.list.autoSteps.${step}`) : "",
+            },
+          )}
+        </span>
+        {stepIndex >= 0 && (
+          <span className="shrink-0 tabular-nums text-muted-foreground">
+            {stepIndex + 1}/{steps.length}
+          </span>
+        )}
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        onClick={onStop}
+        className="h-7 shrink-0 gap-1 rounded-[7px] text-[11px] font-normal hover:bg-white/[0.06] [&_svg]:size-3.5"
+      >
+        <Ban className="size-3.5" />
+        {t("episode.list.autoStop")}
+      </Button>
+    </div>
+  );
+}
+
+// ─── Main ───────────────────────────────────────────────────────────────────
+
+// 导出只为页面级网络合同测试（``episodes-list-beats-contract.test.tsx``）：那条断言
+// 要的是"整页渲染出来一共发了哪些请求"，hook 单测覆盖不到组合层重新接回
+// ``useEpisodeBeats`` 的情况。路由本身仍只用下面那个 ``Route``。
+export function EpisodesPage() {
+  const { t } = useTranslation();
+  const { project } = Route.useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const activePath = useActiveStagePath();
+  const selectedEpisodeNum = useSelectedEpisodeNum();
+
+  // Queries
+  const {
+    data: episodesRes,
+    isLoading: episodesLoading,
+    isFetching: episodesFetching,
+  } = useEpisodes(project);
+  const {
+    data: pipelineRes,
+    isLoading: pipelineLoading,
+    isFetching: pipelineFetching,
+  } = usePipelineStatus(project);
+  const { data: charactersRes, isLoading: charactersLoading } =
+    useCharacters(project);
+  const characterBuildActivity = useTaskActivity(TASK_TYPES.BUILD_CHARACTERS, {
+    episode: 0,
+  });
+  const sceneBuildActivity = useTaskActivity(TASK_TYPES.BUILD_SCENES, {
+    episode: 0,
+  });
+
+  const episodes = episodesRes?.data ?? [];
+  const isLoading = episodesLoading || pipelineLoading;
+  const stats = useMemo(() => deriveEpisodeStats(episodes), [episodes]);
+  const totalCharacters = useMemo(
+    () => charactersRes?.data?.length ?? 0,
+    [charactersRes],
+  );
+  const identityDisabledReason = characterBuildActivity.isActive
+    ? t("episode.list.identityCharactersBuilding")
+    : characterBuildActivity.isRestoring || charactersLoading
+      ? t("episode.list.identityCharactersLoading")
+      : totalCharacters === 0
+        ? t("episode.list.identityCharactersRequired")
+        : null;
+  const sceneDisabledReason = sceneBuildActivity.isActive
+    ? t("episode.list.sceneCatalogBuilding")
+    : sceneBuildActivity.isRestoring
+      ? t("episode.list.sceneCatalogLoading")
+      : null;
+  const pipelineEpisodes = useMemo(
+    () => derivePipelineEpisodeStatuses(pipelineRes?.data),
+    [pipelineRes?.data],
+  );
+  const completedEpisodes = useMemo(
+    () => pipelineEpisodes.filter((ep) => ep.compose === true).length,
+    [pipelineEpisodes],
+  );
+
+  const episodeByNum = useMemo(() => {
+    const m = new Map<number, Episode>();
+    for (const ep of episodes) m.set(ep.number, ep);
+    return m;
+  }, [episodes]);
+
+  // P0 fix: never hide episodes whose pipeline status is missing.
+  // Build the display list from the UNION of episode numbers appearing in
+  // either source; prefer the real Episode record, fall back to a stub.
+  const displayEpisodes: Episode[] = useMemo(() => {
+    const nums = new Set<number>();
+    for (const ep of episodes) nums.add(ep.number);
+    for (const ps of pipelineEpisodes) nums.add(ps.episode);
+    return Array.from(nums)
+      .sort((a, b) => a - b)
+      .map(
+        (n) =>
+          episodeByNum.get(n) ?? ({ number: n, title: t("episode.list.episodeNumber", { n }) } as Episode),
+      );
+  }, [episodes, pipelineEpisodes, episodeByNum, t]);
+
+  // Selected episode (URL-driven)
+  const selectedEpisode =
+    selectedEpisodeNum !== null
+      ? episodeByNum.get(selectedEpisodeNum) ??
+        ({ number: selectedEpisodeNum, title: t("episode.list.episodeNumber", { n: selectedEpisodeNum }) } as Episode)
+      : null;
+
+  // Plan-episodes SSE — global task, not per-episode (episode sentinel = 0).
+  const planEpisodes = usePlanEpisodes(project);
+  const planTask = useStageTask({
+    taskType: "build_episodes",
+    project,
+    episode: 0,
+    invalidateKeys: [
+      queryKeys.episodes(project),
+      queryKeys.pipelineStatus(project),
+    ],
+  });
+
+  const handlePlan = async () => {
+    try {
+      const res = await planEpisodes.mutateAsync({});
+      if (res.ok === false) {
+        toast.error(backendErrorResponseToastMessage(res, t));
+        return;
+      }
+      planTask.start();
+    } catch (err) {
+      toast.error(backendErrorToastMessage(err, t));
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      const invalidations = [
+        queryClient.invalidateQueries({ queryKey: queryKeys.episodes(project) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pipelineStatus(project),
+        }),
+      ];
+      if (selectedEpisodeNum !== null) {
+        invalidations.push(
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.episodeDetail(project, selectedEpisodeNum),
+          }),
+        );
+      }
+      await Promise.all(invalidations);
+      return true;
+    } catch {
+      toast.error(t("common.error"));
+      return false;
+    }
+  };
+
+  const handleSelectEpisode = (num: number) => {
+    // Preserve the active stage when switching episodes
+    navigate({
+      to: `/projects/${project}/episodes/${num}${activePath}`,
+    });
+  };
+
+  const planPending = planEpisodes.isPending || planTask.started;
+  const refreshPending = episodesFetching || pipelineFetching;
+
+  // [aipdd fork delta] 自动化：剧集多选 + 两条串行管线（分镜脚本 / 分镜图）。
+  const [selectedNums, setSelectedNums] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const auto = useEpisodeAutoPipeline(project);
+
+  const toggleEpisode = (num: number) => {
+    setSelectedNums((prev) => {
+      const next = new Set(prev);
+      if (next.has(num)) next.delete(num);
+      else next.add(num);
+      return next;
+    });
+  };
+  const allSelected =
+    displayEpisodes.length > 0 &&
+    displayEpisodes.every((ep) => selectedNums.has(ep.number));
+  const toggleSelectAll = () => {
+    setSelectedNums(
+      allSelected
+        ? new Set()
+        : new Set(displayEpisodes.map((ep) => ep.number)),
+    );
+  };
+  const selectedEpisodesInput = useMemo<AutoEpisodeInput[]>(
+    () =>
+      displayEpisodes
+        .filter((ep) => selectedNums.has(ep.number))
+        .map((ep) => ({
+          number: ep.number,
+          summary: ep.summary,
+          rawContent: ep.raw_content,
+          beatSourceText: ep.beat_source_text,
+        })),
+    [displayEpisodes, selectedNums],
+  );
+
+  // 「自动化生成分镜图」不是一步确认：先弹窗让用户勾产物（分镜草图 / 渲染图），
+  // 两个都勾时由编排器按先草图、再据草图出渲染图的顺序跑。
+  const [storyboardDialogOpen, setStoryboardDialogOpen] = useState(false);
+
+  const confirmAndRunAutoScript = async () => {
+    if (auto.running || selectedNums.size === 0) return;
+    const confirmed = await confirmDialog({
+      title: t("episode.list.autoScriptConfirmTitle"),
+      description: t("episode.list.autoScriptConfirmDesc", {
+        count: selectedNums.size,
+      }),
+    });
+    if (confirmed) void auto.runScript(selectedEpisodesInput);
+  };
+
+  const topBar = (
+    <TopBar
+      showBack={!!selectedEpisode}
+      onBack={() => navigate({ to: `/projects/${project}/episodes` })}
+      showPlan={!selectedEpisode && displayEpisodes.length === 0}
+      showReplan={!selectedEpisode && displayEpisodes.length > 0}
+      onPlan={handlePlan}
+      planPending={planPending}
+      showRefresh={!selectedEpisode}
+      onRefresh={handleRefresh}
+      refreshPending={refreshPending}
+      selectedEpisode={selectedEpisode}
+      episodes={displayEpisodes}
+      onSelectEpisode={handleSelectEpisode}
+      autoCount={selectedNums.size}
+      autoRunning={auto.running}
+      autoScriptEnabled={auto.canRunScript}
+      autoStoryboardEnabled={auto.canRunStoryboard}
+      onRunAutoScript={confirmAndRunAutoScript}
+      onRunAutoStoryboard={() => setStoryboardDialogOpen(true)}
+      project={project}
+    />
+  );
+
+  return (
+    <HeaderCollapseProvider>
+    <div className="-m-6 flex h-[calc(100%+3rem)] flex-col overflow-hidden">
+      {selectedEpisode ? (
+        <CollapsibleHeaderRegion>{topBar}</CollapsibleHeaderRegion>
+      ) : (
+        topBar
+      )}
+
+      {planTask.started && planTask.stream.status !== "idle" && (
+        <StageProgressPanel
+          title={t("episode.list.planning")}
+          currentTask={planTask.stream.currentTask}
+          progress={planTask.stream.progress}
+          logs={planTask.logs}
+          onStop={planTask.stop}
+          stopping={planTask.stopping}
+        />
+      )}
+
+      {auto.running && !selectedEpisode && (
+        <AutoPipelineBanner
+          kind={auto.kind ?? "script"}
+          targets={auto.targets}
+          episode={auto.episode}
+          step={auto.step}
+          onStop={auto.stop}
+        />
+      )}
+
+      <AutoStoryboardDialog
+        open={storyboardDialogOpen}
+        episodeCount={selectedNums.size}
+        onOpenChange={setStoryboardDialogOpen}
+        onConfirm={(targets) =>
+          void auto.runStoryboard(selectedEpisodesInput, targets)
+        }
+      />
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {selectedEpisode ? (
+          <TaskControllerProvider
+            project={project}
+            episode={selectedEpisode.number}
+          >
+            <EpisodeActionsSlotProvider>
+              <div className="flex min-h-0 flex-1 flex-col">
+                <EpisodeHeaderLayout
+                  episode={selectedEpisode}
+                  project={project}
+                />
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <Outlet />
+                </div>
+              </div>
+            </EpisodeActionsSlotProvider>
+          </TaskControllerProvider>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {!isLoading && (
+              <div className="shrink-0 border-b border-border/30 bg-background px-3 py-3 lg:px-9">
+                <EpisodeStatsStrip
+                  stats={stats}
+                  totalCharacters={totalCharacters}
+                  completedEpisodes={completedEpisodes}
+                />
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto p-6">
+              {isLoading ? (
+                <EpisodeListSkeleton label={t("common.loading")} />
+              ) : displayEpisodes.length === 0 ? (
+                <div className="mx-auto mt-16 flex max-w-md flex-col items-center gap-3 text-center">
+                  <div className="flex size-16 items-center justify-center rounded-full border border-white/[0.06] bg-white/[0.035]">
+                    <Clapperboard className="size-6 text-muted-foreground" />
+                  </div>
+                  <h2 className="text-sm font-semibold text-foreground">
+                    {t("episode.list.noEpisodes")}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {t("episode.list.noEpisodesHint")}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePlan}
+                    disabled={planPending}
+                    className="mt-2 h-8 gap-1.5 rounded-[8px] border-white/10 bg-transparent px-3 text-xs font-normal shadow-none hover:bg-white/[0.04] dark:bg-transparent"
+                  >
+                    {planPending ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Play className="size-3.5" />
+                    )}
+                    {t("episode.list.planEpisodes")}
+                  </Button>
+                </div>
+              ) : (
+                // 卡片内的场景/道具规划用 useTaskController 订阅任务，需要一个
+                // 注册表宿主。列表不绑定单集，用 episode=0 作为宿主 scope；每张卡
+                // 片的 key 里带自己的集数，彼此互不干扰。
+                <TaskControllerProvider project={project} episode={0}>
+                  <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      disabled={auto.running || displayEpisodes.length === 0}
+                      className="inline-flex items-center gap-1.5 rounded-[7px] border border-white/10 bg-white/[0.03] px-2.5 py-1 text-foreground transition-colors hover:border-primary/45 hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Check className="size-3.5" />
+                      {allSelected
+                        ? t("episode.list.deselectAll")
+                        : t("episode.list.selectAll")}
+                    </button>
+                    <span>
+                      {t("episode.list.selectedCount", {
+                        count: selectedNums.size,
+                      })}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+                    {displayEpisodes.map((ep) => (
+                      <EpisodeListItem
+                        project={project}
+                        key={ep.number}
+                        episode={ep}
+                        onSelect={() => handleSelectEpisode(ep.number)}
+                        identityDisabledReason={identityDisabledReason}
+                        sceneDisabledReason={sceneDisabledReason}
+                        checked={selectedNums.has(ep.number)}
+                        onToggleSelect={() => toggleEpisode(ep.number)}
+                        selectDisabled={auto.running}
+                      />
+                    ))}
+                  </div>
+                </TaskControllerProvider>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+    </HeaderCollapseProvider>
+  );
+}
+
+// TODO (Phase 6 — backend-coupled, not done yet):
+// - Debounced autosave + ETag/If-Match conflict handling on beat PATCH.
+// - Attempt badges + admin-password unlock dialog on per-stage actions.
+// - Server-authoritative `actions: {stage: {enabled, reason}}` in pipelineStatus.
+// - Split pipeline endpoints (list vs per-episode) to reduce invalidation storms.
+// - Identity denormalization into characters response (fixes N+1 identity fetch).
+
+export const Route = createFileRoute("/_app/projects/$project/episodes")({
+  component: EpisodesPage,
+});

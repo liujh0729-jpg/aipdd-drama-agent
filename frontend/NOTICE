@@ -1,0 +1,335 @@
+NOTICE
+======
+
+SuperTale Frontend
+Copyright (c) 2026 ClaymoreLab
+Licensed under the Elastic License 2.0 (see LICENSE).
+
+This product bundles the following third-party software. Each is
+the property of its respective authors and distributed under the license noted.
+Full license texts are reproduced in THIRD-PARTY-LICENSES.txt.
+
+Total bundled third-party packages: 322
+
+- @babel/runtime@7.29.2 (MIT) — The Babel Team
+- @base-ui/react@1.5.0 (MIT) — MUI Team
+- @base-ui/utils@0.2.9 (MIT) — MUI Team
+- @breezystack/lamejs@1.2.7 (LGPL-3.0) — Alex Zhukov
+- @floating-ui/core@1.7.5 (MIT) — atomiks
+- @floating-ui/dom@1.7.6 (MIT) — atomiks
+- @floating-ui/react-dom@2.1.8 (MIT) — atomiks
+- @floating-ui/utils@0.2.11 (MIT) — atomiks
+- @fontsource-variable/geist@5.2.9 (OFL-1.1) — Google Inc.
+- @fontsource-variable/inter@5.2.8 (OFL-1.1) — Google Inc.
+- @gsap/react@2.1.2 (Custom: https://gsap.com/standard-license.) — GreenSock
+- @hookform/resolvers@5.2.2 (MIT) — bluebill1049
+- @huggingface/jinja@0.5.9 (MIT) — Hugging Face
+- @huggingface/tokenizers@0.1.3 (Apache-2.0) — Hugging Face
+- @huggingface/transformers@4.2.0 (Apache-2.0) — Hugging Face
+- @img/colour@1.1.0 (MIT)
+- @photo-sphere-viewer/core@5.14.1 (MIT) — Damien 'Mistic' Sorel
+- @protobufjs/aspromise@1.1.2 (BSD-3-Clause) — Daniel Wirtz
+- @protobufjs/base64@1.1.2 (BSD-3-Clause) — Daniel Wirtz
+- @protobufjs/codegen@2.0.5 (BSD-3-Clause) — Daniel Wirtz
+- @protobufjs/eventemitter@1.1.1 (BSD-3-Clause) — Daniel Wirtz
+- @protobufjs/fetch@1.1.1 (BSD-3-Clause) — Daniel Wirtz
+- @protobufjs/float@1.0.2 (BSD-3-Clause) — Daniel Wirtz
+- @protobufjs/path@1.1.2 (BSD-3-Clause) — Daniel Wirtz
+- @protobufjs/pool@1.1.0 (BSD-3-Clause) — Daniel Wirtz
+- @protobufjs/utf8@1.1.1 (BSD-3-Clause) — Daniel Wirtz
+- @radix-ui/number@1.1.1 (MIT)
+- @radix-ui/primitive@1.1.3 (MIT)
+- @radix-ui/react-arrow@1.1.7 (MIT)
+- @radix-ui/react-collection@1.1.7 (MIT)
+- @radix-ui/react-compose-refs@1.1.2 (MIT)
+- @radix-ui/react-context@1.1.2 (MIT)
+- @radix-ui/react-dialog@1.1.15 (MIT)
+- @radix-ui/react-direction@1.1.1 (MIT)
+- @radix-ui/react-dismissable-layer@1.1.11 (MIT)
+- @radix-ui/react-dropdown-menu@2.1.16 (MIT)
+- @radix-ui/react-focus-guards@1.1.3 (MIT)
+- @radix-ui/react-focus-scope@1.1.7 (MIT)
+- @radix-ui/react-id@1.1.1 (MIT)
+- @radix-ui/react-menu@2.1.16 (MIT)
+- @radix-ui/react-popper@1.2.8 (MIT)
+- @radix-ui/react-portal@1.1.9 (MIT)
+- @radix-ui/react-presence@1.1.5 (MIT)
+- @radix-ui/react-primitive@2.1.3 (MIT)
+- @radix-ui/react-roving-focus@1.1.11 (MIT)
+- @radix-ui/react-slider@1.3.6 (MIT)
+- @radix-ui/react-slot@1.2.3 (MIT)
+- @radix-ui/react-tabs@1.1.13 (MIT)
+- @radix-ui/react-use-callback-ref@1.1.1 (MIT)
+- @radix-ui/react-use-controllable-state@1.2.2 (MIT)
+- @radix-ui/react-use-effect-event@0.0.2 (MIT)
+- @radix-ui/react-use-escape-keydown@1.1.1 (MIT)
+- @radix-ui/react-use-layout-effect@1.1.1 (MIT)
+- @radix-ui/react-use-previous@1.1.1 (MIT)
+- @radix-ui/react-use-rect@1.1.1 (MIT)
+- @radix-ui/react-use-size@1.1.1 (MIT)
+- @radix-ui/rect@1.1.1 (MIT)
+- @standard-schema/utils@0.3.0 (MIT) — Fabian Hiller
+- @tanstack/history@1.162.0 (MIT) — Tanner Linsley
+- @tanstack/query-core@5.100.11 (MIT) — tannerlinsley
+- @tanstack/react-query@5.100.11 (MIT) — tannerlinsley
+- @tanstack/react-router@1.170.4 (MIT) — Tanner Linsley
+- @tanstack/react-store@0.9.3 (MIT) — Tanner Linsley
+- @tanstack/react-virtual@3.13.24 (MIT) — Tanner Linsley
+- @tanstack/router-core@1.171.2 (MIT) — Tanner Linsley
+- @tanstack/store@0.9.3 (MIT) — Tanner Linsley
+- @tanstack/virtual-core@3.14.0 (MIT) — Tanner Linsley
+- @types/d3-color@3.1.3 (MIT)
+- @types/d3-drag@3.0.7 (MIT)
+- @types/d3-interpolate@3.0.4 (MIT)
+- @types/d3-selection@3.0.11 (MIT)
+- @types/d3-transition@3.0.9 (MIT)
+- @types/d3-zoom@3.0.8 (MIT)
+- @types/debug@4.1.13 (MIT)
+- @types/estree@1.0.9 (MIT)
+- @types/estree-jsx@1.0.5 (MIT)
+- @types/hast@3.0.4 (MIT)
+- @types/mdast@4.0.4 (MIT)
+- @types/ms@2.1.0 (MIT)
+- @types/node@25.9.1 (MIT)
+- @types/react@19.2.15 (MIT)
+- @types/react-dom@19.2.3 (MIT)
+- @types/react-reconciler@0.28.9 (MIT)
+- @types/react-reconciler@0.33.0 (MIT)
+- @types/unist@2.0.11 (MIT)
+- @types/unist@3.0.3 (MIT)
+- @types/webxr@0.5.24 (MIT)
+- @ungap/structured-clone@1.3.1 (ISC) — Andrea Giammarchi
+- @webgpu/types@0.1.70 (BSD-3-Clause)
+- @xyflow/react@12.10.2 (MIT)
+- @xyflow/system@0.0.76 (MIT)
+- adm-zip@0.5.17 (MIT) — Nasca Iacob
+- aria-hidden@1.2.6 (MIT) — Anton Korzunov
+- bail@2.0.2 (MIT) — Titus Wormer
+- base64-js@1.5.1 (MIT) — T. Jameson Little
+- bl@4.1.0 (MIT)
+- boolean@3.2.0 (MIT)
+- border-beam-vanilla@1.0.2 (MIT) — jqueryscript
+- buffer@5.7.1 (MIT) — Feross Aboukhadijeh
+- canvas@3.2.1 (MIT) — TJ Holowaychuk
+- ccount@2.0.1 (MIT) — Titus Wormer
+- character-entities@2.0.2 (MIT) — Titus Wormer
+- character-entities-html4@2.1.0 (MIT) — Titus Wormer
+- character-entities-legacy@3.0.0 (MIT) — Titus Wormer
+- character-reference-invalid@2.0.1 (MIT) — Titus Wormer
+- chownr@1.1.4 (ISC) — Isaac Z. Schlueter
+- class-variance-authority@0.7.1 (Apache-2.0) — Joe Bell
+- classcat@5.0.5 (MIT) — Jorge Bucaran
+- clsx@2.1.1 (MIT) — Luke Edwards
+- comma-separated-tokens@2.0.3 (MIT) — Titus Wormer
+- cookie-es@3.1.1 (MIT)
+- cross-fetch@4.1.0 (MIT) — Leonardo Quixada
+- csstype@3.2.3 (MIT) — Fredrik Nicol
+- d3-color@3.1.0 (ISC) — Mike Bostock
+- d3-dispatch@3.0.1 (ISC) — Mike Bostock
+- d3-drag@3.0.0 (ISC) — Mike Bostock
+- d3-ease@3.0.1 (BSD-3-Clause) — Mike Bostock
+- d3-interpolate@3.0.1 (ISC) — Mike Bostock
+- d3-selection@3.0.0 (ISC) — Mike Bostock
+- d3-timer@3.0.1 (ISC) — Mike Bostock
+- d3-transition@3.0.1 (ISC) — Mike Bostock
+- d3-zoom@3.0.0 (ISC) — Mike Bostock
+- dayjs@1.11.20 (MIT) — iamkun
+- debug@4.4.3 (MIT) — Josh Junon
+- decode-named-character-reference@1.3.0 (MIT) — Titus Wormer
+- decompress-response@6.0.0 (MIT) — Sindre Sorhus
+- deep-extend@0.6.0 (MIT) — Viacheslav Lotsmanov
+- define-data-property@1.1.4 (MIT) — Jordan Harband
+- define-properties@1.2.1 (MIT) — Jordan Harband
+- dequal@2.0.3 (MIT) — Luke Edwards
+- detect-libc@2.1.2 (Apache-2.0) — Lovell Fuller
+- detect-node@2.1.0 (MIT) — Ilya Kantor
+- detect-node-es@1.1.0 (MIT) — Ilya Kantor
+- devlop@1.1.0 (MIT) — Titus Wormer
+- dramaclaw-spec-render@0.1.1 (MIT)
+- end-of-stream@1.4.5 (MIT) — Mathias Buus
+- es-define-property@1.0.1 (MIT) — Jordan Harband
+- es-errors@1.3.0 (MIT) — Jordan Harband
+- es6-error@4.1.1 (MIT) — Ben Youngblood
+- escape-string-regexp@4.0.0 (MIT) — Sindre Sorhus
+- escape-string-regexp@5.0.0 (MIT) — Sindre Sorhus
+- estree-util-is-identifier-name@3.0.0 (MIT) — Titus Wormer
+- expand-template@2.0.3 ((MIT OR WTFPL)) — LM
+- extend@3.0.2 (MIT) — Stefan Thomas
+- flatbuffers@25.9.23 (Apache-2.0) — The FlatBuffers project
+- framer-motion@12.39.0 (MIT) — Matt Perry
+- fs-constants@1.0.0 (MIT) — Mathias Buus
+- get-nonce@1.0.1 (MIT) — Anton Korzunov
+- github-from-package@0.0.0 (MIT) — James Halliday
+- global-agent@3.0.0 (BSD-3-Clause) — Gajus Kuizinas
+- globalthis@1.0.4 (MIT) — Jordan Harband
+- gopd@1.2.0 (MIT) — Jordan Harband
+- gsap@3.15.0 (Custom: https://gsap.com/standard-license.)
+- guid-typescript@1.0.9 (ISC) — nicolas
+- has-property-descriptors@1.0.2 (MIT) — Jordan Harband
+- hast-util-to-jsx-runtime@2.3.6 (MIT) — Titus Wormer
+- hast-util-whitespace@3.0.0 (MIT) — Titus Wormer
+- html-parse-stringify@3.0.1 (MIT) — Henrik Joreteg
+- html-url-attributes@3.0.1 (MIT) — Titus Wormer
+- i18next@26.2.0 (MIT) — Jan Mühlemann
+- i18next-browser-languagedetector@8.2.1 (MIT) — Jan Mühlemann
+- i18next-http-backend@3.0.6 (MIT)
+- ieee754@1.2.1 (BSD-3-Clause) — Feross Aboukhadijeh
+- inherits@2.0.4 (ISC)
+- ini@1.3.8 (ISC) — Isaac Z. Schlueter
+- inline-style-parser@0.2.7 (MIT)
+- is-alphabetical@2.0.1 (MIT) — Titus Wormer
+- is-alphanumerical@2.0.1 (MIT) — Titus Wormer
+- is-decimal@2.0.1 (MIT) — Titus Wormer
+- is-hexadecimal@2.0.1 (MIT) — Titus Wormer
+- is-plain-obj@4.1.0 (MIT) — Sindre Sorhus
+- isbot@5.1.40 (Unlicense)
+- its-fine@2.0.0 (MIT) — Cody Bennett
+- json-stringify-safe@5.0.1 (ISC) — Isaac Z. Schlueter
+- konva@10.3.0 (MIT) — Anton Lavrenov
+- ky@2.0.2 (MIT) — Sindre Sorhus
+- long@5.3.2 (Apache-2.0) — Daniel Wirtz
+- longest-streak@3.1.0 (MIT) — Titus Wormer
+- lucide-react@1.16.0 (ISC) — Eric Fennis
+- markdown-table@3.0.4 (MIT) — Titus Wormer
+- matcher@3.0.0 (MIT) — Sindre Sorhus
+- mdast-util-find-and-replace@3.0.2 (MIT) — Titus Wormer
+- mdast-util-from-markdown@2.0.3 (MIT) — Titus Wormer
+- mdast-util-gfm@3.1.0 (MIT) — Titus Wormer
+- mdast-util-gfm-autolink-literal@2.0.1 (MIT) — Titus Wormer
+- mdast-util-gfm-footnote@2.1.0 (MIT) — Titus Wormer
+- mdast-util-gfm-strikethrough@2.0.0 (MIT) — Titus Wormer
+- mdast-util-gfm-table@2.0.0 (MIT) — Titus Wormer
+- mdast-util-gfm-task-list-item@2.0.0 (MIT) — Titus Wormer
+- mdast-util-mdx-expression@2.0.1 (MIT) — Titus Wormer
+- mdast-util-mdx-jsx@3.2.0 (MIT) — Titus Wormer
+- mdast-util-mdxjs-esm@2.0.1 (MIT) — Titus Wormer
+- mdast-util-newline-to-break@2.0.0 (MIT) — Titus Wormer
+- mdast-util-phrasing@4.1.0 (MIT) — Victor Felder
+- mdast-util-to-hast@13.2.1 (MIT) — Titus Wormer
+- mdast-util-to-markdown@2.1.2 (MIT) — Titus Wormer
+- mdast-util-to-string@4.0.0 (MIT) — Titus Wormer
+- micromark@4.0.2 (MIT) — Titus Wormer
+- micromark-core-commonmark@2.0.3 (MIT) — Titus Wormer
+- micromark-extension-gfm@3.0.0 (MIT) — Titus Wormer
+- micromark-extension-gfm-autolink-literal@2.1.0 (MIT) — Titus Wormer
+- micromark-extension-gfm-footnote@2.1.0 (MIT) — Titus Wormer
+- micromark-extension-gfm-strikethrough@2.1.0 (MIT) — Titus Wormer
+- micromark-extension-gfm-table@2.1.1 (MIT) — Titus Wormer
+- micromark-extension-gfm-tagfilter@2.0.0 (MIT) — Titus Wormer
+- micromark-extension-gfm-task-list-item@2.1.0 (MIT) — Titus Wormer
+- micromark-factory-destination@2.0.1 (MIT) — Titus Wormer
+- micromark-factory-label@2.0.1 (MIT) — Titus Wormer
+- micromark-factory-space@2.0.1 (MIT) — Titus Wormer
+- micromark-factory-title@2.0.1 (MIT) — Titus Wormer
+- micromark-factory-whitespace@2.0.1 (MIT) — Titus Wormer
+- micromark-util-character@2.1.1 (MIT) — Titus Wormer
+- micromark-util-chunked@2.0.1 (MIT) — Titus Wormer
+- micromark-util-classify-character@2.0.1 (MIT) — Titus Wormer
+- micromark-util-combine-extensions@2.0.1 (MIT) — Titus Wormer
+- micromark-util-decode-numeric-character-reference@2.0.2 (MIT) — Titus Wormer
+- micromark-util-decode-string@2.0.1 (MIT) — Titus Wormer
+- micromark-util-encode@2.0.1 (MIT) — Titus Wormer
+- micromark-util-html-tag-name@2.0.1 (MIT) — Titus Wormer
+- micromark-util-normalize-identifier@2.0.1 (MIT) — Titus Wormer
+- micromark-util-resolve-all@2.0.1 (MIT) — Titus Wormer
+- micromark-util-sanitize-uri@2.0.1 (MIT) — Titus Wormer
+- micromark-util-subtokenize@2.1.0 (MIT) — Titus Wormer
+- micromark-util-symbol@2.0.1 (MIT) — Titus Wormer
+- micromark-util-types@2.0.2 (MIT) — Titus Wormer
+- mimic-response@3.1.0 (MIT) — Sindre Sorhus
+- minimist@1.2.8 (MIT) — James Halliday
+- mkdirp-classic@0.5.3 (MIT) — Mathias Buus
+- motion-dom@12.39.0 (MIT) — Matt Perry
+- motion-utils@12.39.0 (MIT) — Matt Perry
+- ms@2.1.3 (MIT)
+- napi-build-utils@2.0.0 (MIT) — Jim Schlight
+- node-abi@3.92.0 (MIT) — Lukas Geiger
+- node-addon-api@7.1.1 (MIT)
+- node-fetch@2.7.0 (MIT) — David Frank
+- object-keys@1.1.1 (MIT) — Jordan Harband
+- ogl@1.0.11 (Unlicense) — Nathan Gordon
+- once@1.4.0 (ISC) — Isaac Z. Schlueter
+- onnxruntime-common@1.24.0-dev.20251116-b39e144322 (MIT) — fs-eire
+- onnxruntime-common@1.24.3 (MIT) — fs-eire
+- onnxruntime-node@1.24.3 (MIT) — fs-eire
+- onnxruntime-web@1.26.0-dev.20260416-b7804b056c (MIT) — fs-eire
+- parse-entities@4.0.2 (MIT) — Titus Wormer
+- platform@1.3.6 (MIT) — Benjamin Tan
+- playcanvas@2.18.2 (MIT) — PlayCanvas
+- prebuild-install@7.1.3 (MIT) — Mathias Buus
+- property-information@7.1.0 (MIT) — Titus Wormer
+- protobufjs@7.6.4 (BSD-3-Clause) — Daniel Wirtz
+- pump@3.0.4 (MIT) — Mathias Buus Madsen
+- rc@1.2.8 ((BSD-2-Clause OR MIT OR Apache-2.0)) — Dominic Tarr
+- react@19.2.6 (MIT)
+- react-dom@19.2.6 (MIT)
+- react-hook-form@7.76.0 (MIT) — Beier
+- react-i18next@17.0.8 (MIT) — Jan Mühlemann
+- react-image-crop@11.0.10 (ISC) — Dominic Tobias
+- react-konva@19.2.4 (MIT)
+- react-markdown@10.1.0 (MIT) — Espen Hovlandsdal
+- react-reconciler@0.33.0 (MIT)
+- react-remove-scroll@2.7.2 (MIT) — Anton Korzunov
+- react-remove-scroll-bar@2.3.8 (MIT) — Anton Korzunov
+- react-resizable-panels@4.11.1 (MIT) — Brian Vaughn
+- react-style-singleton@2.2.3 (MIT) — Anton Korzunov
+- readable-stream@3.6.2 (MIT)
+- remark-breaks@4.0.0 (MIT) — Titus Wormer
+- remark-gfm@4.0.1 (MIT) — Titus Wormer
+- remark-parse@11.0.0 (MIT) — Titus Wormer
+- remark-rehype@11.1.2 (MIT) — Titus Wormer
+- remark-stringify@11.0.0 (MIT) — Titus Wormer
+- reselect@5.2.0 (MIT)
+- roarr@2.15.4 (BSD-3-Clause) — Gajus Kuizinas
+- safe-buffer@5.2.1 (MIT) — Feross Aboukhadijeh
+- scheduler@0.27.0 (MIT)
+- semver@7.8.0 (ISC) — GitHub Inc.
+- semver-compare@1.0.0 (MIT) — James Halliday
+- serialize-error@7.0.1 (MIT) — Sindre Sorhus
+- seroval@1.5.4 (MIT) — Alexis Munsayac
+- seroval-plugins@1.5.4 (MIT) — Alexis Munsayac
+- sharp@0.34.5 (Apache-2.0) — Lovell Fuller
+- simple-concat@1.0.1 (MIT) — Feross Aboukhadijeh
+- simple-get@4.0.1 (MIT) — Feross Aboukhadijeh
+- sonner@2.0.7 (MIT) — Emil Kowalski
+- space-separated-tokens@2.0.2 (MIT) — Titus Wormer
+- sprintf-js@1.1.3 (BSD-3-Clause) — Alexandru Mărășteanu
+- string_decoder@1.3.0 (MIT)
+- stringify-entities@4.0.4 (MIT) — Titus Wormer
+- strip-json-comments@2.0.1 (MIT) — Sindre Sorhus
+- style-to-js@1.1.21 (MIT) — Mark
+- style-to-object@1.0.14 (MIT) — Mark
+- tailwind-merge@3.6.0 (MIT) — Dany Castillo
+- tar-fs@2.1.4 (MIT) — Mathias Buus
+- tar-stream@2.2.0 (MIT) — Mathias Buus
+- three@0.179.1 (MIT) — mrdoob
+- tr46@0.0.3 (MIT) — Sebastian Mayr
+- trim-lines@3.0.1 (MIT) — Titus Wormer
+- trough@2.2.0 (MIT) — Titus Wormer
+- tslib@2.8.1 (0BSD) — Microsoft Corp.
+- tunnel-agent@0.6.0 (Apache-2.0) — Mikeal Rogers
+- tw-animate-css@1.4.0 (MIT) — Luca Bosin
+- type-fest@0.13.1 ((MIT OR CC0-1.0)) — Sindre Sorhus
+- typescript@5.8.3 (Apache-2.0) — Microsoft Corp.
+- undici-types@7.24.6 (MIT)
+- unified@11.0.5 (MIT) — Titus Wormer
+- unist-util-is@6.0.1 (MIT) — Titus Wormer
+- unist-util-position@5.0.0 (MIT) — Titus Wormer
+- unist-util-stringify-position@4.0.0 (MIT) — Titus Wormer
+- unist-util-visit@5.1.0 (MIT) — Titus Wormer
+- unist-util-visit-parents@6.0.2 (MIT) — Titus Wormer
+- use-callback-ref@1.3.3 (MIT) — theKashey
+- use-sidecar@1.1.3 (MIT) — theKashey
+- use-sync-external-store@1.6.0 (MIT)
+- util-deprecate@1.0.2 (MIT) — Nathan Rajlich
+- uuid@14.0.0 (MIT)
+- vfile@6.0.3 (MIT) — Titus Wormer
+- vfile-message@4.0.3 (MIT) — Titus Wormer
+- void-elements@3.1.0 (MIT) — hemanth.hm
+- webidl-conversions@3.0.1 (BSD-2-Clause) — Domenic Denicola
+- whatwg-url@5.0.0 (MIT) — Sebastian Mayr
+- wrappy@1.0.2 (ISC) — Isaac Z. Schlueter
+- zod@4.4.3 (MIT) — Colin McDonnell
+- zustand@4.5.7 (MIT) — Paul Henschel
+- zustand@5.0.13 (MIT) — Paul Henschel
+- zwitch@2.0.4 (MIT) — Titus Wormer

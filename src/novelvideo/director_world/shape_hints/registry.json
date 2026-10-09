@@ -1,0 +1,13 @@
+{
+  "schema_version": "director_shape_hint_registry_v1",
+  "files": [
+    "box.json",
+    "generic_large.json",
+    "quadruped_mount.json",
+    "wheeled_artillery.json",
+    "long_vehicle.json",
+    "sports_car.json",
+    "flying_craft.json",
+    "pile.json"
+  ]
+}

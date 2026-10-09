@@ -1,0 +1,10 @@
+{
+  "id": "chinese_period_drama",
+  "name": "Chinese Period Drama",
+  "style_instructions": "Create a live-action Chinese period drama image with grounded historical realism when the beat or scene context calls for a period setting. Use natural lighting appropriate to the time of day with soft realistic falloff and restrained contrast. Ensure realistic skin texture with visible pores, subtle imperfections, and no beauty-retouching. Use a natural 50mm cinematic lens feel with moderate depth of field, not glossy fashion photography. Follow the beat, scene, character, and prop descriptions for exact era, wardrobe, architecture, technology, and materials; do not override explicit modern, foreign, or traversal-story details. Keep color grading restrained and filmic, avoiding poster-like polish or painterly haze.",
+  "avoid_instructions": "NOT anime, NOT cartoon, NOT illustration. No plastic skin or airbrushed texture. No AI artifacts or oversaturated HDR. No extra limbs, mutated hands, or deformed faces. No text, watermarks, or labels on image.",
+  "style_tag": "CINEMATIC FILMIC REALISM, WARM SOFT GRADE",
+  "label": "写实古装剧",
+  "style_family": "live_action",
+  "animation_subtype": ""
+}

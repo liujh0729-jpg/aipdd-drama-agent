@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/brand/dclogo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AIPDD 画布 — AIGC视频引擎，支持本地模型、NewAPI等多种服务</title>
+    <meta
+      name="description"
+      content="AIGC视频引擎，支持本地模型、NewAPI等多种服务"
+    />
+    <link rel="canonical" href="https://dramaclaw.cdnfg.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AIPDD 画布" />
+    <meta property="og:title" content="AIPDD 画布 — AIGC视频引擎，支持本地模型、NewAPI等多种服务" />
+    <meta
+      property="og:description"
+      content="AIGC视频引擎，支持本地模型、NewAPI等多种服务"
+    />
+    <meta property="og:url" content="https://dramaclaw.cdnfg.com/" />
+    <meta property="og:image" content="https://dramaclaw.cdnfg.com/brand/dclogo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AIPDD 画布 — AIGC视频引擎，支持本地模型、NewAPI等多种服务" />
+    <meta
+      name="twitter:description"
+      content="AIGC视频引擎，支持本地模型、NewAPI等多种服务"
+    />
+    <meta name="twitter:image" content="https://dramaclaw.cdnfg.com/brand/dclogo.png" />
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("supertale-app");
+          var theme = "system";
+          if (stored) {
+            var parsed = JSON.parse(stored);
+            if (parsed && parsed.state && parsed.state.theme) {
+              theme = parsed.state.theme;
+            }
+          }
+          var resolved =
+            theme === "system"
+              ? window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+              : theme;
+          document.documentElement.classList.add(resolved);
+          var pathname = window.location.pathname;
+          if (pathname === "/login" || pathname.indexOf("/watch/") === 0) {
+            document.documentElement.classList.add("preauth-shell");
+            document.documentElement.style.backgroundColor = "#181818";
+          }
+        } catch (e) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

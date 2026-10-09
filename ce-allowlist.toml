@@ -1,0 +1,99 @@
+# 守栏统一白名单（豁免清单）。
+#
+# 收口各 linter 的 SKIP_PATHS / 行内标记，集中审计：每条豁免都必须写明
+# path / guards / reason，且 path 必须真实存在
+# （防腐校验见 tests/test_ce_allowlist.py：登记了不存在的路径即失败）。
+#
+# 不在此列：import-lint(scripts/lint_ce_imports.py) 与 cp-port(scripts/check_ce_port_closure.py)
+# 刻意「零豁免」——命中即失败，无放行口子。
+
+[marker]
+# 在命中行追加此注释即就地放行（ee-terms / banned-words 通用），
+# 用于一次性、就地说明的合法引用。
+inline = "banned-word-allow"
+
+[guards]
+# 已知的合法 guard 名；skip 条目的 guards 必须取自这里（防写错）。
+known = ["ee-terms", "banned-words"]
+
+# ── ee-terms 守栏豁免 ────────────────────────────────────────────────
+[[skip]]
+path = "scripts/lint_ee_terms.py"
+guards = ["ee-terms"]
+reason = "规则文件自身列出全部禁用包名"
+
+[[skip]]
+path = ".github/workflows/ee-terms.yml"
+guards = ["ee-terms"]
+reason = "工作流注释举例说明所禁包名"
+
+[[skip]]
+path = "ce-allowlist.toml"
+guards = ["ee-terms"]
+reason = "本白名单可能在 reason 中引用禁用包名做说明，预防自我命中"
+
+[[skip]]
+path = "tests/test_env_config_ratchet.py"
+guards = ["ee-terms"]
+reason = "跨仓 env 审计测试，合法引用外部包路径"
+
+[[skip]]
+path = "uv.lock"
+guards = ["ee-terms"]
+reason = "生成的依赖锁；当前未扫该后缀，列此防未来扩展扫描后缀时误伤"
+
+[[skip]]
+path = "sbom.spdx.json"
+guards = ["ee-terms"]
+reason = "生成的 SBOM，枚举整棵依赖树；同上防未来误伤"
+
+[[skip]]
+path = "license-inventory.csv"
+guards = ["ee-terms"]
+reason = "生成的许可清单；同上防未来误伤"
+
+[[skip]]
+path = "scripts/lint_ce_imports.py"
+guards = ["ee-terms"]
+reason = "import-lint 规则文件自身列出禁用包名作为检测目标（非 import，是字符串规则）"
+
+[[skip]]
+path = "scripts/check_ce_port_closure.py"
+guards = ["ee-terms"]
+reason = "cp-port 检查脚本自身列出禁用包名作为检测目标"
+
+[[skip]]
+path = ".github/workflows/ce-import-lint.yml"
+guards = ["ee-terms"]
+reason = "工作流注释举例说明所禁包名"
+
+[[skip]]
+path = "tests/test_ce_imports_lint.py"
+guards = ["ee-terms"]
+reason = "import-lint 测试 docstring/数据引用禁用包名"
+
+[[skip]]
+path = "tests/test_ce_port_closure.py"
+guards = ["ee-terms"]
+reason = "cp-port 测试数据引用禁用包名"
+
+# ── banned-words 守栏豁免 ────────────────────────────────────────────
+[[skip]]
+path = "scripts/lint_banned_words.py"
+guards = ["banned-words"]
+reason = "品牌词规则文件自身会提到所禁措辞"
+
+[[skip]]
+path = ".github/workflows/banned-words.yml"
+guards = ["banned-words"]
+reason = "工作流注释说明该门禁的是品牌措辞"
+
+[[skip]]
+path = "frontend/THIRD-PARTY-LICENSES.txt"
+guards = ["banned-words"]
+reason = "第三方许可证全文汇编(vendored),上游原文含 open source/open standard 等措辞,非本项目自称"
+
+[[skip]]
+path = "DCO"
+guards = ["banned-words"]
+reason = "Developer Certificate of Origin 1.1 标准法律文本(Linux Foundation),原文含 open source license 措辞,不可改,非本项目自称"

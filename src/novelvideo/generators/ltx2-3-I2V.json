@@ -1,0 +1,660 @@
+{
+  "75": {
+    "inputs": {
+      "filename_prefix": "video/LTX_2.3_i2v",
+      "format": "auto",
+      "codec": "auto",
+      "video-preview": "",
+      "video": [
+        "167:136",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "98": {
+    "inputs": {
+      "image": "20260114-142048.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "167:126": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "167:127": {
+    "inputs": {
+      "steps": 20,
+      "max_shift": 2.05,
+      "base_shift": 0.95,
+      "stretch": true,
+      "terminal": 0.1,
+      "latent": [
+        "167:143",
+        0
+      ]
+    },
+    "class_type": "LTXVScheduler",
+    "_meta": {
+      "title": "LTXVScheduler"
+    }
+  },
+  "167:128": {
+    "inputs": {
+      "sampler_name": "gradient_estimation"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "167:129": {
+    "inputs": {
+      "sigmas": "0.909375, 0.725, 0.421875, 0.0"
+    },
+    "class_type": "ManualSigmas",
+    "_meta": {
+      "title": "ManualSigmas"
+    }
+  },
+  "167:130": {
+    "inputs": {
+      "positive": [
+        "167:133",
+        0
+      ],
+      "negative": [
+        "167:133",
+        1
+      ],
+      "latent": [
+        "167:137",
+        0
+      ]
+    },
+    "class_type": "LTXVCropGuides",
+    "_meta": {
+      "title": "LTXVCropGuides"
+    }
+  },
+  "167:131": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "167:155",
+        0
+      ],
+      "positive": [
+        "167:130",
+        0
+      ],
+      "negative": [
+        "167:130",
+        1
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFGGuider"
+    }
+  },
+  "167:132": {
+    "inputs": {
+      "frames_number": [
+        "167:146",
+        0
+      ],
+      "frame_rate": 25,
+      "batch_size": 1,
+      "audio_vae": [
+        "167:142",
+        0
+      ]
+    },
+    "class_type": "LTXVEmptyLatentAudio",
+    "_meta": {
+      "title": "LTXV Empty Latent Audio"
+    }
+  },
+  "167:134": {
+    "inputs": {
+      "noise": [
+        "167:165",
+        0
+      ],
+      "guider": [
+        "167:154",
+        0
+      ],
+      "sampler": [
+        "167:126",
+        0
+      ],
+      "sigmas": [
+        "167:127",
+        0
+      ],
+      "latent_image": [
+        "167:143",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "167:135": {
+    "inputs": {
+      "noise_seed": 0
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "167:137": {
+    "inputs": {
+      "av_latent": [
+        "167:134",
+        0
+      ]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "LTXVSeparateAVLatent"
+    }
+  },
+  "167:139": {
+    "inputs": {
+      "av_latent": [
+        "167:140",
+        1
+      ]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "LTXVSeparateAVLatent"
+    }
+  },
+  "167:140": {
+    "inputs": {
+      "noise": [
+        "167:135",
+        0
+      ],
+      "guider": [
+        "167:131",
+        0
+      ],
+      "sampler": [
+        "167:128",
+        0
+      ],
+      "sigmas": [
+        "167:129",
+        0
+      ],
+      "latent_image": [
+        "167:152",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "167:141": {
+    "inputs": {
+      "samples": [
+        "167:139",
+        1
+      ],
+      "audio_vae": [
+        "167:142",
+        0
+      ]
+    },
+    "class_type": "LTXVAudioVAEDecode",
+    "_meta": {
+      "title": "LTXV Audio VAE Decode"
+    }
+  },
+  "167:142": {
+    "inputs": {
+      "ckpt_name": "ltx-2.3-22b-dev.safetensors"
+    },
+    "class_type": "LTXVAudioVAELoader",
+    "_meta": {
+      "title": "LTXV Audio VAE Loader"
+    }
+  },
+  "167:143": {
+    "inputs": {
+      "video_latent": [
+        "167:151",
+        0
+      ],
+      "audio_latent": [
+        "167:132",
+        0
+      ]
+    },
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "LTXVConcatAVLatent"
+    }
+  },
+  "167:144": {
+    "inputs": {
+      "samples": [
+        "167:130",
+        2
+      ],
+      "upscale_model": [
+        "167:156",
+        0
+      ],
+      "vae": [
+        "167:162",
+        2
+      ]
+    },
+    "class_type": "LTXVLatentUpsampler",
+    "_meta": {
+      "title": "spatial"
+    }
+  },
+  "167:145": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 0.5,
+      "image": [
+        "167:157",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Upscale Image By"
+    }
+  },
+  "167:146": {
+    "inputs": {
+      "value": 121
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Length"
+    }
+  },
+  "167:147": {
+    "inputs": {
+      "image": [
+        "167:145",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "167:148": {
+    "inputs": {
+      "image": [
+        "167:102",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "167:149": {
+    "inputs": {
+      "img_compression": 33,
+      "image": [
+        "167:158",
+        0
+      ]
+    },
+    "class_type": "LTXVPreprocess",
+    "_meta": {
+      "title": "LTXVPreprocess"
+    }
+  },
+  "167:150": {
+    "inputs": {
+      "width": [
+        "167:147",
+        0
+      ],
+      "height": [
+        "167:147",
+        1
+      ],
+      "length": [
+        "167:146",
+        0
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptyLTXVLatentVideo",
+    "_meta": {
+      "title": "EmptyLTXVLatentVideo"
+    }
+  },
+  "167:151": {
+    "inputs": {
+      "strength": 1,
+      "bypass": false,
+      "vae": [
+        "167:162",
+        2
+      ],
+      "image": [
+        "167:149",
+        0
+      ],
+      "latent": [
+        "167:150",
+        0
+      ]
+    },
+    "class_type": "LTXVImgToVideoInplace",
+    "_meta": {
+      "title": "LTXVImgToVideoInplace"
+    }
+  },
+  "167:152": {
+    "inputs": {
+      "video_latent": [
+        "167:153",
+        0
+      ],
+      "audio_latent": [
+        "167:137",
+        1
+      ]
+    },
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "LTXVConcatAVLatent"
+    }
+  },
+  "167:153": {
+    "inputs": {
+      "strength": 1,
+      "bypass": false,
+      "vae": [
+        "167:162",
+        2
+      ],
+      "image": [
+        "167:149",
+        0
+      ],
+      "latent": [
+        "167:144",
+        0
+      ]
+    },
+    "class_type": "LTXVImgToVideoInplace",
+    "_meta": {
+      "title": "LTXVImgToVideoInplace"
+    }
+  },
+  "167:154": {
+    "inputs": {
+      "cfg": 4,
+      "model": [
+        "167:162",
+        0
+      ],
+      "positive": [
+        "167:133",
+        0
+      ],
+      "negative": [
+        "167:133",
+        1
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFGGuider"
+    }
+  },
+  "167:155": {
+    "inputs": {
+      "lora_name": "ltx-2.3-22b-distilled-lora-384.safetensors",
+      "strength_model": 1,
+      "model": [
+        "167:162",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "167:156": {
+    "inputs": {
+      "model_name": "ltx-2.3-spatial-upscaler-x2-1.0.safetensors"
+    },
+    "class_type": "LatentUpscaleModelLoader",
+    "_meta": {
+      "title": "Load Latent Upscale Model"
+    }
+  },
+  "167:157": {
+    "inputs": {
+      "width": [
+        "167:148",
+        0
+      ],
+      "height": [
+        "167:148",
+        1
+      ],
+      "batch_size": 1,
+      "color": 0
+    },
+    "class_type": "EmptyImage",
+    "_meta": {
+      "title": "EmptyImage"
+    }
+  },
+  "167:158": {
+    "inputs": {
+      "longer_edge": 1536,
+      "images": [
+        "167:102",
+        0
+      ]
+    },
+    "class_type": "ResizeImagesByLongerEdge",
+    "_meta": {
+      "title": "Resize Images by Longer Edge"
+    }
+  },
+  "167:162": {
+    "inputs": {
+      "ckpt_name": "ltx-2.3-22b-dev.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "167:165": {
+    "inputs": {
+      "noise_seed": 10
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "167:102": {
+    "inputs": {
+      "resize_type": "scale dimensions",
+      "resize_type.width": 720,
+      "resize_type.height": 1280,
+      "resize_type.crop": "center",
+      "scale_method": "lanczos",
+      "input": [
+        "98",
+        0
+      ]
+    },
+    "class_type": "ResizeImageMaskNode",
+    "_meta": {
+      "title": "Resize Image/Mask"
+    }
+  },
+  "167:133": {
+    "inputs": {
+      "frame_rate": 25,
+      "positive": [
+        "167:160",
+        0
+      ],
+      "negative": [
+        "167:159",
+        0
+      ]
+    },
+    "class_type": "LTXVConditioning",
+    "_meta": {
+      "title": "LTXVConditioning"
+    }
+  },
+  "167:159": {
+    "inputs": {
+      "text": "blurry, low quality, still frame, frames, watermark, overlay, titles, has blurbox, has subtitles",
+      "clip": [
+        "167:161",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "167:160": {
+    "inputs": {
+      "text": [
+        "167:164",
+        0
+      ],
+      "clip": [
+        "167:161",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "167:138": {
+    "inputs": {
+      "samples": [
+        "167:139",
+        0
+      ],
+      "vae": [
+        "167:162",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "167:136": {
+    "inputs": {
+      "fps": 24,
+      "images": [
+        "167:138",
+        0
+      ],
+      "audio": [
+        "167:141",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "167:161": {
+    "inputs": {
+      "text_encoder": "gemma_3_12B_it_fp4_mixed.safetensors",
+      "ckpt_name": "ltx-2.3-22b-dev.safetensors",
+      "device": "default"
+    },
+    "class_type": "LTXAVTextEncoderLoader",
+    "_meta": {
+      "title": "LTXV Audio Text Encoder Loader"
+    }
+  },
+  "167:164": {
+    "inputs": {
+      "prompt": "  A cinematic medium shot inside a grand ancient Chinese palace hall with towering golden carved pillars and warm amber lighting. Two young women in elaborate traditional court attire face each other in a tense confrontation. The woman on the left stands tall\n   and composed, wearing a crimson and gold robe embroidered with a large golden phoenix pattern, a golden crown tiara on her black updo hair, her expression cold and defiant. The woman on the right, dressed in a soft pink hanfu adorned with painted birds and\n   floral motifs with a pink silk sash, points her finger accusingly at the other woman, her face flushed with emotion, tears glistening on her cheeks, her lips trembling as she speaks angrily. Behind them, a crowd of court ladies in muted silk robes watch in\n   stunned silence. The camera slowly pushes in on the two women, shallow depth of field blurring the background crowd. Warm golden light from palace lanterns casts dramatic shadows across their faces. Cinematic color grading, film grain, 4K, dramatic palace \n  confrontation scene, Chinese historical drama aesthetic. ",
+      "max_length": 256,
+      "sampling_mode": "on",
+      "sampling_mode.temperature": 0.7,
+      "sampling_mode.top_k": 64,
+      "sampling_mode.top_p": 0.95,
+      "sampling_mode.min_p": 0.05,
+      "sampling_mode.repetition_penalty": 1.05,
+      "sampling_mode.seed": 0,
+      "clip": [
+        "167:161",
+        0
+      ],
+      "image": [
+        "167:102",
+        0
+      ]
+    },
+    "class_type": "TextGenerateLTX2Prompt",
+    "_meta": {
+      "title": "TextGenerateLTX2Prompt"
+    }
+  },
+  "167:166": {
+    "inputs": {
+      "preview": "Style: cinematic - A medium shot inside a grand ancient Chinese palace hall with towering golden carved pillars and warm amber lighting. Two young women in elaborate traditional court attire face each other in a tense confrontation. The woman on the left stands tall and composed, wearing a crimson and gold robe embroidered with a large golden phoenix pattern, a golden crown tiara on her black updo hair, her expression cold and defiant. The woman on the right, dressed in a soft pink hanfu adorned with painted birds and floral motifs with a pink silk sash, points her finger accusingly at the other woman, her face flushed with emotion, tears glistening on her cheeks, her lips trembling as she speaks angrily. Behind them, a crowd of court ladies in muted silk robes watch in stunned silence. The camera slowly pushes in on the two women, shallow depth of field blurring the background crowd. Warm golden light from palace lanterns casts dramatic shadows across their faces.",
+      "previewMode": null,
+      "source": [
+        "167:164",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "Preview as Text"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+# pre-commit 钩子 — dramaclaw-ce（SECRET-14）
+# 一次性安装：
+#   uv tool install pre-commit
+#   pre-commit install
+# 手动全量扫描：
+#   pre-commit run --all-files
+# 钩子会自动读取仓库根的 .gitleaks.toml（含 newAPI 自定义规则）。
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: banned-words
+        name: 禁用词 lint（开源/open source）
+        entry: python3 scripts/lint_banned_words.py
+        language: system
+        pass_filenames: false
+        always_run: true

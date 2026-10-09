@@ -1,0 +1,395 @@
+// SPDX-License-Identifier: Elastic-2.0
+// Copyright (c) 2026 ClaymoreLab
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  submitFreezoneRedraw,
+  uploadFreezoneImage,
+  fetchFreezoneJobResult,
+} from "@/api/ops";
+import { awaitTaskCompletion } from "@/api/tasks";
+import { buildRedHighlightMaskBlob } from "@/lib/mask-highlight";
+
+interface MaskEditorProps {
+  project: string;
+  /** Base image URL (cookie-protected /static/...) */
+  baseUrl: string;
+  /** Optional readable label shown in header. */
+  baseLabel?: string;
+  onClose: () => void;
+  /** Called with the new edited image URL once the OpenAI task completes. */
+  onResult: (url: string) => void;
+}
+
+type Tool = "brush" | "eraser";
+
+const BRUSH_SIZES = [10, 25, 50, 100, 150];
+const DEFAULT_BRUSH = 50;
+
+/**
+ * Mask edit UI:
+ *   - Canvas A renders the base image (read-only).
+ *   - Canvas B floats above as a translucent red mask layer the user paints on.
+ *   - On submit, we composite the base image + a uniform translucent-red highlight
+ *     over the painted region (see mask-highlight.ts), upload it to /freezone/upload,
+ *     then POST /freezone/redraw with mask_url.
+ */
+export function MaskEditor({
+  project,
+  baseUrl,
+  baseLabel,
+  onClose,
+  onResult,
+}: MaskEditorProps) {
+  const baseImgRef = useRef<HTMLImageElement | null>(null);
+  const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+
+  const { t } = useTranslation();
+  const [tool, setTool] = useState<Tool>("brush");
+  const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH);
+  const [prompt, setPrompt] = useState("");
+  const [imageReady, setImageReady] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [progressMsg, setProgressMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // 1. Load base image, size both canvases, draw image on baseCanvas.
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = baseUrl;
+    img.onload = () => {
+      baseImgRef.current = img;
+      const baseCanvas = baseCanvasRef.current;
+      const maskCanvas = maskCanvasRef.current;
+      if (!baseCanvas || !maskCanvas) return;
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      baseCanvas.width = w;
+      baseCanvas.height = h;
+      maskCanvas.width = w;
+      maskCanvas.height = h;
+      const ctx = baseCanvas.getContext("2d");
+      ctx?.drawImage(img, 0, 0);
+      setImageReady(true);
+    };
+    img.onerror = () => setError(t("pipelineImport.maskEditor.loadBaseFailed"));
+  }, [baseUrl]);
+
+  // 2. Painting handlers
+  const canvasToImageCoords = (clientX: number, clientY: number) => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const drawDot = (x: number, y: number) => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    if (tool === "brush") {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "rgba(239, 68, 68, 0.55)";
+    } else {
+      ctx.globalCompositeOperation = "destination-out";
+    }
+    ctx.beginPath();
+    ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const drawLine = (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ) => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = brushSize;
+    if (tool === "brush") {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "rgba(239, 68, 68, 0.55)";
+    } else {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.strokeStyle = "rgba(0,0,0,1)";
+    }
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (submitting) return;
+    drawingRef.current = true;
+    const coord = canvasToImageCoords(e.clientX, e.clientY);
+    if (!coord) return;
+    lastPointRef.current = coord;
+    drawDot(coord.x, coord.y);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawingRef.current) return;
+    const coord = canvasToImageCoords(e.clientX, e.clientY);
+    if (!coord) return;
+    if (lastPointRef.current) drawLine(lastPointRef.current, coord);
+    lastPointRef.current = coord;
+  };
+  const onPointerUp = () => {
+    drawingRef.current = false;
+    lastPointRef.current = null;
+  };
+  const clearMask = () => {
+    const canvas = maskCanvasRef.current;
+    canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  /**
+   * 蒙版导出（供视觉模型识别）：源图 + 涂抹区二值化后的均匀半透明红高亮，见 mask-highlight.ts。
+   * 后端 /freezone/redraw 对所有 mask_url 一律套用「红色高亮」prompt，EraseOverlay /
+   * RedrawOverlay / MaskEditor 三个生产者必须导出同一格式；旧的「白底 + 透明孔洞」会让模型
+   * 去找一个 RGB 里根本不存在的红色区域 → 定位失败。
+   */
+  const buildMaskBlob = async (): Promise<Blob> => {
+    const mask = maskCanvasRef.current;
+    const baseImg = baseImgRef.current;
+    if (!mask) throw new Error("mask canvas not ready");
+    if (!baseImg) throw new Error("source image not ready");
+    return await buildRedHighlightMaskBlob(baseImg, mask);
+  };
+
+  const hasPaint = (): boolean => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return false;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return false;
+    // Sample alpha at every 16th pixel — fast and good enough for "anything painted".
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 3; i < data.length; i += 16 * 4) {
+      if (data[i] > 8) return true;
+    }
+    return false;
+  };
+
+  const handleSubmit = async () => {
+    if (!prompt.trim()) {
+      setError(t("pipelineImport.maskEditor.needPrompt"));
+      return;
+    }
+    if (!hasPaint()) {
+      setError(t("pipelineImport.maskEditor.needPaint"));
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    try {
+      setProgressMsg(t("pipelineImport.maskEditor.progress.building"));
+      const maskBlob = await buildMaskBlob();
+      const maskFile = new File([maskBlob], "mask.png", { type: "image/png" });
+      setProgressMsg(t("pipelineImport.maskEditor.progress.uploading"));
+      const uploaded = await uploadFreezoneImage(project, maskFile);
+
+      setProgressMsg(t("pipelineImport.maskEditor.progress.submitting"));
+      const ref = await submitFreezoneRedraw(project, {
+        sourceUrl: baseUrl,
+        maskUrl: uploaded.url.split("?")[0],
+        prompt,
+      });
+      setProgressMsg(t("pipelineImport.maskEditor.progress.running"));
+      const completed = await awaitTaskCompletion(ref.task_key, project, { taskType: ref.task_type });
+      const directUrl =
+        (completed.result?.["output_url"] as string | undefined) || undefined;
+      const url =
+        directUrl ??
+        (await fetchFreezoneJobResult(project, ref.task_type, ref.job_id))
+          .url;
+      setProgressMsg(t("pipelineImport.progress.completed"));
+      onResult(url);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setProgressMsg(null);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6">
+      <div className="bg-surface border border-border-default rounded-2xl w-[90vw] max-w-[1200px] h-[85vh] flex flex-col overflow-hidden">
+        <header className="flex items-center justify-between px-5 py-3 border-b border-border-default">
+          <div>
+            <div className="text-sm font-semibold text-text">
+              {t("pipelineImport.maskEditor.title")}
+            </div>
+            <div className="text-xs text-text-muted mt-0.5 truncate max-w-md">
+              {baseLabel || baseUrl}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="text-text-muted hover:text-text text-sm disabled:opacity-30"
+            aria-label={t("common.close")}
+          >
+            ✕
+          </button>
+        </header>
+
+        {/* Toolbar */}
+        <div className="px-5 py-2 border-b border-border-default flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <ToolBtn active={tool === "brush"} onClick={() => setTool("brush")}>
+              {t("pipelineImport.maskEditor.brush")}
+            </ToolBtn>
+            <ToolBtn
+              active={tool === "eraser"}
+              onClick={() => setTool("eraser")}
+            >
+              {t("pipelineImport.maskEditor.eraser")}
+            </ToolBtn>
+          </div>
+          <div className="text-xs text-text-muted">|</div>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-text-muted">{t("pipelineImport.maskEditor.size")}</span>
+            {BRUSH_SIZES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setBrushSize(s)}
+                className={
+                  "px-1.5 py-0.5 rounded text-xs transition " +
+                  (brushSize === s
+                    ? "bg-accent/30 text-accent"
+                    : "text-text-muted hover:text-text")
+                }
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={clearMask}
+            className="ml-auto px-2.5 py-1 rounded text-xs text-text-muted hover:text-red-400 transition"
+            title={t("canvas.redrawOverlay.clearMask")}
+          >
+            {t("canvas.annotateEditor.clear")}
+          </button>
+        </div>
+
+        {/* Canvas */}
+        <div className="flex-1 relative bg-bg-dark overflow-hidden flex items-center justify-center p-4">
+          {!imageReady && (
+            <div className="text-text-muted text-sm">{t("pipelineImport.maskEditor.loadingBase")}</div>
+          )}
+          <div
+            className={
+              "relative max-w-full max-h-full " +
+              (imageReady ? "" : "hidden")
+            }
+            style={{
+              cursor: tool === "brush" ? "crosshair" : "cell",
+            }}
+          >
+            <canvas
+              ref={baseCanvasRef}
+              className="block max-w-full max-h-[calc(85vh-220px)] h-auto pointer-events-none"
+            />
+            <canvas
+              ref={maskCanvasRef}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerLeave={onPointerUp}
+              className="absolute inset-0 w-full h-full"
+              style={{ touchAction: "none" }}
+            />
+          </div>
+        </div>
+
+        {/* Prompt + submit */}
+        <footer className="px-5 py-3 border-t border-border-default space-y-2">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={t("pipelineImport.maskEditor.promptPlaceholder")}
+            rows={2}
+            disabled={submitting}
+            className="w-full px-3 py-2 rounded-lg bg-bg-dark border border-border-default text-text text-sm focus:outline-none focus:border-accent transition resize-none"
+          />
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs text-text-muted/80 flex-1 min-w-0 truncate">
+              {progressMsg ? (
+                <span className="text-accent">{progressMsg}</span>
+              ) : error ? (
+                <span className="text-red-400">{error}</span>
+              ) : (
+                <>{t("pipelineImport.maskEditor.hint")}</>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className="px-3 py-1.5 rounded-lg text-text-muted hover:text-text text-sm transition disabled:opacity-30"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting || !imageReady}
+                className="px-4 py-1.5 rounded-lg bg-accent/90 hover:bg-accent text-white text-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? t("pipelineImport.maskEditor.submitting") : t("pipelineImport.maskEditor.submit")}
+              </button>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function ToolBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "px-2.5 py-1 rounded text-xs transition " +
+        (active
+          ? "bg-accent/20 text-accent border border-accent/40"
+          : "border border-transparent text-text-muted hover:text-text")
+      }
+    >
+      {children}
+    </button>
+  );
+}

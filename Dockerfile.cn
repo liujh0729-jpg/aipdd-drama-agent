@@ -1,0 +1,80 @@
+﻿# syntax=docker/dockerfile:1.7
+
+FROM python:3.12-slim
+
+# [aipdd fork delta req41] 镜像源不再钉死在指令文本里。走哪个源是**部署方的网络环境
+# 数据**（换机房 / 内网私有 proxy / 海外构建都可能不一样），和网关地址、模型名同一类：
+# 代码不能比部署更早知道环境长什么样。这里全部降级为 build-arg，默认值维持现状（国内
+# 加速），需要覆盖时：
+#   docker build -f Dockerfile.cn \
+#     --build-arg APT_MIRROR_HOST=deb.debian.org \
+#     --build-arg PIP_INDEX_URL=https://pypi.org/simple \
+#     --build-arg UV_INDEX_URL=https://pypi.org/simple .
+# 或在 compose 的 build.args 里同名传入。
+ARG APT_MIRROR_HOST=mirrors.tuna.tsinghua.edu.cn
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+
+RUN sed -i "s|deb.debian.org|${APT_MIRROR_HOST}|g; s|security.debian.org|${APT_MIRROR_HOST}|g" /etc/apt/sources.list.d/debian.sources
+
+RUN pip install --no-cache-dir uv -i "${PIP_INDEX_URL}"
+
+# [aipdd fork delta req41] UV_INDEX_URL 不只是构建期参数：运行期也会被读到（设置页
+# 「下载并部署」在容器内跑 uv sync）。值由上面的 ARG 推导，不在这里另钉一个源。
+ENV ST_EDITION=ce \
+    ST_CONTROL_PLANE_DSN= \
+    ST_REDIS_URL= \
+    ST_CELERY_BROKER_URL= \
+    ST_CELERY_RESULT_BACKEND= \
+    NOVELVIDEO_DATA_ROOT=/data \
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    HERMES_CLI_PATH=/root/.local/bin/hermes \
+    UV_INDEX_URL=${UV_INDEX_URL}
+
+# fonts-noto-cjk: 容器是独立部署环境，默认不含任何 CJK 字体；混剪短视频烧录
+# 字幕时 libass 需要字形来源，缺失会静默渲染成方块/空白。这里只提供默认字体
+# 之一，运行时按可用性自由选用部署环境的字体（含挂载进容器的宿主机字体）。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY pyproject.toml uv.lock README.md ./
+COPY LICENSES ./LICENSES
+COPY src ./src
+COPY .hermes ./.hermes
+
+RUN test -f src/novelvideo/assets/login_bgm.mp3 \
+    && test -f src/novelvideo/assets/login_bg_v1.mp4 \
+    && test -f src/novelvideo/assets/login_bg_v2.mp4 \
+    && test -f src/novelvideo/assets/login_bg_v3.mp4
+
+# [aipdd fork delta req41] 旧写法是 if [ "" = "1" ]：ARG 忘了加 $，条件恒假，
+# INSTALL_WORLD=1 也走不到 world 分支（连带 git/nodejs/npm 都不装，运行期按需安装
+# 会缺工具）。这里按 Dockerfile（主变体）的写法修正为读变量。
+ARG INSTALL_WORLD=0
+RUN --mount=type=cache,target=/root/.cache/uv \
+    set -eux; \
+    if [ "${INSTALL_WORLD}" = "1" ]; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends git nodejs npm; \
+        rm -rf /var/lib/apt/lists/*; \
+        npm install -g @playcanvas/splat-transform; \
+        uv sync --frozen --no-dev --extra world; \
+    else \
+        uv sync --frozen --no-dev; \
+    fi; \
+    mkdir -p /data
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv tool install 'hermes-agent[acp]'
+
+ENV PATH="/app/.venv/bin:/root/.local/bin:$PATH"
+
+EXPOSE 8780
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD python -c "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8780/api/v1/config', timeout=2).status == 200 else 1)"
+
+CMD novelvideo api --host 0.0.0.0 --port 8780

@@ -1,0 +1,17 @@
+{
+  "id": "sports_car",
+  "label_zh": "低趴跑车",
+  "default_scale": [1.65, 0.65, 3.2],
+  "default_affordances": ["seatable", "blocking_mass"],
+  "default_attachment_points": [
+    {
+      "id": "driver",
+      "kind": "seat",
+      "offset": [0, 0.75, 0.0],
+      "facing_delta": 0,
+      "actor_state": "sitting",
+      "description_zh": "驾驶位"
+    }
+  ],
+  "sketch_description_zh": "低趴跑车类 staging 轮廓。真实品牌/车型由 semantic_label 决定。"
+}

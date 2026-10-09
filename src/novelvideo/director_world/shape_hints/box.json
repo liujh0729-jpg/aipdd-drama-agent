@@ -1,0 +1,8 @@
+{
+  "id": "box",
+  "label_zh": "箱体",
+  "default_scale": [1.0, 1.0, 1.0],
+  "default_affordances": ["blocking_mass"],
+  "default_attachment_points": [],
+  "sketch_description_zh": "箱体或方块类 staging 物件，主要表达体积、位置和遮挡。"
+}

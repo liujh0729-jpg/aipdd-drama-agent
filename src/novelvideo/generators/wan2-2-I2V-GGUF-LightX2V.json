@@ -1,0 +1,268 @@
+{
+  "6": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "58",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "38": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "39": {
+    "inputs": {
+      "vae_name": "Wan2.1_VAE.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "54": {
+    "inputs": {
+      "shift": 8,
+      "model": [
+        "80",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "55": {
+    "inputs": {
+      "shift": 8,
+      "model": [
+        "82",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "57": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 263888202860562,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": 2,
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "54",
+        0
+      ],
+      "positive": [
+        "63",
+        0
+      ],
+      "negative": [
+        "63",
+        1
+      ],
+      "latent_image": [
+        "63",
+        2
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "1. KSampler (Advanced)"
+    }
+  },
+  "58": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 1100763417599289,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 2,
+      "end_at_step": 10000,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "55",
+        0
+      ],
+      "positive": [
+        "63",
+        0
+      ],
+      "negative": [
+        "63",
+        1
+      ],
+      "latent_image": [
+        "57",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "2. KSampler (Advanced)"
+    }
+  },
+  "60": {
+    "inputs": {
+      "fps": 24,
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "61": {
+    "inputs": {
+      "filename_prefix": "video/ComfyUI",
+      "format": "auto",
+      "codec": "h264",
+      "video-preview": "",
+      "video": [
+        "60",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "62": {
+    "inputs": {
+      "image": "beat_12.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "63": {
+    "inputs": {
+      "width": 720,
+      "height": 1280,
+      "length": 121,
+      "batch_size": 1,
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ],
+      "start_image": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "WanImageToVideo",
+    "_meta": {
+      "title": "WanImageToVideo"
+    }
+  },
+  "80": {
+    "inputs": {
+      "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+      "strength_model": 1,
+      "model": [
+        "90",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
+    }
+  },
+  "82": {
+    "inputs": {
+      "lora_name": "Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16.safetensors",
+      "strength_model": 1,
+      "model": [
+        "91",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
+    }
+  },
+  "90": {
+    "inputs": {
+      "unet_name": "HighNoise/Wan2.2-I2V-A14B-HighNoise-Q3_K_S.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF)"
+    }
+  },
+  "91": {
+    "inputs": {
+      "unet_name": "LowNoise/Wan2.2-I2V-A14B-LowNoise-Q3_K_S.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF)"
+    }
+  }
+}

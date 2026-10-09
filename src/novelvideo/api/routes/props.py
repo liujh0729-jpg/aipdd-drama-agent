@@ -1,0 +1,392 @@
+"""Prop asset workbench endpoints."""
+
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+from typing import Annotated, Any
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, Query
+
+from novelvideo.api.asset_metadata import newest_updated_at, tree_updated_at, utc_iso
+from novelvideo.api.auth import get_api_user
+from novelvideo.api.deps import (
+    make_static_url_for_context,
+    may_run_asset_repair,
+    resolve_project_scope,
+    sqlite_store_for_context_scope,
+    sqlite_store_scope,
+)
+from novelvideo.api.schemas import PropCreate, PropReferenceGenerateRequest, PropUpdate
+from novelvideo.models import NovelProp, build_prop_menu
+from novelvideo.project_config import load_project_config_file
+from novelvideo.sqlite_store import SQLiteStore
+from novelvideo.ports import get_task_backend
+from novelvideo.task_scopes import prop_reference_asset_scope
+from novelvideo.task_identity import project_task_state_key
+from novelvideo.utils.asset_names import move_asset_dir, path_safe_asset_name
+from novelvideo.utils.path_resolver import (
+    canonical_prop_reference_path,
+    compute_prop_reference_path,
+)
+from novelvideo.utils.static_urls import project_static_url
+
+router = APIRouter()
+
+
+def _project_style(username: str, project: str) -> str:
+    config = load_project_config_file(username, project)
+    return str(config.get("visual_style") or config.get("project_style") or "")
+
+
+def _asset_url(ctx, project_dir: Path, abs_path: str | Path) -> str:
+    path = Path(abs_path)
+    if not path.exists():
+        return ""
+    try:
+        rel_path = path.relative_to(project_dir).as_posix()
+    except ValueError:
+        return ""
+    return make_static_url_for_context(ctx, rel_path, local_path=path)
+
+
+def _convention_asset_url(
+    ctx,
+    project_dir: Path,
+    path: str | Path,
+    *,
+    project_id: str,
+    version: str = "",
+) -> str:
+    """Project-static URL for a canonical slot, without an OSSFS probe."""
+
+    asset_path = Path(path)
+    try:
+        rel_path = asset_path.relative_to(project_dir).as_posix()
+    except ValueError:
+        return ""
+    asset_project = str(getattr(ctx, "project_id", "") or project_id).strip()
+    url = project_static_url(asset_project, rel_path)
+    return f"{url}?v={quote(version, safe='')}" if version else url
+
+
+def _prop_payload(
+    prop: NovelProp,
+    *,
+    ctx,
+    project_dir: Path,
+    scope: str = "global",
+    source_episode: int | None = None,
+    probe_files: bool = True,
+    project_id: str = "",
+) -> dict[str, Any]:
+    canonical_reference = canonical_prop_reference_path(project_dir, prop.name)
+    reference_path = (
+        compute_prop_reference_path(project_dir, prop.name)
+        if probe_files
+        else str(canonical_reference)
+    )
+    payload = {
+        "name": prop.name,
+        "aliases": prop.aliases,
+        "prop_type": prop.prop_type,
+        "visual_prompt": prop.visual_prompt,
+        "description": prop.description,
+        "owner": prop.owner,
+        "notes": prop.notes,
+        "updated_at": (
+            newest_updated_at(
+                getattr(prop, "updated_at", ""),
+                tree_updated_at(project_dir / "assets" / "props" / prop.name),
+            )
+            if probe_files
+            else getattr(prop, "updated_at", "")
+        ),
+        "scope": scope,
+        "reference_path": reference_path,
+        "reference_url": (
+            (_asset_url(ctx, project_dir, reference_path) if reference_path else "")
+            if probe_files
+            else _convention_asset_url(
+                ctx,
+                project_dir,
+                canonical_reference,
+                project_id=project_id,
+                version=getattr(prop, "updated_at", "") or "",
+            )
+        ),
+    }
+    if source_episode is not None:
+        payload["source_episode"] = source_episode
+    return payload
+
+
+async def _local_episode_prop_payloads(
+    *,
+    store: SQLiteStore,
+    global_prop_names: set[str],
+) -> list[dict[str, Any]]:
+    if not hasattr(store, "list_episodes"):
+        return []
+    try:
+        episodes = await store.list_episodes()
+    except Exception:
+        return []
+
+    payloads: list[dict[str, Any]] = []
+    seen_local: set[tuple[int, str]] = set()
+    for episode in episodes or []:
+        episode_number = int(getattr(episode, "number", 0) or 0)
+        episode_updated_at = utc_iso(getattr(episode, "updated_at", ""))
+        for menu_item in build_prop_menu(prop_menu=getattr(episode, "prop_menu", []) or []):
+            prop_id = str(menu_item.prop_id or "").strip()
+            if not prop_id or prop_id in global_prop_names:
+                continue
+            key = (episode_number, prop_id)
+            if key in seen_local:
+                continue
+            seen_local.add(key)
+            payloads.append(
+                {
+                    "name": prop_id,
+                    "aliases": [],
+                    "prop_type": menu_item.prop_type,
+                    "visual_prompt": menu_item.visual_prompt,
+                    "description": menu_item.description,
+                    "owner": menu_item.owner_identity_id,
+                    "notes": "",
+                    "updated_at": episode_updated_at,
+                    "scope": "local",
+                    "source_episode": episode_number,
+                    "reference_path": "",
+                    "reference_url": "",
+                }
+            )
+    return payloads
+
+
+def _rename_prop_asset_dir(project_dir: Path, old_name: str, new_name: str) -> None:
+    # 见 ``move_asset_dir``：old_name 可能是库里没消毒过的脏值，直接拼路径会爬出资产根。
+    move_asset_dir(project_dir / "assets" / "props", old_name, new_name)
+
+
+async def _require_prop(store: SQLiteStore, name: str) -> NovelProp | None:
+    return await store.get_prop(name)
+
+
+async def _heal_path_unsafe_prop_names(store: SQLiteStore, project_dir: Path) -> dict[str, str]:
+    """修好库里名字带斜杠的存量道具，原名转成别名。
+
+    和场景同一个毛病：``{name}`` 路由匹配不到带斜杠的名字，那一排接口全 404。
+    详见 :mod:`novelvideo.utils.asset_names`。
+
+    调用方要先过 ``may_run_asset_repair``：这是一次写操作，不该由只读协作者触发。
+    """
+
+    def move_assets(old_name: str, new_name: str) -> None:
+        _rename_prop_asset_dir(project_dir, old_name, new_name)
+
+    return await store.repair_path_unsafe_asset_names("prop", move_assets)
+
+
+@router.get("/projects/{project}/props")
+async def list_props(
+    project: str,
+    scope: Annotated[str, Query(pattern="^(global|local|all)$")] = "global",
+    summary: bool = False,
+    user: dict = Depends(get_api_user),
+):
+    resolved = await resolve_project_scope(project, user, required_role="viewer")
+    store_scope = (
+        sqlite_store_for_context_scope(resolved.ctx, load_graph_state=False)
+        if resolved.ctx
+        else sqlite_store_scope(resolved.username, resolved.project_name)
+    )
+    async with store_scope as store:
+        project_dir = resolved.project_dir
+        if may_run_asset_repair(resolved.ctx):
+            await _heal_path_unsafe_prop_names(store, project_dir)
+        props = await store.list_props()
+        global_names = {prop.name for prop in props}
+        data: list[dict[str, Any]] = []
+        if scope in {"global", "all"}:
+            global_payloads = await asyncio.to_thread(
+                lambda: [
+                    _prop_payload(
+                        prop,
+                        ctx=resolved.ctx,
+                        project_dir=project_dir,
+                        probe_files=not summary,
+                        project_id=project,
+                    )
+                    for prop in props
+                ]
+            )
+            data.extend(global_payloads)
+        if scope in {"local", "all"}:
+            data.extend(await _local_episode_prop_payloads(store=store, global_prop_names=global_names))
+        return {
+            "ok": True,
+            "data": data,
+        }
+
+
+@router.post("/projects/{project}/props")
+async def create_prop(
+    project: str,
+    body: PropCreate,
+    user: dict = Depends(get_api_user),
+):
+    resolved = await resolve_project_scope(project, user, required_role="editor")
+    store_scope = (
+        sqlite_store_for_context_scope(resolved.ctx)
+        if resolved.ctx
+        else sqlite_store_scope(resolved.username, resolved.project_name)
+    )
+    async with store_scope as store:
+        project_dir = resolved.project_dir
+        # 在查重之前消毒，否则两个只差斜杠的名字会双双通过查重、后写的静默覆盖先写的。
+        name = path_safe_asset_name(str(body.name or "").strip())
+        if not name:
+            return {"ok": False, "error": "Prop name is required"}
+        existing = await store.get_prop(name)
+        if existing is not None:
+            return {"ok": False, "error": f"Prop '{name}' already exists"}
+
+        prop = NovelProp(
+            name=name,
+            aliases=body.aliases,
+            prop_type=body.prop_type,
+            visual_prompt=body.visual_prompt,
+            description=body.description,
+            owner=body.owner,
+            notes=body.notes,
+        )
+        await store.add_prop(prop)
+        return {
+            "ok": True,
+            "data": _prop_payload(prop, ctx=resolved.ctx, project_dir=project_dir),
+        }
+
+
+@router.patch("/projects/{project}/props/{name}")
+async def update_prop(
+    project: str,
+    name: str,
+    body: PropUpdate,
+    user: dict = Depends(get_api_user),
+):
+    resolved = await resolve_project_scope(project, user, required_role="editor")
+    store_scope = (
+        sqlite_store_for_context_scope(resolved.ctx)
+        if resolved.ctx
+        else sqlite_store_scope(resolved.username, resolved.project_name)
+    )
+    async with store_scope as store:
+        project_dir = resolved.project_dir
+        prop = await _require_prop(store, name)
+        if prop is None:
+            return {"ok": False, "error": f"Prop '{name}' not found"}
+
+        updates = body.model_dump(exclude_unset=True, exclude_none=True)
+        # 在挪目录之前消毒：store.rename_prop 里也会消毒，但目录迁移先于它执行，
+        # 不在这里统一就会出现「库里 a_b、盘上 a/b」的错位。
+        requested_name = path_safe_asset_name(str(updates.pop("name", "") or "").strip())
+        if requested_name and requested_name != prop.name:
+            if await store.get_prop(requested_name) is not None:
+                return {"ok": False, "error": f"Prop '{requested_name}' already exists"}
+            try:
+                _rename_prop_asset_dir(project_dir, prop.name, requested_name)
+            except ValueError as exc:
+                return {"ok": False, "error": str(exc)}
+            renamed = await store.rename_prop(prop.name, requested_name)
+            if not renamed:
+                return {"ok": False, "error": f"Prop '{prop.name}' rename failed"}
+            prop = await _require_prop(store, requested_name) or prop
+        if updates:
+            await store.update_prop(prop.name, **updates)
+            prop = await _require_prop(store, prop.name) or prop
+
+        return {
+            "ok": True,
+            "data": _prop_payload(prop, ctx=resolved.ctx, project_dir=project_dir),
+        }
+
+
+@router.post("/projects/{project}/props/{name}/delete")
+async def delete_prop(
+    project: str,
+    name: str,
+    user: dict = Depends(get_api_user),
+):
+    resolved = await resolve_project_scope(project, user, required_role="editor")
+    store_scope = (
+        sqlite_store_for_context_scope(resolved.ctx)
+        if resolved.ctx
+        else sqlite_store_scope(resolved.username, resolved.project_name)
+    )
+    async with store_scope as store:
+        prop = await _require_prop(store, name)
+        if prop is None:
+            return {"ok": False, "error": f"Prop '{name}' not found"}
+        deleted = await store.delete_prop(prop.name)
+        return {"ok": True, "data": {"deleted": deleted}}
+
+
+@router.post("/projects/{project}/props/{name}/reference/generate-async")
+async def generate_prop_reference(
+    project: str,
+    name: str,
+    body: PropReferenceGenerateRequest | None = None,
+    user: dict = Depends(get_api_user),
+):
+    resolved = await resolve_project_scope(project, user, required_role="editor")
+    ctx = resolved.ctx
+    username = resolved.username
+    project_name = resolved.project_name
+    output_dir = resolved.output_dir
+    style = (body.style if body else "") or _project_style(username, project_name)
+    model = str(body.model if body else "").strip()
+    store_scope = (
+        sqlite_store_for_context_scope(ctx)
+        if ctx
+        else sqlite_store_scope(username, project_name)
+    )
+    async with store_scope as store:
+        prop = await _require_prop(store, name)
+    if prop is None:
+        return {"ok": False, "error": f"Prop '{name}' not found"}
+    if not (prop.visual_prompt or prop.description or prop.name):
+        return {"ok": False, "error": f"Prop '{prop.name}' has no visual prompt"}
+
+    scope = prop_reference_asset_scope(prop.name)
+    if ctx is not None:
+        queued = await get_task_backend().enqueue_project_task(
+            ctx,
+            product_surface="mainline",
+            task_type="prop_reference_asset",
+            queue_kind="default",
+            episode=0,
+            scope=scope,
+            payload={
+                "prop_name": prop.name,
+                "style": style,
+                "model": model,
+                "output_dir": output_dir,
+            },
+        )
+        return {
+            "ok": True,
+            "task_type": "prop_reference_asset",
+            "scope": scope,
+            "task_id": queued.task_state.task_id,
+            "task_key": project_task_state_key(
+                "prop_reference_asset", ctx.project_id, 0, scope=scope
+            ),
+            "backend": queued.backend,
+            "queue": queued.queue,
+            "message": f"道具「{prop.name}」参考图生成任务已进入队列",
+        }
+
+    return {"ok": False, "error": "道具参考图生成需要 project context"}

@@ -1,0 +1,64 @@
+/* SPDX-License-Identifier: Elastic-2.0 */
+/* Copyright (c) 2026 ClaymoreLab */
+.brand-holiday-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  height: 48px;
+  min-width: 198px;
+  margin-left: -6px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.brand-holiday-badge__image {
+  position: absolute;
+  left: 20px;
+  top: calc(50% + 2px);
+  width: 68px;
+  height: 50px;
+  max-width: none;
+  object-fit: fill;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 2px 7px rgb(0 0 0 / 0.42));
+}
+
+.brand-holiday-badge__text {
+  position: absolute;
+  left: 58px;
+  bottom: 1px;
+  z-index: 1;
+  white-space: nowrap;
+  color: #ffeeca;
+  font-family: STKaiti;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 0.72),
+    0 0 10px rgb(215 54 34 / 0.22);
+}
+
+@media (max-width: 920px) {
+  .brand-holiday-badge {
+    min-width: 64px;
+    margin-left: 5px;
+  }
+
+  .brand-holiday-badge__image {
+    left: 20px;
+    height: 44px;
+  }
+
+  .brand-holiday-badge__text {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .brand-holiday-badge {
+    display: none;
+  }
+}

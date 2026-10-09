@@ -1,0 +1,1135 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from novelvideo.freezone.jobs import run_freezone_video_gen
+from novelvideo.generators.video_generator import (
+    HuimengVideoGenerator,
+    Seedance2VideoGenerator,
+    ShotReference,
+    newapi_video_backend_options,
+)
+from novelvideo.generators.video_generator import VideoGenResult, VideoGenStatus
+from novelvideo.video_duration import video_duration_bounds_for_backend
+from novelvideo.freezone.video_node import (
+    RESERVED_FOLDER_KEYS,
+    add_video_character_folder,
+    delete_video_character_folder,
+    add_video_character_library_item,
+    library_folder_keys,
+    update_video_character_folder,
+    build_freezone_image_to_video_prompt,
+    build_freezone_keyframe_video_prompt,
+    build_freezone_omni_video_prompt,
+    build_omni_source_video_directive,
+    build_freezone_video_prompt,
+    delete_video_character_library_item,
+    get_freezone_video_model_names,
+    get_freezone_video_model_options,
+    get_video_camera_template,
+    is_freezone_seedance2_backend,
+    load_video_character_library,
+    normalize_video_aspect_ratio,
+    normalize_video_duration_for_backend,
+    normalize_video_resolution,
+    normalize_video_resolution_for_backend,
+    rename_video_character_library_item,
+    resolve_freezone_video_backend,
+    summarize_omni_reference_counts,
+    sync_mainline_assets_into_library,
+    validate_omni_reference_audio_durations,
+    validate_omni_reference_image_dimensions,
+    validate_omni_reference_limits,
+)
+
+
+def test_build_freezone_video_prompt_includes_camera_template_and_character_names() -> None:
+    prompt = build_freezone_video_prompt(
+        user_prompt="赛博朋克街头，角色缓慢向前走",
+        camera_template_id="follow_tracking",
+        character_names=["林小满", "阿七"],
+        marks=[{"label": "老人", "point_x": 0.2, "point_y": 0.5}],
+    )
+
+    assert "赛博朋克街头" in prompt
+    assert "跟随拍摄" in prompt
+    assert "林小满、阿七" in prompt
+    assert "重点元素标记" in prompt
+    assert "老人" in prompt
+
+
+def test_video_camera_template_lookup_works() -> None:
+    template = get_video_camera_template("locked_off")
+
+    assert template is not None
+    assert template["name"] == "固定镜头"
+
+
+def test_video_character_library_roundtrip(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+    item = add_video_character_library_item(
+        project_dir,
+        name="林小满",
+        image_urls=["/static/admin/58/freezone/_uploads/char.png"],
+    )
+
+    items = load_video_character_library(project_dir)
+    assert len(items) == 1
+    assert items[0]["id"] == item["id"]
+    assert items[0]["name"] == "林小满"
+
+    deleted = delete_video_character_library_item(project_dir, item["id"])
+    assert deleted is True
+    assert load_video_character_library(project_dir) == []
+
+
+def test_video_character_library_rename_keeps_everything_else(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+    item = add_video_character_library_item(
+        project_dir,
+        name="未命名",
+        image_urls=["/static/admin/58/freezone/_uploads/char.png"],
+        category="character",
+        folder="character",
+    )
+
+    renamed = rename_video_character_library_item(project_dir, item["id"], name="  林小满  ")
+
+    assert renamed is not None
+    assert renamed["name"] == "林小满"
+    # 改名只动名字：地址/类目/保存位置都得原样留着，画布上引用它的节点才不会裂。
+    assert renamed["image_urls"] == item["image_urls"]
+    assert renamed["category"] == "character"
+    assert renamed["folder"] == "character"
+    assert [it["name"] for it in load_video_character_library(project_dir)] == ["林小满"]
+
+
+def test_video_character_library_rename_rejects_bad_names(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+    item = add_video_character_library_item(
+        project_dir, name="原名", image_urls=["/static/a.png"]
+    )
+
+    assert rename_video_character_library_item(project_dir, "missing", name="新名") is None
+    with pytest.raises(ValueError):
+        rename_video_character_library_item(project_dir, item["id"], name="   ")
+    with pytest.raises(ValueError):
+        rename_video_character_library_item(project_dir, item["id"], name="长" * 61)
+    # 校验失败不能把库写脏。
+    assert [it["name"] for it in load_video_character_library(project_dir)] == ["原名"]
+
+
+def test_video_character_library_category(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+
+    # 不传类目时按来源/媒介兜底：本地上传的图片归「其它」，音频归「音效」。
+    plain = add_video_character_library_item(
+        project_dir, name="参考图", image_urls=["/static/a.png"]
+    )
+    assert plain["category"] == "other"
+    bgm = add_video_character_library_item(
+        project_dir, name="脚步声", media="audio", audio_url="/static/step.mp3"
+    )
+    assert bgm["category"] == "audio"
+
+    styled = add_video_character_library_item(
+        project_dir, name="赛博霓虹", image_urls=["/static/b.png"], category="style"
+    )
+    assert styled["category"] == "style"
+
+    # 主线同步按 source 归类，且不会把已经归好的类目冲掉。
+    sync_mainline_assets_into_library(
+        project_dir,
+        assets=[
+            {
+                "id": "mainline:scene:厨房",
+                "name": "厨房",
+                "media": "image",
+                "source": "scene",
+                "url": "/static/kitchen.png",
+            },
+            {
+                "id": styled["id"],
+                "name": "赛博霓虹",
+                "media": "image",
+                "source": "upload",
+                "url": "/static/b.png",
+            },
+        ],
+    )
+    items = {str(it["id"]): it for it in load_video_character_library(project_dir)}
+    assert items["mainline:scene:厨房"]["category"] == "scene"
+    assert items[styled["id"]]["category"] == "style"
+
+
+def test_video_character_library_topdown_scene_passthrough(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+    scene = {
+        "version": 1,
+        "size": 1280,
+        "background": {"kind": "none"},
+        "items": [{"id": "p1", "kind": "person", "x": 10, "y": 20, "label": "A", "color": "#e23b3b"}],
+    }
+
+    item = add_video_character_library_item(
+        project_dir,
+        name="客厅走位",
+        media="image",
+        image_urls=["/static/topdown-preview.png"],
+        category="topdown",
+        scene=scene,
+    )
+
+    # 类目显式落在 topdown，保存位置按类目同名系统文件夹兜底。
+    assert item["category"] == "topdown"
+    assert item["folder"] == "topdown"
+    # 可编辑场景原样透传落库（仿 draft_id），读回不丢。
+    persisted = load_video_character_library(project_dir)[0]
+    assert persisted["scene"] == scene
+
+    # upsert 同一 id 不带 scene 时不该凭空造 scene 字段。
+    again = add_video_character_library_item(
+        project_dir,
+        item_id=item["id"],
+        name="改名",
+        media="image",
+        image_urls=["/static/topdown-preview.png"],
+        category="topdown",
+    )
+    assert "scene" not in again
+
+
+def test_asset_library_topdown_folder_name_is_reserved(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+    # 「俯视图」是系统文件夹名，用户建不出同名文件夹。
+    with pytest.raises(ValueError):
+        add_video_character_folder(project_dir, name="俯视图")
+
+
+def test_asset_library_story_version_category_and_reserved_folder(tmp_path: Path) -> None:
+    # [aipdd fork delta] 故事版：分镜脚本页 AI 生成的分镜板参考图归入新类目，
+    # 落进同名系统文件夹；镜像 topdown 全链路口径（类目显式 + 系统文件夹名保留）。
+    project_dir = tmp_path / "project"
+
+    item = add_video_character_library_item(
+        project_dir,
+        name="分镜板",
+        media="image",
+        image_urls=["/static/story-version.png"],
+        category="storyVersion",
+    )
+    assert item["category"] == "storyVersion"
+    assert item["folder"] == "storyVersion"
+    persisted = load_video_character_library(project_dir)[0]
+    assert persisted["category"] == "storyVersion"
+
+    # 「故事版」是系统文件夹名，用户建不出同名文件夹。
+    with pytest.raises(ValueError):
+        add_video_character_folder(project_dir, name="故事版")
+
+
+def test_video_character_library_folder(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+
+    # 不传保存位置时按类目落到同名系统文件夹，主线同步来的一律进 mainline。
+    plain = add_video_character_library_item(
+        project_dir, name="参考图", image_urls=["/static/a.png"]
+    )
+    assert plain["folder"] == "other"
+    styled = add_video_character_library_item(
+        project_dir, name="赛博霓虹", image_urls=["/static/b.png"], category="style"
+    )
+    assert styled["folder"] == "style"
+
+    # 文件夹和标签是两个独立维度：可以放进自建文件夹、同时打「人物」标签。
+    folder = add_video_character_folder(project_dir, name="第一集素材")
+    assert folder["name"] == "第一集素材"
+    assert folder["id"] not in RESERVED_FOLDER_KEYS
+    assert folder["id"] in library_folder_keys(project_dir)
+
+    filed = add_video_character_library_item(
+        project_dir,
+        name="女主定妆",
+        image_urls=["/static/c.png"],
+        category="character",
+        folder=folder["id"],
+    )
+    assert filed["folder"] == folder["id"]
+    assert filed["category"] == "character"
+
+    # 重名（含系统文件夹名）建不出来。
+    with pytest.raises(ValueError):
+        add_video_character_folder(project_dir, name="第一集素材")
+    with pytest.raises(ValueError):
+        add_video_character_folder(project_dir, name="待分类资产")
+    with pytest.raises(ValueError):
+        add_video_character_folder(project_dir, name="x" * 21)
+
+    # 主线同步不会把用户挪好的位置冲掉。
+    sync_mainline_assets_into_library(
+        project_dir,
+        assets=[
+            {
+                "id": "mainline:scene:厨房",
+                "name": "厨房",
+                "media": "image",
+                "source": "scene",
+                "url": "/static/kitchen.png",
+            },
+            {
+                "id": filed["id"],
+                "name": "女主定妆",
+                "media": "image",
+                "source": "upload",
+                "url": "/static/c.png",
+            },
+        ],
+    )
+    items = {str(it["id"]): it for it in load_video_character_library(project_dir)}
+    assert items["mainline:scene:厨房"]["folder"] == "mainline"
+    assert items[filed["id"]]["folder"] == folder["id"]
+
+
+def test_video_character_library_folder_follows_category_when_tag_missing(
+    tmp_path: Path,
+) -> None:
+    """[aipdd fork delta] 上传落进系统类目同名文件夹又没给标签时，标签跟随位置。
+
+    旧行为里拖拽上传会带上当时的筛选类目，写出 folder=style / category=character
+    的错位条目，资产库顶部「风格」标签（按 category 筛）下永远看不到它。
+    """
+    project_dir = tmp_path / "project"
+
+    styled = add_video_character_library_item(
+        project_dir, name="风格参考", image_urls=["/static/style.png"], folder="style"
+    )
+    assert styled["category"] == "style"
+    assert styled["folder"] == "style"
+
+    # 已有有效类目的条目再 upsert（不传标签）不能被位置改写——用户归过的标签要留住。
+    kept = add_video_character_library_item(
+        project_dir,
+        name="女主定妆",
+        image_urls=["/static/c.png"],
+        category="character",
+        folder="style",
+    )
+    again = add_video_character_library_item(
+        project_dir,
+        name="女主定妆",
+        image_urls=["/static/c.png"],
+        item_id=kept["id"],
+        folder="style",
+    )
+    assert again["category"] == "character"
+
+    # 自建文件夹没有类目语义，不跟随，回到媒介/来源兜底。
+    folder = add_video_character_folder(project_dir, name="第一集素材")
+    filed = add_video_character_library_item(
+        project_dir, name="杂物", image_urls=["/static/d.png"], folder=folder["id"]
+    )
+    assert filed["category"] == "other"
+    assert filed["folder"] == folder["id"]
+
+
+def test_video_character_library_sketch_category(tmp_path: Path) -> None:
+    # [aipdd fork delta] 「草图」新增为一级类目：与人物/场景/道具同构——本地上传
+    # 显式归类落到同名系统文件夹；主线同步来的一律进「主线」文件夹、带「草图」标签。
+    project_dir = tmp_path / "project"
+
+    sketch = add_video_character_library_item(
+        project_dir,
+        name="草图 · E1 B3",
+        image_urls=["/static/sketch.png"],
+        category="sketch",
+    )
+    assert sketch["category"] == "sketch"
+    assert sketch["folder"] == "sketch"
+
+    sync_mainline_assets_into_library(
+        project_dir,
+        assets=[
+            {
+                "id": "mainline:sketch:1:4",
+                "name": "草图 · E1 B4",
+                "media": "image",
+                "source": "sketch",
+                "category": "sketch",
+                "url": "/static/beat04.png",
+            }
+        ],
+    )
+    items = {str(it["id"]): it for it in load_video_character_library(project_dir)}
+    assert items["mainline:sketch:1:4"]["category"] == "sketch"
+    assert items["mainline:sketch:1:4"]["folder"] == "mainline"
+
+    # 「草图」是系统文件夹名，用户建不出重名文件夹。
+    with pytest.raises(ValueError):
+        add_video_character_folder(project_dir, name="草图")
+
+
+def test_video_character_folder_update_and_delete(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+    folder = add_video_character_folder(project_dir, name="第一集素材")
+    other = add_video_character_folder(project_dir, name="第二集素材")
+
+    # 改名 / 换封面互不影响：只传一个字段时另一个原样保留。
+    renamed = update_video_character_folder(project_dir, folder["id"], name="第一集")
+    assert renamed is not None and renamed["name"] == "第一集"
+    covered = update_video_character_folder(
+        project_dir, folder["id"], cover="/static/c.png"
+    )
+    assert covered is not None
+    assert covered["cover"] == "/static/c.png"
+    assert covered["name"] == "第一集"
+
+    # 改名走的是和新建同一套校验；改成自己现在的名字不算重名。
+    assert update_video_character_folder(project_dir, folder["id"], name="第一集")
+    with pytest.raises(ValueError):
+        update_video_character_folder(project_dir, folder["id"], name="第二集素材")
+    with pytest.raises(ValueError):
+        update_video_character_folder(project_dir, folder["id"], name="主线")
+    assert update_video_character_folder(project_dir, "nope", name="随便") is None
+
+    inside = add_video_character_library_item(
+        project_dir, name="女主定妆", image_urls=["/static/c.png"], folder=folder["id"]
+    )
+    outside = add_video_character_library_item(
+        project_dir, name="路人", image_urls=["/static/d.png"], folder=other["id"]
+    )
+
+    # 整柜清空：文件夹和里面的素材一起没，别的文件夹不受牵连。
+    assert delete_video_character_folder(project_dir, folder["id"]) == 1
+    assert folder["id"] not in library_folder_keys(project_dir)
+    remaining = {str(it["id"]) for it in load_video_character_library(project_dir)}
+    assert inside["id"] not in remaining
+    assert outside["id"] in remaining
+    assert delete_video_character_folder(project_dir, folder["id"]) is None
+
+
+def test_video_ratio_and_resolution_normalization() -> None:
+    assert normalize_video_aspect_ratio("auto") == "auto"
+    assert normalize_video_aspect_ratio("adaptive") == "auto"
+    assert normalize_video_aspect_ratio("9:16") == "9:16"
+    assert normalize_video_resolution("720P") == "720p"
+
+
+def test_omni_source_video_directive_is_tool_specific() -> None:
+    """[req42] 换人 / 换产品 / 对口型都要明确「保留源视频，只改那一处」。
+
+    旧口径只拼通用模板：模型把源视频当灵感，产物与原视频毫不相干。
+    """
+
+    video_image = [
+        {"type": "video", "path": "/tmp/source.mp4"},
+        {"type": "image", "path": "/tmp/product.png"},
+    ]
+    product = build_omni_source_video_directive(video_image, "replace-product")
+    assert "把源视频画面中的产品替换为参考图所示的产品" in product
+    assert "必须完整保留源视频的场景、构图" in product
+
+    person = build_omni_source_video_directive(video_image, "replace-person")
+    assert "人物" in person and "产品" not in person
+
+    # 工具没传时也不能没有指令：按「参考图替换对应主体」兜底。
+    generic = build_omni_source_video_directive(video_image, "")
+    assert generic.startswith("任务：")
+
+    lipsync = build_omni_source_video_directive(
+        [
+            {"type": "video", "path": "/tmp/source.mp4"},
+            {"type": "audio", "path": "/tmp/voice.mp3"},
+        ],
+        "lip-sync",
+    )
+    assert "口型" in lipsync
+
+    # 没有源视频（纯参考图）时不该冒出「保留源视频」的指令。
+    assert build_omni_source_video_directive([{"type": "image", "path": "/a.png"}], "") == ""
+
+
+def test_omni_prompt_puts_directive_before_the_boilerplate() -> None:
+    prompt = build_freezone_omni_video_prompt(
+        user_prompt="",
+        reference_items=[
+            {"type": "video", "path": "/tmp/source.mp4"},
+            {"type": "image", "path": "/tmp/product.png"},
+        ],
+        source_tool="replace-product",
+    )
+    assert "任务：把源视频画面中的产品替换为参考图所示的产品" in prompt
+    assert prompt.index("任务：") < prompt.index("全能参考模式要求")
+
+
+def test_build_freezone_omni_video_prompt_includes_theme() -> None:
+    prompt = build_freezone_omni_video_prompt(
+        user_prompt="雨夜中老人躺在病床上，年轻男子伸手整理氧气管。",
+        theme="压抑、克制、纪实感",
+        camera_template_id="orbit_up",
+        marks=[{"label": "氧气管", "point_x": 0.7, "point_y": 0.6}],
+    )
+
+    assert "压抑、克制、纪实感" in prompt
+    assert "盘旋抬升" in prompt
+    assert "氧气管" in prompt
+
+
+def test_build_freezone_omni_video_prompt_marks_single_video_as_reference() -> None:
+    prompt = build_freezone_omni_video_prompt(
+        user_prompt="参考人物动作，生成新的镜头。",
+        reference_items=[{"type": "video", "path": "/tmp/reference.mp4"}],
+    )
+
+    assert prompt.count("这是视频参考生成新的视频，不是视频编辑。") == 1
+
+
+@pytest.mark.parametrize(
+    "reference_items",
+    [
+        [{"type": "video"}, {"type": "video"}],
+        [{"type": "video"}, {"type": "image"}],
+        [{"type": "video"}, {"type": "audio"}],
+        [{"type": "image"}],
+    ],
+)
+def test_build_freezone_omni_video_prompt_does_not_mark_other_inputs(
+    reference_items: list[dict[str, str]],
+) -> None:
+    prompt = build_freezone_omni_video_prompt(
+        user_prompt="参考素材生成新的镜头。",
+        reference_items=reference_items,
+    )
+
+    assert "这是视频参考生成新的视频，不是视频编辑。" not in prompt
+
+
+def test_build_freezone_image_to_video_prompt_uses_image_reference_semantics() -> None:
+    prompt = build_freezone_image_to_video_prompt(
+        user_prompt="老人缓慢抬眼，呼吸微弱。",
+        camera_template_id="pedestal_up",
+        marks=[{"label": "老人", "point_x": 0.15, "point_y": 0.45, "note": "主体"}],
+    )
+
+    assert "老人缓慢抬眼" in prompt
+    assert "镜头上升" in prompt
+    assert "老人" in prompt
+    assert "主体" in prompt
+    assert "图片参考约束" in prompt
+    assert "不要强制把输入图片锁定为视频第一帧" in prompt
+    assert "首帧约束" not in prompt
+
+
+def test_build_freezone_image_to_video_prompt_supports_multi_image_references() -> None:
+    prompt = build_freezone_image_to_video_prompt(
+        user_prompt="老人微微抬头，保持病房压抑氛围。",
+        camera_template_id="follow_tracking",
+        reference_image_count=3,
+    )
+
+    assert "图片参考约束" in prompt
+    assert "多张输入图片" in prompt
+    assert "跟随拍摄" in prompt
+
+
+def test_build_freezone_image_to_video_prompt_supports_box_marks() -> None:
+    prompt = build_freezone_image_to_video_prompt(
+        user_prompt="老人微微转头。",
+        camera_template_id="locked_off",
+        marks=[{"label": "老人", "box_x": 0.05, "box_y": 0.2, "box_width": 0.3, "box_height": 0.5}],
+    )
+
+    assert "重点元素标记" in prompt
+    assert "老人" in prompt
+    assert "左侧中间" in prompt
+
+
+def test_build_freezone_keyframe_video_prompt_handles_first_and_last_frame() -> None:
+    prompt = build_freezone_keyframe_video_prompt(
+        user_prompt="老人抬眼后镜头缓慢推进到病床侧面。",
+        camera_template_id="pedestal_up",
+        marks=[{"label": "老人", "point_x": 0.4, "point_y": 0.4}],
+        has_first_frame=True,
+        has_last_frame=True,
+    )
+
+    assert "老人抬眼后镜头缓慢推进到病床侧面" in prompt
+    assert "镜头上升" in prompt
+    assert "首尾帧约束" in prompt
+    assert "老人" in prompt
+
+
+def _seed_video_media_models(
+    monkeypatch: pytest.MonkeyPatch,
+    models: list[str],
+    *,
+    extra: dict[str, dict] | None = None,
+) -> None:
+    """[aipdd fork delta req40] CE 下视频候选只来自「设置 › 模型」里勾选的媒体模型
+    （= 从渠道目录里挑出来的那批），随包写死的 seedance 清单不再参与。测试因此显式
+    给这份绑定，而不是去改 ``NEWAPI_VIDEO_MODELS``。
+    """
+
+    mappings = {
+        model: {"mediaType": "video", "enabled": True, "upstreamModel": model}
+        for model in models
+    }
+    mappings.update(extra or {})
+    monkeypatch.setattr(
+        "novelvideo.model_gateway_settings.get_newapi_media_model_mappings",
+        lambda: mappings,
+    )
+
+
+def test_video_model_options_and_resolution_work(monkeypatch: pytest.MonkeyPatch) -> None:
+    _seed_video_media_models(
+        monkeypatch,
+        [
+            "seedance-1.0-pro-fast",
+            "seedance-1.5-pro",
+            "seedance-2.0-fast",
+            "grok-video-channel",
+        ],
+        extra={
+            "seedream-4-5": {
+                "mediaType": "image",
+                "enabled": True,
+                "upstreamModel": "seedream-4-5",
+            }
+        },
+    )
+
+    names = get_freezone_video_model_names()
+    options = get_freezone_video_model_options()
+    ids = {item["id"] for item in options}
+    labels = {item["label"] for item in options}
+    api_models = {item["apiModel"] for item in options}
+
+    assert names[0] == "newapi_seedance-2.0-fast"
+    assert {
+        "newapi_seedance-2.0-fast",
+        "newapi_seedance-1.0-pro-fast",
+        "newapi_seedance-1.5-pro",
+    }.issubset(names)
+    assert "newapi_grok-video-channel" not in names
+    # 只收视频位：图片媒体模型不能混进视频下拉。
+    assert "newapi_seedream-4-5" not in names
+    # 随包清单里没被勾选的名字不会再凭空出现在候选里（渠道摘掉后的回归面）。
+    assert "newapi_seedance-2.0" not in names
+    assert ids == set(names)
+    assert api_models == set(names)
+    assert all(item["providerId"] == "newapi" for item in options)
+    assert "Seedance1.0 Pro Fast" in labels
+    assert "Seedance1.5 Pro" in labels
+    assert "Seedance2.0 Fast" in labels
+    assert "Grok Video Channel" not in labels
+    assert normalize_video_resolution("720P") == "720p"
+    seedance2_fast = next(
+        item for item in options if item["id"] == "newapi_seedance-2.0-fast"
+    )
+    assert seedance2_fast["resolutionOptions"] == ["480p", "720p"]
+    assert seedance2_fast["minDuration"] == 4
+    assert seedance2_fast["maxDuration"] == 15
+    assert (
+        normalize_video_resolution_for_backend("newapi_seedance-2.0-fast", "1080p")
+        == "720p"
+    )
+
+
+def test_catalog_resolution_options_override_legacy_video_whitelist() -> None:
+    assert (
+        normalize_video_resolution_for_backend(
+            "newapi_Kling-V2.1",
+            "4K",
+            ["1080p", "4K"],
+        )
+        == "4k"
+    )
+
+
+def test_catalog_resolution_snaps_to_gateway_published_set() -> None:
+    # [aipdd fork delta] req08：网关只发布 1080p/4k（/api/pricing 强校验）时，
+    # 720p / 空值请求必须吸附到 1080p——否则 submit 被 unsupported_resolution 拒单。
+    assert (
+        normalize_video_resolution_for_backend(
+            "newapi_AP Seedance-2.0 高性价比版",
+            "720p",
+            ["1080p", "4k"],
+        )
+        == "1080p"
+    )
+    assert (
+        normalize_video_resolution_for_backend(
+            "newapi_AP Seedance-2.0 高性价比版",
+            "",
+            ["1080p", "4k"],
+        )
+        == "1080p"
+    )
+
+
+def test_catalog_duration_bounds_override_legacy_video_bounds() -> None:
+    assert (
+        normalize_video_duration_for_backend(
+            "newapi_seedance-2.0",
+            20,
+            2,
+            30,
+        )
+        == 20
+    )
+    assert (
+        normalize_video_duration_for_backend(
+            "newapi_seedance-2.0",
+            1,
+            2,
+            30,
+        )
+        == 2
+    )
+
+
+def test_video_duration_normalization_uses_ceiling_and_backend_bounds() -> None:
+    assert normalize_video_duration_for_backend(
+        "newapi_seedance-1.0-pro-fast",
+        1,
+    ) == 2
+    assert normalize_video_duration_for_backend(
+        "newapi_seedance-1.0-pro-fast",
+        100,
+    ) == 12
+    assert normalize_video_duration_for_backend(
+        "newapi_seedance-1.0-pro-fast",
+        5.1,
+    ) == 6
+
+
+def test_seedance_mini_duration_fallback_with_legacy_env(monkeypatch) -> None:
+    from novelvideo import config
+
+    monkeypatch.setattr(
+        config,
+        "NEWAPI_VIDEO_DURATION_BOUNDS",
+        "seedance-1.0-pro-fast:2-12,seedance-2.0:4-15",
+    )
+
+    backend = "newapi_seedance-2.0-mini"
+    assert video_duration_bounds_for_backend(backend) == (4, 15)
+    assert normalize_video_duration_for_backend(backend, 2) == 4
+    assert normalize_video_duration_for_backend(backend, 13) == 13
+    assert normalize_video_duration_for_backend(backend, 20) == 15
+
+
+def test_newapi_video_backend_preserves_gateway_model_case() -> None:
+    from novelvideo.generators.video_generator import parse_newapi_video_backend
+
+    assert parse_newapi_video_backend("newapi_Kling-V2.1") == "Kling-V2.1"
+
+
+def test_grok_video_channel_is_not_exposed_even_if_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    # [aipdd fork delta req40] 「配置里勾了但被禁用的模型」= 媒体模型绑定里出现
+    # grok：负向过滤器必须仍在候选与解析两侧都拦住它。
+    _seed_video_media_models(
+        monkeypatch,
+        ["seedance-2.0-fast", "grok-video-channel"],
+    )
+
+    assert "newapi_grok-video-channel" not in newapi_video_backend_options()
+    assert "newapi_grok-video-channel" not in get_freezone_video_model_names()
+    with pytest.raises(ValueError, match="unknown video model"):
+        resolve_freezone_video_backend("newapi_grok-video-channel")
+
+
+def test_resolve_freezone_video_backend_accepts_id_and_label(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_video_media_models(
+        monkeypatch,
+        ["seedance-1.0-pro-fast", "seedance-1.5-pro", "seedance-2.0-fast"],
+    )
+
+    assert (
+        resolve_freezone_video_backend("newapi_seedance-1.0-pro-fast")
+        == "newapi_seedance-1.0-pro-fast"
+    )
+    assert resolve_freezone_video_backend("Seedance1.5 Pro") == "newapi_seedance-1.5-pro"
+    assert resolve_freezone_video_backend(None) == "newapi_seedance-2.0-fast"
+
+
+def test_seedance2_backend_detection_accepts_newapi_and_legacy_values() -> None:
+    assert is_freezone_seedance2_backend("newapi_seedance-2.0-fast")
+    assert is_freezone_seedance2_backend("seedance_2")
+    assert not is_freezone_seedance2_backend("newapi_seedance-1.5-pro")
+
+
+def test_direct_seedance_ratio_accepts_canonical_and_legacy_auto_values() -> None:
+    from novelvideo.generators.video_generator import SeedanceVideoGenerator
+
+    assert SeedanceVideoGenerator._normalize_aspect_ratio("auto") == "auto"
+    assert SeedanceVideoGenerator._normalize_aspect_ratio("adaptive") == "adaptive"
+    assert SeedanceVideoGenerator._normalize_aspect_ratio("16:9") == "16:9"
+    assert SeedanceVideoGenerator._normalize_aspect_ratio("unsupported") == "9:16"
+
+
+def test_freezone_rejects_removed_wan26_backend() -> None:
+    with pytest.raises(ValueError, match="unknown video model"):
+        resolve_freezone_video_backend("wan26")
+
+
+@pytest.mark.asyncio
+async def test_freezone_video_gen_allows_newapi_seedance2_text_to_video(
+    monkeypatch, tmp_path: Path
+):
+    captured: dict[str, dict] = {}
+
+    class FakeVideoGenerator:
+        async def generate(self, **kwargs):
+            captured["generate"] = kwargs
+            output_path = Path(kwargs["output_path"])
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"fake mp4")
+            return VideoGenResult(status=VideoGenStatus.DONE, video_path=str(output_path))
+
+    def fake_create_video_generator(**kwargs):
+        captured["create"] = kwargs
+        return FakeVideoGenerator()
+
+    monkeypatch.setattr(
+        "novelvideo.generators.video_generator.create_video_generator",
+        fake_create_video_generator,
+    )
+
+    out = await run_freezone_video_gen(
+        project_dir=tmp_path,
+        job_id="job_newapi_t2v",
+        prompt="雨夜街头，镜头缓慢推进",
+        reference_items=[],
+        backend="newapi_seedance-2.0-fast",
+    )
+
+    assert out.exists()
+    assert captured["create"]["backend"] == "newapi_seedance-2.0-fast"
+    assert captured["generate"]["image_path"] is None
+    assert captured["generate"]["references"] == []
+
+
+@pytest.mark.asyncio
+async def test_freezone_video_gen_allows_newapi_fast_text_to_video(monkeypatch, tmp_path: Path):
+    captured: dict[str, dict] = {}
+
+    class FakeVideoGenerator:
+        async def generate(self, **kwargs):
+            captured["generate"] = kwargs
+            output_path = Path(kwargs["output_path"])
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"fake mp4")
+            return VideoGenResult(status=VideoGenStatus.DONE, video_path=str(output_path))
+
+    def fake_create_video_generator(**kwargs):
+        captured["create"] = kwargs
+        return FakeVideoGenerator()
+
+    monkeypatch.setattr(
+        "novelvideo.generators.video_generator.create_video_generator",
+        fake_create_video_generator,
+    )
+
+    out = await run_freezone_video_gen(
+        project_dir=tmp_path,
+        job_id="job_newapi_fast_t2v",
+        prompt="雨夜街头，镜头缓慢推进",
+        reference_items=[],
+        backend="newapi_seedance-1.0-pro-fast",
+    )
+
+    assert out.exists()
+    assert captured["create"]["backend"] == "newapi_seedance-1.0-pro-fast"
+    assert captured["generate"]["image_path"] is None
+    assert captured["generate"]["references"] == []
+
+
+@pytest.mark.asyncio
+async def test_freezone_keyframe_tail_only_does_not_promote_tail_to_first_frame(
+    monkeypatch, tmp_path: Path
+):
+    captured: dict[str, dict] = {}
+
+    class FakeVideoGenerator:
+        async def generate(self, **kwargs):
+            captured["generate"] = kwargs
+            output_path = Path(kwargs["output_path"])
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"fake mp4")
+            return VideoGenResult(status=VideoGenStatus.DONE, video_path=str(output_path))
+
+    monkeypatch.setattr(
+        "novelvideo.generators.video_generator.create_video_generator",
+        lambda **_kwargs: FakeVideoGenerator(),
+    )
+
+    tail_path = tmp_path / "tail.png"
+    tail_path.write_bytes(b"fake image")
+    await run_freezone_video_gen(
+        project_dir=tmp_path,
+        job_id="job_tail_only",
+        prompt="最终停在目标构图",
+        reference_items=[{"type": "image", "path": str(tail_path), "role": "尾帧"}],
+        backend="newapi_seedance-2.0",
+        last_frame_path=str(tail_path),
+        gen_mode="first_last_frame",
+    )
+
+    assert captured["generate"]["image_path"] is None
+    assert captured["generate"]["last_frame_path"] == str(tail_path)
+
+
+def test_seedance2_model_selection_prefers_omni_model_for_mixed_references() -> None:
+    generator = object.__new__(Seedance2VideoGenerator)
+
+    assert (
+        generator._select_generation_model(image_count=1, video_count=0, audio_count=0)
+        == "seedance-2.0-i2v"
+    )
+    assert (
+        generator._select_generation_model(image_count=1, video_count=1, audio_count=0)
+        == "seedance-2.0"
+    )
+    assert (
+        generator._select_generation_model(image_count=0, video_count=1, audio_count=0)
+        == "seedance-2.0"
+    )
+
+
+def test_huimeng_multimodal_reference_params_support_images_videos_and_audio(
+    tmp_path: Path,
+) -> None:
+    image_path = tmp_path / "ref.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    video_path = tmp_path / "ref.mp4"
+    video_path.write_bytes(b"\x00\x00\x00\x18ftypmp42fake")
+    audio_path = tmp_path / "ref.wav"
+    audio_path.write_bytes(b"RIFFfakeWAVEfmt ")
+
+    generator = object.__new__(HuimengVideoGenerator)
+    params, counts = generator._build_reference_params(
+        [
+            ShotReference("image", str(image_path), "角色参考"),
+            ShotReference("video", str(video_path), "动作参考"),
+            ShotReference("audio", str(audio_path), "音频参考"),
+        ],
+        log=lambda _msg: None,
+    )
+
+    assert counts == {"image_count": 1, "video_count": 1, "audio_count": 1}
+    assert params["reference_images"][0].startswith("data:image/png;base64,")
+    assert params["reference_videos"][0].startswith("data:video/mp4;base64,")
+    assert params["reference_audios"][0].startswith("data:audio/x-wav;base64,")
+
+
+def test_validate_omni_reference_limits_and_summary() -> None:
+    items = [{"type": "image", "url": f"/static/{i}.png"} for i in range(9)]
+    items += [{"type": "video", "url": f"/static/{i}.mp4"} for i in range(3)]
+    counts = summarize_omni_reference_counts(items)
+
+    assert counts == {
+        "image_count": 9,
+        "video_count": 3,
+        "audio_count": 0,
+        "file_count": 0,
+        "link_count": 0,
+        "total_count": 12,
+    }
+
+    validate_omni_reference_limits(items)
+
+    too_many_images = [{"type": "image", "url": f"/static/{i}.png"} for i in range(10)]
+    try:
+        validate_omni_reference_limits(too_many_images)
+        raise AssertionError("expected validate_omni_reference_limits to fail")
+    except ValueError as exc:
+        assert "<= 9" in str(exc)
+
+    validate_omni_reference_limits(
+        [{"type": "image", "url": "/static/a.png"}],
+        image_max=1,
+        video_max=0,
+        audio_max=0,
+        total_max=1,
+    )
+    with pytest.raises(ValueError, match="image references count must be <= 1"):
+        validate_omni_reference_limits(
+            [
+                {"type": "image", "url": "/static/a.png"},
+                {"type": "image", "url": "/static/b.png"},
+            ],
+            image_max=1,
+            video_max=0,
+            audio_max=0,
+            total_max=2,
+        )
+
+    validate_omni_reference_limits(
+        [
+            {"type": "image", "url": "/static/a.png"},
+            {"type": "file", "url": "/static/brief.pdf"},
+        ],
+        image_max=1,
+        video_max=0,
+        audio_max=0,
+        file_max=1,
+        link_max=1,
+        total_max=2,
+    )
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        validate_omni_reference_limits(
+            [
+                {"type": "file", "url": "/static/brief.pdf"},
+                {"type": "link", "url": "https://example.com/brief"},
+            ],
+            image_max=0,
+            video_max=0,
+            audio_max=0,
+            file_max=1,
+            link_max=1,
+            total_max=2,
+        )
+
+
+def test_validate_omni_reference_audio_durations_per_clip_bounds() -> None:
+    # 厂商逐条口径：1.8s ≤ 时长 ≤ 15.2s，两端都是闭区间。
+    validate_omni_reference_audio_durations([("a.wav", 1.8)])
+    validate_omni_reference_audio_durations([("a.wav", 15.2)])
+
+    with pytest.raises(ValueError, match=r"must be >= 1\.8s") as short_exc:
+        validate_omni_reference_audio_durations([("ok.wav", 5.0), ("tiny.wav", 0.9)])
+    # 只点名越界的那条，别把合规的也列进去让用户猜。
+    assert "tiny.wav (0.9s)" in str(short_exc.value)
+    assert "ok.wav" not in str(short_exc.value)
+
+    with pytest.raises(ValueError, match=r"must be <= 15\.2s"):
+        validate_omni_reference_audio_durations([("long.wav", 15.201)])
+
+
+def test_validate_omni_reference_audio_durations_total_bound() -> None:
+    """3 条各 6s：逐条全合规，总计 18s —— 2026-08-06 3060 两次任务就死在这。
+
+    厂商报文：`audio total duration (seconds) ... must be less than or equal to 15.2
+    for model doubao-seedance-2-0 in r2v`。别把这条当成多余的本地规则删掉。
+    """
+    with pytest.raises(ValueError, match="total duration must be <= 15.2s") as exc:
+        validate_omni_reference_audio_durations(
+            [("a.wav", 6.0), ("b.wav", 6.0), ("c.wav", 6.0)]
+        )
+    assert "got 18s" in str(exc.value)
+
+    # 顶格 15.2s 必须放行：浮点和会漂到 15.200000000000001，裸比较会误拦。
+    validate_omni_reference_audio_durations(
+        [("a.wav", 6.0), ("b.wav", 6.0), ("c.wav", 3.2)]
+    )
+    # 单条顶格同样不能被总和这条误伤（兜底上限与单条上限同值）。
+    validate_omni_reference_audio_durations([("a.wav", 15.2)])
+
+    # 单条越界优先上报：先换掉那条，再谈整体裁剪。
+    with pytest.raises(ValueError, match="must be <= 15.2s"):
+        validate_omni_reference_audio_durations([("a.wav", 20.0), ("b.wav", 6.0)])
+
+    # 上限走传入值（后台 referenceAudioTotalMaxSeconds）。
+    validate_omni_reference_audio_durations(
+        [("a.wav", 6.0), ("b.wav", 6.0)], total_max_seconds=30.0
+    )
+    with pytest.raises(ValueError, match="total duration must be <= 10s"):
+        validate_omni_reference_audio_durations(
+            [("a.wav", 6.0), ("b.wav", 6.0)], total_max_seconds=10.0
+        )
+
+
+def test_validate_omni_reference_audio_durations_skips_unmeasured() -> None:
+    """探测不出的条目不参与判定——漏算只会让和更小，不会因此误拦。"""
+    validate_omni_reference_audio_durations([("unknown.wav", None)])
+    validate_omni_reference_audio_durations(
+        [("a.wav", 6.0), ("unknown.wav", None), ("c.wav", 6.0)]
+    )
+    validate_omni_reference_audio_durations([])
+    # 0 / 负数是 ffprobe 的垃圾输出，同样按「测不出」处理，别当成一条 0s 的太短音频。
+    validate_omni_reference_audio_durations([("weird.wav", 0.0), ("neg.wav", -1.0)])
+
+
+def test_validate_reference_duration_total_min_requires_complete_measurement() -> None:
+    with pytest.raises(ValueError, match="total duration must be >= 10s"):
+        validate_omni_reference_audio_durations(
+            [("a.wav", 4.0), ("b.wav", 5.0)],
+            min_seconds=None,
+            max_seconds=None,
+            total_min_seconds=10,
+            total_max_seconds=None,
+        )
+
+    # 有一条无法探测时，已知总和只是下界，不能据此误判低于总时长下限。
+    validate_omni_reference_audio_durations(
+        [("a.wav", 4.0), ("unknown.wav", None)],
+        min_seconds=None,
+        max_seconds=None,
+        total_min_seconds=10,
+        total_max_seconds=None,
+    )
+
+
+def test_validate_reference_duration_uses_video_label() -> None:
+    with pytest.raises(ValueError, match="video reference duration must be <= 8s"):
+        validate_omni_reference_audio_durations(
+            [("clip.mp4", 9.0)],
+            min_seconds=None,
+            max_seconds=8,
+            total_max_seconds=None,
+            media_label="video",
+        )
+
+
+def _write_png(path: Path, width: int, height: int) -> Path:
+    from PIL import Image
+
+    Image.new("RGB", (width, height), (255, 255, 255)).save(path, format="PNG")
+    return path
+
+
+def test_validate_omni_reference_image_dimensions_rejects_small_image(
+    tmp_path: Path,
+) -> None:
+    """3060 实例：338x191 的参考图被火山 HeightTooSmall 打回，要在入队前拦住。"""
+    small = _write_png(tmp_path / "logo.png", 338, 191)
+    ok = _write_png(tmp_path / "frame.png", 1280, 720)
+
+    with pytest.raises(ValueError) as exc:
+        validate_omni_reference_image_dimensions([str(ok), str(small)])
+
+    message = str(exc.value)
+    assert "logo.png" in message
+    assert "338x191" in message
+    assert "300" in message
+    assert "frame.png" not in message
+
+
+def test_validate_omni_reference_image_dimensions_accepts_valid_and_skips_unreadable(
+    tmp_path: Path,
+) -> None:
+    ok = _write_png(tmp_path / "frame.png", 1280, 720)
+    missing = tmp_path / "missing.png"
+    not_an_image = tmp_path / "notes.txt"
+    not_an_image.write_text("hello", encoding="utf-8")
+
+    validate_omni_reference_image_dimensions(
+        [str(ok), str(missing), str(not_an_image), ""]
+    )
+
+
+def test_validate_omni_reference_image_dimensions_rejects_extreme_aspect_ratio(
+    tmp_path: Path,
+) -> None:
+    banner = _write_png(tmp_path / "banner.png", 3000, 400)
+
+    with pytest.raises(ValueError) as exc:
+        validate_omni_reference_image_dimensions([str(banner)])
+
+    assert "banner.png" in str(exc.value)
+    assert "0.4" in str(exc.value) and "2.5" in str(exc.value)

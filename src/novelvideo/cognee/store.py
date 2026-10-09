@@ -1,0 +1,2434 @@
+"""NovelVideo 统一存储层 - SQLite + Cognee。
+
+核心理念：
+- 结构化数据（Character, Episode, VisualBeat）存入 SQLite
+- 知识图谱 + 向量检索由 Cognee（Kuzu）管理
+- 每个项目 = 文件系统上的一个目录，零远程依赖
+"""
+
+import asyncio
+import os
+from pathlib import Path
+from typing import Awaitable, Callable, Dict, List, Optional, Any, Iterable
+import json
+from datetime import date, datetime
+from uuid import UUID
+
+# 重要：必须先导入 config，在 cognee 被导入之前设置环境变量
+from .config import init_cognee  # noqa: F401
+from novelvideo.i18n_message import MessageLike, lmsg
+from novelvideo.config import get_newapi_structured_output_litellm_kwargs
+from .concurrency import cognee_pipeline_concurrency
+from .ladybug_access import cognee_project_context, ladybug_graph_access
+
+from novelvideo.shared.env_guard import preserve_st_env
+
+with preserve_st_env():
+    import cognee
+    from cognee.api.v1.search import SearchType
+    from cognee.modules.engine.operations.setup import setup
+from rich.console import Console
+from novelvideo.embedding_models import (
+    embedding_model_for_legacy_project,
+    embedding_model_scope as project_embedding_model_scope,
+)
+from novelvideo.graph_preview import (
+    delete_graph_preview,
+    write_graph_preview,
+)
+from novelvideo.knowledge_pipeline import (
+    KnowledgePipelineUnsupported,
+    is_structured_pipeline,
+)
+from novelvideo.model_slots import resolve_slot
+from novelvideo.novel_source import require_imported_novel
+from novelvideo.project_config import ensure_cognee_embedding_binding_in_state_dir
+from novelvideo.sqlite_store import SQLiteStore
+from novelvideo.utils.document_parsers import load_novel_text
+
+# 路径计算工具函数 — canonical implementation lives in utils.path_resolver.
+from novelvideo.utils.path_resolver import (  # noqa: F401
+    compute_portrait_path,
+    compute_identity_path,
+    compute_scene_reference_path,
+    compute_prop_reference_path,
+)
+
+from novelvideo.models import (
+    BeatAssetRefRow,
+    CharacterIdentity,
+    NovelCharacter,
+    NovelEpisode,
+    NovelEvent,
+    NovelVisualBeat,
+    NovelScene,
+    SceneMenuItem,
+    NovelProp,
+    PropMenuItem,
+    complete_detected_refs_from_visual_description,
+    normalize_detected_identities,
+    normalize_detected_props,
+    sync_beat_asset_refs,
+)
+
+console = Console()
+
+INGEST_PROGRESS_MILESTONES = {
+    "read": 0.02,
+    "prune": 0.06,
+    "parse": 0.10,
+    "parsed": 0.25,
+    "graph": 0.30,
+    "graph_validated": 0.65,
+    "index": 0.70,
+    "indexed": 0.85,
+    "preview": 0.90,
+    "preview_saved": 0.95,
+    "save": 0.98,
+    "complete": 1.0,
+}
+
+
+def _json_list_payload(values: list[str]) -> str:
+    return json.dumps(list(values or []), ensure_ascii=False)
+
+
+class CogneeStore:
+    """统一存储层 - SQLite + Cognee。
+
+    使用方式：
+        store = CogneeStore("hongloumeng")
+        await store.initialize()
+
+        # 导入小说并提取角色
+        await store.ingest_and_extract(novel_path)
+
+        # 查询角色（支持别名）
+        char = await store.get_character("皇后")  # 返回姜裳宁
+        prompt = char.face_prompt  # 直接获取面部 Prompt
+    """
+
+    def __init__(
+        self,
+        project_name: str,
+        output_dir: str | None = None,
+        state_dir: str | None = None,
+        sqlite_store: SQLiteStore | None = None,
+    ):
+        self.project_name = project_name
+        self.dataset_name = f"novelvideo_{project_name}"
+        self._owns_sqlite_store = sqlite_store is None
+
+        # 缓存（从 SQLite 加载）
+        self._characters: Dict[str, NovelCharacter] = {}
+        self._episodes: Dict[int, NovelEpisode] = {}
+        self._props: Dict[str, NovelProp] = {}
+        self._alias_index: Dict[str, str] = {}  # alias -> primary_name
+
+        # 项目目录
+        sqlite_project_dir = (
+            str(getattr(sqlite_store, "project_dir", "") or "") if sqlite_store else ""
+        )
+        sqlite_state_dir = str(getattr(sqlite_store, "state_dir", "") or "") if sqlite_store else ""
+        if output_dir:
+            self.project_dir = output_dir
+            if (
+                sqlite_project_dir
+                and Path(output_dir).resolve() != Path(sqlite_project_dir).resolve()
+            ):
+                raise ValueError(
+                    "CogneeStore output_dir must match injected SQLiteStore project_dir: "
+                    f"output_dir={output_dir}, sqlite_store.project_dir={sqlite_project_dir}"
+                )
+            os.makedirs(output_dir, exist_ok=True)
+        elif sqlite_project_dir:
+            self.project_dir = sqlite_project_dir
+        else:
+            from novelvideo.config import ensure_project_dirs
+
+            self.project_dir = ensure_project_dirs(project_name)["base"]
+
+        if state_dir:
+            resolved_state_dir = Path(state_dir)
+        elif sqlite_state_dir:
+            resolved_state_dir = Path(sqlite_state_dir)
+        elif "/" in project_name:
+            from novelvideo.utils.project_paths import ProjectPaths
+
+            parts = project_name.split("/", 1)
+            paths = ProjectPaths(parts[0], parts[1])
+            resolved_state_dir = paths.state_dir
+        else:
+            resolved_state_dir = Path(self.project_dir)
+
+        if (
+            state_dir
+            and sqlite_state_dir
+            and Path(state_dir).resolve() != Path(sqlite_state_dir).resolve()
+        ):
+            raise ValueError(
+                "CogneeStore state_dir must match injected SQLiteStore state_dir: "
+                f"state_dir={state_dir}, sqlite_store.state_dir={sqlite_state_dir}"
+            )
+        resolved_state_dir.mkdir(parents=True, exist_ok=True)
+        self.state_dir = str(resolved_state_dir)
+        self.db_path = str(resolved_state_dir / "data.db")
+        self.sqlite_store = sqlite_store or SQLiteStore(
+            project_name,
+            output_dir=str(self.project_dir),
+            state_dir=self.state_dir,
+        )
+        self._share_sqlite_caches()
+        self.cognee_embedding_model: str | None = None
+        self.cognee_embedding_dimensions: int | None = None
+
+    def __getattr__(self, name: str):
+        """Lazily restore SQLiteStore for legacy/test objects built via __new__."""
+        # TODO: remove this legacy __new__ compatibility path after old tests and
+        # ad-hoc scripts construct CogneeStore through __init__ consistently.
+        if name == "sqlite_store":
+            return self._ensure_sqlite_store()
+        raise AttributeError(f"{type(self).__name__!s} object has no attribute {name!r}")
+
+    @property
+    def _db(self):
+        """Legacy read-only alias; the connection is owned by SQLiteStore."""
+        return getattr(self._ensure_sqlite_store(), "_db", None)
+
+    @_db.setter
+    def _db(self, value) -> None:
+        """Legacy assignment sink for tests/scripts that construct via __new__."""
+        if value is not None:
+            self._ensure_sqlite_store()._db = value
+
+    def _ensure_sqlite_store(self) -> SQLiteStore:
+        """Return the project SQLiteStore, creating it for legacy objects if needed."""
+        if "_characters" not in self.__dict__:
+            self._characters = {}
+        if "_episodes" not in self.__dict__:
+            self._episodes = {}
+        if "_props" not in self.__dict__:
+            self._props = {}
+        if "_alias_index" not in self.__dict__:
+            self._alias_index = {}
+        if "_owns_sqlite_store" not in self.__dict__:
+            self._owns_sqlite_store = True
+        store = self.__dict__.get("sqlite_store")
+        if store is not None:
+            return store
+
+        project_name = self.__dict__.get("project_name", "")
+        project_dir = self.__dict__.get("project_dir", "")
+        if not project_dir:
+            from novelvideo.config import ensure_project_dirs
+
+            project_dir = ensure_project_dirs(project_name)["base"]
+            self.project_dir = project_dir
+
+        state_dir = self.__dict__.get("state_dir")
+        if not state_dir:
+            db_path = self.__dict__.get("db_path")
+            state_dir = str(Path(db_path).parent) if db_path else str(project_dir)
+            self.state_dir = state_dir
+        if "db_path" not in self.__dict__:
+            self.db_path = str(Path(state_dir) / "data.db")
+
+        store = SQLiteStore(project_name, output_dir=str(project_dir), state_dir=str(state_dir))
+        self.__dict__["sqlite_store"] = store
+        self._share_sqlite_caches()
+        return store
+
+    def _share_sqlite_caches(self) -> None:
+        """让 SQLiteStore 和当前 store 共享同一组内存缓存。"""
+        store = self.__dict__.get("sqlite_store")
+        if store is None:
+            return
+        store._characters = self._characters
+        store._episodes = self._episodes
+        store._props = self._props
+        store._alias_index = self._alias_index
+
+    def _sync_sqlite_caches(self) -> None:
+        """将 SQLiteStore 当前缓存同步回共享缓存。"""
+        store = self._ensure_sqlite_store()
+        character_cache = dict(store._characters)
+        episode_cache = dict(store._episodes)
+        alias_cache = dict(store._alias_index)
+        prop_cache = dict(store._props)
+        self._characters.clear()
+        self._characters.update(character_cache)
+        self._episodes.clear()
+        self._episodes.update(episode_cache)
+        self._props.clear()
+        self._props.update(prop_cache)
+        self._alias_index.clear()
+        self._alias_index.update(alias_cache)
+        self._share_sqlite_caches()
+
+    # 已知的风格前缀（用于清洗历史数据）
+    _STYLE_PREFIXES = [
+        "写实古装剧风格，",
+        "写实古装剧风格,",
+        "anime style,",
+        "anime风格，",
+        "动漫风格，",
+        "realistic style,",
+        "chinese period drama style,",
+    ]
+
+    def _clean_style_prefix(self, prompt: str) -> str:
+        """清理 base_prompt 中的风格前缀。"""
+        if not prompt:
+            return prompt
+        for prefix in self._STYLE_PREFIXES:
+            if prompt.lower().startswith(prefix.lower()):
+                return prompt[len(prefix) :].strip()
+        return prompt
+
+    @staticmethod
+    def _normalize_alias_lookup(value: str) -> str:
+        """统一别名查找键，降低空格/大小写差异导致的失配。"""
+        return " ".join((value or "").replace("\u3000", " ").strip().lower().split())
+
+    @property
+    def _cognee_enabled(self) -> bool:
+        """Whether this project may touch Cognee, embeddings or the graph.
+
+        Resolved lazily from the project's recorded track so that stores built
+        without ``initialize()`` (legacy tests, ad-hoc scripts) are gated too.
+        ``initialize()`` overwrites the cached value once it has decided.
+        """
+        cached = self.__dict__.get("_cognee_enabled_flag")
+        if cached is None:
+            cached = not is_structured_pipeline(self.__dict__.get("state_dir"))
+            self.__dict__["_cognee_enabled_flag"] = cached
+        return cached
+
+    def _require_cognee(self, operation: str) -> None:
+        """Fail loudly instead of silently falling back to the Cognee path.
+
+        A fallback here would bind a structured project to an embedding model,
+        which is the one outcome the second track exists to prevent.
+        """
+        if not self._cognee_enabled:
+            raise KnowledgePipelineUnsupported(
+                f"{operation} is unavailable for structured_v1 projects"
+            )
+
+    def embedding_model_scope(self):
+        # Guarded as well as the public graph methods: entering the scope is how
+        # an embedding binding gets created, so a caller reaching past the public
+        # API must not be able to bind a structured project by accident.
+        self._require_cognee("embedding model scope")
+        model = getattr(self, "cognee_embedding_model", None)
+        dimensions = getattr(self, "cognee_embedding_dimensions", None)
+        if not model or dimensions is None:
+            state_dir = getattr(self, "state_dir", None)
+            if state_dir:
+                binding = ensure_cognee_embedding_binding_in_state_dir(state_dir)
+                model = binding.internal_model
+                dimensions = binding.dimensions
+            else:
+                model = embedding_model_for_legacy_project()
+            self.cognee_embedding_model = model
+            self.cognee_embedding_dimensions = dimensions
+        return project_embedding_model_scope(model, dimensions=dimensions)
+
+    @staticmethod
+    def _ensure_pipeline_run_succeeded(result, stage_name: str) -> None:
+        """Require every Cognee pipeline run to report a completed status."""
+
+        def truncate(value: Any, limit: int = 400) -> str:
+            detail = str(value or "").strip() or "unknown error"
+            if len(detail) > limit:
+                detail = detail[:limit] + "..."
+            return detail
+
+        def read_field(value: Any, field_name: str, default: Any = None) -> Any:
+            if isinstance(value, dict):
+                return value.get(field_name, default)
+            return getattr(value, field_name, default)
+
+        def pipeline_status_text(status: Any) -> str:
+            return str(getattr(status, "value", status) or "").strip()
+
+        def is_completed_status(status: Any) -> bool:
+            normalized = "".join(
+                character
+                for character in pipeline_status_text(status).lower()
+                if character.isalnum()
+            )
+            return normalized in {
+                "completed",
+                "alreadycompleted",
+                "pipelineruncompleted",
+                "pipelinerunalreadycompleted",
+                "datasetprocessingcompleted",
+            }
+
+        def nested_pipeline_failures(run: Any) -> List[str]:
+            nested_failures: List[str] = []
+            data_ingestion_info = read_field(run, "data_ingestion_info") or []
+            if not isinstance(data_ingestion_info, Iterable) or isinstance(
+                data_ingestion_info, (str, bytes)
+            ):
+                return nested_failures
+
+            for item in data_ingestion_info:
+                run_info = read_field(item, "run_info")
+                if run_info is None:
+                    continue
+                status = read_field(run_info, "status")
+                if is_completed_status(status):
+                    continue
+                status_text = pipeline_status_text(status) or "unknown status"
+                payload = read_field(run_info, "payload")
+                nested_failures.append(
+                    f"{status_text}: {truncate(payload, limit=600)}"
+                )
+            return nested_failures
+
+        if isinstance(result, dict):
+            runs = list(result.values())
+        elif isinstance(result, (list, tuple, set)):
+            runs = list(result)
+        else:
+            runs = [result]
+
+        if not runs:
+            raise RuntimeError(f"{stage_name}失败: Cognee 返回空结果")
+
+        errors: List[str] = []
+        for run in runs:
+            if run is None:
+                errors.append(f"{stage_name}失败: Cognee 返回空结果")
+                continue
+
+            status = read_field(run, "status")
+            payload = read_field(run, "payload")
+            status_text = pipeline_status_text(status)
+            nested = nested_pipeline_failures(run)
+            if nested:
+                detail = truncate(payload)
+                detail = f"{detail}; data item failures: " + " | ".join(nested[:3])
+                errors.append(f"{stage_name}失败({status_text}): {detail}")
+                continue
+            if not is_completed_status(status):
+                detail = truncate(payload)
+                errors.append(
+                    f"{stage_name}失败({status_text or 'unknown status'}): {detail}"
+                )
+
+        if errors:
+            raise RuntimeError("；".join(errors))
+
+    async def _run_cognee_pipeline_with_retry(
+        self,
+        *,
+        stage_name: str,
+        operation: Callable[[], Awaitable[Any]],
+        log: Callable[[str], None],
+    ) -> Any:
+        """Run a Cognee pipeline stage once, retrying one transient failure.
+
+        The retry is skipped under organization egress. A second attempt runs
+        in the same request scope, so every submit it makes is a fresh
+        occurrence with its own operation key — the durable ledger cannot tell
+        it from new work and the organization pays twice for the batches that
+        had already succeeded. Failing closed matches what this codebase
+        already does with every other retry knob it can reach under
+        organization egress (model_gateway_runtime.py:53-57 forces zero output
+        retries, cognee/config.py:807 forces max_retries=0).
+        """
+        from novelvideo.model_gateway_runtime import current_model_gateway_context
+
+        gateway_context = current_model_gateway_context()
+        attempts = (
+            1
+            if gateway_context is not None and gateway_context.is_organization
+            else 2
+        )
+        last_error: Exception | None = None
+        for attempt in range(attempts):
+            try:
+                async with cognee_pipeline_concurrency():
+                    with self.embedding_model_scope():
+                        result = await operation()
+                self._ensure_pipeline_run_succeeded(result, stage_name)
+                return result
+            except Exception as exc:
+                last_error = exc
+                if attempt + 1 < attempts:
+                    log(f"{stage_name}失败，准备重试(1/1): {exc}")
+                    await asyncio.sleep(0)
+                    continue
+                raise
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"{stage_name}失败: unknown error")
+
+    async def _ensure_db(self):
+        """确保数据库连接已建立。
+
+        SQLite lifecycle and project-fact schema are owned by SQLiteStore.
+        CogneeStore does not hold a raw SQLite connection.
+        """
+        store = self._ensure_sqlite_store()
+        return await store._ensure_db()
+
+    async def initialize(self):
+        """初始化 SQLite 数据库和 Cognee 配置。
+
+        structured_v1 项目降级为纯 SQLite 门面而不是抛异常：生产中有大量
+        runner 和 API 依赖（肖像、参考图、剧本、分镜、视频、Freezone 等）只把
+        本类当 SQLite 门面使用，完全不需要图谱。在这里硬失败会让这些路径在
+        新项目上全线 500。图谱能力本身由 ``_require_cognee`` 单独把守。
+        """
+        # 必须先判定 track，再决定是否绑定 embedding：
+        # ensure_cognee_embedding_binding_in_state_dir() 会为缺字段的项目回填
+        # 绑定并写回 project_config.json，一旦调用就再也退不回去了。
+        if is_structured_pipeline(self.state_dir):
+            self.__dict__["_cognee_enabled_flag"] = False
+            await self._ensure_db()
+            console.print(
+                f"[dim]存储层已初始化 (structured_v1, 无图谱, db: {self.db_path})[/dim]"
+            )
+            return
+
+        self.__dict__["_cognee_enabled_flag"] = True
+        embedding_binding = ensure_cognee_embedding_binding_in_state_dir(self.state_dir)
+        self.cognee_embedding_model = embedding_binding.internal_model
+        self.cognee_embedding_dimensions = embedding_binding.dimensions
+        init_cognee()
+
+        # 初始化项目 SQLite；Cognee 图谱上下文独立设置。
+        await self._ensure_db()
+
+        # Cognee's graph/vector contexts are task-local, while DramaClaw adds
+        # the missing project-local base/relational contexts for Cognee 1.0.5.
+        # Different projects can therefore initialize safely in Celery threads.
+        with cognee_project_context(self.state_dir):
+            try:
+                with self.embedding_model_scope():
+                    await setup()
+            except Exception as e:
+                # cognee 0.5.3 bug: 重复初始化时 CREATE TABLE data 报 already exists
+                if "already exists" in str(e):
+                    pass
+                else:
+                    raise
+
+            # 确保当前用户拥有该 dataset
+            with preserve_st_env():
+                from cognee.modules.pipelines.layers.resolve_authorized_user_datasets import (
+                    resolve_authorized_user_datasets,
+                )
+
+            try:
+                with self.embedding_model_scope():
+                    await resolve_authorized_user_datasets(datasets=self.dataset_name)
+            except Exception as e:
+                if "UNIQUE constraint failed: datasets.id" in str(e):
+                    pass
+                else:
+                    console.print(
+                        f"[yellow]⚠️ dataset 权限注册失败（非致命）: {e}[/yellow]"
+                    )
+
+        console.print(
+            f"[dim]存储层已初始化 (dataset: {self.dataset_name}, db: {self.db_path})[/dim]"
+        )
+
+    async def close(self) -> None:
+        """Release the project-scoped SQLite resource."""
+        if self.__dict__.get("_owns_sqlite_store", True):
+            await self._ensure_sqlite_store().close()
+
+    # ============================================================
+    # 内容存储（替代 Redis）
+    # ============================================================
+
+    def save_novel_content(self, content: str) -> None:
+        """将小说原文保存到文件。"""
+        self.sqlite_store.save_novel_content(content)
+        novel_path = Path(self.project_dir) / "novel.txt"
+        print(f"[store] 原文已保存: {novel_path} ({len(content)} 字符)")
+
+    def load_novel_content(self) -> Optional[str]:
+        """从文件加载小说原文。"""
+        return self.sqlite_store.load_novel_content()
+
+    async def save_episode_content(self, ep_num: int, content: str) -> None:
+        """保存单集内容到 SQLite episodes.raw_content。"""
+        await self.sqlite_store.save_episode_content(ep_num, content)
+
+    async def load_episode_content(self, ep_num: int) -> Optional[str]:
+        """从 SQLite 加载单集内容。"""
+        return await self.sqlite_store.load_episode_content(ep_num)
+
+    async def get_episode_content_count(self) -> int:
+        """获取有原文内容的剧集数量。"""
+        return await self.sqlite_store.get_episode_content_count()
+
+    async def clear_episode_contents(self) -> int:
+        """清除所有剧集的原文内容。"""
+        return await self.sqlite_store.clear_episode_contents()
+
+    # ============================================================
+    # 导入和提取
+    # ============================================================
+
+    async def ingest_novel_fast(
+        self,
+        novel_path: str,
+        rebuild: bool = False,
+        spine_template: str | None = None,
+        on_progress: Optional[Callable[[float, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None,
+    ) -> dict:
+        """快速导入，并独占当前项目的 Cognee/Ladybug 图谱。"""
+        self._require_cognee("Cognee graph ingest")
+        async with ladybug_graph_access(self.state_dir, read_only=False):
+            return await self._ingest_novel_fast_locked(
+                novel_path,
+                rebuild=rebuild,
+                spine_template=spine_template,
+                on_progress=on_progress,
+                on_log=on_log,
+            )
+
+    async def _ingest_novel_fast_locked(
+        self,
+        novel_path: str,
+        rebuild: bool = False,
+        spine_template: str | None = None,
+        on_progress: Optional[Callable[[float, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None,
+    ) -> dict:
+        """在项目图谱锁内构建 Cognee 图谱，不提取角色/剧集。"""
+
+        def report(progress: float, task: MessageLike):
+            if on_progress:
+                on_progress(progress, task)
+
+        def log(message: MessageLike):
+            if on_log:
+                on_log(message)
+            console.print(f"[dim]{message}[/dim]")
+
+        if not Path(novel_path).exists():
+            raise FileNotFoundError(f"文件不存在: {novel_path}")
+
+        from .config import init_cognee
+
+        report(
+            INGEST_PROGRESS_MILESTONES["read"],
+            lmsg("tasks.progress.ingest.reading", "读取并校验原文..."),
+        )
+        log(
+            lmsg(
+                "tasks.log.ingest.readingFile",
+                f"读取文件: {novel_path}",
+                path=str(novel_path),
+            )
+        )
+        content = load_novel_text(novel_path)
+        if not content.strip():
+            raise ValueError("小说内容为空，无法导入")
+        log(
+            lmsg(
+                "tasks.log.ingest.readComplete",
+                f"文件读取完成: {len(content)} 字符",
+                charCount=len(content),
+            )
+        )
+        self._novel_content = content
+
+        if str(spine_template or "").strip() == "drama":
+            from novelvideo.utils.screenplay_quality import (
+                assess_screenplay_scene_headers,
+            )
+
+            if assess_screenplay_scene_headers(content).status == "missing":
+                raise ValueError("精品剧必须包含场景头，请补充后重新导入")
+
+        os.environ["COGNEE_TELEMETRY_ENABLED"] = "false"
+
+        if not os.getenv("LLM_API_KEY") and not os.getenv("OPENAI_API_KEY"):
+            raise ValueError(
+                "LLM API key 未设置。请在 .env 文件中添加:\n" "  OPENAI_API_KEY=your_key_here"
+            )
+
+        if rebuild:
+            report(INGEST_PROGRESS_MILESTONES["prune"], "清理旧图谱...")
+            # novel.txt 是前端和后续流水线判断“已导入”的持久标志。旧图谱已经
+            # 清除前必须先让旧标志失效：即使清理中途失败，也不能继续显示成功。
+            imported_novel_path = Path(self.project_dir) / "novel.txt"
+            imported_novel_path.unlink(missing_ok=True)
+            delete_graph_preview(self.state_dir)
+            log("清除 cognee 图谱数据...")
+            await self._prune_cognee_only()
+
+        # 重建时必须先清理旧存储，再初始化 Cognee 的数据库连接。
+        init_cognee()
+
+        # Step 1: 添加原文到 Cognee
+        report(INGEST_PROGRESS_MILESTONES["parse"], "解析原文...")
+        log("Step 1/3: 导入原文到 Cognee...")
+        await self._run_cognee_pipeline_with_retry(
+            stage_name="原文导入",
+            operation=lambda: cognee.add(content, dataset_name=self.dataset_name),
+            log=log,
+        )
+        log("原文导入完成")
+        report(INGEST_PROGRESS_MILESTONES["parsed"], "原文解析完成")
+        await asyncio.sleep(0)
+
+        # Step 2: 构建知识图谱
+        report(INGEST_PROGRESS_MILESTONES["graph"], "构建知识图谱...")
+        log("Step 2/3: 构建知识图谱（这可能需要几分钟）...")
+        await self._run_cognee_pipeline_with_retry(
+            stage_name="知识图谱构建",
+            operation=lambda: cognee.cognify(datasets=[self.dataset_name]),
+            log=log,
+        )
+        log("知识图谱构建完成")
+
+        if not await self._dataset_graph_has_nodes():
+            raise RuntimeError("知识图谱构建失败：未生成任何图谱节点")
+        log("知识图谱校验完成")
+        report(INGEST_PROGRESS_MILESTONES["graph_validated"], "知识图谱校验完成")
+
+        # Step 3: 创建向量索引（memify）
+        report(INGEST_PROGRESS_MILESTONES["index"], "创建向量索引...")
+        log("Step 3/3: 创建向量索引（用于三元组检索）...")
+        await self._run_cognee_pipeline_with_retry(
+            stage_name="向量索引创建",
+            operation=lambda: cognee.memify(dataset=self.dataset_name),
+            log=log,
+        )
+        log("向量索引创建完成")
+        report(INGEST_PROGRESS_MILESTONES["indexed"], "向量索引创建完成")
+
+        # API workers render this bounded sidecar and never open Ladybug merely
+        # for graph visualization.  Persist it before novel.txt, because the
+        # latter is the public "import succeeded" marker.
+        report(INGEST_PROGRESS_MILESTONES["preview"], "生成图谱预览...")
+        await self.materialize_graph_preview()
+        log("知识图谱预览已保存")
+        report(INGEST_PROGRESS_MILESTONES["preview_saved"], "图谱预览已保存")
+
+        # 原文落库放在图谱构建成功之后：失败时不留下"已导入"的痕迹。
+        # /chapters 仅凭已存原文判定"导入完成"，若提前落库，cognify/memify 失败
+        # 仍会让界面误报导入成功且锁死重新上传入口。
+        report(INGEST_PROGRESS_MILESTONES["save"], "保存导入结果...")
+        self.save_novel_content(content)
+        log("原文已保存到文件")
+
+        report(INGEST_PROGRESS_MILESTONES["complete"], "导入完成")
+
+        return {
+            "char_count": len(content),
+            "dataset": self.dataset_name,
+            "status": "graph_ready",
+        }
+
+    async def materialize_graph_preview(self, max_nodes: int = 48) -> dict:
+        self._require_cognee("graph preview")
+        async with ladybug_graph_access(self.state_dir, read_only=True):
+            snapshot = await self.get_graph_snapshot(max_nodes=max_nodes)
+            if not snapshot.get("nodes"):
+                raise RuntimeError("知识图谱预览生成失败：未读取到任何图谱节点")
+            write_graph_preview(self.state_dir, snapshot)
+            return snapshot
+
+    async def get_graph_snapshot(self, max_nodes: int = 48) -> dict:
+        """Return a bounded, JSON-safe snapshot for the project graph viewer.
+
+        Cognee's graph may contain large chunk payloads and embedding metadata. The
+        viewer needs topology and concise human-readable properties, not the raw
+        storage representation, so this method ranks connected nodes and strips
+        oversized or vector-shaped values before returning them to the browser.
+        """
+
+        self._require_cognee("graph snapshot")
+        max_nodes = max(20, min(int(max_nodes), 80))
+        max_edges = min(max_nodes * 3, 160)
+        raw_nodes, raw_edges = await self._get_dataset_graph_data(
+            max_nodes=max_nodes,
+            max_edges=max_edges,
+        )
+        degree: Dict[str, int] = {}
+        for source, target, _relation, _properties in raw_edges:
+            source_id = str(source)
+            target_id = str(target)
+            degree[source_id] = degree.get(source_id, 0) + 1
+            degree[target_id] = degree.get(target_id, 0) + 1
+
+        type_priority = {
+            "Entity": 6,
+            "EntityType": 5,
+            "TextSummary": 4,
+            "Document": 3,
+            "DocumentChunk": 1,
+        }
+
+        ranked_nodes = sorted(
+            raw_nodes,
+            key=lambda item: (
+                degree.get(str(item[0]), 0) * 10
+                + type_priority.get(str((item[1] or {}).get("type") or ""), 2) * 3
+                + int(bool((item[1] or {}).get("name")))
+            ),
+            reverse=True,
+        )[:max_nodes]
+        selected_ids = {str(node_id) for node_id, _properties in ranked_nodes}
+
+        def compact(value: Any, *, depth: int = 0) -> Any:
+            if value is None or isinstance(value, (bool, int, float)):
+                return value
+            if isinstance(value, (UUID, date, datetime)):
+                return str(value)
+            if isinstance(value, str):
+                return value if len(value) <= 500 else value[:497] + "..."
+            if depth >= 2:
+                return str(value)[:500]
+            if isinstance(value, (list, tuple, set)):
+                return [compact(item, depth=depth + 1) for item in list(value)[:12]]
+            if isinstance(value, dict):
+                result = {}
+                for key, item in list(value.items())[:16]:
+                    key_text = str(key)
+                    if any(token in key_text.lower() for token in ("embedding", "vector")):
+                        continue
+                    result[key_text] = compact(item, depth=depth + 1)
+                return result
+            return str(value)[:500]
+
+        nodes = []
+        for node_id, properties in ranked_nodes:
+            props = dict(properties or {})
+            node_type = str(props.pop("type", "Unknown") or "Unknown")
+            label = str(props.pop("name", "") or node_id)
+            nodes.append(
+                {
+                    "id": str(node_id),
+                    "label": label[:160],
+                    "type": node_type[:80],
+                    "degree": degree.get(str(node_id), 0),
+                    "properties": compact(props),
+                }
+            )
+
+        edges = []
+        for index, (source, target, relation, properties) in enumerate(raw_edges):
+            source_id = str(source)
+            target_id = str(target)
+            if source_id not in selected_ids or target_id not in selected_ids:
+                continue
+            edges.append(
+                {
+                    "id": f"{source_id}:{target_id}:{index}",
+                    "source": source_id,
+                    "target": target_id,
+                    "relation": str(relation or "related_to")[:120],
+                    "properties": compact(properties or {}),
+                }
+            )
+            if len(edges) >= max_edges:
+                break
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "total_nodes": len(raw_nodes),
+            "total_edges": len(raw_edges),
+            "truncated": len(raw_nodes) >= max_nodes or len(raw_edges) >= max_edges,
+        }
+
+    async def _get_dataset_graph_data(
+        self,
+        *,
+        max_nodes: int = 48,
+        max_edges: int = 144,
+    ) -> tuple[list, list]:
+        """Read a bounded preview through Cognee's project dataset context.
+
+        With backend access control enabled, Cognee stores each dataset in its
+        own graph database. Calling ``get_graph_engine()`` without first setting
+        that dataset context opens the empty global graph instead of the graph
+        populated by ``cognify()``. The ingest UI is only a visual preview, so
+        querying the complete graph here would make large novels unnecessarily
+        expensive and could block the API worker.
+        """
+
+        with preserve_st_env():
+            from cognee.context_global_variables import (
+                set_database_global_context_variables,
+            )
+            from cognee.infrastructure.databases.graph import get_graph_engine
+            from cognee.modules.data.methods import get_datasets_by_name
+            from cognee.modules.users.methods import get_default_user
+
+        user = await get_default_user()
+        datasets = await get_datasets_by_name(self.dataset_name, user.id)
+        if not datasets:
+            return [], []
+
+        dataset = datasets[0]
+        async with set_database_global_context_variables(dataset.id, dataset.owner_id):
+            graph_engine = await get_graph_engine()
+            query = getattr(graph_engine, "query", None)
+            if not callable(query):
+                # Compatibility fallback for graph adapters that only expose
+                # Cognee's all-graph interface.
+                nodes, edges = await graph_engine.get_graph_data()
+                return nodes[:max_nodes], edges[:max_edges]
+
+            max_nodes = max(1, min(int(max_nodes), 80))
+            max_edges = max(1, min(int(max_edges), 160))
+            edge_rows = await query(
+                f"""
+                    MATCH (n:Node)-[r]->(m:Node)
+                    WHERE n.type <> 'DocumentChunk' AND m.type <> 'DocumentChunk'
+                    RETURN n.id, n.name, n.type, n.properties,
+                           m.id, m.name, m.type, m.properties,
+                           r.relationship_name, r.properties
+                    LIMIT {max_edges}
+                """
+            )
+            node_rows = await query(
+                f"""
+                    MATCH (n:Node)
+                    WHERE n.type <> 'DocumentChunk'
+                    RETURN n.id, n.name, n.type, n.properties
+                    LIMIT {max_nodes}
+                """
+            )
+
+            def parse_properties(raw: Any) -> dict:
+                if not raw:
+                    return {}
+                if isinstance(raw, dict):
+                    return dict(raw)
+                if isinstance(raw, str):
+                    try:
+                        parsed = json.loads(raw)
+                        return parsed if isinstance(parsed, dict) else {}
+                    except (TypeError, json.JSONDecodeError):
+                        return {}
+                return {}
+
+            nodes_by_id: dict[str, dict] = {}
+
+            def add_node(row: Any, offset: int = 0) -> None:
+                if (
+                    not row
+                    or len(row) < offset + 4
+                    or not row[offset]
+                    or len(nodes_by_id) >= max_nodes
+                ):
+                    return
+                node_id = str(row[offset])
+                nodes_by_id.setdefault(
+                    node_id,
+                    {
+                        "name": row[offset + 1],
+                        "type": row[offset + 2],
+                        **parse_properties(row[offset + 3]),
+                    },
+                )
+
+            # Take connected endpoints first so the preview remains a useful
+            # subgraph instead of a collection of unrelated nodes.
+            for row in edge_rows:
+                add_node(row)
+                add_node(row, 4)
+            for row in node_rows:
+                add_node(row)
+
+            selected_ids = set(nodes_by_id)
+            edges = []
+            for row in edge_rows:
+                if not row or len(row) < 10:
+                    continue
+                source_id = str(row[0])
+                target_id = str(row[4])
+                if source_id not in selected_ids or target_id not in selected_ids:
+                    continue
+                edges.append(
+                    (
+                        source_id,
+                        target_id,
+                        str(row[8] or "related_to"),
+                        parse_properties(row[9]),
+                    )
+                )
+            nodes = list(nodes_by_id.items())
+            return nodes, edges
+
+    async def _dataset_graph_has_nodes(self) -> bool:
+        """Check graph existence without loading every node and edge."""
+        with preserve_st_env():
+            from cognee.context_global_variables import (
+                set_database_global_context_variables,
+            )
+            from cognee.infrastructure.databases.graph import get_graph_engine
+            from cognee.modules.data.methods import get_datasets_by_name
+            from cognee.modules.users.methods import get_default_user
+
+        user = await get_default_user()
+        datasets = await get_datasets_by_name(self.dataset_name, user.id)
+        if not datasets:
+            return False
+
+        dataset = datasets[0]
+        async with set_database_global_context_variables(dataset.id, dataset.owner_id):
+            graph_engine = await get_graph_engine()
+            return not await graph_engine.is_empty()
+
+    async def build_characters_from_graph(
+        self,
+        on_progress: Optional[Callable[[float, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None,
+    ) -> List[NovelCharacter]:
+        """从图谱补充角色（分阶段架构第二步）。
+
+        图谱构建只负责发现缺失的基础角色。已有角色可能已经有用户编辑、
+        身份图、声线和资产配置，不能被一次图谱重扫覆盖。
+        """
+        self._require_cognee("graph character build")
+        from .pipeline import extract_characters_from_graph
+
+        def report(progress: float, task: MessageLike):
+            if on_progress:
+                on_progress(progress, task)
+
+        def log(message: MessageLike):
+            if on_log:
+                on_log(message)
+            console.print(f"[dim]{message}[/dim]")
+
+        novel_text = require_imported_novel(self.project_dir)
+        report(0.1, "从图谱提取人物节点...")
+        log("从图谱提取角色候选...")
+        with self.embedding_model_scope():
+            characters = await extract_characters_from_graph(
+                dataset_name=self.dataset_name,
+                project_name=self.project_name,
+                project_dir=str(self.project_dir),
+                state_dir=self.state_dir,
+                novel_text=novel_text,
+                on_progress=lambda p, t: report(0.1 + p * 0.6, t),
+            )
+
+        if not characters:
+            log("⚠️ 图谱提取无结果，保留现有角色数据")
+            report(1.0, "提取无结果")
+            return []
+
+        log(f"从图谱提取了 {len(characters)} 个角色")
+
+        report(0.8, "保存新增角色...")
+        log("保存新增角色到数据库...")
+        added: list[NovelCharacter] = []
+        skipped = 0
+        for char in characters:
+            if self.get_character(char.name):
+                skipped += 1
+                continue
+            await self.add_character(char)
+            added.append(char)
+        log(f"已新增 {len(added)} 个角色，跳过已有 {skipped} 个")
+
+        report(1.0, "角色提取完成")
+        log(f"角色提取完成: 新增 {len(added)} 个，已有 {skipped} 个")
+
+        return added
+
+    async def _delete_old_characters(self) -> int:
+        """删除所有角色。"""
+        await self._ensure_db()
+        return await self.sqlite_store.delete_all_characters()
+
+    async def build_episodes(
+        self,
+        target_episodes: int = 10,
+        on_progress: Optional[Callable[[float, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None,
+    ) -> List[NovelEpisode]:
+        """规划剧集（分阶段架构第三步）。"""
+        from .pipeline import extract_episodes_with_characters
+
+        def report(progress: float, task: MessageLike):
+            if on_progress:
+                on_progress(progress, task)
+
+        def log(message: MessageLike):
+            if on_log:
+                on_log(message)
+            console.print(f"[dim]{message}[/dim]")
+
+        # 获取原文内容
+        log(lmsg("tasks.log.source.loading", "从文件加载原文..."))
+        novel_content = require_imported_novel(self.project_dir)
+        log(
+            lmsg(
+                "tasks.log.source.loaded",
+                f"原文加载完成: {len(novel_content)} 字符",
+                charCount=len(novel_content),
+            )
+        )
+
+        # 获取已确认的角色列表
+        character_names = list(self._characters.keys())
+        log(f"已知角色: {len(character_names)} 个")
+
+        # P1: 规划
+        report(0.1, "规划剧集...")
+        log(f"开始规划 {target_episodes} 集...")
+
+        episodes = await extract_episodes_with_characters(
+            novel_content,
+            target_episodes=target_episodes,
+            known_characters=character_names,
+            dataset_name=self.dataset_name,
+            project_name=self.project_name,
+        )
+
+        log(f"LLM 返回 {len(episodes)} 集")
+
+        # P2: 原子替换旧规划。删除和写入必须在同一事务中完成，避免任务
+        # 取消或 Worker 退出后只剩一张空 episodes 表。
+        old_episode_count = len(self._episodes)
+        report(0.85, "保存新剧集...")
+        log("保存新剧集到数据库...")
+        await self.replace_episodes(episodes)
+        log(f"已原子替换 {old_episode_count} 个旧剧集")
+
+        if len(self._episodes) != len(episodes):
+            log(f"⚠️ 警告：内存缓存 ({len(self._episodes)}) 与返回结果 ({len(episodes)}) 不一致")
+
+        report(1.0, "剧集规划完成")
+        log(f"剧集规划完成: {len(episodes)} 集，编号: {list(self._episodes.keys())}")
+
+        return episodes
+
+    async def build_episodes_from_chapters(
+        self,
+        novel_text: str = None,
+        generate_metadata: bool = False,
+        on_progress: Optional[Callable[[float, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None,
+    ) -> List[NovelEpisode]:
+        """从小说章节结构创建剧集（章节映射模式）。
+
+        Chapter mapping reads the source text and writes SQLite; it never
+        touches the graph, so the implementation lives on SQLiteStore where
+        both tracks can reach it. This stays as a delegate so legacy callers
+        and the in-memory episode cache behave exactly as before.
+        """
+        episodes = await self.sqlite_store.build_episodes_from_chapters(
+            novel_text=novel_text,
+            generate_metadata=generate_metadata,
+            on_progress=on_progress,
+            on_log=on_log,
+        )
+        self._sync_sqlite_caches()
+        return episodes
+
+    async def build_episodes_from_events(
+        self,
+        target_episodes: int,
+        on_progress: Optional[Callable[[float, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None,
+    ) -> List[NovelEpisode]:
+        """基于事件的剧集规划（支持章节拆分）。"""
+        from novelvideo.cognee.chapter_detector import ChapterDetector
+        from novelvideo.cognee.event_extractor import EventExtractor
+
+        def report(progress: float, task: MessageLike):
+            if on_progress:
+                on_progress(progress, task)
+
+        def log(message: MessageLike):
+            if on_log:
+                on_log(message)
+            console.print(f"[dim]{message}[/dim]")
+
+        # 1. 加载原文并检测章节
+        log(lmsg("tasks.log.source.loading", "从文件加载原文..."))
+        novel_text = require_imported_novel(self.project_dir)
+
+        log(
+            lmsg(
+                "tasks.log.source.loaded",
+                f"原文加载完成: {len(novel_text)} 字符",
+                charCount=len(novel_text),
+            )
+        )
+
+        # 清理剧集内容
+        await self.clear_episode_contents()
+
+        report(0.1, "检测章节结构...")
+        detector = ChapterDetector()
+        chapters = detector.detect(novel_text)
+
+        if not chapters:
+            raise ValueError("未检测到章节标记，请使用章节映射模式")
+
+        log(f"检测到 {len(chapters)} 个章节，目标 {target_episodes} 集")
+
+        # 提取所有事件
+        extractor = EventExtractor()
+        all_events: List[NovelEvent] = []
+
+        for i, chapter in enumerate(chapters):
+            progress = 0.1 + 0.3 * (i / len(chapters))
+            report(progress, f"提取第 {chapter.number} 章事件...")
+
+            events = await extractor.extract_events(
+                chapter_num=chapter.number,
+                chapter_content=chapter.content,
+                on_log=log,
+            )
+            all_events.extend(events)
+            log(f"第 {chapter.number} 章: {len(events)} 个事件")
+
+        log(f"共提取 {len(all_events)} 个事件")
+
+        # 事件存储在内存中（不再写 Redis）
+        report(0.45, "存储事件...")
+
+        # AI 分配事件到剧集
+        report(0.5, "AI 规划剧集分配...")
+        log("AI 分配事件到剧集...")
+        episode_assignments = await self._assign_events_to_episodes(
+            all_events, target_episodes, on_log=log
+        )
+
+        # 创建 NovelEpisode 并合并原文
+        episodes = []
+        for ep_num, event_ids in episode_assignments.items():
+            progress = 0.7 + 0.1 * (ep_num / target_episodes)
+            report(progress, f"创建第 {ep_num} 集...")
+
+            ep_events = [e for e in all_events if e.event_id in event_ids]
+
+            if not ep_events:
+                log(f"⚠️ 第 {ep_num} 集没有分配到事件，跳过")
+                continue
+
+            combined_content = "\n\n---\n\n".join(e.content for e in ep_events if e.content)
+
+            key_events = [e.description for e in ep_events]
+            characters = list(set(c for e in ep_events for c in e.characters))
+
+            chapter_nums = [e.chapter_num for e in ep_events]
+            chapter_start = min(chapter_nums) if chapter_nums else 0
+            chapter_end = max(chapter_nums) if chapter_nums else 0
+
+            episode = NovelEpisode(
+                number=ep_num,
+                title=f"第{ep_num}集",
+                chapter_start=chapter_start,
+                chapter_end=chapter_end,
+                raw_content=combined_content,
+                event_ids=event_ids,
+                content_summary=(
+                    combined_content[:2000] + "..."
+                    if len(combined_content) > 2000
+                    else combined_content
+                ),
+                key_events=key_events,
+                character_names=characters,
+                cliffhanger=ep_events[-1].description if ep_events else "",
+            )
+            episodes.append(episode)
+
+        # P2: 剧集与对应原文一起原子替换。
+        old_episode_count = len(self._episodes)
+        report(0.88, "保存到数据库...")
+        await self.replace_episodes(episodes)
+        log(f"已原子替换 {old_episode_count} 个旧剧集")
+
+        report(1.0, "事件级规划完成")
+        log(f"事件级规划完成: {len(episodes)} 集")
+
+        return episodes
+
+    async def _assign_events_to_episodes(
+        self,
+        events: List[NovelEvent],
+        target_episodes: int,
+        on_log: Optional[Callable[[str], None]] = None,
+    ) -> Dict[int, List[str]]:
+        """AI 将事件分配到剧集。"""
+        import json
+        import litellm
+
+        def log(msg: MessageLike):
+            if on_log:
+                on_log(msg)
+
+        event_summaries = []
+        for e in events:
+            event_summaries.append(
+                {
+                    "id": e.event_id,
+                    "description": e.description,
+                    "characters": e.characters,
+                    "causes": e.causes[:3] if e.causes else [],
+                }
+            )
+
+        prompt = f"""将以下 {len(events)} 个事件分配到 {target_episodes} 集中。
+
+事件列表：
+{json.dumps(event_summaries, ensure_ascii=False, indent=2)}
+
+分配原则：
+1. 保持因果关系：有 causes 关系的事件尽量在同一集或相邻集
+2. 叙事完整性：每集应有完整的小叙事弧
+3. 均衡分配：每集事件数量大致相当（平均 {len(events) // target_episodes} 个）
+4. 悬念设置：每集最后的事件适合作为 cliffhanger
+5. 按顺序分配：事件的顺序不能打乱
+
+请返回 JSON 格式：
+{{
+    "assignments": {{
+        "1": ["ch1_e1", "ch1_e2"],
+        "2": ["ch1_e3", "ch2_e1"],
+        ...
+    }}
+}}
+
+只返回 JSON，不要有其他内容。"""
+
+        try:
+            log("调用 LLM 分配事件...")
+            response = await litellm.acompletion(
+                model=os.environ.get("LLM_MODEL", "").strip()
+                or resolve_slot("COGNEE_LLM_MODEL"),
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                response_format={"type": "json_object"},
+                **get_newapi_structured_output_litellm_kwargs(),
+            )
+
+            result = json.loads(response.choices[0].message.content)
+            assignments = {int(k): v for k, v in result.get("assignments", {}).items()}
+
+            log(f"LLM 分配完成: {len(assignments)} 集")
+            return assignments
+
+        except Exception as e:
+            log(f"LLM 分配失败: {e}，使用均匀分配")
+            assignments = {}
+            events_per_episode = max(1, len(events) // target_episodes)
+            for i, event in enumerate(events):
+                ep_num = min(i // events_per_episode + 1, target_episodes)
+                if ep_num not in assignments:
+                    assignments[ep_num] = []
+                assignments[ep_num].append(event.event_id)
+            return assignments
+
+    async def add_episodes(self, episodes: List[NovelEpisode]) -> None:
+        """批量添加剧集到 SQLite。"""
+        await self.sqlite_store.add_episodes(episodes)
+        self._sync_sqlite_caches()
+
+    async def replace_episodes(self, episodes: List[NovelEpisode]) -> None:
+        """Replace planned episodes in SQLite without writing them to Cognee."""
+        await self.sqlite_store.replace_episodes(episodes)
+        self._sync_sqlite_caches()
+
+    async def ingest_novel(
+        self,
+        novel_path: str,
+        rebuild: bool = False,
+        target_episodes: int = 10,
+        on_progress: Optional[Callable[[float, str], None]] = None,
+    ) -> dict:
+        """导入小说文本 + 提取角色 + 规划剧集。"""
+
+        def report(progress: float, task: MessageLike):
+            if on_progress:
+                on_progress(progress, task)
+
+        if not Path(novel_path).exists():
+            raise FileNotFoundError(f"文件不存在: {novel_path}")
+
+        console.print("[bold]Step 1/3: 导入原文并构建 Cognee 图谱...[/bold]")
+        fast_result = await self.ingest_novel_fast(
+            novel_path,
+            rebuild=rebuild,
+            on_progress=lambda p, t: report(p * 0.3, t),
+        )
+
+        report(0.3, "提取角色...")
+        console.print("[bold]Step 2/3: 从图谱提取角色...[/bold]")
+        characters = await self.build_characters_from_graph(
+            on_progress=lambda p, t: report(0.3 + p * 0.3, t),
+        )
+
+        report(0.6, "规划剧集...")
+        console.print("[bold]Step 3/3: 规划剧集...[/bold]")
+        episodes = await self.build_episodes(
+            target_episodes=target_episodes,
+            on_progress=lambda p, t: report(0.6 + p * 0.4, t),
+        )
+
+        report(1.0, "导入完成")
+
+        return {
+            "char_count": fast_result["char_count"],
+            "dataset": fast_result["dataset"],
+            "characters": len(characters),
+            "episodes": len(episodes),
+        }
+
+    # ============================================================
+    # 查询
+    # ============================================================
+
+    def resolve_name(self, name: str) -> str:
+        """解析别名为主名称。"""
+        return self._alias_index.get(name, name)
+
+    def get_cached_prop(self, name: str) -> Optional[NovelProp]:
+        """从当前缓存获取道具（支持别名查找）。"""
+        raw_name = str(name or "").strip()
+        if not raw_name:
+            return None
+        prop = self._props.get(raw_name)
+        if prop:
+            return prop
+
+        lookup = self._normalize_alias_lookup(raw_name)
+        for candidate in self._props.values():
+            if self._normalize_alias_lookup(candidate.name) == lookup:
+                return candidate
+            aliases = getattr(candidate, "aliases", []) or []
+            if any(self._normalize_alias_lookup(alias) == lookup for alias in aliases):
+                return candidate
+        return None
+
+
+    async def _normalize_scene_menu_items(
+        self, scene_menu: Iterable[Any] | None
+    ) -> list[SceneMenuItem]:
+        """Delegate to the shared normalizer owned by SQLiteStore."""
+        return await self.sqlite_store._normalize_scene_menu_items(scene_menu)
+
+    def _normalize_prop_menu_items(
+        self, prop_menu: Iterable[Any] | None
+    ) -> list[PropMenuItem]:
+        """Delegate to the shared normalizer owned by SQLiteStore."""
+        return self.sqlite_store._normalize_prop_menu_items(prop_menu)
+
+    def get_character(self, name: str) -> Optional[NovelCharacter]:
+        """获取角色（支持别名）。"""
+        primary = self.resolve_name(name)
+        return self._characters.get(primary)
+
+    def get_character_prompt(self, name: str) -> Optional[str]:
+        """获取角色的面部 Prompt（支持别名）。"""
+        char = self.get_character(name)
+        return char.face_prompt if char else None
+
+    def get_episode(self, number: int) -> Optional[NovelEpisode]:
+        """获取剧集。"""
+        return self._episodes.get(number)
+
+    def get_all_characters(self) -> List[NovelCharacter]:
+        """获取所有角色。"""
+        return list(self._characters.values())
+
+    def get_all_episodes(self) -> List[NovelEpisode]:
+        """获取所有剧集。"""
+        return sorted(self._episodes.values(), key=lambda e: e.number)
+
+    async def search(self, query: str, mode: str = "graph", top_k: int = 10) -> str:
+        """语义检索。"""
+        self._require_cognee("graph search")
+        async with ladybug_graph_access(self.state_dir, read_only=True):
+            with preserve_st_env():
+                from cognee.modules.data.exceptions.exceptions import DatasetNotFoundError
+
+            mode_map = {
+                "graph": SearchType.GRAPH_COMPLETION,
+                "chunks": SearchType.CHUNKS,
+                "triplet": SearchType.TRIPLET_COMPLETION,
+                "context_ext": SearchType.GRAPH_COMPLETION_CONTEXT_EXTENSION,
+                "summaries": SearchType.SUMMARIES,
+                "graph_cot": SearchType.GRAPH_COMPLETION_COT,
+            }
+            search_type = mode_map.get(mode, SearchType.GRAPH_COMPLETION)
+
+            try:
+                with self.embedding_model_scope():
+                    result = await cognee.search(
+                        query_type=search_type,
+                        query_text=query,
+                        top_k=top_k,
+                    )
+            except DatasetNotFoundError:
+                return "暂无相关数据，请先运行 cognee-ingest 导入小说"
+            except Exception as e:
+                return f"搜索出错: {str(e)}"
+
+        if isinstance(result, list):
+            parts = []
+            for item in result:
+                if isinstance(item, dict):
+                    parts.append(self._stringify_search_fragment(item.get("search_result", item)))
+                elif hasattr(item, "model_dump"):
+                    parts.append(self._stringify_search_fragment(item.model_dump()))
+                else:
+                    parts.append(self._stringify_search_fragment(item))
+            return "\n".join(parts)
+        return str(result)
+
+    @classmethod
+    def _stringify_search_fragment(cls, value) -> str:
+        """Normalize heterogeneous Cognee search payloads into plain text."""
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            return "\n".join(
+                fragment
+                for fragment in (cls._stringify_search_fragment(item) for item in value)
+                if fragment
+            )
+        if isinstance(value, dict):
+            return json.dumps(value, ensure_ascii=False)
+        if hasattr(value, "model_dump"):
+            return json.dumps(value.model_dump(), ensure_ascii=False)
+        return str(value)
+
+    async def load_graph_state(self) -> None:
+        """从 SQLite 加载角色和剧集到内存缓存。"""
+        print("[load_graph_state] 从 SQLite 加载...")
+        try:
+            await self.sqlite_store.load_graph_state()
+            self._sync_sqlite_caches()
+            props = await self.sqlite_store.list_props()
+
+            self._props = {prop.name: prop for prop in props}
+
+            for episode in self._episodes.values():
+                episode.scene_menu = await self._normalize_scene_menu_items(episode.scene_menu)
+                episode.prop_menu = self._normalize_prop_menu_items(episode.prop_menu)
+
+            print(
+                f"[load_graph_state] 加载完成: 角色={len(self._characters)}, 剧集={len(self._episodes)}, 道具={len(self._props)}"
+            )
+        except Exception as e:
+            print(f"[load_graph_state] 加载失败: {e}，使用空数据")
+            self._characters.clear()
+            self._episodes.clear()
+            self._props.clear()
+            self._alias_index.clear()
+            self._share_sqlite_caches()
+
+    # ============================================================
+    # 添加/更新
+    # ============================================================
+
+    async def add_character(self, character: NovelCharacter):
+        """添加角色到 SQLite。"""
+        await self.sqlite_store.add_character(character)
+        self._sync_sqlite_caches()
+
+    async def update_character(self, name: str, **updates) -> None:
+        """更新角色属性。"""
+        char = self.get_character(name)
+        if not char:
+            raise ValueError(f"角色 {name} 不存在")
+
+        for key, value in updates.items():
+            if hasattr(char, key):
+                setattr(char, key, value)
+
+        if "aliases" in updates:
+            updated_alias_index = {k: v for k, v in self._alias_index.items() if v != name}
+            self._alias_index.clear()
+            self._alias_index.update(updated_alias_index)
+            for alias in char.aliases:
+                self._alias_index[alias] = name
+
+        # Re-save entire character
+        await self.add_character(char)
+        console.print(f"[green]已更新角色: {name}[/green]")
+
+    async def rename_character(self, old_name: str, new_name: str) -> None:
+        """重命名角色。"""
+        await self.sqlite_store.rename_character(old_name, new_name)
+        self._sync_sqlite_caches()
+
+    async def delete_character(self, name: str) -> None:
+        """删除角色。"""
+        await self.sqlite_store.delete_character(name)
+        self._sync_sqlite_caches()
+
+    # ============================================================
+    # 身份管理
+    # ============================================================
+
+    async def add_character_identity(
+        self,
+        character_name: str,
+        identity: CharacterIdentity,
+    ) -> None:
+        """为角色添加一个新身份。"""
+        await self.sqlite_store.add_character_identity(character_name, identity)
+        self._sync_sqlite_caches()
+
+    async def update_character_identity(
+        self,
+        character_name: str,
+        identity_id: str,
+        **updates,
+    ) -> None:
+        """更新角色的某个身份。"""
+        await self.sqlite_store.update_character_identity(character_name, identity_id, **updates)
+        self._sync_sqlite_caches()
+
+    async def delete_character_identity(
+        self,
+        character_name: str,
+        identity_id: str,
+    ) -> None:
+        """删除角色的某个身份。"""
+        await self.sqlite_store.delete_character_identity(character_name, identity_id)
+        self._sync_sqlite_caches()
+
+    async def _cascade_identity_change(self, old_id: str, new_id: str | None = None):
+        """级联更新所有 episode 的 identity_ids。"""
+        for ep in self._episodes.values():
+            ids = ep.identity_ids
+            if old_id in ids:
+                if new_id:
+                    ids = [new_id if x == old_id else x for x in ids]
+                else:
+                    ids = [x for x in ids if x != old_id]
+                # Column-level: renaming or deleting an identity can happen
+                # while planning is running, and a whole-row write here would
+                # discard whatever menu landed in between.
+                await self.patch_episode(ep.number, identity_ids=ids)
+
+    async def delete_identity_image(
+        self,
+        character_name: str,
+        identity_id: str,
+    ) -> bool:
+        """删除身份图片，保留身份本身。"""
+        char = self.get_character(character_name)
+        if not char:
+            raise ValueError(f"角色 {character_name} 不存在")
+
+        identities = char.identities
+        target_identity = None
+        for identity in identities:
+            if identity.identity_id == identity_id:
+                target_identity = identity
+                break
+
+        if not target_identity:
+            raise ValueError(f"身份 {identity_id} 不存在")
+
+        image_path = compute_identity_path(
+            Path(self.project_dir),
+            character_name,
+            target_identity.identity_name,
+        )
+        if not image_path:
+            console.print(f"[yellow]身份 {identity_id} 没有图片[/yellow]")
+            return False
+
+        image_file = Path(image_path)
+        if image_file.exists():
+            image_file.unlink()
+            console.print(f"[green]已删除图片文件: {image_path}[/green]")
+            return True
+
+        console.print(f"[yellow]图片文件不存在: {image_path}[/yellow]")
+        return False
+
+    def get_identity_for_alias(
+        self,
+        alias: str,
+    ) -> Optional[CharacterIdentity]:
+        """根据别名获取对应的身份。
+
+        无剧集上下文时只在角色只有一个身份时返回；多身份角色必须由上层提供 episode 级约束。
+        """
+        char = self.get_character(alias)
+        if not char:
+            return None
+        if len(char.identities) != 1:
+            return None
+        return char.identities[0]
+
+    async def add_episode(self, episode: NovelEpisode):
+        """添加单个剧集。"""
+        await self.add_episodes([episode])
+        self._episodes[episode.number] = episode
+
+    async def patch_episode(self, episode_number: int, **fields) -> None:
+        """Column-level update, delegated to SQLiteStore.
+
+        The facade offers this so its own methods — the identity cascade among
+        them — can write a single column without re-serialising the row, and so
+        the shared cache is refreshed the same way whichever store a caller
+        holds.
+        """
+        await self.sqlite_store.patch_episode(episode_number, **fields)
+        refreshed = await self.sqlite_store.get_episode_from_graph(episode_number)
+        if refreshed is not None:
+            self._episodes[episode_number] = refreshed
+
+    async def update_episode(self, episode_number: int, **updates) -> None:
+        """更新剧集属性。"""
+        episode = self.get_episode(episode_number)
+        if not episode:
+            print(
+                f"[update_episode] 剧集 {episode_number} 不在 _episodes 缓存中! 缓存 keys={list(self._episodes.keys())}",
+                flush=True,
+            )
+            raise ValueError(f"剧集 {episode_number} 不存在")
+
+        old_number = episode.number
+        persisted = await self.sqlite_store.get_episode_from_graph(episode_number)
+        if persisted is not None:
+            protected_fields = set(updates)
+            if "scene_menu" in protected_fields:
+                protected_fields.add("scene_menu_json")
+            if "prop_menu" in protected_fields:
+                protected_fields.add("prop_menu_json")
+            if "identity_default_map" in protected_fields:
+                protected_fields.add("identity_default_map_json")
+            for field_name in type(episode).model_fields:
+                if field_name not in protected_fields:
+                    setattr(episode, field_name, getattr(persisted, field_name))
+
+        print(
+            f"[update_episode] ep{episode_number} 更新前: identity_ids={episode.identity_ids}, updates={list(updates.keys())}",
+            flush=True,
+        )
+
+        for key, value in updates.items():
+            if key == "scene_menu":
+                episode.scene_menu = await self._normalize_scene_menu_items(value or [])
+            elif key == "prop_menu":
+                episode.prop_menu = self._normalize_prop_menu_items(value or [])
+            elif hasattr(episode, key):
+                setattr(episode, key, value)
+            else:
+                print(f"[update_episode] 警告: ep{episode_number} 没有属性 {key}", flush=True)
+
+        print(
+            f"[update_episode] ep{episode_number} 更新后: identity_ids={episode.identity_ids}",
+            flush=True,
+        )
+
+        new_number = updates.get("number", old_number)
+        if new_number != old_number:
+            del self._episodes[old_number]
+            self._episodes[new_number] = episode
+
+        await self.add_episodes([episode])
+        console.print(f"[green]已更新剧集: 第{episode.number}集[/green]")
+
+    def get_sketch_colors(self, episode_number: int) -> dict:
+        """从 episode 读取 sketch_colors。"""
+        return self.sqlite_store.get_sketch_colors(episode_number)
+
+    async def set_sketch_colors(self, episode_number: int, colors: dict) -> None:
+        """将 sketch_colors 写入 episode。"""
+        await self.sqlite_store.set_sketch_colors(episode_number, colors)
+        self._sync_sqlite_caches()
+
+    async def set_beat_detected_identities(
+        self, episode_number: int, detections: dict[int, list[str]]
+    ) -> int:
+        """批量写入 per-beat 检测身份。"""
+        count = await self.sqlite_store.set_beat_detected_identities(episode_number, detections)
+        print(f"[store] set_beat_detected_identities: ep{episode_number} updated {count} beats")
+        return count
+
+    async def set_beat_detected_props(
+        self, episode_number: int, detections: dict[int, list[str]]
+    ) -> int:
+        """批量写入 per-beat 检测道具。"""
+        count = await self.sqlite_store.set_beat_detected_props(episode_number, detections)
+        print(f"[store] set_beat_detected_props: ep{episode_number} updated {count} beats")
+        return count
+
+    async def add_visual_beats(self, beats: List[NovelVisualBeat]):
+        """添加视觉节拍到 SQLite (delegates to SQLiteStore)."""
+        await self._ensure_db()
+        await self.sqlite_store.add_visual_beats(beats)
+
+    async def delete_beats_for_episode(self, episode_number: int) -> int:
+        """删除指定剧集的所有 Beat。"""
+        return await self._delete_old_beats_for_episode(episode_number)
+
+    async def _delete_old_beats_for_episode(self, episode_number: int) -> int:
+        """删除指定剧集的所有 Beat。"""
+        deleted = await self.sqlite_store.delete_beats_for_episode(episode_number)
+        if deleted > 0:
+            console.print(f"[dim]已删除第 {episode_number} 集的 {deleted} 个旧 Beat[/dim]")
+        return deleted
+
+    # ============================================================
+    # Scene: 从图谱构建
+    # ============================================================
+
+    async def build_scenes_from_graph(
+        self,
+        on_progress: Optional[Callable[[float, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None,
+    ) -> List[NovelScene]:
+        """从 Cognee 图谱补充基础场景。
+
+        这里只补缺失的基础场景；已有基础场景和派生 plate 都是资产事实，
+        不能被一次图谱重扫清空或覆盖。
+        """
+        self._require_cognee("graph scene build")
+        from .pipeline import extract_scenes_from_graph
+
+        def report(progress: float, task: MessageLike):
+            if on_progress:
+                on_progress(progress, task)
+
+        def log(message: MessageLike):
+            if on_log:
+                on_log(message)
+            console.print(f"[dim]{message}[/dim]")
+
+        require_imported_novel(self.project_dir)
+        report(0.1, "从图谱提取场景节点...")
+        log("从图谱提取基础场景候选...")
+        with self.embedding_model_scope():
+            scenes = await extract_scenes_from_graph(
+                dataset_name=self.dataset_name,
+                project_name=self.project_name,
+                project_dir=str(self.project_dir),
+                state_dir=self.state_dir,
+                on_progress=lambda p, t: report(0.1 + p * 0.6, t),
+                on_log=on_log,
+            )
+
+        if not scenes:
+            log("⚠️ 图谱提取无结果，保留现有场景数据")
+            report(1.0, "提取无结果")
+            return []
+
+        log(f"从图谱提取了 {len(scenes)} 个场景")
+        report(0.8, "保存新增场景...")
+        log("保存新增场景到数据库...")
+        from .pipeline import should_repair_scene_placeholder
+
+        added: list[NovelScene] = []
+        skipped = 0
+        repaired = 0
+        for scene in scenes:
+            existing = await self.sqlite_store.get_scene(scene.name)
+            if existing:
+                # The contract validator used to reject valid single-line model
+                # output, so every scene built while that bug was live stored a
+                # generated placeholder instead. Those are not asset facts, and
+                # skipping them would leave existing projects on boilerplate
+                # forever. Only the prompt is rewritten: images, plates and any
+                # other stored field stay untouched, and a prompt a user wrote
+                # never carries the fingerprint.
+                if should_repair_scene_placeholder(
+                    existing.environment_prompt, scene.environment_prompt
+                ):
+                    await self.sqlite_store.update_scene(
+                        existing.name, environment_prompt=scene.environment_prompt
+                    )
+                    repaired += 1
+                    continue
+                skipped += 1
+                continue
+            await self.sqlite_store.add_scene(scene)
+            added.append(scene)
+        log(
+            f"已新增 {len(added)} 个场景，修复占位描述 {repaired} 个，"
+            f"跳过已有 {skipped} 个"
+        )
+
+        report(1.0, "场景提取完成")
+        log(
+            f"场景提取完成: 新增 {len(added)} 个，修复 {repaired} 个，"
+            f"已有 {skipped} 个"
+        )
+
+        return added
+
+    # ============================================================
+    # Prop: 从图谱构建
+    # ============================================================
+
+    async def build_props_from_graph(
+        self,
+        on_progress: Optional[Callable[[float, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None,
+    ) -> List[NovelProp]:
+        """从图谱构建道具（分阶段架构第二步）。"""
+        self._require_cognee("graph prop build")
+        from .pipeline import extract_props_from_graph
+
+        def report(progress: float, task: MessageLike):
+            if on_progress:
+                on_progress(progress, task)
+
+        def log(message: MessageLike):
+            if on_log:
+                on_log(message)
+            console.print(f"[dim]{message}[/dim]")
+
+        report(0.05, "收集已有道具数据...")
+        existing_prop_aliases: dict[str, list[str]] = {}
+        canonical_prop_hints: set[str] = set()
+        canonical_prop_alias_targets: dict[str, set[str]] = {}
+        for prop in await self.sqlite_store.list_props():
+            alias_list = list(prop.aliases or [])
+            existing_prop_aliases[prop.name] = alias_list
+            canonical_prop_hints.add(prop.name)
+            normalized_name = self._normalize_alias_lookup(prop.name)
+            canonical_prop_alias_targets.setdefault(normalized_name, set()).add(prop.name)
+            for alias in alias_list:
+                normalized_alias = self._normalize_alias_lookup(alias)
+                if normalized_alias:
+                    canonical_prop_alias_targets.setdefault(normalized_alias, set()).add(prop.name)
+        canonical_prop_hints.update(
+            item.prop_id
+            for episode in self._episodes.values()
+            for item in (episode.prop_menu or [])
+            if getattr(item, "prop_id", "")
+        )
+        prop_assets_dir = Path(self.project_dir) / "assets" / "props"
+        if prop_assets_dir.exists():
+            canonical_prop_hints.update(
+                entry.name
+                for entry in prop_assets_dir.iterdir()
+                if entry.is_dir() and entry.name.strip()
+            )
+        log(f"收集了 {len(canonical_prop_hints)} 个已有道具线索")
+
+        # P1: 提取新道具
+        report(0.1, "从图谱提取道具节点...")
+        log("从图谱提取道具候选...")
+        novel_text = self.load_novel_content()
+        if novel_text:
+            log(f"已加载原文全文用于辅助道具提取: {len(novel_text)} 字符")
+        with self.embedding_model_scope():
+            props = await extract_props_from_graph(
+                dataset_name=self.dataset_name,
+                project_name=self.project_name,
+                project_dir=self.project_dir,
+                state_dir=self.state_dir,
+                novel_text=novel_text,
+                on_progress=lambda p, t: report(0.1 + p * 0.6, t),
+            )
+
+        if not props:
+            log("⚠️ 图谱提取无结果，保留现有道具数据")
+            report(1.0, "提取无结果")
+            return []
+
+        log(f"从图谱提取了 {len(props)} 个道具")
+
+        # P1.5: 保留已有更具体的道具名，避免重建时退化成泛名（如 办公纸箱 -> 纸箱）
+        used_prop_names: set[str] = set()
+        for prop in props:
+            if not prop.name:
+                continue
+
+            candidate_names: set[str] = set()
+            normalized_prop_name = self._normalize_alias_lookup(prop.name)
+            candidate_names.update(canonical_prop_alias_targets.get(normalized_prop_name, set()))
+            for alias in prop.aliases or []:
+                normalized_alias = self._normalize_alias_lookup(alias)
+                if normalized_alias:
+                    candidate_names.update(
+                        canonical_prop_alias_targets.get(normalized_alias, set())
+                    )
+
+            candidates = sorted(
+                [
+                    candidate
+                    for candidate in candidate_names
+                    if candidate and candidate != prop.name and candidate not in used_prop_names
+                ],
+                key=len,
+            )
+            if len(candidates) == 1:
+                original_name = prop.name
+                prop.name = candidates[0]
+                prop.aliases = list(
+                    dict.fromkeys(
+                        [
+                            original_name,
+                            *[
+                                alias
+                                for alias in (prop.aliases or [])
+                                if alias and alias != candidates[0]
+                            ],
+                        ]
+                    )
+                )
+                log(f"保留更具体的已有道具名: {original_name} -> {prop.name}")
+            if prop.name in existing_prop_aliases:
+                prop.aliases = list(
+                    dict.fromkeys(
+                        [
+                            *prop.aliases,
+                            *[
+                                alias
+                                for alias in existing_prop_aliases[prop.name]
+                                if alias and alias != prop.name
+                            ],
+                        ]
+                    )
+                )
+            used_prop_names.add(prop.name)
+        report(0.8, "清理旧道具数据...")
+        try:
+            deleted = await self.sqlite_store.delete_all_props()
+            log(f"已删除 {deleted} 个旧道具")
+        except Exception as e:
+            log(f"删除旧道具失败: {e}")
+
+        report(0.85, "保存新道具...")
+        log("保存新道具到数据库...")
+        for prop in props:
+            await self.sqlite_store.add_prop(prop)
+        log(f"已保存 {len(props)} 个道具")
+
+        report(1.0, "道具提取完成")
+        log(f"道具提取完成: {len(props)} 个")
+
+        return props
+
+    async def attach_beats_to_episode(self, episode_number: int, beats: List[NovelVisualBeat]):
+        """将视觉节拍关联到指定剧集（SQLite 中通过 episode_number 自动关联）。"""
+        pass  # beats 表已有 episode_number 外键
+
+    async def persist_beats_from_script(self, episode_number: int, beats_data: List[dict]):
+        """从脚本数据持久化 Beats。"""
+        existing_rows = await self.get_beats_for_episode(episode_number)
+        existing_by_num = {beat.beat_number: beat for beat in existing_rows}
+        await self._do_persist_beats(episode_number, beats_data, existing_by_num=existing_by_num)
+
+    async def _patch_beats_missing_fields(
+        self,
+        episode_number: int,
+        beats_data: List[dict],
+    ) -> int:
+        """只更新 beats 的缺失字段。"""
+        return await self.sqlite_store.patch_beats_missing_fields(episode_number, beats_data)
+
+    async def _episode_asset_ref_scope(self, episode_number: int) -> tuple[set[str], set[str]]:
+        episode = await self.get_episode_from_graph(episode_number)
+        allowed_identity_ids = {
+            str(identity_id or "").strip()
+            for identity_id in (getattr(episode, "identity_ids", []) or [])
+            if str(identity_id or "").strip()
+        }
+        if not allowed_identity_ids:
+            for character in await self.list_characters():
+                for identity in getattr(character, "identities", []) or []:
+                    identity_id = str(getattr(identity, "identity_id", "") or "").strip()
+                    if identity_id:
+                        allowed_identity_ids.add(identity_id)
+
+        allowed_prop_ids = {
+            str(getattr(prop, "name", "") or "").strip()
+            for prop in await self.sqlite_store.list_props()
+            if str(getattr(prop, "name", "") or "").strip()
+            and str(getattr(prop, "marker_color", "") or "").strip()
+        }
+        return allowed_identity_ids, allowed_prop_ids
+
+    def _complete_generated_beat_refs(
+        self,
+        beat_payload: dict,
+        *,
+        allowed_identity_ids: set[str],
+        allowed_prop_ids: set[str],
+    ) -> dict:
+        detected_identities, detected_props = complete_detected_refs_from_visual_description(
+            visual_description=str(beat_payload.get("visual_description", "") or ""),
+            detected_identities=beat_payload.get("detected_identities"),
+            detected_props=beat_payload.get("detected_props"),
+            allowed_identity_ids=allowed_identity_ids,
+            allowed_prop_ids=allowed_prop_ids,
+        )
+        beat_payload["detected_identities_json"] = _json_list_payload(
+            normalize_detected_identities(detected_identities)
+        )
+        beat_payload["detected_props_json"] = _json_list_payload(
+            normalize_detected_props(detected_props)
+        )
+        return beat_payload
+
+    async def _do_persist_beats(
+        self,
+        episode_number: int,
+        beats_data: List[dict],
+        existing_by_num: Dict[int, NovelVisualBeat] | None = None,
+    ):
+        """实际执行 Beat 持久化。"""
+        existing_by_num = existing_by_num or {}
+        keep_numbers = {
+            int(b.get("beat_number", 0)) for b in beats_data if int(b.get("beat_number", 0))
+        }
+        manual_keep_numbers = {
+            int(beat_number)
+            for beat_number, beat in existing_by_num.items()
+            if getattr(beat, "is_manual_shot", False)
+        }
+        keep_numbers |= manual_keep_numbers
+        if keep_numbers:
+            await self.sqlite_store.delete_beats_except(episode_number, keep_numbers)
+        else:
+            await self._delete_old_beats_for_episode(episode_number)
+            return
+
+        allowed_identity_ids, allowed_prop_ids = await self._episode_asset_ref_scope(episode_number)
+        beats = []
+        for b in beats_data:
+            beat_payload = sync_beat_asset_refs(dict(b))
+            beat_payload = self._complete_generated_beat_refs(
+                beat_payload,
+                allowed_identity_ids=allowed_identity_ids,
+                allowed_prop_ids=allowed_prop_ids,
+            )
+            beat_number = int(beat_payload.get("beat_number", 0))
+            existing = existing_by_num.get(beat_number)
+            beats.append(
+                NovelVisualBeat(
+                    beat_number=beat_number,
+                    episode_number=episode_number,
+                    narration=beat_payload.get(
+                        "narration_segment", existing.narration if existing else ""
+                    ),
+                    visual_description=beat_payload.get(
+                        "visual_description",
+                        existing.visual_description if existing else "",
+                    ),
+                    time_of_day=beat_payload.get(
+                        "time_of_day", existing.time_of_day if existing else ""
+                    )
+                    or "",
+                    detected_identities_json=(
+                        beat_payload.get("detected_identities_json") or '["__NO_CHARACTER__"]'
+                    ),
+                    detected_props_json=(
+                        beat_payload.get("detected_props_json") or '["__NO_PROP__"]'
+                    ),
+                    scene_ref_json=(
+                        json.dumps(beat_payload.get("scene_ref"), ensure_ascii=False)
+                        if beat_payload.get("scene_ref")
+                        else ""
+                    ),
+                    audio_type=beat_payload.get(
+                        "audio_type", existing.audio_type if existing else "narration"
+                    ),
+                    speaker=beat_payload.get("speaker", existing.speaker if existing else ""),
+                    speaker_kind=beat_payload.get(
+                        "speaker_kind",
+                        existing.speaker_kind if existing else "character",
+                    ),
+                    video_mode=beat_payload.get(
+                        "video_mode", existing.video_mode if existing else "first_frame"
+                    ),
+                    video_prompt=beat_payload.get(
+                        "video_prompt", existing.video_prompt if existing else ""
+                    )
+                    or "",
+                    keyframe_prompt=beat_payload.get(
+                        "keyframe_prompt",
+                        existing.keyframe_prompt if existing else "",
+                    )
+                    or "",
+                    shot_order=(
+                        beat_payload.get("shot_order")
+                        if beat_payload.get("shot_order") is not None
+                        else (existing.shot_order if existing else None)
+                    ),
+                    duration_seconds=(
+                        beat_payload.get("duration_seconds")
+                        if beat_payload.get("duration_seconds") is not None
+                        else (existing.duration_seconds if existing else None)
+                    ),
+                    is_manual_shot=bool(
+                        beat_payload.get(
+                            "is_manual_shot",
+                            existing.is_manual_shot if existing else False,
+                        )
+                    ),
+                )
+            )
+
+        if beats:
+            await self.add_visual_beats(beats)
+
+    # ============================================================
+    # Phase 2: 组装 dict / persist NarrationScript
+    # ============================================================
+
+    async def get_script_as_dict(self, episode_number: int) -> Optional[Dict]:
+        """从 SQLite 组装与 JSON 兼容的脚本 dict，替代 load_script()。"""
+        return await self.sqlite_store.get_script_as_dict(episode_number)
+
+    async def persist_narration_script(self, script) -> None:
+        """接收 NarrationScript，映射 VisualBeat 字段到 SQLite，删旧插新。
+
+        Args:
+            script: NarrationScript 实例 (from novelvideo.models)
+        """
+        allowed_identity_ids, allowed_prop_ids = await self._episode_asset_ref_scope(
+            script.episode_number
+        )
+        beats = []
+        for beat in script.beats:
+            detected_identities, detected_props = complete_detected_refs_from_visual_description(
+                visual_description=str(getattr(beat, "visual_description", "") or ""),
+                detected_identities=getattr(beat, "detected_identities", None),
+                detected_props=getattr(beat, "detected_props", None),
+                allowed_identity_ids=allowed_identity_ids,
+                allowed_prop_ids=allowed_prop_ids,
+            )
+            beats.append(
+                NovelVisualBeat(
+                    beat_number=beat.beat_number,
+                    episode_number=script.episode_number,
+                    narration=beat.narration_segment,
+                    visual_description=beat.visual_description,
+                    time_of_day=getattr(beat, "time_of_day", "") or "",
+                    detected_identities_json=_json_list_payload(
+                        normalize_detected_identities(detected_identities)
+                    ),
+                    detected_props_json=_json_list_payload(
+                        normalize_detected_props(detected_props)
+                    ),
+                    scene_ref_json=(
+                        json.dumps(
+                            getattr(beat, "scene_ref", None).model_dump(), ensure_ascii=False
+                        )
+                        if getattr(beat, "scene_ref", None)
+                        else ""
+                    ),
+                    audio_type=beat.audio_type,
+                    speaker=beat.speaker,
+                    speaker_kind=getattr(beat, "speaker_kind", "character"),
+                    video_mode=getattr(beat, "video_mode", "first_frame"),
+                    video_prompt=getattr(beat, "video_prompt", "") or "",
+                    keyframe_prompt=getattr(beat, "keyframe_prompt", "") or "",
+                )
+            )
+
+        if not beats:
+            return
+
+        await self.delete_beats_for_episode(script.episode_number)
+        await self.add_visual_beats(beats)
+
+    # ============================================================
+    # SQLite 辅助方法
+    # ============================================================
+
+    async def _update_character_field(self, name: str, field: str, value: Any) -> bool:
+        """更新角色的单个字段。"""
+        updated = await self.sqlite_store._update_character_field(name, field, value)
+        self._sync_sqlite_caches()
+        return updated
+
+    async def list_characters(self) -> List[NovelCharacter]:
+        """列出所有角色。"""
+        return await self.sqlite_store.list_characters()
+
+    async def list_episodes(self) -> List[NovelEpisode]:
+        """列出所有剧集。"""
+        return await self.sqlite_store.list_episodes()
+
+    async def list_visual_beats(self) -> List[NovelVisualBeat]:
+        """列出所有视觉节拍。"""
+        return await self.sqlite_store.list_visual_beats()
+
+    async def list_beat_asset_refs(self) -> List[BeatAssetRefRow]:
+        """每个 beat 的资产引用字段（只取六列，不构造 Beat 对象）。"""
+        return await self.sqlite_store.list_beat_asset_refs()
+
+    async def get_character_from_graph(self, name: str) -> Optional[NovelCharacter]:
+        """从 SQLite 获取角色（兼容旧接口名）。"""
+        return await self.sqlite_store.get_character_from_graph(name)
+
+    async def get_episode_from_graph(self, number: int) -> Optional[NovelEpisode]:
+        """从 SQLite 获取剧集（兼容旧接口名）。"""
+        return await self.sqlite_store.get_episode_from_graph(number)
+
+    async def count_beats_by_episode(self) -> Dict[int, int]:
+        """每集的 Beat 数（一次分组查询，不构造 Beat 对象）。"""
+        return await self.sqlite_store.count_beats_by_episode()
+
+    async def get_beats_for_episode(self, number: int) -> List[NovelVisualBeat]:
+        """获取指定剧集的所有 Beat。"""
+        return await self.sqlite_store.get_beats_for_episode(number)
+
+    async def get_beats_as_dicts(self, episode_number: int) -> List[Dict[str, Any]]:
+        """从 SQLite 获取 Beats，返回与 JSON 格式兼容的字典列表。"""
+        return await self.sqlite_store.get_beats_as_dicts(episode_number)
+
+    async def get_beat_prompts(
+        self,
+        episode_number: int,
+        beat_number: int | None = None,
+    ) -> Dict[str, Optional[str]]:
+        """获取单个 Beat 的视频提示词字段。"""
+        return await self.sqlite_store.get_beat_prompts(episode_number, beat_number)
+
+    async def update_beat_asset(
+        self,
+        episode_number: int,
+        beat_number: int = None,
+        narration_segment: str = None,
+        visual_description: str = None,
+        audio_type: str = None,
+        speaker: str = None,
+        detected_identities: list = None,
+        detected_props: list = None,
+        scene_ref: dict = None,
+        video_mode: str = None,
+        video_prompt: str = None,
+        keyframe_prompt: str = None,
+        seedance2_config_json: str = None,
+        time_of_day: str = None,
+        shot_order: int | None = None,
+        duration_seconds: float | None = None,
+        is_manual_shot: bool | None = None,
+    ) -> bool:
+        """更新 Beat 的资源字段。"""
+        return await self.sqlite_store.update_beat_asset(
+            episode_number=episode_number,
+            beat_number=beat_number,
+            narration_segment=narration_segment,
+            visual_description=visual_description,
+            audio_type=audio_type,
+            speaker=speaker,
+            detected_identities=detected_identities,
+            detected_props=detected_props,
+            scene_ref=scene_ref,
+            video_mode=video_mode,
+            video_prompt=video_prompt,
+            keyframe_prompt=keyframe_prompt,
+            seedance2_config_json=seedance2_config_json,
+            time_of_day=time_of_day,
+            shot_order=shot_order,
+            duration_seconds=duration_seconds,
+            is_manual_shot=is_manual_shot,
+        )
+
+    async def delete_manual_beat(self, episode_number: int, beat_number: int) -> bool:
+        """删除单个手工分镜 beat（is_manual_shot=1 才会被删）。"""
+        return await self.sqlite_store.delete_manual_beat(episode_number, beat_number)
+
+    def format_character_context(self, character: NovelCharacter) -> str:
+        aliases = ", ".join(character.aliases) if character.aliases else "无"
+        lines = [
+            f"## {character.name}",
+            f"- 角色定位: {character.role or '未知'}",
+            f"- 性别: {character.gender or '未知'}",
+            f"- 别名: {aliases}",
+        ]
+        if character.description:
+            lines.append(f"- 描述: {character.description}")
+        if character.face_prompt:
+            lines.append(f"- 面部 Prompt: {character.face_prompt}")
+        if character.identities:
+            lines.append("- 可用身份:")
+            lines.append(f"  - character_name 填: {character.name}")
+            lines.append("  - 可选 identity_id:")
+            for identity in character.identities:
+                desc = ""
+                if identity.appearance_details:
+                    desc = (
+                        f" ({identity.appearance_details[:50]}...)"
+                        if len(identity.appearance_details) > 50
+                        else f" ({identity.appearance_details})"
+                    )
+                lines.append(f"    - {identity.identity_id}{desc}")
+
+        return "\n".join(lines)
+
+    def format_episode_context(self, episode: NovelEpisode) -> str:
+        lines = [
+            f"## 第 {episode.number} 集: {episode.title}",
+            f"- 内容摘要: {episode.content_summary}",
+            f"- 主要冲突: {episode.main_conflict}",
+            f"- 关键事件: {', '.join(episode.key_events) if episode.key_events else '无'}",
+            f"- 出场角色: {', '.join(episode.character_names) if episode.character_names else '未知'}",
+        ]
+        if episode.cliffhanger:
+            lines.append(f"- 结尾悬念: {episode.cliffhanger}")
+        return "\n".join(lines)
+
+    async def _prune_cognee_only(self):
+        """只清除 cognee 图谱数据，保留 SQLite 数据。"""
+        # 清理 cognee_system（包含 LanceDB 向量、Kuzu 图谱、cognee 元数据）
+        import shutil
+
+        cognee_dir = os.path.join(self.state_dir, "cognee_system")
+        if os.path.exists(cognee_dir):
+            shutil.rmtree(cognee_dir)
+            console.print(f"[green]已清理 cognee 数据: {cognee_dir}[/green]")
+
+    async def delete_project_data(self):
+        """删除当前项目的所有 SQLite 数据。"""
+        try:
+            await self.sqlite_store.delete_project_data()
+            self._sync_sqlite_caches()
+
+            console.print(f"[green]已删除项目 '{self.project_name}' 的所有数据[/green]")
+        except Exception as e:
+            console.print(f"[red]删除数据失败: {e}[/red]")
+            self._characters.clear()
+            self._episodes.clear()
+            self._props.clear()
+            self._alias_index.clear()
+            raise
+
+    # ============================================================
+    # 便捷属性
+    # ============================================================
+
+    @property
+    def character_count(self) -> int:
+        return len(self._characters)
+
+    @property
+    def episode_count(self) -> int:
+        return len(self._episodes)
+
+
+# ============================================================
+# 工厂函数
+# ============================================================
+
+
+async def create_cognee_store(project_name: str) -> CogneeStore:
+    """创建并初始化 CogneeStore。"""
+    store = CogneeStore(project_name)
+    await store.initialize()
+    await store.load_graph_state()
+    return store

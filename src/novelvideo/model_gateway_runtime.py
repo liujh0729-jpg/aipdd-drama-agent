@@ -1,0 +1,633 @@
+"""CE cache invalidation helpers for dynamic model gateway settings."""
+
+from __future__ import annotations
+
+import hashlib
+import sys
+import threading
+from contextlib import asynccontextmanager, contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from typing import Any, Awaitable, Callable, Iterator, TypeVar
+
+from novelvideo.model_gateway_settings import get_effective_newapi_config
+from novelvideo.egress_context import (
+    TRUSTED_EGRESS_CONTEXT_KEY,
+    TrustedEgressContext,
+    TrustedRunnerEnvelope,
+)
+from novelvideo.ports import get_egress_operation_port, get_model_credentials
+from novelvideo.ports.authz import AdmissionContext
+from novelvideo.ports.egress_operations import (
+    HandleKind,
+    OperationSpec,
+    canonical_request_digest,
+)
+from novelvideo.ports.model_credentials import RequestCredential
+from novelvideo.shared.runtime_env import is_ce_effective
+
+_T = TypeVar("_T")
+_MODEL_GATEWAY_CONTEXT: ContextVar[TrustedEgressContext | None] = ContextVar(
+    "novelvideo_model_gateway_context",
+    default=None,
+)
+
+
+@dataclass
+class _SubmitLedger:
+    """Occurrence counters for one request scope.
+
+    Held in a ContextVar as a mutable object rather than as a plain int:
+    asyncio snapshots the context for every task it creates, so an int written
+    back with .set() lands in that task's private copy and is invisible to its
+    siblings and to the parent. cognee fans out with create_task on this exact
+    path, so a counter kept that way never advances and every concurrent
+    submit claims the same operation key. cognee/concurrency.py:47-70 works
+    because it shares an object by reference; this does the same.
+
+    The lock guards no path that exists today — the read-modify-write below
+    contains no await, and the threads that do reach this module
+    (loop.run_in_executor) carry no context and are denied before they get
+    here. It is here because, unlike _PipelineLimits which counts for logs, a
+    torn read costs a duplicate paid egress or a spurious conflict that kills
+    a user's import; and asyncio.to_thread *does* copy the context, so the
+    invariant would die silently the day someone introduces it.
+    """
+
+    _occurrences: dict[tuple[str, str], int] = field(default_factory=dict)
+    _guard: threading.Lock = field(default_factory=threading.Lock)
+
+    def next_occurrence(self, capability: str, request_digest: str) -> int:
+        with self._guard:
+            key = (capability, request_digest)
+            occurrence = self._occurrences.get(key, 0) + 1
+            self._occurrences[key] = occurrence
+            return occurrence
+
+
+_MODEL_GATEWAY_SUBMIT_LEDGER: ContextVar[_SubmitLedger | None] = ContextVar(
+    "novelvideo_model_gateway_submit_ledger",
+    default=None,
+)
+
+_EGRESS_ERROR_MESSAGES = {
+    "EGRESS_OPERATION_REPLAYED": "egress operation cannot be replayed",
+    "ORG_EGRESS_DENIED": "organization direct egress is denied",
+}
+
+
+class ModelGatewayEgressError(RuntimeError):
+    """Stable, secret-free model egress failure."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(_EGRESS_ERROR_MESSAGES.get(code, "model egress failed"))
+        self.code = code
+
+
+def current_model_gateway_context() -> TrustedEgressContext | None:
+    """Return only the trusted identity bound to the current request."""
+
+    return _MODEL_GATEWAY_CONTEXT.get()
+
+
+def model_gateway_output_retries(platform_retries: int) -> int:
+    """Disable PydanticAI retry submits for organization operations."""
+
+    context = current_model_gateway_context()
+    return 0 if context is not None and context.is_organization else platform_retries
+
+
+@contextmanager
+def model_gateway_request_scope(
+    context: TrustedEgressContext | None,
+) -> Iterator[None]:
+    """Bind trusted identity without resolving or retaining a plaintext key."""
+
+    if context is not None and type(context) is not TrustedEgressContext:
+        raise TypeError("context must be a TrustedEgressContext or None")
+    token = _MODEL_GATEWAY_CONTEXT.set(context)
+    ledger_token = _MODEL_GATEWAY_SUBMIT_LEDGER.set(_SubmitLedger())
+    try:
+        yield
+    finally:
+        _MODEL_GATEWAY_SUBMIT_LEDGER.reset(ledger_token)
+        _MODEL_GATEWAY_CONTEXT.reset(token)
+
+
+@contextmanager
+def model_gateway_scope_for_runner(envelope: dict[str, Any]) -> Iterator[None]:
+    """Bind identity only when it came from the verified runner envelope."""
+
+    if type(envelope) is TrustedRunnerEnvelope:
+        context = envelope.get(TRUSTED_EGRESS_CONTEXT_KEY)
+        if type(context) is not TrustedEgressContext:
+            raise TypeError("trusted runner envelope requires trusted egress context")
+    elif type(envelope) is dict and TRUSTED_EGRESS_CONTEXT_KEY not in envelope:
+        context = None
+    else:
+        raise TypeError("untrusted runner envelope cannot provide egress context")
+    with model_gateway_request_scope(context):
+        yield
+
+
+def next_model_gateway_business_task_id(
+    capability: str,
+    *,
+    request_digest: str,
+) -> str:
+    """Name one submit so the durable ledger can tell submits apart.
+
+    The identity is content-derived because the call sites that use this
+    helper have no business coordinates to name a request by — cognee's unit
+    of work is an arbitrary text batch, and TrustedEgressContext carries no
+    episode/beat/scope. Where a call site *does* have a real identity it
+    should pass that instead; see generators/video_generator/backends/newapi.py and
+    storage/media_relay.py:433.
+
+    Two byte-identical payloads in one envelope are still two side effects
+    that each need a result, so an occurrence ordinal separates them. It is
+    counted per (capability, digest), which makes the identity depend on the
+    multiset of requests the envelope issues rather than on the order in
+    which cognee's tasks happen to arrive here — so a redelivered envelope
+    reproduces the same keys and is refused, per
+    docs/b2b-org-tenant/p0-gray-freeze.md:108.
+
+    request_digest is keyword-only so that a stale positional call fails
+    loudly instead of quietly digesting the capability string.
+    """
+
+    context = current_model_gateway_context()
+    ledger = _MODEL_GATEWAY_SUBMIT_LEDGER.get()
+    if context is None or ledger is None:
+        raise ModelGatewayEgressError("ORG_EGRESS_DENIED")
+    occurrence = ledger.next_occurrence(capability, request_digest)
+    return f"{context.envelope_id}:{capability}:{request_digest}:{occurrence:06d}"
+
+
+def _without_volatile_transport_fields(value: Any) -> Any:
+    if type(value) is dict:
+        return {
+            key: _without_volatile_transport_fields(item)
+            for key, item in value.items()
+            if key not in {"timestamp", "run_id", "conversation_id"}
+        }
+    if type(value) is list:
+        return [_without_volatile_transport_fields(item) for item in value]
+    return value
+
+
+def canonical_model_transport_digest(
+    *,
+    model_name: str,
+    messages: object,
+    model_settings: object,
+    model_request_parameters: object,
+) -> str:
+    """Digest the canonical transport request without persisting its contents."""
+
+    from pydantic_core import to_jsonable_python
+
+    payload = to_jsonable_python(
+        {
+            "model": model_name,
+            "messages": messages,
+            "model_settings": model_settings,
+            "model_request_parameters": model_request_parameters,
+        },
+        bytes_mode="base64",
+    )
+    return canonical_request_digest(_without_volatile_transport_fields(payload))
+
+
+def create_request_scoped_gateway_model(
+    *,
+    model_name: str,
+    capability: str,
+    timeout_seconds: float,
+    profile: Any,
+    delegate_factory: Callable[..., Any],
+    platform_credential_factory: Callable[[], tuple[str, str]],
+):
+    """Create a stateless model facade that resolves credentials per submit."""
+
+    from pydantic_ai.models import Model
+
+    class _RequestScopedGatewayModel(Model):
+        def __init__(self) -> None:
+            super().__init__(profile=profile)
+
+        @property
+        def model_name(self) -> str:
+            return model_name
+
+        @property
+        def system(self) -> str:
+            return "openai"
+
+        @property
+        def provider(self) -> None:
+            return None
+
+        def _delegate(self, credential: RequestCredential):
+            return delegate_factory(
+                model_name,
+                api_key=credential.api_key,
+                base_url=credential.base_url,
+                timeout_seconds=timeout_seconds,
+                profile=profile,
+            )
+
+        async def request(
+            self,
+            messages,
+            model_settings,
+            model_request_parameters,
+        ):
+            context = current_model_gateway_context()
+            if context is not None and context.is_organization:
+                request_digest = canonical_model_transport_digest(
+                    model_name=model_name,
+                    messages=messages,
+                    model_settings=model_settings,
+                    model_request_parameters=model_request_parameters,
+                )
+                business_task_id = next_model_gateway_business_task_id(
+                    capability,
+                    request_digest=request_digest,
+                )
+
+                async def submit(credential: RequestCredential):
+                    return await self._delegate(credential).request(
+                        messages,
+                        model_settings,
+                        model_request_parameters,
+                    )
+
+                return await execute_organization_gateway_request(
+                    capability=capability,
+                    business_task_id=business_task_id,
+                    request_digest=request_digest,
+                    submit=submit,
+                )
+
+            api_key, base_url = platform_credential_factory()
+            if not api_key or not base_url:
+                raise ValueError("API key not set. Configure DramaClawAPI credentials.")
+            credential = RequestCredential(
+                reference=(
+                    context.credential if context is not None else _platform_reference()
+                ),
+                api_key=api_key,
+                base_url=base_url,
+            )
+            return await self._delegate(credential).request(
+                messages,
+                model_settings,
+                model_request_parameters,
+            )
+
+        @asynccontextmanager
+        async def request_stream(
+            self,
+            messages,
+            model_settings,
+            model_request_parameters,
+        ):
+            context = current_model_gateway_context()
+            if context is not None and context.is_organization:
+                request_digest = canonical_model_transport_digest(
+                    model_name=model_name,
+                    messages=messages,
+                    model_settings=model_settings,
+                    model_request_parameters=model_request_parameters,
+                )
+                business_task_id = next_model_gateway_business_task_id(
+                    capability,
+                    request_digest=request_digest,
+                )
+
+                def stream_factory(credential: RequestCredential):
+                    return self._delegate(credential).request_stream(
+                        messages,
+                        model_settings,
+                        model_request_parameters,
+                    )
+
+                async with execute_organization_gateway_stream(
+                    capability=capability,
+                    business_task_id=business_task_id,
+                    request_digest=request_digest,
+                    stream_factory=stream_factory,
+                ) as response:
+                    yield response
+                return
+
+            api_key, base_url = platform_credential_factory()
+            if not api_key or not base_url:
+                raise ValueError("API key not set. Configure DramaClawAPI credentials.")
+            credential = RequestCredential(
+                reference=(
+                    context.credential if context is not None else _platform_reference()
+                ),
+                api_key=api_key,
+                base_url=base_url,
+            )
+            async with self._delegate(credential).request_stream(
+                messages,
+                model_settings,
+                model_request_parameters,
+            ) as response:
+                yield response
+
+    return _RequestScopedGatewayModel()
+
+
+def _platform_reference():
+    from novelvideo.ports.model_credentials import CredentialReference
+
+    return CredentialReference(
+        source="platform",
+        credential_id="platform-newapi",
+        key_version=1,
+    )
+
+
+def _organization_admission(context: TrustedEgressContext) -> AdmissionContext:
+    return AdmissionContext(
+        requester_user_id=context.requester_user_id,
+        billing_principal=context.billing_principal,
+        credential=context.credential,
+        admission_id=context.admission_id,
+        root_task_id=context.root_task_id,
+        admitted_at=context.admitted_at,
+        membership_id=context.membership_id,
+        authz_version=context.authz_version,
+    )
+
+
+async def resolve_organization_relay_credentials(
+    context: TrustedEgressContext,
+) -> RequestCredential:
+    """Resolve an organization's own gateway credential for a non-ledger relay.
+
+    `openai_proxy` 的透传是**渠道目录驱动**的泛化转发（任意 OpenAI 兼容路径 +
+    流式 body），无法为每次转发算出稳定的 `request_digest` 去走 `egress_operations`
+    的重放保护 claim，所以这里只做**凭证归因**：把组织真实计费主体解析成它自己的
+    网关 key，替换掉 ambient 平台 key，避免平台垫付。准入已在构造 `context` 时完成
+    （准入失败根本不会产出组织 context），凭证解析失败原样上抛——**绝不回落平台 key**。
+    """
+
+    if context is None or not context.is_organization:
+        raise ModelGatewayEgressError("ORG_EGRESS_DENIED")
+    return await get_model_credentials().resolve(_organization_admission(context))
+
+
+async def execute_organization_gateway_request(
+    *,
+    capability: str,
+    business_task_id: str,
+    request_digest: str,
+    submit: Callable[[RequestCredential], Awaitable[_T]],
+) -> _T:
+    """Claim, resolve and perform exactly one organization transport submit."""
+
+    context = current_model_gateway_context()
+    if context is None or not context.is_organization:
+        raise ModelGatewayEgressError("ORG_EGRESS_DENIED")
+    for value, field_name in (
+        (capability, "capability"),
+        (business_task_id, "business_task_id"),
+        (request_digest, "request_digest"),
+    ):
+        if type(value) is not str or not value.strip():
+            raise ValueError(f"{field_name} is required")
+
+    operation_port = get_egress_operation_port()
+    claim = await operation_port.claim(
+        spec=OperationSpec(
+            organization_id=context.billing_principal.id,
+            project_id=context.project_id,
+            root_task_id=context.root_task_id,
+            business_task_id=business_task_id,
+            capability=capability,
+            credential_id=context.credential.credential_id,
+            credential_version=context.credential.key_version,
+            request_digest=request_digest,
+            handle_kind=HandleKind.NONE,
+        )
+    )
+    if not claim.won:
+        raise ModelGatewayEgressError("EGRESS_OPERATION_REPLAYED")
+
+    operation = claim.operation
+    transition_token = claim.transition_token
+    assert transition_token is not None
+    try:
+        credential = await get_model_credentials().resolve(
+            _organization_admission(context)
+        )
+    except BaseException:
+        await operation_port.mark_rejected_before_submit(
+            operation_id=operation.operation_id,
+            transition_token=transition_token,
+            expected_version=operation.version,
+        )
+        raise
+
+    try:
+        result = await submit(credential)
+    except BaseException:
+        await operation_port.mark_unknown(
+            operation_id=operation.operation_id,
+            transition_token=transition_token,
+            expected_version=operation.version,
+        )
+        raise
+
+    # 这里没有上游作业号可留：网关同步提交，返回体不带 provider 侧的作业标识。
+    # 原先拿本行自己的 `operation_id` 填两列，只是为了骗过旧 CHECK 的「非空」判据，
+    # 读上去像「留了上游句柄」，实则是自引用。HandleKind.NONE 把这件事写在行上。
+    accepted = await operation_port.mark_accepted(
+        operation_id=operation.operation_id,
+        transition_token=transition_token,
+        expected_version=operation.version,
+        provider_job_id=None,
+    )
+    await operation_port.mark_completed(
+        operation_id=operation.operation_id,
+        transition_token=transition_token,
+        expected_version=accepted.version,
+        result_ref=None,
+    )
+    return result
+
+
+@asynccontextmanager
+async def execute_organization_gateway_stream(
+    *,
+    capability: str,
+    business_task_id: str,
+    request_digest: str,
+    stream_factory: Callable[[RequestCredential], Any],
+):
+    """Run one claimed organization stream and transition it after consumption."""
+
+    context = current_model_gateway_context()
+    if context is None or not context.is_organization:
+        raise ModelGatewayEgressError("ORG_EGRESS_DENIED")
+    for value, field_name in (
+        (capability, "capability"),
+        (business_task_id, "business_task_id"),
+        (request_digest, "request_digest"),
+    ):
+        if type(value) is not str or not value.strip():
+            raise ValueError(f"{field_name} is required")
+
+    operation_port = get_egress_operation_port()
+    claim = await operation_port.claim(
+        spec=OperationSpec(
+            organization_id=context.billing_principal.id,
+            project_id=context.project_id,
+            root_task_id=context.root_task_id,
+            business_task_id=business_task_id,
+            capability=capability,
+            credential_id=context.credential.credential_id,
+            credential_version=context.credential.key_version,
+            request_digest=request_digest,
+            handle_kind=HandleKind.NONE,
+        )
+    )
+    if not claim.won:
+        raise ModelGatewayEgressError("EGRESS_OPERATION_REPLAYED")
+
+    operation = claim.operation
+    transition_token = claim.transition_token
+    assert transition_token is not None
+    try:
+        credential = await get_model_credentials().resolve(
+            _organization_admission(context)
+        )
+    except BaseException:
+        await operation_port.mark_rejected_before_submit(
+            operation_id=operation.operation_id,
+            transition_token=transition_token,
+            expected_version=operation.version,
+        )
+        raise
+
+    accepted = None
+    try:
+        async with stream_factory(credential) as response:
+            # 流式同样没有上游作业号，见上面同函数族的说明。
+            accepted = await operation_port.mark_accepted(
+                operation_id=operation.operation_id,
+                transition_token=transition_token,
+                expected_version=operation.version,
+                provider_job_id=None,
+            )
+            try:
+                yield response
+            except BaseException:
+                await operation_port.mark_unknown(
+                    operation_id=operation.operation_id,
+                    transition_token=transition_token,
+                    expected_version=accepted.version,
+                )
+                raise
+    except BaseException:
+        if accepted is None:
+            await operation_port.mark_unknown(
+                operation_id=operation.operation_id,
+                transition_token=transition_token,
+                expected_version=operation.version,
+            )
+        raise
+
+    await operation_port.mark_completed(
+        operation_id=operation.operation_id,
+        transition_token=transition_token,
+        expected_version=accepted.version,
+        result_ref=None,
+    )
+
+
+def _runtime_version(api_key: str, base_url: str) -> str:
+    material = f"{base_url}\n{api_key}".encode("utf-8")
+    return hashlib.sha256(material).hexdigest()[:16]
+
+
+def _clear_agent_singletons() -> list[str]:
+    cleared: list[str] = []
+    targets = {
+        "novelvideo.freezone.text_node": (
+            "_translation_agent",
+            "_story_script_agent",
+            "_video_story_script_agent",
+        ),
+        "novelvideo.agents.global_video_optimizer": ("_global_video_optimizer",),
+    }
+    for module_name, attrs in targets.items():
+        module = sys.modules.get(module_name)
+        if module is None:
+            continue
+        for attr in attrs:
+            if hasattr(module, attr):
+                setattr(module, attr, None)
+                cleared.append(f"{module_name}.{attr}")
+    return cleared
+
+
+def _cognee_runtime_status() -> str:
+    module = sys.modules.get("novelvideo.cognee.config")
+    if module is None:
+        return "not_loaded"
+    restart_required = getattr(module, "cognee_gateway_restart_required", None)
+    if callable(restart_required) and restart_required():
+        return "restart_required"
+    return "ready"
+
+
+def refresh_model_gateway_runtime() -> dict[str, Any]:
+    """Invalidate CE caches after a model gateway settings.db write.
+
+    Dynamic CE settings are never copied into process environment variables.
+    Cognee is process-global and must be restarted after its active gateway
+    changes; Hermes performs its own worker fingerprint rotation.
+    """
+
+    if not is_ce_effective():
+        raise RuntimeError("model gateway runtime refresh is only available in CE")
+
+    from novelvideo import config as app_config
+
+    gateway = get_effective_newapi_config(
+        official_base_url=app_config.official_newapi_base_url(),
+        official_api_key=app_config.NEWAPI_API_KEY,
+    )
+    api_key = str(gateway.api_key or "").strip()
+    base_url = str(gateway.base_url or "").strip().rstrip("/")
+    version = _runtime_version(api_key, base_url)
+
+    cleared = _clear_agent_singletons()
+
+    return {
+        "mode": gateway.mode,
+        "source": gateway.source,
+        "configured": bool(api_key and base_url),
+        "runtimeVersion": version,
+        "clearedCaches": cleared,
+        "cognee": _cognee_runtime_status(),
+        # [aipdd fork delta] WP-B: 别名映射一致性自检快照（悬空别名 / 失效目标 /
+        # 能力错配）。只读缓存、不发远程调用、不阻断启动；真算由
+        # GET /model-gateway/custom/newapi/alias-mappings/health 与启动后台任务触发。
+        "alias_mapping_health": _alias_mapping_health_snapshot(),
+    }
+
+
+def _alias_mapping_health_snapshot() -> dict[str, Any]:
+    try:
+        from novelvideo.newapi_provisioner import peek_alias_mapping_health
+
+        return peek_alias_mapping_health()
+    except Exception:  # noqa: BLE001 - 自检仅供展示，不能影响网关运行时刷新
+        return {"status": "unavailable", "checked": False}

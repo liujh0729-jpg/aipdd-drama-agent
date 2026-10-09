@@ -1,0 +1,24 @@
+name: ce-import-lint
+
+# REPO-08：导入守栏（import-lint，硬零）。src/ 或 pyproject 出现对
+# novelvideo_ee / supertale_admin / novelvideo.control_plane 的导入即 exit 1。
+# 相关能力只能经 novelvideo.ports.* 抽象消费，不得直接 import。
+# 纯标准库（ast/tomllib），无需安装依赖。
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ce-import-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Lint forbidden imports
+        run: python3 scripts/lint_ce_imports.py

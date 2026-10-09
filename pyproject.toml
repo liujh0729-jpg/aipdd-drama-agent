@@ -1,0 +1,232 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "supertale-ce"
+version = "2.0.5"
+description = "SuperTale Community Edition API and video pipeline"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Elastic-2.0"
+# License 正文按 REUSE 惯例只保留在 LICENSES/(无根 LICENSE 副本),显式指向它,
+# 避免 hatchling 默认 glob(LICENSE*)在根目录找不到文件。
+license-files = ["LICENSES/Elastic-2.0.txt"]
+authors = [
+    { name = "Eric" }
+]
+dependencies = [
+    # Pin ==1.107.0 (= the version 3060 runs). pydantic-ai 2.x removed
+    # Agent(output_retries=...) which the agents here still pass (scene/prop/asset
+    # planners, verifiers). Unpinned >= drifted EE/CE image builds onto 2.1.0 →
+    # "Agent.__init__() got an unexpected keyword argument 'output_retries'". Stay
+    # on 1.x until a deliberate output_retries -> retries={'output':N} migration.
+    "pydantic-ai-slim[anthropic,google,openai,openrouter]==1.107.0",
+    "openai>=2.29.0",
+    "pydantic>=2.0.0",
+    "psycopg[binary]>=3.2.0",
+    "pymysql>=1.1.0",
+    "typer>=0.9.0",
+    "click<8.2.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
+    "aiosqlite>=0.19.0",
+    "numpy>=1.24.0,<2.0.0",
+    "edge-tts>=6.0.0",
+    "dashscope>=1.0.0",
+    "Pillow>=10.0.0",
+    "fastapi>=0.128.0",
+    "httpx>=0.28.0",
+    "python-docx>=1.1.0",
+    "cognee==1.0.5",
+    "litellm>=1.85.0.dev1",
+    "nest-asyncio>=1.5.0",
+    "claude-agent-sdk>=0.1.72",
+    "mcp>=1.19.0",
+    "celery>=5.4.0",
+    "pypinyin>=0.55.0",
+    "oss2>=2.19.1",
+    # [aipdd fork delta] 媒体中转新增 AWS S3 档（与阿里云 OSS 并行）：官方 SDK，
+    # SigV4/区域/预签名由 boto3 承担，懒导入只在选 aws_s3 档时才需要。
+    "boto3>=1.34.0",
+    "gunicorn>=21.2.0",
+    "uvicorn[standard]>=0.27.0",
+    "sse-starlette>=3.3.0",
+    "python-ulid>=2.2.0",
+    "asyncpg>=0.30.0",
+    "packaging>=24.0",
+    "portalocker>=3.2.0",
+    "langdetect>=1.0.9,<2.0.0",
+    "langid>=1.1.6,<2.0.0",
+    "wordninja>=2.0.0,<3.0.0",
+    # [aipdd fork delta] req21 音视频提取文案：统一链接下载器（YouTube/B站/
+    # 快手/小红书/TikTok 等）；抖音详情拦截走裸 CDP 连宿主机真实 Chrome（与「Chrome MCP」
+    # 同源），已移除 Playwright 依赖——不下载/不安装任何浏览器。yt-dlp 运行期
+    # 依赖 ffmpeg 合流/抽音（容器已具备）。
+    "yt-dlp>=2025.1.15",
+    # [aipdd fork delta] 白板动画逐笔揭示渲染：用轻量 OpenCV（headless，不带 GUI
+    # 依赖，适配容器）做前景掩码 / findContours 分区与方向遮罩扫描；numpy 已在上方。
+    "opencv-python-headless>=4.8.0,<5.0.0",
+]
+
+[project.scripts]
+novelvideo = "novelvideo.cli:app"
+
+[project.optional-dependencies]
+world = [
+    "sharp @ git+https://github.com/apple/ml-sharp.git",
+    "da2 @ git+https://github.com/EnVision-Research/DA-2.git#subdirectory=src",
+    "torch>=2.8.0",
+    "torchvision>=0.23.0",
+    "timm>=1.0.20",
+    "transformers>=4.57.0,<5.0.0",
+    "einops==0.8.0",
+    "huggingface-hub>=0.35.0,<1.0.0",
+    "safetensors>=0.6.0",
+    "plyfile>=1.1.2",
+    "scipy>=1.16.0",
+    "matplotlib>=3.10.0",
+    "imageio>=2.37.0",
+    "pillow-heif>=1.1.0",
+    "jaxtyping>=0.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-xdist>=3.5.0",
+    "fakeredis>=2.20.0",
+    "respx>=0.22.0",
+    "ruff==0.15.20",
+]
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+# 显式冻结规则集为 ruff 默认（pycodestyle 错误 + pyflakes），
+# 避免 ruff 升级引入新规则时门禁漂移。扩规则需单独 PR。
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# wsgi 必须先执行 load_project_dotenv() 再导入 app，属有意的导入顺序依赖（永久豁免）
+"src/novelvideo/api/wsgi.py" = ["E402"]
+# ―――― 以下为存量豁免基线（2026-07-07 快照：196 处 / 61 文件）――――
+# 门禁只管新增代码：新文件、以及下列文件中新增的其他规则违例会被拦截。
+# 治理旧账时：修完某文件的某规则后删除对应条目，防止回潮。
+"src/novelvideo/agents/episode_fixer.py" = ["E402"]
+"src/novelvideo/agents/episode_planner.py" = ["F401"]
+"src/novelvideo/agents/episode_reviewer.py" = ["E402", "F401", "F541"]
+"src/novelvideo/agents/global_video_optimizer.py" = ["F541"]
+"src/novelvideo/agents/keyframe_prompt_builder.py" = ["F541"]
+"src/novelvideo/agents/video_prompt_builder.py" = ["F541"]
+"src/novelvideo/api/routes/characters.py" = ["E402"]
+"src/novelvideo/api/routes/files.py" = ["E402"]
+"src/novelvideo/api/routes/scripts.py" = ["E402"]
+"src/novelvideo/api/routes/styles.py" = ["E402"]
+"src/novelvideo/chat/hermes_sdk.py" = ["F401", "F841"]
+"src/novelvideo/cognee/pipeline.py" = ["F401", "F541", "F811"]
+"src/novelvideo/config.py" = ["F401"]
+"src/novelvideo/director_world/scene_overlap_analyzer.py" = ["F401"]
+"src/novelvideo/director_world/sync_global_props.py" = ["F401"]
+"src/novelvideo/generators/episode_optimizer.py" = ["F401"]
+"src/novelvideo/generators/grid_splitter.py" = ["F401"]
+"src/novelvideo/generators/image_generator.py" = ["F401", "F541"]
+"src/novelvideo/generators/nanobanana_character.py" = ["F401", "F541"]
+"src/novelvideo/generators/nanobanana_prop.py" = ["F401", "F541"]
+"src/novelvideo/generators/pool_indexer.py" = ["F401", "F541"]
+"src/novelvideo/generators/prompt_builder.py" = ["F522", "F541", "F841"]
+"src/novelvideo/generators/scene_reference_images.py" = ["F401"]
+"src/novelvideo/generators/sketch_color_detector.py" = ["F401", "F841"]
+"src/novelvideo/generators/tts_generator.py" = ["F401", "F541"]
+"src/novelvideo/generators/video_composer.py" = ["F401", "F841"]
+"src/novelvideo/models.py" = ["F401"]
+"src/novelvideo/task_backend/cancel.py" = ["F401"]
+"src/novelvideo/utils/identity_resolver.py" = ["F401"]
+"src/novelvideo/utils/logging.py" = ["F541", "F841"]
+"src/novelvideo/verification/cli/run_gate.py" = ["F841"]
+"src/novelvideo/verification/consistency_verifier.py" = ["E402"]
+"src/novelvideo/verification/replay_capture.py" = ["F401"]
+"src/novelvideo/verification/routes.py" = ["E402"]
+"src/novelvideo/verification/sketch_selector.py" = ["F401"]
+"src/novelvideo/verification/sketch_visual_gate.py" = ["F401"]
+"src/novelvideo/verification/training_db.py" = ["F401"]
+"src/novelvideo/verification/version_hash.py" = ["F401"]
+"tests/contract/test_l014_inline_task_backend_concurrency.py" = ["F401"]
+"tests/test_api_assets.py" = ["F401"]
+"tests/test_api_freezone_canvas_from_preset.py" = ["F401"]
+"tests/test_api_render_settings.py" = ["F841"]
+"tests/test_director_staging_shape_presets.py" = ["F401"]
+"tests/test_env_config_ratchet.py" = ["F401"]
+"tests/test_freezone_asset_library_backend.py" = ["F841"]
+"tests/test_freezone_text_backend.py" = ["F401"]
+"tests/test_indextts2_smoke.py" = ["F401"]
+"tests/test_openresty_upload_limit.py" = ["F401"]
+"tests/test_seedance2_voice_audio_records.py" = ["F401"]
+"tests/test_sqlite_store.py" = ["F811"]
+"tests/test_storyboard_prompt_visual_authority.py" = ["F541"]
+"tests/test_wysiwyg_consistency.py" = ["F401", "F841"]
+"tests/test_wysiwyg_neo4j.py" = ["F401"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-m 'not ee and not e2e'"
+norecursedirs = ["archive", "external", ".venv", "node_modules"]
+markers = [
+    "ee: enterprise-edition tests that may require control-plane modules",
+    "e2e: end-to-end tests",
+    "quarantine: temporarily isolated tests",
+    "m01: OSS split module M01",
+    "m02: OSS split module M02",
+    "m03: OSS split module M03",
+    "m04: OSS split module M04",
+    "m05: OSS split module M05",
+    "m06: OSS split module M06",
+    "m07: OSS split module M07",
+    "m08: OSS split module M08",
+    "m09: OSS split module M09",
+    "m10: OSS split module M10",
+]
+
+[[tool.uv.dependency-metadata]]
+name = "da2"
+version = "0.1.0"
+requires-dist = []
+
+# ml-sharp(`sharp`)上游依赖含 gsplat(渲染器,常需 CUDA 编译);SHARP 预测路径不用
+# gsplat(已核:CE 与 sharp.models 均不 import 它)。这里覆盖 sharp 的依赖元数据、
+# 去掉 gsplat,使 CPU/无 CUDA 环境(含 CE Docker)能干净安装;其余依赖原样保留。
+[[tool.uv.dependency-metadata]]
+name = "sharp"
+version = "0.1"
+requires-dist = [
+    "click",
+    "imageio",
+    "matplotlib",
+    "pillow-heif",
+    "plyfile",
+    "scipy",
+    "timm",
+    "torch",
+    "torchvision",
+]
+
+[tool.supertale.external-tools.splat-transform]
+description = "Compress generated 3DGS PLY assets to PlayCanvas SOG packages."
+package-manager = "npm"
+package = "@playcanvas/splat-transform"
+version = "^2.0.3"
+binary = "splat-transform"
+install = "npm install -g @playcanvas/splat-transform"
+env-override = "ST_SPLAT_TRANSFORM_BIN"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/novelvideo"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/novelvideo/release-notes.md" = "novelvideo/release-notes.md"
+
+[tool.hatch.metadata]
+allow-direct-references = true

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "💬 讨论 / 提问 · Discussions / Questions"
+    url: https://github.com/liujh0729-jpg/aipdd-drama-agent/discussions
+    about: "用法问题、想法交流请走 Discussions / For usage questions and ideas, use Discussions"
+  - name: "🔒 安全问题 · Security"
+    url: https://github.com/liujh0729-jpg/aipdd-drama-agent/security/policy
+    about: "安全漏洞请勿走公开 issue，按 SECURITY.md 私下上报 / Don't file security reports as public issues; follow SECURITY.md"

@@ -1,0 +1,317 @@
+/* SPDX-License-Identifier: Elastic-2.0 */
+/* Copyright (c) 2026 ClaymoreLab */
+/* petdex 宠物（精灵图）容器：定位在外层 .mybuddy-companion-floating（fixed，有固定
+   尺寸）的左上角；精灵图自身大小由组件内联 height/width 决定。 */
+.petdex-pet-companion {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* 任务进行中：宠物右上角的马赛克/像素风气泡。直角无圆角 + 硬阴影 + 等宽字体 → 复古
+   像素观感；指向宠物的小方块「尾巴」用 ::after 画。 */
+.petdex-pet-bubble {
+  position: absolute;
+  left: calc(100% - 6px);
+  top: -2px;
+  z-index: 4;
+  /* 单行横排：浮动容器只有宠物那么宽，绝对定位 + 允许换行会被挤成一字一行。
+     nowrap 让气泡按文字宽度横向铺开，超长用省略号截断。 */
+  max-width: 240px;
+  padding: 4px 7px;
+  background: #14161b;
+  color: #eef0e8;
+  border: 2px solid #5b6470;
+  box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 0.55);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  image-rendering: pixelated;
+  pointer-events: none;
+  animation: petdex-bubble-in 160ms ease-out both;
+}
+/* 成功 / 失败 用边框色区分。 */
+.petdex-pet-bubble[data-kind="success"] {
+  border-color: #3f9b6b;
+}
+.petdex-pet-bubble[data-kind="failure"] {
+  border-color: #c0556b;
+}
+/* 淡出。 */
+.petdex-pet-bubble[data-leaving] {
+  animation: petdex-bubble-out 220ms ease-in both;
+}
+.petdex-pet-bubble::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 10px;
+  width: 4px;
+  height: 4px;
+  background: #5b6470;
+}
+
+@keyframes petdex-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes petdex-bubble-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .petdex-pet-bubble,
+  .petdex-pet-bubble[data-leaving] {
+    animation: none;
+  }
+}
+
+/* 单帧视口：height/width + background-* 由组件按宠物网格内联设置（数据驱动）。
+   逐帧步进也走内联 backgroundPositionX，这里只定基础渲染属性。 */
+.petdex-pet-sprite {
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+/* 画廊行懒渲染：off-screen 行不渲染（其缩略图 background-image 也不预取），把一次
+   性的几十张 CDN 请求削成只加载可视区域的几张，避免 petdex CDN 限流(403)。 */
+.petdex-gallery-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 44px;
+}
+
+.petdex-gallery-title-badge {
+  transform-origin: 42% 58%;
+}
+
+.petdex-gallery-title-badge::before,
+.petdex-gallery-title-badge::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+.petdex-gallery-title-badge::before {
+  left: 43px;
+  top: 13px;
+  width: 3px;
+  height: 3px;
+  opacity: 0.62;
+  background: rgba(255, 252, 218, 0.96);
+  box-shadow:
+    3px 0 0 rgba(255, 204, 82, 0.9),
+    -3px 0 0 rgba(255, 243, 174, 0.76),
+    0 3px 0 rgba(255, 214, 96, 0.84),
+    0 -3px 0 rgba(255, 249, 211, 0.9);
+  animation: petdex-title-star-breathe-left 4200ms ease-in-out infinite;
+}
+
+.petdex-gallery-title-badge::after {
+  left: 118px;
+  top: 90px;
+  width: 2.5px;
+  height: 2.5px;
+  opacity: 0.76;
+  background: rgba(255, 252, 218, 0.96);
+  box-shadow:
+    2.5px 0 0 rgba(255, 204, 82, 0.88),
+    -2.5px 0 0 rgba(255, 243, 174, 0.78),
+    0 2.5px 0 rgba(255, 214, 96, 0.82),
+    0 -2.5px 0 rgba(255, 249, 211, 0.9),
+    7px 7px 0 rgba(255, 166, 48, 0.56),
+    -6px 8px 0 rgba(255, 230, 129, 0.5);
+  animation: petdex-title-star-breathe-right 4200ms ease-in-out infinite;
+}
+
+@keyframes petdex-title-star-breathe-left {
+  0%,
+  100% {
+    opacity: 0.42;
+    filter: drop-shadow(0 0 0 rgba(255, 214, 96, 0));
+    transform: scale(0.94);
+  }
+  25% {
+    opacity: 0.92;
+    filter: drop-shadow(0 0 5px rgba(255, 214, 96, 0.46));
+    transform: scale(1.08);
+  }
+  75% {
+    opacity: 0.38;
+    filter: drop-shadow(0 0 0 rgba(255, 214, 96, 0));
+    transform: scale(0.92);
+  }
+}
+
+@keyframes petdex-title-star-breathe-right {
+  0%,
+  100% {
+    opacity: 0.92;
+    filter: drop-shadow(0 0 5px rgba(255, 214, 96, 0.46));
+    transform: scale(1.08);
+  }
+  25% {
+    opacity: 0.42;
+    filter: drop-shadow(0 0 0 rgba(255, 214, 96, 0));
+    transform: scale(0.96);
+  }
+  75% {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgba(255, 214, 96, 0.5));
+    transform: scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .petdex-gallery-title-badge::before,
+  .petdex-gallery-title-badge::after {
+    animation: none;
+  }
+}
+
+.petdex-accessory-menu-scroll {
+  scrollbar-width: none;
+}
+
+.petdex-accessory-menu-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.petdex-piko-accessory-feedback {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.petdex-piko-accessory-flash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 78px;
+  height: 64px;
+  transform: translate(-50%, -30%);
+  filter: drop-shadow(0 0 6px rgba(214, 166, 78, 0.3));
+  animation: petdex-piko-accessory-flash 620ms steps(3, end) both;
+  pointer-events: none;
+}
+
+.petdex-piko-accessory-flash::before {
+  content: none;
+}
+
+.petdex-piko-accessory-flash span {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: rgba(255, 244, 196, 0.96);
+  box-shadow:
+    3px 0 0 rgba(255, 197, 72, 0.9),
+    -3px 0 0 rgba(255, 226, 132, 0.72),
+    0 3px 0 rgba(255, 191, 64, 0.82),
+    0 -3px 0 rgba(255, 244, 196, 0.84);
+  image-rendering: pixelated;
+}
+
+.petdex-piko-accessory-flash span:nth-child(1) {
+  left: 12px;
+  top: 22px;
+}
+
+.petdex-piko-accessory-flash span:nth-child(2) {
+  right: 12px;
+  top: 18px;
+}
+
+.petdex-piko-accessory-flash span:nth-child(3) {
+  left: 24px;
+  bottom: 11px;
+}
+
+.petdex-piko-accessory-flash span:nth-child(4) {
+  right: 18px;
+  bottom: 14px;
+}
+
+.petdex-piko-accessory-bubble {
+  position: absolute;
+  left: calc(50% + 14px);
+  top: 10px;
+  z-index: 3;
+  max-width: 76px;
+  transform: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+  color: #f7ead0;
+  font-family: inherit;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.75),
+    0 0 7px rgba(215, 174, 95, 0.58);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  animation: petdex-piko-accessory-bubble 1800ms ease-out both;
+  pointer-events: none;
+}
+
+@keyframes petdex-piko-accessory-flash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.76);
+  }
+  28% {
+    opacity: 1;
+    transform: translate(-50%, -30%) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(1.16);
+  }
+}
+
+@keyframes petdex-piko-accessory-bubble {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.96);
+  }
+  16%,
+  72% {
+    opacity: 1;
+    transform: translate(3px, -2px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(5px, -4px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .petdex-piko-accessory-flash,
+  .petdex-piko-accessory-bubble {
+    animation: none;
+  }
+}

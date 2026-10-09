@@ -1,0 +1,199 @@
+/* SPDX-License-Identifier: Elastic-2.0 */
+/* Copyright (c) 2026 ClaymoreLab */
+/**
+ * 多维度编辑器「角度调节区」的 3D 线框球场景。
+ *
+ * 参考 libtv 多角度调节器:一个用 CSS 3D transform 拼出来的线框地球(经线 great
+ * circle + 纬线 latitude ring)、一台沿球面环绕的立体小相机、中心朝向观察者的参考
+ * 图,以及上下左右四个方向微调按钮。旋转(俯仰/方位)由 React 注入到 `--ma-pitch` /
+ * `--ma-yaw`,这里只负责静态外观与 3D 结构。
+ */
+
+.ma-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.ma-scene:active {
+  cursor: grabbing;
+}
+
+/* 共享 3D 世界:旋转的线框球/相机 与 球心的参考图 都在这一个 preserve-3d 上下文里,
+   浏览器才能按真实 Z 深度排序(相机转到正面在图前、转到背面在图后)。 */
+.ma-world {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+
+/* 旋转支点:线框球 + 环绕相机挂在它下面,一起绕球心旋转。 */
+.ma-pivot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--ma-pitch, -30deg)) rotateY(var(--ma-yaw, 0deg));
+  transition: transform 0.08s ease-out;
+}
+
+/* 经线 / 纬线:正圆 div,靠 border 画线;父级 preserve-3d 让它们立体摆放。 */
+.ma-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform-style: preserve-3d;
+}
+.ma-meridian {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.ma-parallel {
+  border: 1px solid rgba(255, 255, 255, 0.085);
+}
+
+/* 中心参考图:放在球心(translateZ(0))且不随球旋转,始终正对观察者(billboard);
+   因为和相机同处一个 preserve-3d 世界,相机会按 Z 正确地遮挡/被遮挡。 */
+.ma-center-image {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -50%);
+}
+.ma-center-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 环绕相机:挂在支点里,沿 Z 轴推到球面上 → 跟着支点旋转即环绕中心。 */
+.ma-camera {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-style: preserve-3d;
+}
+.ma-camera-body {
+  position: absolute;
+  width: 22px;
+  height: 16px;
+  left: -11px;
+  top: -8px;
+  transform-style: preserve-3d;
+}
+.ma-camera-face {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, rgba(78, 82, 92, 0.98), rgba(30, 32, 40, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.32);
+}
+.ma-camera-face-front {
+  transform: translateZ(7px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ma-camera-face-back {
+  transform: translateZ(-7px) rotateY(180deg);
+  background-size: cover;
+  background-position: center;
+}
+.ma-camera-face-right {
+  width: 14px;
+  left: 4px;
+  transform: rotateY(90deg) translateZ(11px);
+}
+.ma-camera-face-left {
+  width: 14px;
+  left: 4px;
+  transform: rotateY(-90deg) translateZ(11px);
+}
+.ma-camera-face-top {
+  height: 14px;
+  top: 1px;
+  transform: rotateX(90deg) translateZ(8px);
+}
+.ma-camera-face-bottom {
+  height: 14px;
+  top: 1px;
+  transform: rotateX(-90deg) translateZ(8px);
+}
+.ma-camera-lens {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(150, 200, 255, 0.95), rgba(20, 30, 50, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* 相机 → 中心的连杆(细长方块,沿 Z 朝向球心)。 */
+.ma-camera-line {
+  position: absolute;
+  left: -0.75px;
+  top: 0;
+  width: 1.5px;
+  background: rgba(255, 255, 255, 0.32);
+  transform-origin: top center;
+  transform: rotateX(-90deg);
+}
+
+/* 上下左右方向微调按钮。 */
+.ma-dir-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+  z-index: 3;
+}
+.ma-dir-btn:hover {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.ma-dir-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.ma-dir-up {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.ma-dir-down {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.ma-dir-left {
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.ma-dir-right {
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}

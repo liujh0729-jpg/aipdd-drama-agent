@@ -1,0 +1,10 @@
+{
+  "id": "realistic",
+  "name": "Realistic Modern",
+  "style_instructions": "Create a live-action image with grounded realism. Use natural lighting and restrained contrast, avoiding glossy fashion-editorial polish. Ensure realistic skin texture with visible pores, subtle imperfections, and no beauty-retouching. Use a natural 50mm cinematic lens feel with moderate depth of field. Keep the final image photographic and human, with subtle film grain and controlled color grading. Follow the beat, scene, character, and prop descriptions for exact era, wardrobe, architecture, technology, and materials.",
+  "avoid_instructions": "FORBIDDEN: anime, cartoon, illustration, painting styles. NOT CGI or 3D rendered. No plastic skin, wax figure, or mannequin appearance. No AI artifacts, uncanny valley effects, or HDR overprocessing. No extra limbs, mutated hands, or deformed features. No text, watermarks, or labels on image.",
+  "style_tag": "NATURAL PHOTOREALISTIC, CLEAN GRADE",
+  "label": "写实现代",
+  "style_family": "live_action",
+  "animation_subtype": ""
+}

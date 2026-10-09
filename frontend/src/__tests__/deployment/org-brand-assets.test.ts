@@ -1,0 +1,89 @@
+import { existsSync, readFileSync } from "node:fs";
+
+import { describe, expect, it } from "vitest";
+
+describe("organization brand asset deployment contract", () => {
+  it("keeps the whole organization brand namespace out of the SPA fallback", () => {
+    const config = readFileSync("vite.config.ts", "utf8");
+    const context = config.match(/"(\^\/assets\/org-brand[^\"]+)": \{/)?.[1];
+
+    expect(context).toBeDefined();
+    const matchesBrandProxy = new RegExp(context!);
+    for (const path of [
+      "/assets/org-brand/org_a/logo",
+      `/assets/org-brand/${"a".repeat(65)}/logo`,
+      "/assets/org-brand/org_a/logo/extra",
+      "/assets/org-brand/org_a/logo?download=1",
+      "/assets/org-brand",
+    ]) {
+      expect(matchesBrandProxy.test(path), path).toBe(true);
+    }
+    expect(matchesBrandProxy.test("/assets/org-branding/org_a/logo")).toBe(false);
+    expect(config).toContain("target: apiTarget");
+    expect(config).toContain('path.replace("/assets/org-brand/", "/api/v1/org-brand/")');
+    expect(config).toContain('proxyReq.removeHeader("cookie")');
+    expect(config).toContain('proxyReq.removeHeader("authorization")');
+    expect(config).toContain('proxy.on("proxyRes"');
+    expect(config).toContain('delete proxyResponse.headers["set-cookie"]');
+    expect(config).toContain('delete proxyResponse.headers.location');
+    expect(config).not.toContain("createOrgBrandAssetDevPlugin");
+  });
+
+  it("routes only the exact fixed logo path directly to the existing backend", () => {
+    const config = readFileSync("docker/nginx.conf.template", "utf8");
+    const block = config.match(
+      /location ~ "\^\/assets\/org-brand([\s\S]*?)\n    \}/,
+    )?.[1];
+
+    expect(block).toContain("/([A-Za-z0-9_-]{1,64})/logo$");
+    expect(block).toContain("limit_except GET HEAD");
+    expect(block).toContain('if ($args != "") { return 404; }');
+    expect(block).toContain("proxy_pass http://supertale_backend/api/v1/org-brand/$1/logo");
+    expect(block).toContain("proxy_pass_request_headers off");
+    expect(block).not.toContain("127.0.0.1:3001");
+    expect(config.indexOf('location ~ "^/assets/org-brand')).toBeLessThan(
+      config.indexOf("location /assets/"),
+    );
+  });
+
+  it("keeps the runtime as the standard static Nginx container", () => {
+    const dockerfile = readFileSync("Dockerfile", "utf8");
+    const packageJson = readFileSync("package.json", "utf8");
+
+    // [aipdd fork delta] 本 fork 刻意改为 `pnpm exec vite build` 跳过 tsc 类型检查
+    // （前端自带未写完的孤儿文件，tsc -b 会失败），SPA 仍在镜像构建期产出，
+    // 运行时的“纯静态 Nginx 容器”这一契约不变。
+    expect(dockerfile).toContain("RUN pnpm exec vite build");
+    expect(dockerfile).not.toContain("apk add --no-cache nodejs");
+    expect(dockerfile).not.toContain("org-brand-proxy-server.mjs");
+    expect(dockerfile).not.toContain("docker/start.sh");
+    expect(packageJson).not.toContain("build:org-brand-proxy");
+  });
+
+  it("uses a resolvable loopback upstream when validating the Nginx template", () => {
+    const dockerfile = readFileSync("Dockerfile", "utf8");
+    const configTest = dockerfile.match(
+      /FROM nginx:1\.27-alpine AS nginx-config-test([\s\S]*?)FROM nginx:1\.27-alpine AS runtime/,
+    )?.[1];
+
+    expect(configTest).toBeDefined();
+    expect(configTest).toContain("BACKEND_HOST=127.0.0.1");
+    expect(configTest).not.toContain("backend.invalid");
+    expect(dockerfile).toContain("BACKEND_HOST=novelvideo-ui-staging");
+  });
+
+  it("does not retain the removed companion implementation", () => {
+    for (const file of [
+      "docker/org-brand-assets.ts",
+      "docker/org-brand-proxy-main.ts",
+      "docker/org-brand-proxy-server.test.ts",
+      "docker/org-brand-proxy-server.ts",
+      "docker/start.sh",
+      "docker/tsconfig.json",
+      "docker/vite-org-brand-proxy.ts",
+      "docker/vite.proxy.config.ts",
+    ]) {
+      expect(existsSync(file), file).toBe(false);
+    }
+  });
+});

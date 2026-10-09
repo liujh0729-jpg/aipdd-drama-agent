@@ -1,0 +1,91 @@
+# REUSE 3.3 bulk annotations (https://reuse.software).
+# Per-file SPDX headers cover all of src/**/*.{ts,tsx,css}. This file declares
+# licensing for first-party files that cannot carry a comment header (data,
+# markup, config, locale JSON, binary assets).
+#
+# NOT covered here (resolve before public release — see docs/changes):
+#   - public/fonts/*   bundled third-party font (license verification pending)
+#   - worker/, wrangler.jsonc, .github/workflows/*, .env*  stripped on the
+#     public mirror branch (FE-EXC), not licensed for the open-source artifact.
+version = 1
+
+[[annotations]]
+path = [
+  "index.html",
+  "package.json",
+  "components.json",
+  "tsconfig.json",
+  "tsconfig.app.json",
+  "tsconfig.node.json",
+  "pnpm-workspace.yaml",
+  "Dockerfile",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 ClaymoreLab"
+SPDX-License-Identifier = "Elastic-2.0"
+
+[[annotations]]
+path = [
+  "README.md",
+  "DEPLOY.md",
+  "PROJECT_SPEC.md",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "verification-ledger.md",
+  "docs/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 ClaymoreLab"
+SPDX-License-Identifier = "Elastic-2.0"
+
+[[annotations]]
+path = [
+  "src/login-posters.json",
+  "src/assets/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 ClaymoreLab"
+SPDX-License-Identifier = "Elastic-2.0"
+
+[[annotations]]
+path = [
+  "public/locales/**",
+  "public/brand/**",
+  "public/images/**",
+  "public/video/**",
+  "public/login-community/**",
+  "public/contact/**",
+  "public/icons.svg",
+  "public/favicon.svg",
+  "public/piko/**",
+  "public/petdex/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 ClaymoreLab"
+SPDX-License-Identifier = "Elastic-2.0"
+
+# Third-party 3D assets under viewer-kit: Quaternius animation models, released
+# under CC0-1.0 (public domain). See each folder's License.txt. NOT first-party,
+# must not be aggregated under Elastic-2.0.
+[[annotations]]
+path = ["public/viewer-kit/quaternius/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Quaternius"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "pnpm-lock.yaml"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 ClaymoreLab"
+SPDX-License-Identifier = "Elastic-2.0"
+
+# Generated compliance artifacts (DEP-03 / DEP-08). THIRD-PARTY-LICENSES.txt is a
+# compilation of upstream license texts; NOTICE is the attribution index.
+[[annotations]]
+path = [
+  "NOTICE",
+  "THIRD-PARTY-LICENSES.txt",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 ClaymoreLab"
+SPDX-License-Identifier = "Elastic-2.0"

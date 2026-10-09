@@ -1,0 +1,574 @@
+// SPDX-License-Identifier: Elastic-2.0
+// Copyright (c) 2026 ClaymoreLab
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Position, NodeToolbar as ReactFlowNodeToolbar } from '@xyflow/react';
+import { ArrowUp, Check, ChevronDown, RectangleHorizontal, RectangleVertical, Sparkles, Square, X, Image as ImageIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+import {
+  CANVAS_NODE_TYPES,
+  DEFAULT_ASPECT_RATIO,
+  DEFAULT_NODE_WIDTH,
+  EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+  EXPORT_RESULT_NODE_LAYOUT_HEIGHT,
+  type CanvasNode,
+} from '@/features/canvas/domain/canvasNodes';
+import { useCanvasStore } from '@/stores/canvasStore';
+import {
+  fetchFreezoneJobResult,
+  submitFreezoneOutpaint,
+  type FreezoneOutpaintAspectRatio,
+} from '@/api/ops';
+import { awaitTaskCompletion, isTaskPollTimeoutError } from '@/api/tasks';
+import { notifyTaskStillRunning } from '@/features/canvas/application/errorDialog';
+import { generationTaskDescriptor } from '@/features/canvas/application/resumeGeneration';
+import { GENERATION_ERROR_CLEARED_PATCH } from '@/features/canvas/application/generationTaskArbitration';
+import { readUrl } from '@/lib/url-params';
+import {
+  ProviderModelPicker,
+} from '@/features/canvas/ui/ProviderModelPicker';
+import {
+  isAuthoritativeEmptyCatalog,
+  useFreezoneImageModels,
+} from '@/features/canvas/hooks/useFreezoneImageModels';
+import { inheritMainlineFields } from '@/features/canvas/domain/inheritMainlineFields';
+import {
+  pickAllowedOption,
+  resolveModelAspectOptions,
+  resolveModelSizeOptions,
+} from '@/features/canvas/domain/mediaModelOptions';
+import { NODE_TOOLBAR_CLASS } from './nodeToolbarConfig';
+import { CANVAS_NODE_TOOLBAR_PILL_CLASS } from './nodeFrameStyles';
+import { NODE_GENERATE_BUTTON_BASE_CLASS, NODE_GENERATE_BUTTON_ENABLED_CLASS, NODE_GENERATE_BUTTON_DISABLED_CLASS } from './nodeControlStyles';
+
+const OUTPAINT_NUM_IMAGES = [1, 2, 3, 4] as const;
+type OutpaintNumImages = (typeof OUTPAINT_NUM_IMAGES)[number];
+
+// 数量 > 1 时多个结果节点纵向错开摆放的间距。
+const RESULT_STACK_GAP = 24;
+
+/**
+ * 扩图比例的展示元数据（图标 / 文案 / 用于画裁剪框的数值比）。
+ *
+ * 这里只描述「某个比例长什么样」，**哪些比例可选**由后台对所选模型配置的
+ * ratioOptions 决定 —— 见 `useOutpaintAspectOptions`。
+ */
+const OUTPAINT_ASPECT_META: {
+  value: FreezoneOutpaintAspectRatio;
+  ratio: number | null; // null = preserve original
+  i18nKey: string;
+  Icon: typeof RectangleHorizontal;
+}[] = [
+  { value: 'original', ratio: null, i18nKey: 'outpaintEditor.aspect.original', Icon: ImageIcon },
+  { value: '1:1', ratio: 1, i18nKey: 'outpaintEditor.aspect.s1_1', Icon: Square },
+  { value: '4:3', ratio: 4 / 3, i18nKey: 'outpaintEditor.aspect.s4_3', Icon: RectangleHorizontal },
+  { value: '3:4', ratio: 3 / 4, i18nKey: 'outpaintEditor.aspect.s3_4', Icon: RectangleVertical },
+  { value: '16:9', ratio: 16 / 9, i18nKey: 'outpaintEditor.aspect.s16_9', Icon: RectangleHorizontal },
+  { value: '9:16', ratio: 9 / 16, i18nKey: 'outpaintEditor.aspect.s9_16', Icon: RectangleVertical },
+];
+
+interface OutpaintEditorOverlayProps {
+  node: CanvasNode;
+  imageSource: string;
+  onClose: () => void;
+}
+
+export const OutpaintEditorOverlay = memo(
+  ({ node, imageSource, onClose }: OutpaintEditorOverlayProps) => {
+    const { t } = useTranslation();
+    const addNode = useCanvasStore((state) => state.addNode);
+    const addEdge = useCanvasStore((state) => state.addEdge);
+    const setSelectedNode = useCanvasStore((state) => state.setSelectedNode);
+    const findNodePosition = useCanvasStore((state) => state.findNodePosition);
+    const updateNodeData = useCanvasStore((state) => state.updateNodeData);
+
+    const [aspectRatio, setAspectRatio] =
+      useState<FreezoneOutpaintAspectRatio>('original');
+    const [imageSize, setImageSize] = useState<string>('2K');
+    const [numImages, setNumImages] = useState<OutpaintNumImages>(1);
+    // [aipdd fork delta] 不预置写死的默认模型 id：留空，selectedModel 落到目录
+    // 首模型（后台默认项），空目录时保持 undefined 并据 catalogIsEmpty 禁用提交。
+    const [modelId, setModelId] = useState<string>('');
+    const imageCatalog = useFreezoneImageModels();
+    const availableModels = imageCatalog.models;
+    // 后台确实一个图片模型都没配时禁止提交：后端 `_resolve_catalog_request`
+    // 对空目录直接 409，让用户点一下再收报错是最糟的体验。
+    const catalogIsEmpty = isAuthoritativeEmptyCatalog(imageCatalog);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    // 目录为空时故意让 selectedModel 保持 undefined。原来这里尾巴上还挂着
+    // `?? SHARED_MODELS.find(...)`，等于把前端硬编码的模型当成可用模型复活，
+    // 正是「后台没配模型，界面照样显示能用」的来源。
+    const selectedModel =
+      availableModels.find((m) => m.id === modelId) ?? availableModels[0];
+    // 分辨率 / 比例 / 画质都跟随后台对该模型的配置，换模型时把越界的旧选择收回。
+    const sizeOptions = useMemo(
+      () => resolveModelSizeOptions(selectedModel),
+      [selectedModel],
+    );
+    const aspectOptions = useMemo(
+      () =>
+        OUTPAINT_ASPECT_META.filter(
+          (option) =>
+            // original 是扩图接口自带的「保持原图比例」语义，恒定可选。
+            option.value === 'original'
+            || resolveModelAspectOptions(selectedModel).includes(option.value),
+        ),
+      [selectedModel],
+    );
+    const effectiveImageSize = pickAllowedOption(imageSize, sizeOptions);
+    const effectiveAspectRatio = (aspectOptions.some((o) => o.value === aspectRatio)
+      ? aspectRatio
+      : (aspectOptions[0]?.value ?? 'original')) as FreezoneOutpaintAspectRatio;
+    const submitDisabled = isSubmitting || catalogIsEmpty;
+
+    const nodeWidth =
+      typeof node.measured?.width === 'number'
+        ? node.measured.width
+        : typeof node.width === 'number'
+          ? node.width
+          : DEFAULT_NODE_WIDTH;
+    const nodeHeight =
+      typeof node.measured?.height === 'number'
+        ? node.measured.height
+        : typeof node.height === 'number'
+          ? node.height
+          : nodeWidth;
+
+    const frame = useMemo(() => {
+      const option = OUTPAINT_ASPECT_META.find((o) => o.value === effectiveAspectRatio);
+      const targetRatio = option?.ratio ?? null;
+      if (targetRatio === null) {
+        return { width: nodeWidth, height: nodeHeight };
+      }
+      const nodeRatio = nodeWidth / nodeHeight;
+      // Keep the original image at its native size; extend only the dimension
+      // that needs to grow so the frame still contains it.
+      if (targetRatio >= nodeRatio) {
+        // Target is wider → grow horizontally.
+        return { width: nodeHeight * targetRatio, height: nodeHeight };
+      }
+      // Target is taller → grow vertically.
+      return { width: nodeWidth, height: nodeWidth / targetRatio };
+    }, [effectiveAspectRatio, nodeHeight, nodeWidth]);
+
+    const verticalExtension = Math.max(0, (frame.height - nodeHeight) / 2);
+    const horizontalExtension = Math.max(0, (frame.width - nodeWidth) / 2);
+    const bottomToolbarOffset = verticalExtension + 12;
+
+    // 建一个 loading 结果节点并连边，立即返回节点 id（同步，不等待生成）。
+    const createOutpaintNode = useCallback(
+      (sourceAspectRatio: string, position: { x: number; y: number }) => {
+        const generationStartedAt = Date.now();
+        // 1→1 outpaint: inherit source's mainline fields so the new node still
+        // resolves to the same canonical slot at Push time. user_spawned: true
+        // is stamped by inheritMainlineFields; preset_managed is never set.
+        const initialData = inheritMainlineFields(
+          { data: node.data as Record<string, unknown> },
+          {
+            displayName: t('outpaintEditor.title'),
+            imageUrl: null,
+            previewImageUrl: null,
+            aspectRatio:
+              effectiveAspectRatio === 'original' ? sourceAspectRatio : effectiveAspectRatio,
+            resultKind: 'generic',
+            isGenerating: true,
+            generationStartedAt,
+          },
+        );
+        const nextNodeId = addNode(
+          CANVAS_NODE_TYPES.exportImage,
+          position,
+          initialData as unknown as Parameters<typeof addNode>[2],
+        );
+        addEdge(node.id, nextNodeId);
+        return nextNodeId;
+      },
+      [addEdge, addNode, effectiveAspectRatio, node, t],
+    );
+
+    // 针对已建好的节点提交单图扩图（num_images=1）→ 轮询 → 回填。
+    const runOutpaintGeneration = useCallback(
+      async (project: string, nodeId: string, apiModel: string) => {
+        try {
+          const ref = await submitFreezoneOutpaint(project, {
+            sourceUrl: imageSource.split('?')[0],
+            targetAspectRatio: effectiveAspectRatio,
+            numImages: 1,
+            // 必须是 effectiveImageSize：`imageSize` 是用户上一次挑的原始档位，换模型后
+            // 后台可能根本不给这一档（sizeOptions 里没有），UI 上显示的、报价用的都是
+            // 收敛后的 effectiveImageSize，只有提交带着越界的旧值——报价与执行对不上，
+            // 后端还会按目录 schema 判非法。而且 deps 里本来就只有 effectiveImageSize，
+            // 这里读 imageSize 连闭包都是旧的。
+            imageSize: effectiveImageSize,
+            model: apiModel,
+          });
+          updateNodeData(nodeId, generationTaskDescriptor(ref));
+          const completed = await awaitTaskCompletion(ref.task_key, project, { taskType: ref.task_type });
+          const directUrl = completed.result?.['output_url'] as string | undefined;
+          let url = directUrl;
+          if (!url) {
+            const fallback = await fetchFreezoneJobResult(project, ref.task_type, ref.job_id);
+            url = fallback.url;
+          }
+          updateNodeData(nodeId, {
+            imageUrl: url,
+            previewImageUrl: url,
+            isGenerating: false,
+            generationStartedAt: null,
+            ...GENERATION_ERROR_CLEARED_PATCH,
+          });
+        } catch (err) {
+          // 轮询超时 ≠ 生成失败：后端还在跑，节点上的任务句柄仍可续接。
+          // 写错误横幅会把一个还活着的任务标成失败，并清掉句柄。
+          if (isTaskPollTimeoutError(err)) {
+            notifyTaskStillRunning(t);
+            return;
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          console.error('[outpaint] generation failed', err);
+          updateNodeData(nodeId, {
+            isGenerating: false,
+            generationStartedAt: null,
+            generationError: message,
+          });
+        }
+      },
+      [effectiveAspectRatio, effectiveImageSize, imageSource, t, updateNodeData],
+    );
+
+    const handleSubmit = useCallback(async () => {
+      // 按钮已经禁用，这里再挡一道：没有可用模型就绝不该发出请求。
+      if (isSubmitting || catalogIsEmpty) return;
+      const project = readUrl().project;
+      if (!project) {
+        console.error('[outpaint] no project in URL — cannot submit');
+        return;
+      }
+
+      const sourceAspectRatio =
+        typeof (node.data as { aspectRatio?: unknown }).aspectRatio === 'string'
+          ? ((node.data as { aspectRatio?: string }).aspectRatio ?? DEFAULT_ASPECT_RATIO)
+          : DEFAULT_ASPECT_RATIO;
+      const base = findNodePosition(
+        node.id,
+        EXPORT_RESULT_NODE_DEFAULT_WIDTH,
+        EXPORT_RESULT_NODE_LAYOUT_HEIGHT,
+      );
+      const apiModel = selectedModel?.apiModel ?? modelId;
+
+      setIsSubmitting(true);
+      try {
+        // 后端 outpaint 单次仅出 1 张：选了 N 张就建 N 个 loading 节点（纵向错开）
+        // 并发起 N 次单图请求，每个节点各自独立轮询/回填/报错。
+        const count = Math.max(1, numImages);
+        const nodeIds = Array.from({ length: count }, (_unused, i) =>
+          createOutpaintNode(sourceAspectRatio, {
+            x: base.x,
+            y: base.y + i * (EXPORT_RESULT_NODE_LAYOUT_HEIGHT + RESULT_STACK_GAP),
+          }),
+        );
+        setSelectedNode(nodeIds[0]);
+        onClose();
+        nodeIds.forEach((id) => void runOutpaintGeneration(project, id, apiModel));
+      } finally {
+        setIsSubmitting(false);
+      }
+    }, [
+      catalogIsEmpty,
+      createOutpaintNode,
+      findNodePosition,
+      isSubmitting,
+      modelId,
+      node,
+      numImages,
+      onClose,
+      runOutpaintGeneration,
+      selectedModel,
+      setSelectedNode,
+    ]);
+
+    return (
+      <>
+        {/* Frame overlay anchored at the node's top edge; the inner div uses
+            absolute positioning to draw a rectangle centered on the node. */}
+        <ReactFlowNodeToolbar
+          nodeId={node.id}
+          isVisible
+          position={Position.Top}
+          align="center"
+          offset={0}
+          className={`${NODE_TOOLBAR_CLASS} pointer-events-none`}
+        >
+          <div className="relative" style={{ width: 0, height: 0 }}>
+            <div
+              className="pointer-events-none absolute overflow-hidden rounded-lg border border-cyan-200/30 bg-cyan-200/[0.025] shadow-[0_0_0_1px_rgba(34,211,238,0.08)]"
+              style={{
+                width: frame.width,
+                height: frame.height,
+                left: '50%',
+                top: nodeHeight / 2,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              {verticalExtension > 0 && (
+                <>
+                  <div
+                    className="absolute inset-x-0 top-0 bg-cyan-200/[0.055]"
+                    style={{ height: verticalExtension }}
+                  />
+                  <div
+                    className="absolute inset-x-0 bottom-0 bg-cyan-200/[0.055]"
+                    style={{ height: verticalExtension }}
+                  />
+                </>
+              )}
+              {horizontalExtension > 0 && (
+                <>
+                  <div
+                    className="absolute inset-y-0 left-0 bg-cyan-200/[0.055]"
+                    style={{ width: horizontalExtension }}
+                  />
+                  <div
+                    className="absolute inset-y-0 right-0 bg-cyan-200/[0.055]"
+                    style={{ width: horizontalExtension }}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        </ReactFlowNodeToolbar>
+
+        <ReactFlowNodeToolbar
+          nodeId={node.id}
+          isVisible
+          position={Position.Bottom}
+          align="center"
+          offset={bottomToolbarOffset}
+          className={NODE_TOOLBAR_CLASS}
+        >
+          <div
+            className={`flex items-center gap-1 ${CANVAS_NODE_TOOLBAR_PILL_CLASS}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white/[0.06] hover:text-text-dark"
+              onClick={onClose}
+              title={t('outpaintEditor.exit')}
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <ProviderModelPicker selectedModelId={modelId} onChange={setModelId} />
+            <AspectRatioPicker
+              value={effectiveAspectRatio}
+              options={aspectOptions}
+              onChange={setAspectRatio}
+            />
+            <SimpleSegmentedDropdown<string>
+              value={effectiveImageSize}
+              options={sizeOptions}
+              onChange={setImageSize}
+              renderLabel={(v) => v}
+              titleI18nKey="outpaintEditor.qualityLabel"
+            />
+            <SimpleSegmentedDropdown<OutpaintNumImages>
+              value={numImages}
+              options={OUTPAINT_NUM_IMAGES}
+              onChange={setNumImages}
+              renderLabel={(v) => t('outpaintEditor.numImages', { count: v })}
+              titleI18nKey="outpaintEditor.numImagesLabel"
+            />
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitDisabled}
+              className={`shrink-0 ${NODE_GENERATE_BUTTON_BASE_CLASS} ${
+                submitDisabled
+                  ? NODE_GENERATE_BUTTON_DISABLED_CLASS
+                  : NODE_GENERATE_BUTTON_ENABLED_CLASS
+              }`}
+              title={
+                catalogIsEmpty
+                  ? t('modelParams.noModelsAvailable')
+                  : t('outpaintEditor.submit')
+              }
+            >
+              <ArrowUp className="h-4 w-4" />
+            </button>
+          </div>
+        </ReactFlowNodeToolbar>
+      </>
+    );
+  },
+);
+
+OutpaintEditorOverlay.displayName = 'OutpaintEditorOverlay';
+
+interface AspectRatioPickerProps {
+  value: FreezoneOutpaintAspectRatio;
+  /** 当前模型允许的比例（已按后台配置筛过），不再由本文件写死。 */
+  options: typeof OUTPAINT_ASPECT_META;
+  onChange: (next: FreezoneOutpaintAspectRatio) => void;
+}
+
+function AspectRatioPicker({ value, options, onChange }: AspectRatioPickerProps) {
+  const { t } = useTranslation();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(event.target as Node) ||
+        popoverRef.current?.contains(event.target as Node)
+      ) {
+        return;
+      }
+      setIsOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown, true);
+    return () => document.removeEventListener('mousedown', onPointerDown, true);
+  }, [isOpen]);
+
+  const selected = options.find((o) => o.value === value) ?? options[0];
+  const SelectedIcon = selected?.Icon ?? ImageIcon;
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-xs text-text-dark transition-colors hover:bg-white/[0.06]"
+      >
+        <SelectedIcon className="h-3.5 w-3.5 text-text-muted" />
+        <span className="font-medium">{selected ? t(selected.i18nKey) : ''}</span>
+        <ChevronDown className="h-3 w-3 text-text-muted" />
+      </button>
+      {isOpen && (
+        <div
+          ref={popoverRef}
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-[180px] -translate-x-1/2 rounded-xl border border-white/10 bg-surface-dark/95 p-2 shadow-2xl backdrop-blur-md"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="mb-1 px-2 py-1 text-[11px] uppercase tracking-wide text-text-muted">
+            {t('outpaintEditor.aspectLabel')}
+          </div>
+          <div className="flex flex-col">
+            {options.map((option) => {
+              const Icon = option.Icon;
+              const isActive = option.value === value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                  className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-white/[0.12] text-text-dark'
+                      : 'text-text-muted hover:bg-white/[0.08] hover:text-text-dark'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{t(option.i18nKey)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface SimpleSegmentedDropdownProps<T extends string | number> {
+  value: T;
+  options: readonly T[];
+  onChange: (next: T) => void;
+  renderLabel: (value: T) => string;
+  titleI18nKey: string;
+}
+
+function SimpleSegmentedDropdown<T extends string | number>({
+  value,
+  options,
+  onChange,
+  renderLabel,
+  titleI18nKey,
+}: SimpleSegmentedDropdownProps<T>) {
+  const { t } = useTranslation();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(event.target as Node) ||
+        popoverRef.current?.contains(event.target as Node)
+      ) {
+        return;
+      }
+      setIsOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown, true);
+    return () => document.removeEventListener('mousedown', onPointerDown, true);
+  }, [isOpen]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-xs text-text-dark transition-colors hover:bg-white/[0.06]"
+      >
+        <Sparkles className="h-3.5 w-3.5 text-text-muted" />
+        <span className="font-medium">{renderLabel(value)}</span>
+        <ChevronDown className="h-3 w-3 text-text-muted" />
+      </button>
+      {isOpen && (
+        <div
+          ref={popoverRef}
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-[160px] -translate-x-1/2 rounded-xl border border-white/10 bg-surface-dark/95 p-2 shadow-2xl backdrop-blur-md"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="mb-1 px-2 py-1 text-[11px] uppercase tracking-wide text-text-muted">
+            {t(titleI18nKey)}
+          </div>
+          <div className="flex flex-col">
+            {options.map((option) => {
+              const isActive = option === value;
+              return (
+                <button
+                  key={String(option)}
+                  type="button"
+                  onClick={() => {
+                    onChange(option);
+                    setIsOpen(false);
+                  }}
+                  className={`flex items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-white/[0.12] text-text-dark'
+                      : 'text-text-muted hover:bg-white/[0.08] hover:text-text-dark'
+                  }`}
+                >
+                  <span>{renderLabel(option)}</span>
+                  {isActive && <Check className="h-3 w-3" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

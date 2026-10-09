@@ -1,0 +1,9 @@
+{
+  "frontend/src/components/login/login-modal.tsx": 1,
+  "frontend/src/components/login/login-stage.tsx": 1,
+  "frontend/src/features/canvas/models/image/huimeng/imageDefault.ts": 3,
+  "frontend/src/features/canvas/models/image/openai/gptImage.ts": 5,
+  "frontend/src/features/canvas/models/image/openrouter/default.ts": 3,
+  "frontend/src/features/canvas/nodes/StylePickerPopover.tsx": 6,
+  "frontend/src/lib/queries/ingest.ts": 2
+}

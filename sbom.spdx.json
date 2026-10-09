@@ -1,0 +1,3582 @@
+{
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "creationInfo": {
+    "created": "2026-06-25T00:00:00Z",
+    "creators": [
+      "Tool: scripts/compliance/generate_p0b_artifacts.py"
+    ]
+  },
+  "dataLicense": "CC0-1.0",
+  "documentNamespace": "https://supertale.local/spdx/supertale-ce/bb2dd8180d0f7743",
+  "name": "supertale-ce-p0b-sbom",
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-supertale-ce",
+      "copyrightText": "Copyright 2026 SuperTale contributors",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Elastic-2.0",
+      "licenseDeclared": "Elastic-2.0",
+      "name": "supertale-ce",
+      "versionInfo": "2.0.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-aiofiles",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "aiofiles",
+      "versionInfo": "25.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-aiohappyeyeballs",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "PSF-2.0",
+      "licenseDeclared": "PSF-2.0",
+      "name": "aiohappyeyeballs",
+      "versionInfo": "2.6.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-aiohttp",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 AND MIT",
+      "licenseDeclared": "Apache-2.0 AND MIT",
+      "name": "aiohttp",
+      "versionInfo": "3.14.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-aiolimiter",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "aiolimiter",
+      "versionInfo": "1.2.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-aiosignal",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "aiosignal",
+      "versionInfo": "1.4.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-aiosqlite",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "aiosqlite",
+      "versionInfo": "0.22.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-alembic",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "alembic",
+      "versionInfo": "1.18.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-aliyun-python-sdk-core",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "aliyun-python-sdk-core",
+      "versionInfo": "2.16.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-aliyun-python-sdk-kms",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "aliyun-python-sdk-kms",
+      "versionInfo": "2.16.5"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-amqp",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "amqp",
+      "versionInfo": "5.3.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-annotated-doc",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "annotated-doc",
+      "versionInfo": "0.0.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-annotated-types",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "annotated-types",
+      "versionInfo": "0.7.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-anthropic",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "anthropic",
+      "versionInfo": "0.111.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-anyio",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "anyio",
+      "versionInfo": "4.14.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-argcomplete",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "argcomplete",
+      "versionInfo": "3.6.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-argon2-cffi",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "argon2-cffi",
+      "versionInfo": "25.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-argon2-cffi-bindings",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "argon2-cffi-bindings",
+      "versionInfo": "25.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-async-timeout",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "async-timeout",
+      "versionInfo": "5.0.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-asyncpg",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "asyncpg",
+      "versionInfo": "0.31.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-attrs",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "attrs",
+      "versionInfo": "26.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-bcrypt",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "bcrypt",
+      "versionInfo": "5.0.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-billiard",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "billiard",
+      "versionInfo": "4.2.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-black",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "black",
+      "versionInfo": "26.5.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-cbor2",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "cbor2",
+      "versionInfo": "6.1.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-celery",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "celery",
+      "versionInfo": "5.6.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-certifi",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MPL-2.0",
+      "licenseDeclared": "MPL-2.0",
+      "name": "certifi",
+      "versionInfo": "2026.6.17"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-cffi",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "cffi",
+      "versionInfo": "2.0.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-charset-normalizer",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "charset-normalizer",
+      "versionInfo": "3.4.7"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-claude-agent-sdk",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "claude-agent-sdk",
+      "versionInfo": "0.2.106"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-click",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "click",
+      "versionInfo": "8.1.8"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-click-didyoumean",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "click-didyoumean",
+      "versionInfo": "0.3.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-click-plugins",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "click-plugins",
+      "versionInfo": "1.1.1.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-click-repl",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "click-repl",
+      "versionInfo": "0.3.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-cognee",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "cognee",
+      "versionInfo": "1.0.5"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-colorama",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "colorama",
+      "versionInfo": "0.4.6"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-contourpy",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "contourpy",
+      "versionInfo": "1.3.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-crcmod",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "crcmod",
+      "versionInfo": "1.7"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-cryptography",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR BSD-3-Clause",
+      "licenseDeclared": "Apache-2.0 OR BSD-3-Clause",
+      "name": "cryptography",
+      "versionInfo": "49.0.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-cuda-bindings",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "cuda-bindings",
+      "versionInfo": "13.3.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-cuda-pathfinder",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "cuda-pathfinder",
+      "versionInfo": "1.5.5"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-cuda-toolkit",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "cuda-toolkit",
+      "versionInfo": "13.0.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-cycler",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "cycler",
+      "versionInfo": "0.12.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-da2",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "da2",
+      "versionInfo": "0.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dashscope",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "dashscope",
+      "versionInfo": "1.25.23"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-datamodel-code-generator",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "datamodel-code-generator",
+      "versionInfo": "0.65.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deprecated",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "deprecated",
+      "versionInfo": "1.3.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deprecation",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "deprecation",
+      "versionInfo": "2.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-diskcache",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "diskcache",
+      "versionInfo": "5.6.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-distro",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "distro",
+      "versionInfo": "1.9.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dnspython",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "ISC",
+      "licenseDeclared": "ISC",
+      "name": "dnspython",
+      "versionInfo": "2.8.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-docstring-parser",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "docstring-parser",
+      "versionInfo": "0.18.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-edge-tts",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LGPL-3.0-only",
+      "licenseDeclared": "LGPL-3.0-only",
+      "name": "edge-tts",
+      "versionInfo": "7.2.8"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-einops",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "einops",
+      "versionInfo": "0.8.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-email-validator",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Unlicense",
+      "licenseDeclared": "Unlicense",
+      "name": "email-validator",
+      "versionInfo": "2.3.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-execnet",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "execnet",
+      "versionInfo": "2.1.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-fakeredis",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "fakeredis",
+      "versionInfo": "2.36.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-fastapi",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "fastapi",
+      "versionInfo": "0.138.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-fastapi-users",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "fastapi-users",
+      "versionInfo": "15.0.5"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-fastapi-users-db-sqlalchemy",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "fastapi-users-db-sqlalchemy",
+      "versionInfo": "7.0.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-fastjsonschema",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "fastjsonschema",
+      "versionInfo": "2.21.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-fastuuid",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "fastuuid",
+      "versionInfo": "0.14.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-filelock",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "filelock",
+      "versionInfo": "3.29.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-filetype",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "filetype",
+      "versionInfo": "1.2.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-fonttools",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "fonttools",
+      "versionInfo": "4.63.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-frozenlist",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "frozenlist",
+      "versionInfo": "1.8.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-fsspec",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "fsspec",
+      "versionInfo": "2026.6.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-genai-prices",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "genai-prices",
+      "versionInfo": "0.0.66"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-genson",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "genson",
+      "versionInfo": "1.3.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-google-auth",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "google-auth",
+      "versionInfo": "2.55.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-google-genai",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "google-genai",
+      "versionInfo": "2.9.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-greenlet",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT AND PSF-2.0",
+      "licenseDeclared": "MIT AND PSF-2.0",
+      "name": "greenlet",
+      "versionInfo": "3.5.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-griffelib",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "ISC",
+      "licenseDeclared": "ISC",
+      "name": "griffelib",
+      "versionInfo": "2.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-gunicorn",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "gunicorn",
+      "versionInfo": "23.0.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-h11",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "h11",
+      "versionInfo": "0.16.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-hf-xet",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "hf-xet",
+      "versionInfo": "1.5.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-httpcore",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "httpcore",
+      "versionInfo": "1.0.9"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-httpcore2",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "httpcore2",
+      "versionInfo": "2.4.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-httptools",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "httptools",
+      "versionInfo": "0.8.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-httpx",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "httpx",
+      "versionInfo": "0.28.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-httpx-sse",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "httpx-sse",
+      "versionInfo": "0.4.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-httpx2",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "httpx2",
+      "versionInfo": "2.4.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-huggingface-hub",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "huggingface-hub",
+      "versionInfo": "0.36.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-idna",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "idna",
+      "versionInfo": "3.18"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-imageio",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-2-Clause",
+      "licenseDeclared": "BSD-2-Clause",
+      "name": "imageio",
+      "versionInfo": "2.37.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-importlib-metadata",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "importlib-metadata",
+      "versionInfo": "8.9.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-inflect",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "inflect",
+      "versionInfo": "7.5.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-iniconfig",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "iniconfig",
+      "versionInfo": "2.3.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-instructor",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "instructor",
+      "versionInfo": "1.15.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-isort",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "isort",
+      "versionInfo": "8.0.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-jaxtyping",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "jaxtyping",
+      "versionInfo": "0.3.11"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-jinja2",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "jinja2",
+      "versionInfo": "3.1.6"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-jiter",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "jiter",
+      "versionInfo": "0.14.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-jmespath",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "jmespath",
+      "versionInfo": "0.10.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-jsonschema",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "jsonschema",
+      "versionInfo": "4.26.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-jsonschema-specifications",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "jsonschema-specifications",
+      "versionInfo": "2025.9.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-jupyter-core",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "jupyter-core",
+      "versionInfo": "5.9.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-kiwisolver",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "kiwisolver",
+      "versionInfo": "1.5.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-kombu",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "kombu",
+      "versionInfo": "5.6.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-ladybug",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "ladybug",
+      "versionInfo": "0.16.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-lance-namespace",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "lance-namespace",
+      "versionInfo": "0.8.6"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-lance-namespace-urllib3-client",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "lance-namespace-urllib3-client",
+      "versionInfo": "0.8.6"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-lancedb",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "lancedb",
+      "versionInfo": "0.33.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-langdetect",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "langdetect",
+      "versionInfo": "1.0.9"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-limits",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "limits",
+      "versionInfo": "4.8.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-litellm",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "litellm",
+      "versionInfo": "1.90.0rc1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-logfire-api",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "logfire-api",
+      "versionInfo": "4.37.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-lupa",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "lupa",
+      "versionInfo": "2.8"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-lxml",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "lxml",
+      "versionInfo": "6.1.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-makefun",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "makefun",
+      "versionInfo": "1.16.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-mako",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "mako",
+      "versionInfo": "1.3.12"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-markdown-it-py",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "markdown-it-py",
+      "versionInfo": "4.2.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-markupsafe",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "markupsafe",
+      "versionInfo": "3.0.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-matplotlib",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "PSF-2.0",
+      "licenseDeclared": "PSF-2.0",
+      "name": "matplotlib",
+      "versionInfo": "3.11.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-mcp",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "mcp",
+      "versionInfo": "1.28.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-mdurl",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "mdurl",
+      "versionInfo": "0.1.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-more-itertools",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "more-itertools",
+      "versionInfo": "11.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-mpmath",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "mpmath",
+      "versionInfo": "1.3.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-multidict",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "multidict",
+      "versionInfo": "6.7.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-mypy-extensions",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "mypy-extensions",
+      "versionInfo": "1.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nbformat",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "nbformat",
+      "versionInfo": "5.10.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nest-asyncio",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "nest-asyncio",
+      "versionInfo": "1.6.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-networkx",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "networkx",
+      "versionInfo": "3.6.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-numpy",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause AND (GPL-3.0-or-later WITH GCC-exception-3.1) AND LGPL-2.1-or-later",
+      "licenseDeclared": "BSD-3-Clause AND (GPL-3.0-or-later WITH GCC-exception-3.1) AND LGPL-2.1-or-later",
+      "name": "numpy",
+      "versionInfo": "1.26.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cublas",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-cublas",
+      "versionInfo": "13.1.1.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cuda-cupti",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-cuda-cupti",
+      "versionInfo": "13.0.85"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cuda-nvrtc",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-cuda-nvrtc",
+      "versionInfo": "13.0.88"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cuda-runtime",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-cuda-runtime",
+      "versionInfo": "13.0.96"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cudnn-cu13",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-cuDNN",
+      "licenseDeclared": "LicenseRef-NVIDIA-cuDNN",
+      "name": "nvidia-cudnn-cu13",
+      "versionInfo": "9.20.0.48"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cufft",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-cufft",
+      "versionInfo": "12.0.0.61"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cufile",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-cufile",
+      "versionInfo": "1.15.1.6"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-curand",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-curand",
+      "versionInfo": "10.4.0.35"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cusolver",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-cusolver",
+      "versionInfo": "12.0.4.66"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cusparse",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-cusparse",
+      "versionInfo": "12.6.3.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-cusparselt-cu13",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-cusparselt-cu13",
+      "versionInfo": "0.8.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-nccl-cu13",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-NCCL",
+      "licenseDeclared": "LicenseRef-NVIDIA-NCCL",
+      "name": "nvidia-nccl-cu13",
+      "versionInfo": "2.29.7"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-nvjitlink",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-nvjitlink",
+      "versionInfo": "13.0.88"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-nvshmem-cu13",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-NVSHMEM",
+      "licenseDeclared": "LicenseRef-NVIDIA-NVSHMEM",
+      "name": "nvidia-nvshmem-cu13",
+      "versionInfo": "3.4.5"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-nvidia-nvtx",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "licenseDeclared": "LicenseRef-NVIDIA-CUDA-Toolkit",
+      "name": "nvidia-nvtx",
+      "versionInfo": "13.0.85"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-openai",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "openai",
+      "versionInfo": "2.43.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-opentelemetry-api",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "opentelemetry-api",
+      "versionInfo": "1.42.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-oss2",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "oss2",
+      "versionInfo": "2.19.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-overrides",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "overrides",
+      "versionInfo": "7.7.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-packaging",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR BSD-2-Clause",
+      "licenseDeclared": "Apache-2.0 OR BSD-2-Clause",
+      "name": "packaging",
+      "versionInfo": "24.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pathspec",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MPL-2.0",
+      "licenseDeclared": "MPL-2.0",
+      "name": "pathspec",
+      "versionInfo": "1.1.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pillow",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT-CMU",
+      "licenseDeclared": "MIT-CMU",
+      "name": "pillow",
+      "versionInfo": "11.3.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pillow-heif",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "pillow-heif",
+      "versionInfo": "1.4.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-platformdirs",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "platformdirs",
+      "versionInfo": "4.10.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pluggy",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pluggy",
+      "versionInfo": "1.6.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-plyfile",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "GPL-3.0-or-later",
+      "licenseDeclared": "GPL-3.0-or-later",
+      "name": "plyfile",
+      "versionInfo": "1.1.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-portalocker",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "portalocker",
+      "versionInfo": "3.2.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-prompt-toolkit",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "prompt-toolkit",
+      "versionInfo": "3.0.52"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-propcache",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "propcache",
+      "versionInfo": "0.5.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-psycopg",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LGPL-3.0-only",
+      "licenseDeclared": "LGPL-3.0-only",
+      "name": "psycopg",
+      "versionInfo": "3.3.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-psycopg-binary",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LGPL-3.0-only",
+      "licenseDeclared": "LGPL-3.0-only",
+      "name": "psycopg-binary",
+      "versionInfo": "3.3.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pwdlib",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pwdlib",
+      "versionInfo": "0.3.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pyarrow",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "pyarrow",
+      "versionInfo": "24.0.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pyasn1",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-2-Clause",
+      "licenseDeclared": "BSD-2-Clause",
+      "name": "pyasn1",
+      "versionInfo": "0.6.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pyasn1-modules",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "pyasn1-modules",
+      "versionInfo": "0.4.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pycparser",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "pycparser",
+      "versionInfo": "3.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pycryptodome",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause AND LicenseRef-Public-Domain",
+      "licenseDeclared": "BSD-3-Clause AND LicenseRef-Public-Domain",
+      "name": "pycryptodome",
+      "versionInfo": "3.23.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pydantic",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pydantic",
+      "versionInfo": "2.13.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pydantic-ai-slim",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pydantic-ai-slim",
+      "versionInfo": "1.107.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pydantic-core",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pydantic-core",
+      "versionInfo": "2.46.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pydantic-graph",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pydantic-graph",
+      "versionInfo": "1.107.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pydantic-settings",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pydantic-settings",
+      "versionInfo": "2.14.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pygments",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-2-Clause",
+      "licenseDeclared": "BSD-2-Clause",
+      "name": "pygments",
+      "versionInfo": "2.20.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pyjwt",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pyjwt",
+      "versionInfo": "2.13.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pylance",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "pylance",
+      "versionInfo": "0.36.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pympler",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "pympler",
+      "versionInfo": "1.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pymysql",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pymysql",
+      "versionInfo": "1.2.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pyparsing",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pyparsing",
+      "versionInfo": "3.3.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypdf",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "pypdf",
+      "versionInfo": "6.13.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypinyin",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pypinyin",
+      "versionInfo": "0.55.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pytest",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pytest",
+      "versionInfo": "9.1.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pytest-asyncio",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "pytest-asyncio",
+      "versionInfo": "1.4.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pytest-xdist",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pytest-xdist",
+      "versionInfo": "3.8.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-python-dateutil",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause OR Apache-2.0",
+      "licenseDeclared": "BSD-3-Clause OR Apache-2.0",
+      "name": "python-dateutil",
+      "versionInfo": "2.9.0.post0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-python-docx",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "python-docx",
+      "versionInfo": "1.2.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-python-dotenv",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "python-dotenv",
+      "versionInfo": "1.2.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-python-magic-bin",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "python-magic-bin",
+      "versionInfo": "0.4.14"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-python-multipart",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "python-multipart",
+      "versionInfo": "0.0.32"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-python-ulid",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "python-ulid",
+      "versionInfo": "3.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pytokens",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pytokens",
+      "versionInfo": "0.4.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pywin32",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "PSF-2.0",
+      "licenseDeclared": "PSF-2.0",
+      "name": "pywin32",
+      "versionInfo": "312"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pyyaml",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "pyyaml",
+      "versionInfo": "6.0.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-rdflib",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "rdflib",
+      "versionInfo": "7.1.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-redis",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "redis",
+      "versionInfo": "8.0.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-referencing",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "referencing",
+      "versionInfo": "0.37.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-regex",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 AND CNRI-Python",
+      "licenseDeclared": "Apache-2.0 AND CNRI-Python",
+      "name": "regex",
+      "versionInfo": "2026.5.9"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-requests",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "requests",
+      "versionInfo": "2.34.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-respx",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "respx",
+      "versionInfo": "0.23.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-rich",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "rich",
+      "versionInfo": "14.3.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-rpds-py",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "rpds-py",
+      "versionInfo": "2026.5.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-ruff",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "ruff",
+      "versionInfo": "0.15.20"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-safetensors",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "safetensors",
+      "versionInfo": "0.8.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-scipy",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause AND (GPL-3.0-or-later WITH GCC-exception-3.1) AND LGPL-2.1-or-later",
+      "licenseDeclared": "BSD-3-Clause AND (GPL-3.0-or-later WITH GCC-exception-3.1) AND LGPL-2.1-or-later",
+      "name": "scipy",
+      "versionInfo": "1.17.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-setuptools",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "setuptools",
+      "versionInfo": "81.0.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-sharp",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-Apple-Sample-Code AND LicenseRef-Apple-ML-Research-Model",
+      "licenseDeclared": "LicenseRef-Apple-Sample-Code AND LicenseRef-Apple-ML-Research-Model",
+      "name": "sharp",
+      "versionInfo": "0.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-shellingham",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "ISC",
+      "licenseDeclared": "ISC",
+      "name": "shellingham",
+      "versionInfo": "1.5.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-six",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "six",
+      "versionInfo": "1.17.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-sniffio",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "name": "sniffio",
+      "versionInfo": "1.3.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-sortedcontainers",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "sortedcontainers",
+      "versionInfo": "2.4.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-sqlalchemy",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "sqlalchemy",
+      "versionInfo": "2.0.51"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-sse-starlette",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "sse-starlette",
+      "versionInfo": "3.4.5"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-starlette",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "starlette",
+      "versionInfo": "1.3.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-structlog",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "name": "structlog",
+      "versionInfo": "25.5.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-sympy",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "sympy",
+      "versionInfo": "1.14.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-tabulate",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "tabulate",
+      "versionInfo": "0.10.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-tenacity",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "tenacity",
+      "versionInfo": "9.1.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-tiktoken",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "tiktoken",
+      "versionInfo": "0.13.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-timm",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "timm",
+      "versionInfo": "1.0.27"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-tokenizers",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "tokenizers",
+      "versionInfo": "0.22.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-torch",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "torch",
+      "versionInfo": "2.12.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-torchvision",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "torchvision",
+      "versionInfo": "0.27.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-tqdm",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MPL-2.0 AND MIT",
+      "licenseDeclared": "MPL-2.0 AND MIT",
+      "name": "tqdm",
+      "versionInfo": "4.68.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-traitlets",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "traitlets",
+      "versionInfo": "5.15.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-transformers",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "transformers",
+      "versionInfo": "4.57.6"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-triton",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "triton",
+      "versionInfo": "3.7.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-truststore",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "truststore",
+      "versionInfo": "0.10.4"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-typeguard",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "typeguard",
+      "versionInfo": "4.5.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-typer",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "typer",
+      "versionInfo": "0.26.7"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-typing-extensions",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "PSF-2.0",
+      "licenseDeclared": "PSF-2.0",
+      "name": "typing-extensions",
+      "versionInfo": "4.15.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-typing-inspection",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "typing-inspection",
+      "versionInfo": "0.4.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-tzdata",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "tzdata",
+      "versionInfo": "2026.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-tzlocal",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "tzlocal",
+      "versionInfo": "5.4.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-urllib3",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "urllib3",
+      "versionInfo": "2.7.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-uvicorn",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "uvicorn",
+      "versionInfo": "0.49.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-uvloop",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "uvloop",
+      "versionInfo": "0.22.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-vine",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "vine",
+      "versionInfo": "5.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-wadler-lindig",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "wadler-lindig",
+      "versionInfo": "0.1.7"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-watchfiles",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "watchfiles",
+      "versionInfo": "1.2.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-wcwidth",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "wcwidth",
+      "versionInfo": "0.8.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-websocket-client",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "websocket-client",
+      "versionInfo": "1.9.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-websockets",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "websockets",
+      "versionInfo": "15.0.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-wrapt",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-2-Clause",
+      "licenseDeclared": "BSD-2-Clause",
+      "name": "wrapt",
+      "versionInfo": "2.2.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-yarl",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "yarl",
+      "versionInfo": "1.24.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-zipp",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "zipp",
+      "versionInfo": "4.1.0"
+    }
+  ],
+  "relationships": [
+    {
+      "relatedSpdxElement": "SPDXRef-Package-aiofiles",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-aiohappyeyeballs",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-aiohttp",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-aiolimiter",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-aiosignal",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-aiosqlite",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-alembic",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-aliyun-python-sdk-core",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-aliyun-python-sdk-kms",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-amqp",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-annotated-doc",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-annotated-types",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-anthropic",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-anyio",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-argcomplete",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-argon2-cffi",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-argon2-cffi-bindings",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-async-timeout",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-asyncpg",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-attrs",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-bcrypt",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-billiard",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-black",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-cbor2",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-celery",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-certifi",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-cffi",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-charset-normalizer",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-claude-agent-sdk",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-click",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-click-didyoumean",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-click-plugins",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-click-repl",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-cognee",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-colorama",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-contourpy",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-crcmod",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-cryptography",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-cuda-bindings",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-cuda-pathfinder",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-cuda-toolkit",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-cycler",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-da2",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-dashscope",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-datamodel-code-generator",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-deprecated",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-deprecation",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-diskcache",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-distro",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-dnspython",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-docstring-parser",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-edge-tts",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-einops",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-email-validator",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-execnet",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-fakeredis",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-fastapi",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-fastapi-users",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-fastapi-users-db-sqlalchemy",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-fastjsonschema",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-fastuuid",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-filelock",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-filetype",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-fonttools",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-frozenlist",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-fsspec",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-genai-prices",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-genson",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-google-auth",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-google-genai",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-greenlet",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-griffelib",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-gunicorn",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-h11",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-hf-xet",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-httpcore",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-httpcore2",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-httptools",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-httpx",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-httpx-sse",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-httpx2",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-huggingface-hub",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-idna",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-imageio",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-importlib-metadata",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-inflect",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-iniconfig",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-instructor",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-isort",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-jaxtyping",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-jinja2",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-jiter",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-jmespath",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-jsonschema",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-jsonschema-specifications",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-jupyter-core",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-kiwisolver",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-kombu",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-ladybug",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-lance-namespace",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-lance-namespace-urllib3-client",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-lancedb",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-langdetect",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-limits",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-litellm",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-logfire-api",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-lupa",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-lxml",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-makefun",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-mako",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-markdown-it-py",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-markupsafe",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-matplotlib",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-mcp",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-mdurl",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-more-itertools",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-mpmath",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-multidict",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-mypy-extensions",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nbformat",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nest-asyncio",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-networkx",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-numpy",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cublas",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cuda-cupti",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cuda-nvrtc",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cuda-runtime",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cudnn-cu13",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cufft",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cufile",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-curand",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cusolver",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cusparse",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-cusparselt-cu13",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-nccl-cu13",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-nvjitlink",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-nvshmem-cu13",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-nvidia-nvtx",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-openai",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-opentelemetry-api",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-oss2",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-overrides",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-packaging",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pathspec",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pillow",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pillow-heif",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-platformdirs",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pluggy",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-plyfile",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-portalocker",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-prompt-toolkit",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-propcache",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-psycopg",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-psycopg-binary",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pwdlib",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pyarrow",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pyasn1",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pyasn1-modules",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pycparser",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pycryptodome",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pydantic",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pydantic-ai-slim",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pydantic-core",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pydantic-graph",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pydantic-settings",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pygments",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pyjwt",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pylance",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pympler",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pymysql",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pyparsing",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pypdf",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pypinyin",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pytest",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pytest-asyncio",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pytest-xdist",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-python-dateutil",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-python-docx",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-python-dotenv",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-python-magic-bin",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-python-multipart",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-python-ulid",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pytokens",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pywin32",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-pyyaml",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-rdflib",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-redis",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-referencing",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-regex",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-requests",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-respx",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-rich",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-rpds-py",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-ruff",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-safetensors",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-scipy",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-setuptools",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-sharp",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-shellingham",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-six",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-sniffio",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-sortedcontainers",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-sqlalchemy",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-sse-starlette",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-starlette",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-structlog",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-sympy",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-tabulate",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-tenacity",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-tiktoken",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-timm",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-tokenizers",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-torch",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-torchvision",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-tqdm",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-traitlets",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-transformers",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-triton",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-truststore",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-typeguard",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-typer",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-typing-extensions",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-typing-inspection",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-tzdata",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-tzlocal",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-urllib3",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-uvicorn",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-uvloop",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-vine",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-wadler-lindig",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-watchfiles",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-wcwidth",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-websocket-client",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-websockets",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-wrapt",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-yarl",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-zipp",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    }
+  ],
+  "spdxVersion": "SPDX-2.3"
+}
