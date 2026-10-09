@@ -341,7 +341,7 @@ def _snapshot_names(provider: str, kind: str = "text") -> list[str]:
     if _kind_spec(kind)["name_filter"] == "vision":
         # 视觉实测只打「有资格当视觉候选」的名字：拿全渠道清单去带图请求，既贵又
         # 会把文本模型的 400 当成结论。
-        from novelvideo.media_model_discovery import is_vision_candidate_name
+        from novelvideo.catalog.media_model_discovery import is_vision_candidate_name
 
         names = [name for name in names if is_vision_candidate_name(name)]
     return names

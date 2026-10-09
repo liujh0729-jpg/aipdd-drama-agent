@@ -2598,7 +2598,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
                 f"正在提交 DramaClawAPI 视频任务 ({model_label}, {duration}s, {request_resolution})..."
             )
             progress(0.1)
-            from novelvideo.media_model_request_schema import (
+            from novelvideo.catalog.media_model_request_schema import (
                 apply_media_request_schema,
                 enforce_newapi_media_geometry_contract,
                 enforce_newapi_video_duration_contract,

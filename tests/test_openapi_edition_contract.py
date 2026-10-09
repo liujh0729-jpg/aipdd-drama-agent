@@ -117,7 +117,7 @@ for key in ("ST_EDITION", "ST_CONTROL_PLANE_DSN"):
 
 from novelvideo.api.app import create_app
 from novelvideo.ports.registry import get_port
-with patch("novelvideo.official_media_catalog_remote.run_official_media_catalog_updater", new=AsyncMock()):
+with patch("novelvideo.catalog.official_media_catalog_remote.run_official_media_catalog_updater", new=AsyncMock()):
     app = create_app()
     # Exercise the real lifespan, including bootstrap and the local lifecycle.
     with TestClient(app) as client:

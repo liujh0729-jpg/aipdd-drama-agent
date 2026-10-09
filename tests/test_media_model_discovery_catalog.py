@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 
 
-from novelvideo import media_model_discovery
+from novelvideo.catalog import media_model_discovery
 from novelvideo.api.routes import freezone as freezone_routes
 
 

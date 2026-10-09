@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from novelvideo.media_model_request_schema import (
+from novelvideo.catalog.media_model_request_schema import (
     validate_media_model_catalog_config,
     validate_media_request_schema,
 )

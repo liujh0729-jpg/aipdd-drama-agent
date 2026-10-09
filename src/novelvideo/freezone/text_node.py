@@ -15,7 +15,7 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 
-from novelvideo import prompt_library
+from novelvideo.catalog import prompt_library
 from novelvideo.egress_context import TrustedEgressContext
 from novelvideo.model_gateway_runtime import (
     current_model_gateway_context,

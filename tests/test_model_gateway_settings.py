@@ -16,7 +16,7 @@ from httpx import Response
 
 from novelvideo import config
 from novelvideo import model_gateway_settings
-from novelvideo import official_media_catalog_remote
+from novelvideo.catalog import official_media_catalog_remote
 from novelvideo.api.routes import freezone as freezone_routes
 from novelvideo.api.routes import model_gateway
 from novelvideo.model_gateway_settings import (
@@ -2688,7 +2688,7 @@ def test_volcengine_image_mapping_surfaces_in_ce_image_catalog(monkeypatch, tmp_
     assert entry["apiModel"] == "doubao-seedream-4-0-20260415"
     assert entry["request"]["endpoint"] == "images/generations"
 
-    from novelvideo.media_model_discovery import apply_default_image_capabilities
+    from novelvideo.catalog.media_model_discovery import apply_default_image_capabilities
 
     apply_default_image_capabilities([entry])
     assert entry["resolutionOptions"]

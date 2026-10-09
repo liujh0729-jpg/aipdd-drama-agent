@@ -15,7 +15,8 @@ KEY_TOTAL = 27
 @pytest.fixture()
 def library_db(monkeypatch, tmp_path):
     """把覆盖值落到临时 settings.db，避免污染本机状态。"""
-    from novelvideo import config, prompt_library
+    from novelvideo import config
+    from novelvideo.catalog import prompt_library
 
     monkeypatch.setattr(config, "STATE_DIR", str(tmp_path / "state"))
     prompt_library._invalidate_override_cache()

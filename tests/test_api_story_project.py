@@ -430,7 +430,7 @@ def _patch_director_agent(monkeypatch, ds, output, calls) -> None:
 
 @pytest.mark.asyncio
 async def test_plan_novel_episodes_renders_prompt(monkeypatch) -> None:
-    from novelvideo import prompt_library
+    from novelvideo.catalog import prompt_library
     from novelvideo.agents import director_screenwriter as ds
 
     monkeypatch.setattr(prompt_library, "_overrides", lambda: {})
@@ -462,7 +462,7 @@ async def test_plan_novel_episodes_renders_prompt(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_write_novel_episode_screenplay_renders_prompt(monkeypatch) -> None:
-    from novelvideo import prompt_library
+    from novelvideo.catalog import prompt_library
     from novelvideo.agents import director_screenwriter as ds
 
     monkeypatch.setattr(prompt_library, "_overrides", lambda: {})
@@ -498,7 +498,7 @@ async def test_write_novel_episode_screenplay_renders_prompt(monkeypatch) -> Non
 
 @pytest.mark.asyncio
 async def test_optimize_novel_returns_story_and_notes(monkeypatch) -> None:
-    from novelvideo import prompt_library
+    from novelvideo.catalog import prompt_library
     from novelvideo.agents import director_screenwriter as ds
 
     monkeypatch.setattr(prompt_library, "_overrides", lambda: {})

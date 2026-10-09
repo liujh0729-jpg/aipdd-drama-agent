@@ -24,7 +24,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from novelvideo import prompt_library
+from novelvideo.catalog import prompt_library
 from novelvideo.config import (
     get_grid_generation_config,
     get_style_preset,

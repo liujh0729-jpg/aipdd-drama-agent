@@ -1,6 +1,6 @@
 import pytest
 
-from novelvideo.media_model_request_schema import (
+from novelvideo.catalog.media_model_request_schema import (
     MediaModelSchemaError,
     apply_media_request_schema,
     enforce_newapi_media_geometry_contract,
@@ -171,7 +171,7 @@ def test_model_schema_can_override_numeric_video_duration_with_auto():
 
 
 def test_video_edit_forces_auto_geometry_and_duration_after_model_parameters():
-    from novelvideo.media_model_request_schema import (
+    from novelvideo.catalog.media_model_request_schema import (
         enforce_newapi_video_mode_contract,
     )
 
@@ -198,7 +198,7 @@ def test_video_edit_forces_auto_geometry_and_duration_after_model_parameters():
 
 
 def test_non_edit_mode_rejects_model_parameter_auto_duration():
-    from novelvideo.media_model_request_schema import (
+    from novelvideo.catalog.media_model_request_schema import (
         enforce_newapi_video_mode_contract,
     )
 
@@ -216,7 +216,7 @@ def test_non_edit_mode_rejects_model_parameter_auto_duration():
 
 
 def test_video_extend_forces_auto_geometry_but_keeps_requested_duration():
-    from novelvideo.media_model_request_schema import (
+    from novelvideo.catalog.media_model_request_schema import (
         enforce_newapi_video_mode_contract,
     )
 

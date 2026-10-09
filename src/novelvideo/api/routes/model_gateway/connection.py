@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from novelvideo import config as app_config
 from novelvideo.api.routes import model_gateway as _gateway
-from novelvideo.media_model_discovery import guess_model_kind, is_vision_candidate_name
+from novelvideo.catalog.media_model_discovery import guess_model_kind, is_vision_candidate_name
 from novelvideo.model_gateway_settings import (
     MODE_CUSTOM,
     MODE_HYBRID,

@@ -552,13 +552,13 @@ def test_vendor_media_models_never_bypass_gateway(
     ],
 )
 def test_vendor_model_name_classification(name, expected):
-    from novelvideo.media_model_discovery import guess_model_kind
+    from novelvideo.catalog.media_model_discovery import guess_model_kind
 
     assert guess_model_kind(name) == expected
 
 
 def test_moderation_models_have_no_vision_eligibility():
-    from novelvideo.media_model_discovery import is_vision_capable
+    from novelvideo.catalog.media_model_discovery import is_vision_capable
 
     assert is_vision_capable("omni-moderation-latest") is False
     # 真视觉模型不受护栏影响。

@@ -69,7 +69,7 @@ def test_story_style_prompt_value_mapping() -> None:
 
 @pytest.mark.asyncio
 async def test_story_to_script_renders_library_prompt_with_style(monkeypatch) -> None:
-    from novelvideo import prompt_library
+    from novelvideo.catalog import prompt_library
     from novelvideo.agents import director_screenwriter
 
     monkeypatch.setattr(prompt_library, "_overrides", lambda: {})

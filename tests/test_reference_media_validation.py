@@ -7,7 +7,7 @@ import pytest
 from PIL import Image
 
 from novelvideo.freezone import reference_validation as validation
-from novelvideo.media_model_request_schema import (
+from novelvideo.catalog.media_model_request_schema import (
     MediaModelSchemaError,
     normalize_media_model_catalog_config,
     validate_media_model_catalog_config,

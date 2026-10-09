@@ -78,7 +78,7 @@ async def _call_newapi_image_api(
     aspect_ratio = str(image_config.get("aspect_ratio") or "1:1").strip().lower() or "1:1"
     image_size = normalize_image_size(str(image_config.get("image_size") or "1K"), "newapi")
     request_schema = image_config.get("request_schema") or {}
-    from novelvideo.media_model_request_schema import normalize_media_resolution_value
+    from novelvideo.catalog.media_model_request_schema import normalize_media_resolution_value
 
     resolution = normalize_media_resolution_value(image_size)
 
@@ -180,7 +180,7 @@ async def _call_newapi_image_api(
     declared_path = catalog_endpoint_path(str(model or ""), purpose)
     request_path = f"/{declared_path}" if declared_path else fallback
 
-    from novelvideo.media_model_request_schema import (
+    from novelvideo.catalog.media_model_request_schema import (
         apply_media_request_schema,
         enforce_newapi_media_geometry_contract,
     )

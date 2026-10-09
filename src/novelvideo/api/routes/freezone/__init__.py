@@ -112,7 +112,7 @@ from novelvideo.freezone.asset_copy import (
     resolve_source_file,
 )
 from novelvideo.i18n_message import log_lines_text
-from novelvideo.media_model_request_schema import (
+from novelvideo.catalog.media_model_request_schema import (
     MediaModelSchemaError,
     media_request_schema_for_mode,
     normalize_media_model_mode,

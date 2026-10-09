@@ -143,7 +143,7 @@ def _infer_media_type(name: str) -> tuple[str, bool]:
     """
 
     try:
-        from novelvideo.media_model_discovery import guess_model_kind
+        from novelvideo.catalog.media_model_discovery import guess_model_kind
     except Exception:  # noqa: BLE001 - 分类真源不可用时不猜，交给调用面按 other 处理
         return MEDIA_UNKNOWN, True
     kind = str(guess_model_kind(name) or "").strip()
@@ -386,7 +386,7 @@ def supports_vision(entry: dict[str, Any]) -> bool:
     if not name:
         return False
     try:
-        from novelvideo.media_model_discovery import is_vision_capable
+        from novelvideo.catalog.media_model_discovery import is_vision_capable
     except Exception:  # noqa: BLE001 - 分类真源不可用时不宣称支持
         return False
     return is_vision_capable(name)

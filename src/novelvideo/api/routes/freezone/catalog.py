@@ -27,11 +27,11 @@ from novelvideo.freezone.video_node import normalize_video_aspect_ratio
 from novelvideo.freezone.video_node import resolve_freezone_video_backend
 from novelvideo.freezone.video_node import validate_omni_reference_audio_durations
 from novelvideo.video_billing import probe_video_aspect_ratio
-from novelvideo.media_model_request_schema import MediaModelSchemaError
-from novelvideo.media_model_request_schema import media_request_schema_for_mode
-from novelvideo.media_model_request_schema import normalize_media_model_mode
-from novelvideo.media_model_request_schema import validate_media_model_params
-from novelvideo.media_model_request_schema import validate_media_request_schema
+from novelvideo.catalog.media_model_request_schema import MediaModelSchemaError
+from novelvideo.catalog.media_model_request_schema import media_request_schema_for_mode
+from novelvideo.catalog.media_model_request_schema import normalize_media_model_mode
+from novelvideo.catalog.media_model_request_schema import validate_media_model_params
+from novelvideo.catalog.media_model_request_schema import validate_media_request_schema
 from novelvideo.ports import get_usage_meter
 from novelvideo.ports.authz import find_authz_error
 
@@ -203,8 +203,7 @@ async def _custom_gateway_media_catalog(
     视频条目补齐空缺的档位声明，让画布参数下拉照常可用。
     """
 
-    from novelvideo import media_model_discovery
-
+    from novelvideo.catalog import media_model_discovery
     # 停用条目（enabled=false）不进目录：候选里不得出现被用户停用的模型。
     entries = [
         dict(item)

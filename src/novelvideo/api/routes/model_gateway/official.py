@@ -24,7 +24,7 @@ from novelvideo.model_gateway_settings import (
     save_official_newapi_key,
     set_model_gateway_mode,
 )
-from novelvideo.official_media_catalog_remote import (
+from novelvideo.catalog.official_media_catalog_remote import (
     check_official_media_catalog_update,
 )
 

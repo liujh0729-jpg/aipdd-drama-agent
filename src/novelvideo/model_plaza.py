@@ -31,7 +31,7 @@ from typing import Any
 
 import httpx
 
-from novelvideo.media_model_discovery import guess_model_kind
+from novelvideo.catalog.media_model_discovery import guess_model_kind
 from novelvideo.model_gateway_settings import (
     detect_comfyui_media_type,
     get_effective_mediakit_config,

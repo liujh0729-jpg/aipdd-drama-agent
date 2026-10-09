@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from novelvideo.api.routes import model_gateway as _gateway
-from novelvideo.media_model_request_schema import validate_media_model_catalog_config
+from novelvideo.catalog.media_model_request_schema import validate_media_model_catalog_config
 from novelvideo.model_gateway_settings import get_newapi_provider_channels
 
 from ._common import (
@@ -39,7 +39,7 @@ OFFICIAL_ONLY_MEDIA_MODEL_NAMES = {
 def _guessed_media_type(model: str) -> str:
     """面板没传 mediaType 时的名字归类：走分类真源，不在这里复制关键词表。"""
 
-    from novelvideo.media_model_discovery import guess_media_type
+    from novelvideo.catalog.media_model_discovery import guess_media_type
 
     try:
         return str(guess_media_type(model) or "").strip().lower()

@@ -330,7 +330,7 @@ async def _lifespan(application: FastAPI):
             except Exception:
                 logger.exception("WAL migration sweep failed (non-fatal)")
 
-        from novelvideo.official_media_catalog_remote import (
+        from novelvideo.catalog.official_media_catalog_remote import (
             run_official_media_catalog_updater,
         )
         from novelvideo.shared.runtime_env import is_ce_effective

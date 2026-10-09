@@ -26,7 +26,7 @@ from novelvideo.official_defaults import (
     DEFAULT_EMBEDDING_BATCH_SIZE,
     official_newapi_base_url,
 )
-from novelvideo.official_media_catalog_schema import (
+from novelvideo.catalog.official_media_catalog_schema import (
     catalog_version as _catalog_version,
     validate_official_media_catalog as _validate_official_media_catalog,
 )
@@ -2319,7 +2319,7 @@ def build_default_model_combination_status() -> dict[str, Any]:
 def save_newapi_media_model_mappings(
     mappings: dict[str, dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
-    from novelvideo.media_model_request_schema import (
+    from novelvideo.catalog.media_model_request_schema import (
         normalize_media_model_catalog_config,
         validate_media_model_catalog_config,
     )
@@ -2556,7 +2556,7 @@ def _media_model_catalog(
     provider: str | None = None,
     include_disabled: bool = False,
 ) -> list[dict[str, Any]]:
-    from novelvideo.media_model_request_schema import normalize_media_model_catalog_config
+    from novelvideo.catalog.media_model_request_schema import normalize_media_model_catalog_config
 
     wanted = str(media_type or "").strip().lower()
     # [aipdd fork delta] 放开 audio：画布音频节点要按类型选模型，候选来自后台

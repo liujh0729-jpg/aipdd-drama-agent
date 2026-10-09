@@ -1,7 +1,7 @@
 """[aipdd fork delta] 提示词库接口：列出 / 修改 / 恢复默认内置提示词。
 
 覆盖值存 runtime_settings（与模型网关配置同一个 settings.db），
-生成链路通过 ``novelvideo.prompt_library`` 读取生效值。
+生成链路通过 ``novelvideo.catalog.prompt_library`` 读取生效值。
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from novelvideo import prompt_library
+from novelvideo.catalog import prompt_library
 from novelvideo.api.auth import get_api_user, require_owner
 
 router = APIRouter(

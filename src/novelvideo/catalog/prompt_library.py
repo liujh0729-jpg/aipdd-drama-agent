@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from novelvideo.prompt_library_defaults import DEFAULT_PROMPTS
+from novelvideo.catalog.prompt_library_defaults import DEFAULT_PROMPTS
 from novelvideo.sqlite_pragmas import configure_sqlite_connection
 
 logger = logging.getLogger("novelvideo.prompt_library")

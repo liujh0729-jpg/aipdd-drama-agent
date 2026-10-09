@@ -18,7 +18,7 @@ from urllib.parse import unquote, urlparse
 import httpx
 
 # [aipdd fork delta] 分类真源：视觉候选资格与设置页 / 模型广场同口径（单一实现）。
-from novelvideo.media_model_discovery import is_vision_capable
+from novelvideo.catalog.media_model_discovery import is_vision_capable
 from novelvideo.model_gateway_settings import (
     build_newapi_embedding_model_status,
     build_newapi_media_model_mappings_status,

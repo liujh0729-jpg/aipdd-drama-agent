@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, TypeAlias
 
 from pypinyin import pinyin, Style
 
-from novelvideo import prompt_library
+from novelvideo.catalog import prompt_library
 from novelvideo.config import get_style_preset, IMAGE_DEFAULT_STYLE
 from novelvideo.models import beat_scene_id, real_detected_identities, real_detected_props
 from novelvideo.services.style_service import StyleService

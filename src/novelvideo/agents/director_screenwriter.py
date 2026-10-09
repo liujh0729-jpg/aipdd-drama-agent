@@ -19,7 +19,7 @@ from novelvideo.config import (
     get_newapi_text_pydantic_model,
 )
 from novelvideo.model_gateway_runtime import model_gateway_output_retries
-from novelvideo.prompt_library import get_prompt_text, render_prompt
+from novelvideo.catalog.prompt_library import get_prompt_text, render_prompt
 
 STORY_STYLE_AUTO = ""
 

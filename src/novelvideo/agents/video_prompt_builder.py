@@ -11,7 +11,7 @@ from typing import Optional
 from pydantic_ai import Agent, BinaryContent
 from PIL import Image as PILImage
 
-from novelvideo import prompt_library
+from novelvideo.catalog import prompt_library
 from novelvideo.utils.logging import log_agent_start, log_agent_end
 from novelvideo.utils.debug_context import (
     create_debug_context,

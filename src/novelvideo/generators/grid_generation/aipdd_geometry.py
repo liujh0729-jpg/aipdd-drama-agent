@@ -162,7 +162,7 @@ async def _apply_aipdd_image_geometry(payload: dict, *, model: str) -> dict:
     平台后来收紧时仍有 LocalNewAPI 语义可退回。
     """
 
-    from novelvideo.media_model_discovery import gateway_image_capabilities_by_name
+    from novelvideo.catalog.media_model_discovery import gateway_image_capabilities_by_name
 
     try:
         capabilities = await gateway_image_capabilities_by_name()
