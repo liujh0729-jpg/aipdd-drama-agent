@@ -1,7 +1,9 @@
 <div align="center">
 
 <!-- TBD: replace with official logo assets/logo.svg -->
-<h1>DramaClaw</h1>
+<h1>AIPDD Drama Agent</h1>
+
+<p align="center"><sub>Self-contained, multi-license fork of DramaClaw — zero external images, zero default outbound calls; gateway/DA-2/ml-sharp vendored under <code>third_party/</code>.</sub></p>
 
 ## Make Your Own DC.
 
