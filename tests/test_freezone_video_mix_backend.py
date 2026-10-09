@@ -805,7 +805,7 @@ async def test_video_mix_runner_generate_chain_plans_and_renders(
         fake_audio_speech,
     )
     monkeypatch.setattr(
-        "novelvideo.video_billing.probe_video_duration_seconds", fake_probe
+        "novelvideo.usage.video_billing.probe_video_duration_seconds", fake_probe
     )
     monkeypatch.setattr(
         "novelvideo.api.deps.make_sqlite_store_for_context", fake_make_store

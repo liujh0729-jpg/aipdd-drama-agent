@@ -26,7 +26,7 @@ from novelvideo.freezone.video_node import is_freezone_seedance2_backend
 from novelvideo.freezone.video_node import normalize_video_aspect_ratio
 from novelvideo.freezone.video_node import resolve_freezone_video_backend
 from novelvideo.freezone.video_node import validate_omni_reference_audio_durations
-from novelvideo.video_billing import probe_video_aspect_ratio
+from novelvideo.usage.video_billing import probe_video_aspect_ratio
 from novelvideo.catalog.media_model_request_schema import MediaModelSchemaError
 from novelvideo.catalog.media_model_request_schema import media_request_schema_for_mode
 from novelvideo.catalog.media_model_request_schema import normalize_media_model_mode

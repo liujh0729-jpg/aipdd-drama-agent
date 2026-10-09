@@ -342,7 +342,7 @@ from novelvideo.task_identity import (
     task_config_scope,
     task_state_key,
 )
-from novelvideo.video_billing import (
+from novelvideo.usage.video_billing import (
     probe_total_video_duration_seconds,
     probe_video_duration_seconds,
 )

@@ -79,7 +79,7 @@ from novelvideo.models import (
 from novelvideo.manual_shots import beat_order_value
 from novelvideo.services.style_service import StyleService
 from novelvideo.utils.asset_resolver import AssetResolver
-from novelvideo.image_request_usage import (
+from novelvideo.usage.image_request_usage import (
     infer_episode_from_path,
     infer_project_output_dir,
     record_image_request,

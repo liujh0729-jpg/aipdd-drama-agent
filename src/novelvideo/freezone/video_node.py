@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from novelvideo.freezone.paths import freezone_root
-from novelvideo.video_duration import (
+from novelvideo.usage.video_duration import (
     normalize_video_duration_for_backend as normalize_video_duration_for_backend,
     video_duration_bounds_for_backend,
 )

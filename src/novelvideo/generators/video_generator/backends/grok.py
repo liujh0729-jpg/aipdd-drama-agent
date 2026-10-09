@@ -107,7 +107,7 @@ class GrokVideoGenerator(VideoGeneratorBase):
                 error="Grok 720 does not support keyframe/首尾帧模式",
             )
 
-        from novelvideo.video_duration import normalize_video_duration_for_backend
+        from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
         duration = normalize_video_duration_for_backend("grok_720", duration)
         ratio = aspect_ratio if ":" in aspect_ratio else "9:16"

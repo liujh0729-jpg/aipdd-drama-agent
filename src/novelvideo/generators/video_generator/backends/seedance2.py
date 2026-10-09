@@ -180,7 +180,7 @@ class Seedance2VideoGenerator(VideoGeneratorBase):
         if image_path and not refs:
             refs = [ShotReference("image", image_path, "首帧")]
 
-        from novelvideo.video_duration import normalize_video_duration_for_backend
+        from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
         duration = normalize_video_duration_for_backend("seedance_2", duration)
 

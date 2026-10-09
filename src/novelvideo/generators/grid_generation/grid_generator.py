@@ -29,7 +29,7 @@ from novelvideo.generators.prompt_builder import (
 from novelvideo.generators.render_identity_guard import render_ai_detection_error
 from novelvideo.models import beat_scene_id
 from novelvideo.services.style_service import StyleService
-from novelvideo.image_request_usage import (
+from novelvideo.usage.image_request_usage import (
     infer_episode_from_path,
     infer_project_output_dir,
     record_image_request,

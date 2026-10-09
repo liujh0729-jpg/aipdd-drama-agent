@@ -848,7 +848,7 @@ async def test_video_idea_runner_full_chain(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from novelvideo.task_backend.runners import freezone as freezone_runner
-    from novelvideo.video_duration import normalize_video_duration_for_backend
+    from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
     project_dir = tmp_path / "output"
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -1217,7 +1217,7 @@ async def test_video_idea_runner_total_duration_governs_ai_planning(
 ) -> None:
     """[需求6] 总时长口径：旧三参被忽略，分场/分镜上限与逐镜时长交给 AI。"""
     from novelvideo.task_backend.runners import freezone as freezone_runner
-    from novelvideo.video_duration import normalize_video_duration_for_backend
+    from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
     project_dir = tmp_path / "output"
     project_dir.mkdir(parents=True, exist_ok=True)

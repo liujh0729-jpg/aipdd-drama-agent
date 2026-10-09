@@ -330,9 +330,9 @@ def test_project_usage_components_share_one_db_without_schema_races(
     tmp_path,
     monkeypatch,
 ):
-    import novelvideo.audio_request_usage as audio_usage
-    import novelvideo.image_request_usage as image_usage
-    import novelvideo.video_request_usage as video_usage
+    import novelvideo.usage.audio_request_usage as audio_usage
+    import novelvideo.usage.image_request_usage as image_usage
+    import novelvideo.usage.video_request_usage as video_usage
     from novelvideo.seedance2_i2v.voice_audio_records import (
         upsert_seedance2_voice_audio_record,
     )

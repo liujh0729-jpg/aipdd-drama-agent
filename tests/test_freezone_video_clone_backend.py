@@ -1043,7 +1043,7 @@ async def test_video_clone_runner_text_mode_probes_duration_and_skips_references
         "novelvideo.freezone.video_node.run_trusted_freezone_video_gen", fake_video_gen
     )
     monkeypatch.setattr(
-        "novelvideo.video_billing.probe_video_duration_seconds", fake_probe_duration
+        "novelvideo.usage.video_billing.probe_video_duration_seconds", fake_probe_duration
     )
     monkeypatch.setattr(
         "novelvideo.api.deps.make_static_url_for_context",

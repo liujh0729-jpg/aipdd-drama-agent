@@ -53,7 +53,7 @@ from novelvideo.config import (
     normalize_image_generation_selection,
     normalize_character_image_selection,
 )
-from novelvideo.image_request_usage import get_image_usage_summary
+from novelvideo.usage.image_request_usage import get_image_usage_summary
 from novelvideo.project_config import (
     load_project_config,
     load_project_config_file,

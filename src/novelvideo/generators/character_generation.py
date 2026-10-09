@@ -31,7 +31,7 @@ from novelvideo.config import (
     IMAGE_DEFAULT_STYLE,
 )
 from novelvideo.shared.upstream_quota_errors import is_fatal_upstream_quota_error
-from novelvideo.image_request_usage import (
+from novelvideo.usage.image_request_usage import (
     record_image_request,
     update_image_request_status,
 )

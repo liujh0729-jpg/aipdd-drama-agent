@@ -166,7 +166,7 @@ def test_classify_seedance2_voice_audio_marks_text_hash_changes_stale(tmp_path):
 
 
 def test_audio_scope_attempt_count_tracks_task_starts(tmp_path):
-    from novelvideo.audio_request_usage import (
+    from novelvideo.usage.audio_request_usage import (
         count_audio_scope_attempts,
         record_audio_generation_attempt,
         update_audio_generation_attempt,

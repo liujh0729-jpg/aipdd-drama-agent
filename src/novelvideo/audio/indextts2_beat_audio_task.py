@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Awaitable, Callable, Literal
 
-from novelvideo.audio_request_usage import (
+from novelvideo.usage.audio_request_usage import (
     record_audio_generation_attempt,
     update_audio_generation_attempt,
 )

@@ -5,7 +5,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Callable, Optional
 
-from novelvideo.video_request_usage import (
+from novelvideo.usage.video_request_usage import (
     record_video_request,
     update_video_request_status,
 )
@@ -43,7 +43,7 @@ class HuimengVideoGenerator(VideoGeneratorBase):
         self.client = client or HuimengiTaskClient(api_key=api_key, base_url=endpoint)
 
     def _duration_bounds(self) -> tuple[int, int]:
-        from novelvideo.video_duration import video_duration_bounds_for_backend
+        from novelvideo.usage.video_duration import video_duration_bounds_for_backend
 
         bounds = video_duration_bounds_for_backend(f"huimeng_{self.model}")
         if bounds[0] is None or bounds[1] is None:
@@ -221,7 +221,7 @@ class HuimengVideoGenerator(VideoGeneratorBase):
         )
         duration = _seedance2_duration_from_config(seedance2_config, duration)
         original_duration = duration
-        from novelvideo.video_duration import normalize_video_duration_for_backend
+        from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
         duration = normalize_video_duration_for_backend(
             f"huimeng_{self.model}",

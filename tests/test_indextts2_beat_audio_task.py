@@ -293,7 +293,7 @@ async def test_indextts2_selected_runner_generates_narration_and_dialogue(
 
     import sqlite3
 
-    from novelvideo.audio_request_usage import get_audio_request_usage_db_path
+    from novelvideo.usage.audio_request_usage import get_audio_request_usage_db_path
 
     with sqlite3.connect(get_audio_request_usage_db_path(project_dir)) as conn:
         rows = conn.execute("""
@@ -1025,7 +1025,7 @@ async def test_indextts2_selected_runner_records_generator_failure(
 
     import sqlite3
 
-    from novelvideo.audio_request_usage import get_audio_request_usage_db_path
+    from novelvideo.usage.audio_request_usage import get_audio_request_usage_db_path
 
     with sqlite3.connect(get_audio_request_usage_db_path(project_dir)) as conn:
         rows = conn.execute("""

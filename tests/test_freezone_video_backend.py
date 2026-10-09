@@ -12,7 +12,7 @@ from novelvideo.generators.video_generator import (
     newapi_video_backend_options,
 )
 from novelvideo.generators.video_generator import VideoGenResult, VideoGenStatus
-from novelvideo.video_duration import video_duration_bounds_for_backend
+from novelvideo.usage.video_duration import video_duration_bounds_for_backend
 from novelvideo.freezone.video_node import (
     RESERVED_FOLDER_KEYS,
     add_video_character_folder,

@@ -242,7 +242,7 @@ async def generate_single_video(
                         else _generation._seedance2_api_resolution(clean_resolution)
                     )
 
-    from novelvideo.video_duration import normalize_video_duration_for_backend
+    from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
     video_duration = normalize_video_duration_for_backend(
         body.video_backend,

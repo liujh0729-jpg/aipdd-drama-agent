@@ -1062,7 +1062,7 @@ def test_sketch_regen_queue_migrates_react_items_out_of_nicegui_legacy_key(
 
 
 def test_sketch_image_usage_and_guard_return_attempt_context(monkeypatch, tmp_path):
-    from novelvideo.image_request_usage import record_image_request
+    from novelvideo.usage.image_request_usage import record_image_request
 
     client, _saved = _client(monkeypatch, tmp_path)
     for idx in range(3):
@@ -1114,7 +1114,7 @@ def test_sketch_image_usage_and_guard_return_attempt_context(monkeypatch, tmp_pa
 
 
 def test_image_generation_guard_password_verification_matches_nicegui(monkeypatch, tmp_path):
-    from novelvideo.image_request_usage import record_image_request
+    from novelvideo.usage.image_request_usage import record_image_request
 
     monkeypatch.setenv("PROMPT_EXPORT_PASSWORD", "secret")
     client, _saved = _client(monkeypatch, tmp_path)

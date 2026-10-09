@@ -44,7 +44,7 @@ from novelvideo.storage.media_relay import (
 from novelvideo.task_backend.cancel import TaskCancelled, TaskTimedOut
 from novelvideo.task_backend.envelope import RunningTaskAuthorityIndeterminate
 from novelvideo.task_backend.subprocesses import run_project_subprocess
-from novelvideo.video_request_usage import (
+from novelvideo.usage.video_request_usage import (
     record_video_request,
     update_video_request_status,
 )

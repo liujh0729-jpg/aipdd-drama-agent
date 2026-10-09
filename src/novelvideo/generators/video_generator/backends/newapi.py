@@ -41,7 +41,7 @@ from novelvideo.storage.media_relay import (
     media_relay_ttl_seconds,
 )
 from novelvideo.task_backend.envelope import RunningTaskAuthorityIndeterminate
-from novelvideo.video_request_usage import (
+from novelvideo.usage.video_request_usage import (
     record_video_request,
     update_video_request_status,
 )
@@ -324,7 +324,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
 
     @staticmethod
     def _parse_duration_bounds_config(raw: str) -> dict[str, tuple[int, int]]:
-        from novelvideo.video_duration import parse_video_duration_bounds
+        from novelvideo.usage.video_duration import parse_video_duration_bounds
 
         return parse_video_duration_bounds(raw)
 
@@ -771,7 +771,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         raise ValueError(f"unsupported video generation mode: {normalized_mode}")
 
     def _duration_bounds(self) -> tuple[int, int]:
-        from novelvideo.video_duration import video_duration_bounds_for_backend
+        from novelvideo.usage.video_duration import video_duration_bounds_for_backend
 
         bounds = video_duration_bounds_for_backend(f"newapi_{self.model}")
         if bounds[0] is None or bounds[1] is None:
@@ -2182,7 +2182,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         )
         duration = _seedance2_duration_from_config(seedance2_config, duration)
         original_duration = duration
-        from novelvideo.video_duration import normalize_video_duration_for_backend
+        from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
         duration = normalize_video_duration_for_backend(
             f"newapi_{self.model}",

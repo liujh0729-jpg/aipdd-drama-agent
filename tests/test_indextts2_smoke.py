@@ -39,7 +39,7 @@ def test_voice_clone_module_loads_without_oss_client():
 
 
 def test_audio_request_usage_module_loads():
-    mod = importlib.import_module("novelvideo.audio_request_usage")
+    mod = importlib.import_module("novelvideo.usage.audio_request_usage")
     assert mod is not None
 
 

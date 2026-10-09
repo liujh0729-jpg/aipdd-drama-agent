@@ -114,7 +114,7 @@ async def get_sketch_image_usage(
     user: dict = Depends(get_api_user),
 ):
     """Return NiceGUI-style Sketch image request usage summary."""
-    from novelvideo.image_request_usage import get_image_usage_summary
+    from novelvideo.usage.image_request_usage import get_image_usage_summary
 
     resolved = await _generation._resolve_generation_project(project, user, required_role="viewer")
     project_dir = resolved.project_dir
@@ -155,7 +155,7 @@ async def get_image_generation_guard(
     user: dict = Depends(get_api_user),
 ):
     """Return per-scope image generation guard status used before dispatch."""
-    from novelvideo.image_request_usage import count_image_scope_attempts
+    from novelvideo.usage.image_request_usage import count_image_scope_attempts
 
     resolved = await _generation._resolve_generation_project(project, user, required_role="viewer")
     project_dir = resolved.project_dir

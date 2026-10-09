@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from novelvideo import video_billing
+from novelvideo.usage import video_billing
 
 
 @pytest.mark.asyncio

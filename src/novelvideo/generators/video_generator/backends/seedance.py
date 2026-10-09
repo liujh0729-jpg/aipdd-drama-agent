@@ -4,7 +4,7 @@ import asyncio
 import os
 from typing import Callable, Optional
 
-from novelvideo.video_request_usage import (
+from novelvideo.usage.video_request_usage import (
     record_video_request,
     update_video_request_status,
 )
@@ -196,7 +196,7 @@ class SeedanceVideoGenerator(VideoGeneratorBase):
                 log(f"记账失败({status}): {e}")
 
         # 与报价/预扣共享同一套时长边界。
-        from novelvideo.video_duration import normalize_video_duration_for_backend
+        from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
         duration = normalize_video_duration_for_backend("seedance_fast", duration)
 

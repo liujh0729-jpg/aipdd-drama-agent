@@ -950,7 +950,7 @@ async def _run_freezone_video_clone_async(
     from novelvideo.freezone.paths import outputs_dir
     from novelvideo.freezone.text_node import generate_freezone_text
     from novelvideo.freezone.video_node import run_trusted_freezone_video_gen
-    from novelvideo.video_duration import normalize_video_duration_for_backend
+    from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
     payload = envelope.get("payload") or {}
     task_type = "freezone_video_clone"
@@ -966,7 +966,7 @@ async def _run_freezone_video_clone_async(
     except (TypeError, ValueError):
         duration_sec = 0.0
     if duration_sec <= 0:
-        from novelvideo.video_billing import probe_video_duration_seconds
+        from novelvideo.usage.video_billing import probe_video_duration_seconds
 
         duration_sec = await probe_video_duration_seconds(video_path.as_posix())
     reference_mode = str(payload.get("reference_mode") or "frames").strip().lower()
@@ -1239,7 +1239,7 @@ async def _run_freezone_video_mix_async(
     )
     from novelvideo.freezone.paths import outputs_dir
     from novelvideo.freezone.text_node import generate_freezone_text
-    from novelvideo.video_billing import probe_video_duration_seconds
+    from novelvideo.usage.video_billing import probe_video_duration_seconds
 
     payload = envelope.get("payload") or {}
     task_type = "freezone_video_mix"
@@ -2038,7 +2038,7 @@ async def _run_freezone_video_idea_async(
     from novelvideo.freezone.text_node import generate_freezone_text
     from novelvideo.freezone.video_node import run_trusted_freezone_video_gen
     from novelvideo.task_backend.cancel import TaskCancelled, TaskTimedOut
-    from novelvideo.video_duration import normalize_video_duration_for_backend
+    from novelvideo.usage.video_duration import normalize_video_duration_for_backend
 
     payload = envelope.get("payload") or {}
     task_type = "freezone_video_idea"
