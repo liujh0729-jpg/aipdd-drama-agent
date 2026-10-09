@@ -72,7 +72,7 @@ fi
 # ─────────────────────── [3/5] 镜像：缺则建，--rebuild 强建 ───────────────────────
 log "[3/5] 检查镜像"
 need_build="$rebuild"
-for repo in aipdd/dramaclaw-api aipdd/dramaclaw-web; do
+for repo in aipdd/dramaclaw-api aipdd/dramaclaw-web aipdd/dramaclaw-gateway; do
   if [ -n "$(docker images -q "${repo}:${version}" 2>/dev/null)" ]; then
     ok "${repo}:${version} 已在本地"
   else
@@ -91,16 +91,16 @@ if [ "$need_build" = "1" ]; then
     else
       abort "状态库备份失败，已停止（不带着未备份的库去重建）。
 排查上面输出后重试；确认可跳过时手动执行：
-  ${compose_cmd[*]} -f docker-compose.aipdd.yml build api web"
+  ${compose_cmd[*]} -f docker-compose.aipdd.yml build api web newapi"
     fi
   else
     warn "api 容器还没建过（首次构建），无需备份"
   fi
 
   require_disk_for_build 8
-  log "开始构建 api / web（命中缓存分钟级；慢网全量可能要几十分钟，窗口保持打开）"
+  log "开始构建 api / web / 本地网关（命中缓存分钟级；慢网全量可能要几十分钟，窗口保持打开 ）"
   # 不传 --no-ansi：compose v2 的 build 不认子命令后的这个全局参数（实测 unknown flag）。
-  "${compose_cmd[@]}" -f "$compose_file" build api web \
+  "${compose_cmd[@]}" -f "$compose_file" build api web newapi \
     || abort "构建失败，见上方输出。空间问题看 需求/环境说明.md §3；网络问题直接再双击本文件重试（分层缓存会续用）。"
   ok "构建完成"
 fi

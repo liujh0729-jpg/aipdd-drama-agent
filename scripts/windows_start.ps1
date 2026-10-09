@@ -81,7 +81,7 @@ if ($listeners.Count -gt 0 -and -not $ourWebRunning) {
 # ────────────────────── [3/5] 镜像：缺则建，--rebuild 强建 ──────────────────────
 Write-Step '[3/5] 检查镜像'
 $needBuild = [bool]$Rebuild
-foreach ($repo in @('aipdd/dramaclaw-api', 'aipdd/dramaclaw-web')) {
+foreach ($repo in @('aipdd/dramaclaw-api', 'aipdd/dramaclaw-web', 'aipdd/dramaclaw-gateway')) {
     $found = (& docker images -q "${repo}:$version" 2>$null) | Where-Object { $_ }
     if ($found) {
         Write-Good "${repo}:$version 已在本地"
@@ -104,8 +104,8 @@ if ($needBuild) {
         }
     }
     if (-not (Test-DiskForBuild 20)) { exit 1 }
-    Write-Step '开始构建 api / web（命中缓存分钟级；第一次可能要几十分钟，窗口保持打开）'
-    if (-not (Invoke-Compose -ComposeArgs @('-f', $composeFile, 'build', 'api', 'web'))) {
+    Write-Step '开始构建 api / web / 本地网关（命中缓存分钟级；第一次可能要几十分钟，窗口保持打开）'
+    if (-not (Invoke-Compose -ComposeArgs @('-f', $composeFile, 'build', 'api', 'web', 'newapi'))) {
         Wait-Here '构建失败，见上方输出。空间问题看第 3 步阈值；网络问题重新双击本文件重试（分层缓存会续用）。'
     }
     Write-Good '构建完成'

@@ -64,6 +64,51 @@ THIRD_PARTY_PATH_OVERRIDES: tuple[tuple[str, str, str, str], ...] = (
         "2026 SRT Whiteboard Animation contributors",
         "MIT permission notice for the bundled whiteboard pen-cursor asset only",
     ),
+    # ―― Vendored third-party components (own licenses; NOT Elastic-2.0) ――
+    # The full-tree license text files and per-component source. Keep in sync
+    # with the third_party/** override blocks in REUSE.toml and third_party/README.md.
+    (
+        "LICENSES/AGPL-3.0-only.txt",
+        "AGPL-3.0-only",
+        "Free Software Foundation",
+        "GNU Affero General Public License v3.0 only text",
+    ),
+    (
+        "third_party/dramaclaw-gateway/",
+        "AGPL-3.0-only",
+        "© QuantumNous and contributors; DramaClaw gateway fork",
+        "vendored upstream dramaclaw-gateway (AGPL-3.0-only), see third_party/README.md",
+    ),
+    (
+        "third_party/DA-2/",
+        "Apache-2.0",
+        "© EnVision-Research (DA-2 authors)",
+        "vendored upstream DA-2 (Apache-2.0), see third_party/README.md",
+    ),
+    (
+        "LICENSES/LicenseRef-Apple-ML-Research-Model.txt",
+        "LicenseRef-Apple-ML-Research-Model",
+        "© 2025 Apple Inc.",
+        "Apple ML Research model license text (non-commercial research only)",
+    ),
+    (
+        "third_party/ml-sharp/LICENSE_MODEL",
+        "LicenseRef-Apple-ML-Research-Model",
+        "© 2025 Apple Inc.",
+        "apple/ml-sharp LICENSE_MODEL (restricted research model license), see third_party/README.md",
+    ),
+    (
+        "LICENSES/LicenseRef-Apple-Sample-Code.txt",
+        "LicenseRef-Apple-Sample-Code",
+        "© 2025 Apple Inc.",
+        "Apple sample code permission text",
+    ),
+    (
+        "third_party/ml-sharp/",
+        "LicenseRef-Apple-Sample-Code",
+        "© 2025 Apple Inc.",
+        "vendored apple/ml-sharp source (Apple sample code license), see third_party/README.md",
+    ),
 )
 
 
@@ -363,6 +408,44 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "2026 SRT Whiteboard Animation contributors (cs-board, MIT)"
 SPDX-License-Identifier = "LicenseRef-cs-board-MIT"
+
+# ―――― Vendored third-party components (own licenses; NOT Elastic-2.0) ――――
+# The repo aggregates several independently-licensed works. Each block below
+# overrides the catch-all "Elastic-2.0" for the vendored path. See third_party/README.md.
+[[annotations]]
+path = [
+    "LICENSES/AGPL-3.0-only.txt",
+    "third_party/dramaclaw-gateway/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© QuantumNous and contributors; DramaClaw gateway fork"
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+[[annotations]]
+path = [
+    "third_party/DA-2/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© EnVision-Research (DA-2 authors)"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
+    "LICENSES/LicenseRef-Apple-ML-Research-Model.txt",
+    "third_party/ml-sharp/LICENSE_MODEL",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© 2025 Apple Inc."
+SPDX-License-Identifier = "LicenseRef-Apple-ML-Research-Model"
+
+[[annotations]]
+path = [
+    "LICENSES/LicenseRef-Apple-Sample-Code.txt",
+    "third_party/ml-sharp/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© 2025 Apple Inc."
+SPDX-License-Identifier = "LicenseRef-Apple-Sample-Code"
 
 [[annotations]]
 path = [

@@ -1,14 +1,20 @@
-# DramaClaw CE — 镜像模式：三个服务全部拉已发布镜像（不构建）。这是三服务运行定义的唯一来源，
-# docker-compose.yml（源码构建）通过 extends 复用它。
-#   cp .env.example .env && docker compose -f docker-compose.release.yml up -d
-# 版本：DRAMACLAW_VERSION（api/web）与 DRAMACLAW_GATEWAY_VERSION（网关）来自 .env，未设时用下面的默认值；
-#      每次发行包打包（SuperTale 的 dramaclaw-release-packages 非 dry_run 跑完）由它向本仓开 PR 抬默认值。国内拉取慢：.env 设 DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw（ACR 只放钉 tag）。
-# 三服务：api + LocalNewAPI（DramaClaw 维护的 dramaclaw-gateway，:3000）+ web（:8080）。
+# DramaClaw CE — 源码构建 base：api / web / 本地网关全部本地产出（网关已 vendored 进仓：
+# third_party/dramaclaw-gateway，AGPL-3.0，见 third_party/README.md），零外部镜像。
+# 这里同时是三服务运行定义（env / 端口 / 卷 / 健康检查）的唯一来源，
+# docker-compose.yml（默认入口）通过 extends 复用它。
+#   cp .env.example .env && docker compose -f docker-compose.release.yml up -d --build
+# 网关源码默认取仓内 ./third_party/dramaclaw-gateway；改用外部 checkout：.env 设 DRAMACLAW_GATEWAY_SRC=<路径>。
+# 三服务：api + LocalNewAPI（dramaclaw-gateway，:3000）+ web（:8080）。
 # 首启打开 http://localhost:8080 → 设置 → 模型：选「官方」粘贴 DC key、或「自定义」一键初始化 LocalNewAPI、或「LocalNewAPI + 官方混合」。
 # 默认模式是官方，此时 LocalNewAPI 只是常驻待命；.env 写 NEWAPI_PROVISIONER_ENABLED=false 可禁用一键初始化。
 services:
   api:
-    image: ${DRAMACLAW_IMAGE_PREFIX:-claymorelab}/dramaclaw:${DRAMACLAW_VERSION:-2.0.4}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_WORLD: "${INSTALL_WORLD:-0}"
+    image: dramaclaw-local/api
     restart: unless-stopped
     # 运行时从宿主 .env 注入 model/LLM key；镜像版允许没有 .env（首启后再补也行）。
     # environment: 块仍覆盖此处同名变量，保持 CE inline 模式强制不变。
@@ -62,7 +68,10 @@ services:
   # LocalNewAPI（OpenAI 兼容），DramaClaw 维护的修改版，源码 https://github.com/dramaclaw/dramaclaw-gateway 。
   # 默认使用 newapi-data 卷里的 SQLite；DramaClaw 通过共享卷自动初始化管理员、运行令牌、渠道与模型映射。
   newapi:
-    image: ${DRAMACLAW_IMAGE_PREFIX:-claymorelab}/dramaclaw-gateway:${DRAMACLAW_GATEWAY_VERSION:-v1.0.0-rc.24-dramaclaw.2}
+    build:
+      context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
+      dockerfile: Dockerfile
+    image: dramaclaw-local/gateway
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
@@ -86,7 +95,10 @@ services:
   # they are overridden to the compose `api` service (internal port 8780). Open
   # the app at http://localhost:8080 — the browser only ever talks to web.
   web:
-    image: ${DRAMACLAW_IMAGE_PREFIX:-claymorelab}/dramaclaw-frontend:${DRAMACLAW_VERSION:-2.0.4}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: dramaclaw-local/web
     restart: unless-stopped
     environment:
       BACKEND_HOST: api

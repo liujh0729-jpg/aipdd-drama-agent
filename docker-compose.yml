@@ -1,10 +1,8 @@
 # DramaClaw CE — 源码构建（默认入口）：api、web、网关全部本地产出。网关已 vendored 进仓（third_party/dramaclaw-gateway，AGPL-3.0，见 third_party/README.md），无需再单独 clone。
 #   cp .env.example .env && docker compose up -d --build
-# 运行定义（env / 端口 / 卷 / 健康检查）全部 extends 自 docker-compose.release.yml，这里只加 build 与本地镜像名。
-# 只想拉已发布镜像：docker compose -f docker-compose.release.yml up -d
-# 网关源码默认取仓内内置的 ./third_party/dramaclaw-gateway；想改用外部 checkout 或让 Docker 直接从 git 拉：
-#   .env 设 DRAMACLAW_GATEWAY_SRC=<路径> 或 DRAMACLAW_GATEWAY_SRC=https://github.com/dramaclaw/dramaclaw-gateway.git#main
-# 本地构建的镜像命名为 dramaclaw-local/*，不会覆盖本机缓存里的 claymorelab/* 发布镜像。
+# 运行定义（env / 端口 / 卷 / 健康检查）全部 extends 自 docker-compose.release.yml（它现在同样源码构建），这里叠加 build 与本地镜像名。
+# 网关源码默认取仓内内置的 ./third_party/dramaclaw-gateway；想改用外部 checkout：.env 设 DRAMACLAW_GATEWAY_SRC=<路径>。
+# 本地构建的镜像命名为 dramaclaw-local/*。零外部镜像，拉下即用。
 services:
   api:
     extends:

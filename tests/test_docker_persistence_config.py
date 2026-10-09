@@ -9,7 +9,6 @@ import yaml
 REPOSITORY_ROOT = Path(__file__).parents[1]
 RELEASE_FILE = "docker-compose.release.yml"
 SOURCE_FILE = "docker-compose.yml"
-IMAGE_PREFIX = "${DRAMACLAW_IMAGE_PREFIX:-claymorelab}/"
 
 
 def _compose() -> dict:
@@ -32,39 +31,44 @@ def test_repository_ships_only_source_and_release_compose_files() -> None:
     ]
 
 
-def test_compose_is_image_only_and_prefixed() -> None:
+def test_compose_builds_all_three_from_source() -> None:
     services = _compose()["services"]
     assert set(services) == {"api", "newapi", "web"}
     for name, service in services.items():
-        assert "build" not in service, f"{name} must not carry a build block"
+        assert "build" in service, f"{name} must carry a source build block"
         assert "pull_policy" not in service, f"{name} must not set pull_policy"
-        assert service["image"].startswith(IMAGE_PREFIX), name
+        assert service["image"].startswith("dramaclaw-local/"), name
         assert service.get("restart") == "unless-stopped", name
 
 
-def test_gateway_is_the_dramaclaw_fork_pinned_by_variable() -> None:
-    image = _compose()["services"]["newapi"]["image"]
-    assert re.fullmatch(
-        r"\$\{DRAMACLAW_IMAGE_PREFIX:-claymorelab\}/dramaclaw-gateway:"
-        r"\$\{DRAMACLAW_GATEWAY_VERSION:-v\d+\.\d+\.\d+(-rc\.\d+)?-dramaclaw\.\d+\}",
-        image,
-    ), image
+def test_gateway_builds_from_vendored_source() -> None:
+    newapi = _compose()["services"]["newapi"]
+    assert newapi["build"] == {
+        "context": "${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}",
+        "dockerfile": "Dockerfile",
+    }, newapi["build"]
+    assert newapi["image"] == "dramaclaw-local/gateway"
 
 
-def test_ce_images_share_one_version_variable() -> None:
-    # The default moves with every release (the packaging workflow opens a PR that bumps it),
-    # so assert the shape and that api and web move together — never the literal version.
+def test_ce_images_are_local_build_tags_and_zero_external() -> None:
+    # Fork is source-build only: api/web produce local tags, and no service pulls
+    # a published registry image (the old claymorelab image-mode is retired).
     services = _compose()["services"]
-    versions = set()
-    for name, repository in (("api", "dramaclaw"), ("web", "dramaclaw-frontend")):
-        image = services[name]["image"]
-        match = re.fullmatch(
-            re.escape(IMAGE_PREFIX + repository) + r":\$\{DRAMACLAW_VERSION:-(\d+\.\d+\.\d+)\}",
-            image,
-        )
-        assert match, image
-        versions.add(match.group(1))
-    assert len(versions) == 1, versions
+    assert services["api"]["image"] == "dramaclaw-local/api"
+    assert services["web"]["image"] == "dramaclaw-local/web"
+    text = (REPOSITORY_ROOT / RELEASE_FILE).read_text()
+    assert "claymorelab" not in text
+    assert "${DRAMACLAW_VERSION" not in text
+    assert "${DRAMACLAW_GATEWAY_VERSION" not in text
+
+
+def test_no_compose_file_pulls_external_images() -> None:
+    for name in (
+        "docker-compose.yml",
+        "docker-compose.release.yml",
+        "docker-compose.aipdd.yml",
+    ):
+        assert "claymorelab" not in (REPOSITORY_ROOT / name).read_text(), name
 
 
 def test_api_persists_generated_media_in_ce_data_volume() -> None:
@@ -134,7 +138,7 @@ def test_source_file_extends_release_and_builds_all_three() -> None:
         "args": {"INSTALL_WORLD": "${INSTALL_WORLD:-0}"},
     }
     assert services["newapi"]["build"] == {
-        "context": "${DRAMACLAW_GATEWAY_SRC:-../dramaclaw-gateway}",
+        "context": "${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}",
         "dockerfile": "Dockerfile",
     }
     assert services["web"]["build"] == {"context": "./frontend", "dockerfile": "Dockerfile"}

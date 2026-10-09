@@ -1,7 +1,7 @@
-# [aipdd fork delta] 方案 A-1 部署编排：源码构建 api + web（含本 fork 的 #5/#6/#A 改动），
-# LocalNewAPI（dramaclaw-gateway）拉发布镜像；SQLite、CE inline、无 PostgreSQL。
+# [aipdd fork delta] 部署编排：api + web + 本地网关（./third_party/dramaclaw-gateway，AGPL-3.0）
+# 全部源码构建、零外部镜像；SQLite、CE inline、无 PostgreSQL。拉下即用。
 #   用法： docker-compose -f docker-compose.aipdd.yml up -d --build
-#   拓扑与 env 完全对齐 docker-compose.release.yml，仅把 api/web 的 image 换成本地 build。
+#   拓扑与 env 对齐 docker-compose.release.yml。
 #   首启打开 http://localhost:8080 → 设置 → 模型：选「自定义」一键初始化 LocalNewAPI，
 #   再在网关里把 aipdd / susciyuan / comfyui 作为上游渠道开通、同步模型、按组件绑定默认模型。
 #   可选剪辑服务 VectCut（剪映/CapCut 草稿组装，见 services/vectcut/）：默认不启动，需要时
@@ -135,11 +135,14 @@ services:
       newapi:
         condition: service_started
 
-  # LocalNewAPI（OpenAI 兼容），源码 https://github.com/dramaclaw/dramaclaw-gateway 。
-  # 拉发布镜像（A-1 选镜像模式，省一次源码构建）。国内慢：.env 设
-  #   DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw
+  # LocalNewAPI（OpenAI 兼容）：源码构建自仓内 vendored 的 ./third_party/dramaclaw-gateway
+  #（AGPL-3.0，见 third_party/README.md）。零外部镜像，拉下即用；网关源码可改用外部 checkout：
+  #   .env 设 DRAMACLAW_GATEWAY_SRC=<路径>。
   newapi:
-    image: ${DRAMACLAW_IMAGE_PREFIX:-claymorelab}/dramaclaw-gateway:${DRAMACLAW_GATEWAY_VERSION:-v1.0.0-rc.24-dramaclaw.2}
+    build:
+      context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
+      dockerfile: Dockerfile
+    image: aipdd/dramaclaw-gateway:${DRAMACLAW_VERSION:-2.0.99}
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
