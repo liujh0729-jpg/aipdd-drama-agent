@@ -5,6 +5,14 @@
 
 DramaClaw 社区版（CE）采用 [Elastic License 2.0（ELv2）](../../LICENSES/Elastic-2.0.txt)，**源码可得（source available）**。本文通俗解释你能做什么、不能做什么。
 
+> **本 fork 是多许可的。** 应用源码是 Elastic-2.0，但 vendored 在 [`third_party/`](../../third_party/README.md) 下的第三方组件保留各自许可，以“ mere aggregation（单纯聚合）”的方式并列（每个路径在 [`REUSE.toml`](../../REUSE.toml) 中映射到其 SPDX 标识，并在 [`license-inventory.csv`](../../license-inventory.csv) 中列出）：
+>
+> - **`third_party/dramaclaw-gateway`** — **AGPL-3.0-only**。它作为独立服务经 HTTP 访问（单纯聚合）；若你修改它并通过网络提供服务，AGPL 的 copyleft / 源码公开义务适用于该组件。
+> - **`third_party/DA-2`** — **Apache-2.0**。
+> - **`third_party/ml-sharp`** — Apple 示例代码（**LicenseRef-Apple-Sample-Code**）加上 **Apple ML Research Model** 权重，后者为**非商业**许可（**LicenseRef-Apple-ML-Research-Model**）。模型权重**不得**用于商业目的；依赖它的 `world`（3DGS / SHARP）特性为可选、默认不启用。
+>
+> 你对整体分发的使用必须尊重每一部分**最严格**的适用许可。完整清单见 [`NOTICE`](../../NOTICE)，许可证原文在 [`LICENSES/`](../../LICENSES/)。
+
 ## 这算开源吗？ <!-- banned-word-allow -->
 
 是 **source-available**，不是 OSI 定义的「开源」。源码公开、可读、可改、可自托管，但带一条商业限制（见下）。我们对外始终用 “source available”，不自称 “open source”。<!-- banned-word-allow -->
