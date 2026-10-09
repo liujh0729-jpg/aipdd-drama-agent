@@ -67,7 +67,6 @@ def _clone_missing(dst: dict, src: dict) -> int:
     for key, container, leaf in list(_walk(src)):
         parts = key.split(".")
         cur = dst
-        ok = True
         for p in parts[:-1]:
             nxt = cur.get(p)
             if not isinstance(nxt, dict):

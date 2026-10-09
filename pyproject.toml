@@ -103,6 +103,10 @@ dev = [
 
 [tool.ruff]
 target-version = "py311"
+# Vendored third-party code (third_party/: AGPL gateway, Apple ml-sharp, Apache DA-2)
+# keeps its upstream style and license; services/vectcut is a separate sub-service with
+# its own .flake8/pyproject. Neither is governed by the root ruff gate.
+exclude = ["third_party", "services"]
 
 [tool.ruff.lint]
 # 显式冻结规则集为 ruff 默认（pycodestyle 错误 + pyflakes），
