@@ -24,7 +24,7 @@ from novelvideo.model_gateway_settings import (
     get_provider_capability_bindings,
     save_provider_capability_bindings,
 )
-from novelvideo.upstream_capabilities import (
+from novelvideo.catalog.upstream_capabilities import (
     _capability_items,
     aipdd_videos_mode_selector,
     binding_accepts_input,
@@ -675,7 +675,7 @@ def test_refresh_persists_facts(monkeypatch: pytest.MonkeyPatch, tmp_path) -> No
         return _AIPDD_CAPABILITIES["data"], ""
 
     monkeypatch.setattr(
-        "novelvideo.upstream_capabilities.fetch_upstream_capabilities", fake_fetch
+        "novelvideo.catalog.upstream_capabilities.fetch_upstream_capabilities", fake_fetch
     )
     result = newapi_provisioner.refresh_provider_capability_bindings("AIPDD")
     assert result == {"provider": "aipdd", "ok": True, "count": 4}
@@ -702,14 +702,14 @@ def test_refresh_failure_and_empty_video_bindings_do_not_write(
     def failing_fetch(base_url: str, upstream_key: str, **kwargs: Any):
         return [], "HTTP 404"
 
-    monkeypatch.setattr("novelvideo.upstream_capabilities.fetch_upstream_capabilities", failing_fetch)
+    monkeypatch.setattr("novelvideo.catalog.upstream_capabilities.fetch_upstream_capabilities", failing_fetch)
     result = newapi_provisioner.refresh_provider_capability_bindings("aipdd")
     assert result["ok"] is False and result["error"] == "HTTP 404"
     assert get_provider_capability_bindings("aipdd") == []
 
     # 渠道暴露能力接口但没有视频绑定：同样不写库（可能是代理给第三方的模型）。
     monkeypatch.setattr(
-        "novelvideo.upstream_capabilities.fetch_upstream_capabilities",
+        "novelvideo.catalog.upstream_capabilities.fetch_upstream_capabilities",
         lambda *args, **kwargs: ([{"code": "only-chat", "endpointType": "llm-chat"}], ""),
     )
     skipped = newapi_provisioner.refresh_provider_capability_bindings("aipdd")

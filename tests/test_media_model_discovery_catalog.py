@@ -501,7 +501,7 @@ def test_gateway_reference_image_cap_reads_both_declared_spellings() -> None:
     张别名表，不会出现「目录读到了、拼装又读不到」。
     """
 
-    from novelvideo.upstream_catalog import coerce_entry, declared_media_count, media_metadata
+    from novelvideo.catalog.upstream_catalog import coerce_entry, declared_media_count, media_metadata
 
     caps = media_model_discovery._extract_gateway_media_capabilities(AIPDD_LTX_ITEM)
     assert caps["referenceImageMax"] == 1
@@ -696,7 +696,7 @@ _H3_FL_BINDING = {
 
 def _patch_h3_bindings(monkeypatch) -> None:
     from novelvideo import model_gateway_settings
-    from novelvideo.upstream_capabilities import summarize_video_bindings
+    from novelvideo.catalog.upstream_capabilities import summarize_video_bindings
 
     bindings = summarize_video_bindings([_H3_FL_BINDING])
     monkeypatch.setattr(

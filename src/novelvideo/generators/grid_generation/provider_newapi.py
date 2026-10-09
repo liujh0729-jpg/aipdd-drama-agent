@@ -169,7 +169,7 @@ async def _call_newapi_image_api(
     # ``images/generations`` 和 ``images/edits`` 都声明在条目里，上游要是改名或只开
     # 其中一条，重拉目录就跟进；目录没说话（自建网关常只给名字）才用通用 OpenAI 路径。
     from novelvideo.model_gateway_settings import catalog_endpoint_path
-    from novelvideo.upstream_catalog import EP_IMAGES_EDITS, EP_IMAGES_GENERATIONS
+    from novelvideo.catalog.upstream_catalog import EP_IMAGES_EDITS, EP_IMAGES_GENERATIONS
 
     if reference_images:
         purpose = EP_IMAGES_EDITS

@@ -44,7 +44,7 @@ def catalog_embedding_dimensions(model: str = "") -> int | None:
         return None
     try:
         from novelvideo.model_gateway_settings import upstream_catalog_entry
-        from novelvideo.upstream_catalog import dimensions_for
+        from novelvideo.catalog.upstream_catalog import dimensions_for
 
         entry = upstream_catalog_entry(target)
     except Exception:  # noqa: BLE001 - 目录不可用时不宣称知道维度

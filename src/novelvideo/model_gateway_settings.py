@@ -705,7 +705,7 @@ def _decode_upstream_models_snapshot(value: str | None) -> dict[str, dict[str, A
 def _normalize_catalog_entries(raw: Any) -> list[dict[str, Any]]:
     """名字数组 / 条目数组 / 脏数据 → 统一的结构化条目（按名字排序去重）。"""
 
-    from novelvideo.upstream_catalog import parse_catalog_response
+    from novelvideo.catalog.upstream_catalog import parse_catalog_response
 
     items = raw if isinstance(raw, list) else []
     entries: list[dict[str, Any]] = []
@@ -966,7 +966,7 @@ def catalog_endpoint_path(name: str, purpose: str, provider: str = "") -> str:
     用途没命中就回空串，让调用方自己保留通用 OpenAI 路径作为兜底（自建网关常见）。
     """
 
-    from novelvideo.upstream_catalog import normalize_endpoint
+    from novelvideo.catalog.upstream_catalog import normalize_endpoint
 
     declared = catalog_endpoints(name, provider)
     if not declared:
@@ -996,7 +996,7 @@ def videos_request_paths(model: str, use_videos_api: bool) -> tuple[str, str]:
 
     if not use_videos_api:
         return "video/generations", "/video/generations/"
-    from novelvideo.upstream_catalog import EP_VIDEOS, task_lookup_endpoint
+    from novelvideo.catalog.upstream_catalog import EP_VIDEOS, task_lookup_endpoint
 
     clean = str(model or "").strip()
     submit = (catalog_endpoint_path(clean, EP_VIDEOS) if clean else "") or EP_VIDEOS

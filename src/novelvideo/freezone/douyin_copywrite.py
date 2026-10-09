@@ -113,7 +113,7 @@ def is_asr_candidate_model(model: str, provider: str = "") -> bool:
         return False
     try:
         from novelvideo.model_gateway_settings import upstream_catalog_entry
-        from novelvideo.upstream_catalog import supports_asr
+        from novelvideo.catalog.upstream_catalog import supports_asr
 
         entry = upstream_catalog_entry(clean, provider)
     except Exception:  # noqa: BLE001 - 目录不可用时退回名字正则，不能把候选清空
@@ -137,7 +137,7 @@ def asr_accepts_local_upload(model: str, provider: str = "") -> bool:
         return False
     try:
         from novelvideo.model_gateway_settings import upstream_catalog_entry
-        from novelvideo.upstream_catalog import EP_AUDIO_TRANSCRIPTIONS, declares_endpoint
+        from novelvideo.catalog.upstream_catalog import EP_AUDIO_TRANSCRIPTIONS, declares_endpoint
 
         entry = upstream_catalog_entry(clean, provider)
     except Exception:  # noqa: BLE001 - 目录不可用时维持旧行为
@@ -876,7 +876,7 @@ def _newapi_transcription_endpoint(base_url: str | None = None, *, model: str = 
     # [aipdd fork delta req41] 转写路径照渠道目录：条目声明了什么就拼什么（AIPDD 写了
     # ``audio/transcriptions``）；目录没说话才按通用 OpenAI 兼容路径拼。
     from novelvideo.model_gateway_settings import catalog_endpoint_path
-    from novelvideo.upstream_catalog import EP_AUDIO_TRANSCRIPTIONS
+    from novelvideo.catalog.upstream_catalog import EP_AUDIO_TRANSCRIPTIONS
 
     suffix = (
         catalog_endpoint_path(str(model or ""), EP_AUDIO_TRANSCRIPTIONS)

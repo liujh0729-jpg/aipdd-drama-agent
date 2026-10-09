@@ -50,7 +50,7 @@ from novelvideo.model_slots import (
     resolve_media_slot,
     resolve_slot,
 )
-from novelvideo.upstream_catalog import (
+from novelvideo.catalog.upstream_catalog import (
     EP_AUDIO_TRANSCRIPTIONS,
     MEDIA_ASR,
     MEDIA_AUDIO,

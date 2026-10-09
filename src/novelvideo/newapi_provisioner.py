@@ -592,12 +592,12 @@ def _upstream_models_ttl_seconds() -> float:
 def parse_upstream_catalog(payload: Any) -> list[dict[str, Any]]:
     """[aipdd fork delta req40] OpenAI 兼容 /models 响应 → 结构化目录条目。
 
-    真源在 :mod:`novelvideo.upstream_catalog`：吸收渠道在每个条目上声明的
+    真源在 :mod:`novelvideo.catalog.upstream_catalog`：吸收渠道在每个条目上声明的
     kind / 端点 / 模态 / 向量维度 / available / 能力档位，并且只保留渠道真的在提
     供的模型（available=false 直接丢弃）。平台不预先知道渠道有什么模型。
     """
 
-    from novelvideo.upstream_catalog import parse_catalog_response
+    from novelvideo.catalog.upstream_catalog import parse_catalog_response
 
     return parse_catalog_response(payload)
 
@@ -605,7 +605,7 @@ def parse_upstream_catalog(payload: Any) -> list[dict[str, Any]]:
 def parse_upstream_model_ids(payload: Any) -> list[str]:
     """OpenAI 兼容 /models 响应（data/models + id/model）→ 排序去重的模型名。"""
 
-    from novelvideo.upstream_catalog import catalog_names
+    from novelvideo.catalog.upstream_catalog import catalog_names
 
     return catalog_names(parse_upstream_catalog(payload))
 
@@ -667,7 +667,7 @@ def _gemini_catalog_items(payload: Any) -> list[dict[str, Any]]:
     """Gemini 原生 ``{models: [{name: "models/x", supportedGenerationMethods}]}`` →
     OpenAI 兼容条目 ``{id, name, aipdd: {kind, endpoint, display_name}}``。
 
-    为什么必须转：:func:`novelvideo.upstream_catalog.parse_catalog_response` 只收带
+    为什么必须转：:func:`novelvideo.catalog.upstream_catalog.parse_catalog_response` 只收带
     ``id``/``model`` 的 dict（只带 ``name`` 的 dict 被当成已归一的快照形态而在解析
     上游这一步丢弃），Gemini 原生条目只有 ``name`` 且带 ``models/`` 资源前缀 —— 不
     转就是一个模型都拉不到。前缀必须剥掉：那是 REST 资源路径而不是模型名，网关拼
@@ -822,7 +822,7 @@ def list_upstream_models(
     )
     if error:
         return [], error
-    from novelvideo.upstream_catalog import catalog_names
+    from novelvideo.catalog.upstream_catalog import catalog_names
 
     return catalog_names(entries), ""
 
@@ -846,7 +846,7 @@ def refresh_provider_capability_bindings(provider: str) -> dict[str, Any]:
     **不写库** —— 没读到事实就是「不表态」，不能反过来把「没绑定」当成「都不吃」。
     """
 
-    from novelvideo.upstream_capabilities import (
+    from novelvideo.catalog.upstream_capabilities import (
         fetch_upstream_capabilities,
         summarize_video_bindings,
     )
@@ -917,7 +917,7 @@ def list_provider_upstream_models(
     )
     if error:
         return [], error
-    from novelvideo.upstream_catalog import catalog_names
+    from novelvideo.catalog.upstream_catalog import catalog_names
 
     return catalog_names(entries), ""
 
@@ -967,7 +967,7 @@ def upstream_passthrough_models(
         # 拉失败退回本地快照：一次网络抖动不能把已确认在册的目录整批剪掉；
         # 快照为空就是「还没同步过」，不猜。
         entries = pulled if not error else get_upstream_catalog(provider_key)
-    from novelvideo.upstream_catalog import catalog_names
+    from novelvideo.catalog.upstream_catalog import catalog_names
 
     # [aipdd fork delta] 拍平：跨渠道同名由 model_gateway_settings.
     # build_channel_registrations 统一处理（复合名总是注册，裸名仅「恰好一个渠道
@@ -985,7 +985,7 @@ def model_supports_vision(name: str, provider: str = "") -> bool:
     """
 
     from novelvideo.model_gateway_settings import upstream_catalog_entry
-    from novelvideo.upstream_catalog import entry_has_declared_modality, supports_vision
+    from novelvideo.catalog.upstream_catalog import entry_has_declared_modality, supports_vision
 
     entry = upstream_catalog_entry(name, provider)
     if entry is not None and entry_has_declared_modality(entry):

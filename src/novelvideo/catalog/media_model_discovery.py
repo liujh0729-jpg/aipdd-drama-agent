@@ -518,7 +518,7 @@ def apply_video_binding_mode_evidence(entries: list[dict[str, Any]]) -> list[dic
         model_owner_providers,
         split_provider_spot_model,
     )
-    from novelvideo.upstream_capabilities import video_binding_modes_for_model
+    from novelvideo.catalog.upstream_capabilities import video_binding_modes_for_model
 
     bindings_by_provider: dict[str, list[dict[str, Any]]] = {}
 
@@ -621,7 +621,7 @@ def _extract_gateway_media_capabilities(entry: dict[str, Any]) -> dict[str, Any]
     """
 
     # 延迟导入避开循环（upstream_catalog 的分类口径反向依赖本模块）。
-    from novelvideo.upstream_catalog import declared_media_count
+    from novelvideo.catalog.upstream_catalog import declared_media_count
 
     containers: list[dict[str, Any]] = []
 

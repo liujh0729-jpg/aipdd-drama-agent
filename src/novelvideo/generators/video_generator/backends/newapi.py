@@ -136,7 +136,7 @@ def _aipdd_video_input_caps(
     """
 
     from novelvideo.model_gateway_settings import upstream_catalog_entry
-    from novelvideo.upstream_catalog import declared_media_count, media_metadata
+    from novelvideo.catalog.upstream_catalog import declared_media_count, media_metadata
 
     meta = media_metadata(upstream_catalog_entry(str(model or ""), provider=provider) or {})
 
@@ -1084,7 +1084,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         """
 
         from novelvideo.model_gateway_settings import catalog_endpoints
-        from novelvideo.upstream_catalog import EP_VIDEOS
+        from novelvideo.catalog.upstream_catalog import EP_VIDEOS
 
         declared = catalog_endpoints(model) if str(model or "").strip() else []
         if declared:
@@ -1155,7 +1155,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         对应绑定的模式**不发 ``mode``**，保持原有 ``image_urls`` 行为。
         """
 
-        from novelvideo.upstream_capabilities import (
+        from novelvideo.catalog.upstream_capabilities import (
             AIPDD_VIDEOS_MODE_FRAMES,
             AIPDD_VIDEOS_MODE_TEXT,
             aipdd_videos_mode_selector,

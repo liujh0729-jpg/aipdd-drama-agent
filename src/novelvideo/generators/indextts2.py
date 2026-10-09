@@ -108,7 +108,7 @@ def _audio_speech_suffix(model: str) -> str:
     轮询拼的是 ``{endpoint}/{task_id}``，所以两条地址会跟着声明一起走。
     """
     from novelvideo.model_gateway_settings import catalog_endpoint_path
-    from novelvideo.upstream_catalog import EP_AUDIO_SPEECH
+    from novelvideo.catalog.upstream_catalog import EP_AUDIO_SPEECH
 
     return (
         catalog_endpoint_path(str(model or ""), EP_AUDIO_SPEECH)
@@ -125,7 +125,7 @@ def _uses_aipdd_audio_api(base_url: str, model: str = "") -> bool:
     子串兜底（默认 aipdd，可用 ``AIPDD_AUDIO_API_HOST_HINT`` 覆盖）。
     """
     from novelvideo.model_gateway_settings import catalog_endpoints
-    from novelvideo.upstream_catalog import EP_AUDIO_SPEECH
+    from novelvideo.catalog.upstream_catalog import EP_AUDIO_SPEECH
 
     declared = catalog_endpoints(model) if str(model or "").strip() else []
     if declared:

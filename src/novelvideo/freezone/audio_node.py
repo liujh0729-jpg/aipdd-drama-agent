@@ -1076,7 +1076,7 @@ def _newapi_audio_endpoint(base_url: str | None = None, *, model: str = "") -> s
     # [aipdd fork delta req41] 合成路径照渠道目录：条目声明了什么就拼什么（AIPDD 写了
     # ``audio/speech``）；目录没说话才按通用 OpenAI 兼容路径拼。
     from novelvideo.model_gateway_settings import catalog_endpoint_path
-    from novelvideo.upstream_catalog import EP_AUDIO_SPEECH
+    from novelvideo.catalog.upstream_catalog import EP_AUDIO_SPEECH
 
     suffix = (
         catalog_endpoint_path(str(model or ""), EP_AUDIO_SPEECH) or EP_AUDIO_SPEECH

@@ -1326,7 +1326,7 @@ async def test_omni_video_gate_uses_the_real_mode_scoped_matcher(
     """端到端跑真的按模式筛逻辑：全能参考只问 ref2va 那一条，不拿并集下结论。"""
 
     from novelvideo import model_gateway_settings
-    from novelvideo.upstream_capabilities import summarize_video_bindings
+    from novelvideo.catalog.upstream_capabilities import summarize_video_bindings
 
     monkeypatch.setattr(
         model_gateway_settings, "model_owner_providers", lambda _model: ["aipdd"]
@@ -1357,7 +1357,7 @@ async def test_omni_video_reference_image_only_is_never_blocked_by_the_video_gat
     """只递参考图时不走视频/音频那一刀：全能参考模式下递图是 ref2va 绑定真吃了的。"""
 
     from novelvideo import model_gateway_settings
-    from novelvideo.upstream_capabilities import summarize_video_bindings
+    from novelvideo.catalog.upstream_capabilities import summarize_video_bindings
 
     monkeypatch.setattr(
         model_gateway_settings, "model_owner_providers", lambda _model: ["aipdd"]

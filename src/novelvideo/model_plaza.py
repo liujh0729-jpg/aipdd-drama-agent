@@ -413,7 +413,7 @@ def _media_invoke(
     invoke_kind, fallback_endpoint = hit
     entry = _catalog_entry_for(model_name, provider) if model_name else None
     if entry is not None:
-        from novelvideo.upstream_catalog import endpoint_for
+        from novelvideo.catalog.upstream_catalog import endpoint_for
 
         declared = endpoint_for(entry, fallback_endpoint)
         if declared:
@@ -1135,7 +1135,7 @@ def build_invocation_examples(entry: dict[str, Any]) -> dict[str, Any]:
         # （图生图 / 图片编辑）时，卡内并列一条可复制示例。端点仍然照目录给，代码不
         # 自己拼路径 —— AIPDD 的两个路径都是上游事实，不能只教一半。
         from novelvideo.model_gateway_settings import catalog_endpoints
-        from novelvideo.upstream_catalog import EP_IMAGES_EDITS
+        from novelvideo.catalog.upstream_catalog import EP_IMAGES_EDITS
 
         edit_path = next(
             (
@@ -1167,7 +1167,7 @@ def build_invocation_examples(entry: dict[str, Any]) -> dict[str, Any]:
         # [aipdd fork delta req41] 轮询地址也照目录给：AIPDD 在条目里声明了
         # ``videos/{taskId}``，而旧代码把 ``video/generations/<TASK_ID>`` 写死 ——
         # 于是卡上提交走 ``/videos``、轮询走另一条路径，用户复制第二条必 404。
-        from novelvideo.upstream_catalog import task_lookup_endpoint
+        from novelvideo.catalog.upstream_catalog import task_lookup_endpoint
 
         catalog_entry = (
             _catalog_entry_for(model_name, _clean(entry.get("provider")))

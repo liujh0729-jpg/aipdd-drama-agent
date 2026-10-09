@@ -111,7 +111,7 @@ def test_indextts_async_task_follows_catalog_declaration(monkeypatch, tmp_path) 
 
 def test_task_lookup_endpoint_picks_declared_status_path() -> None:
     """轮询路径从目录里拿：拿带路径参数的那条，不拿取成品的 ``/content``。"""
-    from novelvideo.upstream_catalog import task_lookup_endpoint
+    from novelvideo.catalog.upstream_catalog import task_lookup_endpoint
 
     entry = {
         "endpoints": ["videos", "videos/{taskId}", "videos/{taskId}/content"],
@@ -134,7 +134,7 @@ def test_task_lookup_endpoint_picks_declared_status_path() -> None:
 def test_catalog_endpoint_path_prefers_exact_and_skips_placeholders(monkeypatch, tmp_path) -> None:
     """同一个 ``audio/speech`` 前缀下有提交端点和轮询子路径：只能拿前者。"""
     from novelvideo.model_gateway_settings import catalog_endpoint_path
-    from novelvideo.upstream_catalog import EP_AUDIO_SPEECH, EP_IMAGES_EDITS
+    from novelvideo.catalog.upstream_catalog import EP_AUDIO_SPEECH, EP_IMAGES_EDITS
 
     _seed_catalog(
         monkeypatch,

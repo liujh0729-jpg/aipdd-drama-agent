@@ -160,7 +160,7 @@ async def generate_image(
     # [aipdd fork delta req41] 出图路径先问渠道目录（AIPDD 声明了 images/generations），
     # 目录没说话才用通用 OpenAI 路径。轮询拼的是 ``{url}/{task_id}``，所以两条地址会跟着声明走。
     from novelvideo.model_gateway_settings import catalog_endpoint_path
-    from novelvideo.upstream_catalog import EP_IMAGES_GENERATIONS
+    from novelvideo.catalog.upstream_catalog import EP_IMAGES_GENERATIONS
 
     image_path = (
         catalog_endpoint_path(model, EP_IMAGES_GENERATIONS) or EP_IMAGES_GENERATIONS
@@ -247,7 +247,7 @@ def _uses_aipdd_videos_api(base_url: str, model: str = "") -> bool:
     时才退回 host 子串判定（默认 aipdd，可用 ``AIPDD_VIDEO_API_HOST_HINT`` 覆盖）。
     """
     from novelvideo.model_gateway_settings import catalog_endpoints
-    from novelvideo.upstream_catalog import EP_VIDEOS
+    from novelvideo.catalog.upstream_catalog import EP_VIDEOS
 
     declared = catalog_endpoints(model) if str(model or "").strip() else []
     if declared:

@@ -85,7 +85,7 @@ CATALOG_CORE_FILES = frozenset(
         "official_defaults.py",
         "model_slots.py",
         "embedding_models.py",
-        "upstream_catalog.py",
+        "catalog/upstream_catalog.py",
         "model_gateway_settings.py",
         "newapi_provisioner.py",
         "catalog/media_model_discovery.py",

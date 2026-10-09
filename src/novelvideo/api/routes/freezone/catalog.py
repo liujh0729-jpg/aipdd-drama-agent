@@ -466,7 +466,7 @@ def _omni_reference_binding_facts(
         model_owner_providers,
         split_provider_spot_model,
     )
-    from novelvideo.upstream_capabilities import video_input_facts_for_model
+    from novelvideo.catalog.upstream_capabilities import video_input_facts_for_model
 
     provider, bare_model = split_provider_spot_model(str(model or ""))
     bare_model = str(bare_model or "").strip()
@@ -519,7 +519,7 @@ def _omni_reference_alternative_hint(
     """
 
     from novelvideo.model_gateway_settings import get_provider_capability_bindings
-    from novelvideo.upstream_capabilities import bindings_accepting_input
+    from novelvideo.catalog.upstream_capabilities import bindings_accepting_input
 
     matched_codes = {
         str(code)
