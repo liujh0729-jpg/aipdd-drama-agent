@@ -57,15 +57,23 @@ COPY pyproject.toml uv.lock README.md ./
 # license 正文按 REUSE 惯例只存于 LICENSES/(pyproject license-files 指向它),
 # hatchling 构建 wheel 时需要这份文件在上下文中。
 COPY LICENSES ./LICENSES
+# world 特性（3DGS / SHARP）的本地 vendored 源：uv.lock 把 sharp/da2 锁成下面两个
+# 目录源（third_party/ml-sharp、third_party/DA-2/src）。运行期「下载并部署」与
+# INSTALL_WORLD=1 构建都从这些本地路径装，无需访问 github。不 COPY 进镜像的话，
+# uv sync --extra world 会因找不到目录源而失败。
+COPY third_party/ml-sharp ./third_party/ml-sharp
+COPY third_party/DA-2 ./third_party/DA-2
 
 # ════════════════════════════════════════════════════════════════════════
 # 第 2 段：依赖与工具（只在 pyproject.toml / uv.lock 变化时重建）
 # ════════════════════════════════════════════════════════════════════════
 
 # [aipdd fork delta] 3D 世界/3DGS「world」特性改为**运行时按需安装**（设置页「下载并部署」）。
-# 无论 INSTALL_WORLD 为何,精简镜像都常驻轻工具:
-#   - git: 运行时 uv sync 从 git+https://github.com/apple/ml-sharp 拉 sharp 需要
+# sharp/da2 已 vendored 进仓（上方 COPY 的 third_party/ml-sharp、third_party/DA-2/src），
+# uv.lock 里是本地 directory 源——运行期 uv sync --extra world 只从本地路径 + PyPI 装，
+# 不再联网 git+https://github.com/apple/ml-sharp。无论 INSTALL_WORLD 为何,精简镜像都常驻轻工具:
 #   - nodejs/npm + @playcanvas/splat-transform(PLY→SOG,MIT): 转 SOG 需要
+#   - git: world 依赖已全部 vendored，正常安装不再需要 git；保留仅作运维兜底
 # torch/sharp/da2 这些 GB 级重依赖**不进**默认镜像,由后台任务 uv sync --extra world
 # 装到持久卷 <STATE_DIR>/world/venv(跨重建保留)。模型权重也不进镜像,运行时下载。
 # INSTALL_WORLD=1 仍保留:构建期就把 world extra 装进 /app/.venv(离线/无外网场景)。

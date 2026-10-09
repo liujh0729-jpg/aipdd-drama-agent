@@ -46,6 +46,11 @@ COPY pyproject.toml uv.lock README.md ./
 COPY LICENSES ./LICENSES
 COPY src ./src
 COPY .hermes ./.hermes
+# world 特性（3DGS / SHARP）本地 vendored 源：uv.lock 把 sharp/da2 锁成目录源，
+# INSTALL_WORLD=1 构建（下方 uv sync --extra world）与运行期「下载并部署」都从本地
+# 路径装；不 COPY 会因找不到目录源而失败。
+COPY third_party/ml-sharp ./third_party/ml-sharp
+COPY third_party/DA-2 ./third_party/DA-2
 
 RUN test -f src/novelvideo/assets/login_bgm.mp3 \
     && test -f src/novelvideo/assets/login_bg_v1.mp4 \
