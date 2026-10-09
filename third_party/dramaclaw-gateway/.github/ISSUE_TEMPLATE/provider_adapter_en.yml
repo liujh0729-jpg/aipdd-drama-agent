@@ -1,0 +1,102 @@
+name: Provider adapter request
+description: Request or claim a model provider adapter for dramaclaw-gateway
+title: "[Provider] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read the [DC-Media documentation](https://github.com/dramaclaw/dramaclaw-gateway/tree/main/docs/dc-media/en) and [contribution guide](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md) first.
+        Only official provider APIs are accepted. Never submit API keys, private media URLs, or unredacted responses.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched this repository's issues, pull requests, and channel support matrix.
+          required: true
+        - label: I am providing official provider API documentation, not a reverse-engineered or unauthorized wrapper API.
+          required: true
+        - label: I removed API keys, signed URLs, account data, and private media from all examples.
+          required: true
+
+  - type: input
+    id: provider
+    attributes:
+      label: Provider
+      description: Official name and proposed stable provider ID, for example `example_ai`.
+      placeholder: Example AI / example_ai
+    validations:
+      required: true
+
+  - type: textarea
+    id: official_docs
+    attributes:
+      label: Official API documentation
+      description: Link create, query, cancel, and result download docs; mark endpoints that do not apply.
+      placeholder: |
+        Create: https://...
+        Query: https://...
+        Cancel: https://...
+        Result: https://...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Request type
+      multiple: true
+      options:
+        - Synchronous image generation or editing
+        - Asynchronous video task
+        - Asynchronous audio task
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: models
+    attributes:
+      label: Models and capabilities
+      description: List upstream model IDs, generation scenarios, ratios, resolutions, durations, and media limits.
+      placeholder: |
+        | Upstream model ID | Scenarios | Ratio/resolution | Duration | Image/video/audio limits |
+        |---|---|---|---|---|
+    validations:
+      required: true
+
+  - type: textarea
+    id: auth_endpoint
+    attributes:
+      label: Authentication and endpoints
+      description: Describe authentication headers, default Base URL, regional domains, and URL override policy. Do not include a real key.
+    validations:
+      required: true
+
+  - type: textarea
+    id: dc_media_mapping
+    attributes:
+      label: DC-Media mapping
+      description: Map first frame, last frame, reference image/video/audio, ratio, and duration. Explicitly list unsupported fields.
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Sanitized request and response examples
+      description: Include a minimal request, submission response, and successful/failed query response. Replace large Base64 values with placeholders.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: contribution
+    attributes:
+      label: Contribution plan
+      description: Will you implement or test the adapter? What help do you need from the community?
+    validations:
+      required: true

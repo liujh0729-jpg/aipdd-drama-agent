@@ -831,7 +831,7 @@ wheels = [
 [[package]]
 name = "da2"
 version = "0.1.0"
-source = { git = "https://github.com/EnVision-Research/DA-2.git?subdirectory=src#d659838585f2bc9967c7e9367af573795271dbbb" }
+source = { directory = "third_party/DA-2/src" }
 
 [[package]]
 name = "dashscope"
@@ -3371,8 +3371,21 @@ wheels = [
 [[package]]
 name = "sharp"
 version = "0.1"
-source = { git = "https://github.com/apple/ml-sharp.git#1eaa046834b81852261262b41b0919f5c1efdd2e" }
+source = { directory = "third_party/ml-sharp" }
 dependencies = [
+    { name = "click" },
+    { name = "imageio" },
+    { name = "matplotlib" },
+    { name = "pillow-heif" },
+    { name = "plyfile" },
+    { name = "scipy" },
+    { name = "timm" },
+    { name = "torch" },
+    { name = "torchvision" },
+]
+
+[package.metadata]
+requires-dist = [
     { name = "click" },
     { name = "imageio" },
     { name = "matplotlib" },
@@ -3570,7 +3583,7 @@ requires-dist = [
     { name = "claude-agent-sdk", specifier = ">=0.1.72" },
     { name = "click", specifier = "<8.2.0" },
     { name = "cognee", specifier = "==1.0.5" },
-    { name = "da2", marker = "extra == 'world'", git = "https://github.com/EnVision-Research/DA-2.git?subdirectory=src" },
+    { name = "da2", marker = "extra == 'world'", directory = "third_party/DA-2/src" },
     { name = "dashscope", specifier = ">=1.0.0" },
     { name = "edge-tts", specifier = ">=6.0.0" },
     { name = "einops", marker = "extra == 'world'", specifier = "==0.8.0" },
@@ -3606,7 +3619,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0.0" },
     { name = "safetensors", marker = "extra == 'world'", specifier = ">=0.6.0" },
     { name = "scipy", marker = "extra == 'world'", specifier = ">=1.16.0" },
-    { name = "sharp", marker = "extra == 'world'", git = "https://github.com/apple/ml-sharp.git" },
+    { name = "sharp", marker = "extra == 'world'", directory = "third_party/ml-sharp" },
     { name = "sse-starlette", specifier = ">=3.3.0" },
     { name = "timm", marker = "extra == 'world'", specifier = ">=1.0.20" },
     { name = "torch", marker = "extra == 'world'", specifier = ">=2.8.0" },

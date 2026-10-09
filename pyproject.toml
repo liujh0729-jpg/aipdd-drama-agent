@@ -74,8 +74,8 @@ novelvideo = "novelvideo.cli:app"
 
 [project.optional-dependencies]
 world = [
-    "sharp @ git+https://github.com/apple/ml-sharp.git",
-    "da2 @ git+https://github.com/EnVision-Research/DA-2.git#subdirectory=src",
+    "sharp",
+    "da2",
     "torch>=2.8.0",
     "torchvision>=0.23.0",
     "timm>=1.0.20",
@@ -189,6 +189,13 @@ markers = [
     "m09: OSS split module M09",
     "m10: OSS split module M10",
 ]
+
+# Vendored local sources (see third_party/README.md): uv resolves sharp/da2 from the
+# in-repo copies instead of the upstream git URLs, so `uv sync` needs no access to
+# the third-party repos. Update the pins under third_party/ to bump them.
+[tool.uv.sources]
+sharp = { path = "third_party/ml-sharp" }
+da2 = { path = "third_party/DA-2/src" }
 
 [[tool.uv.dependency-metadata]]
 name = "da2"

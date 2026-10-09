@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: dramaclaw-gateway 文档 / Documentation
+    url: https://github.com/dramaclaw/dramaclaw-gateway#readme
+    about: 提交 Issue 前请先查阅当前项目文档。Read the current project documentation before opening an issue.
+  - name: 渠道接入指南 / Provider Onboarding
+    url: https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.zh_CN.md
+    about: 新增供应商渠道或模型前，请先阅读 DC-Media 约束、适配器结构和验证要求。
+  - name: Channel Onboarding (English)
+    url: https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md
+    about: Read the DC-Media adapter contract and verification requirements before contributing a provider.

@@ -25,6 +25,44 @@ precedence = "override"
 SPDX-FileCopyrightText = "2026 SRT Whiteboard Animation contributors (cs-board, MIT)"
 SPDX-License-Identifier = "LicenseRef-cs-board-MIT"
 
+# ―――― Vendored third-party components (own licenses; NOT Elastic-2.0) ――――
+# The repo aggregates several independently-licensed works. Each block below
+# overrides the catch-all "Elastic-2.0" for the vendored path. See third_party/README.md.
+[[annotations]]
+path = [
+    "LICENSES/AGPL-3.0-only.txt",
+    "third_party/dramaclaw-gateway/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© QuantumNous and contributors; DramaClaw gateway fork"
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+[[annotations]]
+path = [
+    "third_party/DA-2/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© EnVision-Research (DA-2 authors)"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
+    "LICENSES/LicenseRef-Apple-ML-Research-Model.txt",
+    "third_party/ml-sharp/LICENSE_MODEL",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© 2025 Apple Inc."
+SPDX-License-Identifier = "LicenseRef-Apple-ML-Research-Model"
+
+[[annotations]]
+path = [
+    "LICENSES/LicenseRef-Apple-Sample-Code.txt",
+    "third_party/ml-sharp/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "© 2025 Apple Inc."
+SPDX-License-Identifier = "LicenseRef-Apple-Sample-Code"
+
 [[annotations]]
 path = [
     "**",

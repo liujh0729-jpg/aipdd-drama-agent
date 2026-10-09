@@ -1,0 +1,102 @@
+name: 渠道适配申请
+description: 申请或认领一个 dramaclaw-gateway 模型供应商渠道
+title: "[Provider] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先阅读 [DC-Media 文档](https://github.com/dramaclaw/dramaclaw-gateway/tree/main/docs/dc-media)和[贡献指南](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.zh_CN.md)。
+        本模板只接受供应商官方接口。请勿提交 API Key、私有素材 URL 或未脱敏的响应。
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交确认
+      options:
+        - label: 我已搜索本仓库现有 Issues、Pull Requests 和渠道支持矩阵。
+          required: true
+        - label: 我提供的是供应商官方接口文档，不是逆向接口或未经授权的第三方封装。
+          required: true
+        - label: 我已删除示例中的 API Key、签名 URL、账号和私有素材。
+          required: true
+
+  - type: input
+    id: provider
+    attributes:
+      label: 供应商
+      description: 正式名称及建议的稳定 provider ID，例如 `example_ai`。
+      placeholder: Example AI / example_ai
+    validations:
+      required: true
+
+  - type: textarea
+    id: official_docs
+    attributes:
+      label: 官方接口文档
+      description: 提供创建、查询、取消和结果下载文档；不适用的接口请注明。
+      placeholder: |
+        创建任务：https://...
+        查询任务：https://...
+        取消任务：https://...
+        下载结果：https://...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: transport
+    attributes:
+      label: 调用类型
+      multiple: true
+      options:
+        - 同步图片生成或编辑
+        - 异步视频任务
+        - 异步音频任务
+        - 其它
+    validations:
+      required: true
+
+  - type: textarea
+    id: models
+    attributes:
+      label: 模型及能力
+      description: 列出上游模型 ID、文生/图生/参考能力，以及比例、分辨率、时长和素材上限。
+      placeholder: |
+        | 上游模型 ID | 场景 | 比例/分辨率 | 时长 | 图片/视频/音频上限 |
+        |---|---|---|---|---|
+    validations:
+      required: true
+
+  - type: textarea
+    id: auth_endpoint
+    attributes:
+      label: 鉴权与地址
+      description: 描述鉴权 Header、默认 Base URL、国内外域名差异和是否允许覆盖地址，不要填写真实密钥。
+    validations:
+      required: true
+
+  - type: textarea
+    id: dc_media_mapping
+    attributes:
+      label: DC-Media 字段映射
+      description: 说明首帧、尾帧、参考图、参考视频、参考音频、比例和时长如何映射；不支持项必须明确列出。
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: 脱敏请求与响应示例
+      description: 提供最小成功请求、提交响应和查询成功/失败响应。大段 Base64 请用占位符。
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: contribution
+    attributes:
+      label: 贡献计划
+      description: 你是否准备实现或测试该适配器？哪些部分需要社区协助？
+    validations:
+      required: true
