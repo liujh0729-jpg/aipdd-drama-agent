@@ -557,6 +557,7 @@ async def test_c1_eg21_release_feed_drops_untrusted_release_url(tmp_path, monkey
     from novelvideo.ports.local.release_feed import LocalReleaseFeed
 
     monkeypatch.setenv("RELEASE_NOTIFICATIONS_ENABLED", "true")
+    monkeypatch.setenv("RELEASE_NOTIFICATIONS_GITHUB_CHECK", "true")
     notes = tmp_path / "release-notes.md"
     notes.write_text(
         "# v1.0.0\n## User-facing Highlights (en)\n- **Current**: local\n",

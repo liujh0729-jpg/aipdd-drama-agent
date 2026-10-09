@@ -82,6 +82,11 @@ class LocalReleaseFeed:
         if current_version is None:
             return feed
 
+        if not _github_check_enabled():
+            # Zero default outbound calls: on a fresh install we only surface the bundled
+            # release notes and never contact GitHub unless the operator opts in.
+            return feed
+
         latest = await self._latest_release()
         if latest is None:
             return feed
@@ -169,8 +174,19 @@ class LocalReleaseFeed:
 
 
 def _enabled() -> bool:
+    # Master switch for the whole feed. Reading the bundled release-notes file is an
+    # offline-safe operation, so this stays on by default; the outbound GitHub lookup
+    # is gated separately below (opt-in).
     value = os.environ.get("RELEASE_NOTIFICATIONS_ENABLED", "true").strip().lower()
     return value not in {"0", "false", "no", "off"}
+
+
+def _github_check_enabled() -> bool:
+    # The GitHub releases API call is the only outbound network access in this feed. In
+    # this self-contained fork it is OFF by default: nothing phones home unless an
+    # operator explicitly sets RELEASE_NOTIFICATIONS_GITHUB_CHECK=true.
+    value = os.environ.get("RELEASE_NOTIFICATIONS_GITHUB_CHECK", "false").strip().lower()
+    return value in {"1", "true", "yes", "on"}
 
 
 def _trusted_github_release_url(value: Any) -> str | None:

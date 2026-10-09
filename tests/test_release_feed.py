@@ -120,9 +120,13 @@ def test_project_version_is_single_source_of_truth() -> None:
 
 
 @pytest.mark.asyncio
-async def test_local_release_feed_reads_notes_and_silently_degrades_github(tmp_path: Path) -> None:
+async def test_local_release_feed_reads_notes_and_silently_degrades_github(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from novelvideo.ports.local.release_feed import LocalReleaseFeed
 
+    monkeypatch.setenv("RELEASE_NOTIFICATIONS_GITHUB_CHECK", "true")
     notes = tmp_path / "release-notes.md"
     notes.write_text(
         "---\n"
@@ -160,9 +164,13 @@ async def test_local_release_feed_reads_notes_and_silently_degrades_github(tmp_p
 
 
 @pytest.mark.asyncio
-async def test_local_release_feed_negative_caches_github_failures(tmp_path: Path) -> None:
+async def test_local_release_feed_negative_caches_github_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from novelvideo.ports.local.release_feed import GITHUB_FAILURE_CACHE_TTL_SECONDS, LocalReleaseFeed
 
+    monkeypatch.setenv("RELEASE_NOTIFICATIONS_GITHUB_CHECK", "true")
     notes = tmp_path / "release-notes.md"
     notes.write_text(
         "---\nversion: 1.0.2\n---\n# v1.0.2\n"
@@ -198,9 +206,13 @@ async def test_local_release_feed_negative_caches_github_failures(tmp_path: Path
 
 
 @pytest.mark.asyncio
-async def test_local_release_feed_reports_newer_github_release(tmp_path: Path) -> None:
+async def test_local_release_feed_reports_newer_github_release(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from novelvideo.ports.local.release_feed import LocalReleaseFeed
 
+    monkeypatch.setenv("RELEASE_NOTIFICATIONS_GITHUB_CHECK", "true")
     notes = tmp_path / "release-notes.md"
     notes.write_text(
         "---\nversion: 1.0.2\n---\n# v1.0.2\n"
@@ -233,6 +245,40 @@ async def test_local_release_feed_reports_newer_github_release(tmp_path: Path) -
     assert feed.latest_published_at == "2026-07-01T08:00:00Z"
     assert feed.attention == "medium"
     assert [item.title for item in feed.update_items] == ["Upgrade"]
+
+
+@pytest.mark.asyncio
+async def test_local_release_feed_does_not_contact_github_by_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from novelvideo.ports.local.release_feed import LocalReleaseFeed
+
+    monkeypatch.delenv("RELEASE_NOTIFICATIONS_ENABLED", raising=False)
+    monkeypatch.delenv("RELEASE_NOTIFICATIONS_GITHUB_CHECK", raising=False)
+    notes = tmp_path / "release-notes.md"
+    notes.write_text(
+        "---\nversion: 1.0.2\n---\n# v1.0.2\n"
+        "## User-facing Highlights (en)\n- **Current**: local\n",
+        encoding="utf-8",
+    )
+    calls = 0
+
+    async def fetcher() -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        return {"tag_name": "v9.9.9"}
+
+    feed = await LocalReleaseFeed(
+        notes_path=notes,
+        version_reader=lambda: "1.0.2",
+        github_fetcher=fetcher,
+    ).current(locale="en")
+
+    assert calls == 0
+    assert feed.source == "local_file"
+    assert [item.title for item in feed.current_items] == ["Current"]
+    assert feed.update_available is False
 
 
 @pytest.mark.asyncio

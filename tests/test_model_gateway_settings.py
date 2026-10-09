@@ -2000,15 +2000,17 @@ def test_official_media_catalog_preferences_and_remote_update(monkeypatch, tmp_p
     assert current.json()["data"]["modelCount"] == 1
 
 
-def test_official_media_catalog_defaults_to_fork_repo_not_dramaclaw(monkeypatch):
+def test_official_media_catalog_default_is_offline_bundled_no_remote_url(monkeypatch):
+    # Zero default outbound calls: with no operator-provided URL there is no built-in
+    # remote endpoint, so the catalog stays on the bundled copy and a remote check
+    # refuses rather than phoning home.
     monkeypatch.delenv("OFFICIAL_MEDIA_CATALOG_MANIFEST_URL", raising=False)
     monkeypatch.delenv("OFFICIAL_MEDIA_CATALOG_URL", raising=False)
 
-    assert official_media_catalog_remote._remote_source() == (
-        "https://raw.githubusercontent.com/liujh0729-jpg/aipdd-drama-agent/main/"
-        "src/novelvideo/official_media_models.json",
-        False,
-    )
+    assert official_media_catalog_remote.DEFAULT_OFFICIAL_MEDIA_CATALOG_URL == ""
+    assert official_media_catalog_remote.DEFAULT_OFFICIAL_MEDIA_CATALOG_MANIFEST_URL == ""
+    with pytest.raises(ValueError):
+        official_media_catalog_remote._remote_source()
 
 
 def test_official_media_catalog_manifest_verifies_hash_and_revalidates_etag(

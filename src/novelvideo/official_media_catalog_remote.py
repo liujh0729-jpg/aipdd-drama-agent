@@ -22,14 +22,12 @@ from novelvideo.model_gateway_settings import (
 
 logger = logging.getLogger("novelvideo.official_media_catalog_remote")
 
-# [aipdd fork] No callback to upstream DramaClaw infrastructure. The catalog ships
-# bundled in this repo (official_media_models.json) and is the effective source; the
-# on-demand "sync" only reads from this fork's own published copy, or an operator-
-# provided URL via OFFICIAL_MEDIA_CATALOG_URL / OFFICIAL_MEDIA_CATALOG_MANIFEST_URL.
-DEFAULT_OFFICIAL_MEDIA_CATALOG_URL = (
-    "https://raw.githubusercontent.com/liujh0729-jpg/aipdd-drama-agent/main/"
-    "src/novelvideo/official_media_models.json"
-)
+# [aipdd fork] Zero default outbound calls. The catalog ships bundled in this repo
+# (official_media_models.json) and that bundle is the only authoritative source on a
+# fresh install. Remote refresh is strictly opt-in: it only happens when an operator
+# explicitly sets OFFICIAL_MEDIA_CATALOG_URL / OFFICIAL_MEDIA_CATALOG_MANIFEST_URL. There
+# is no built-in default endpoint, so nothing ever phones home without an operator URL.
+DEFAULT_OFFICIAL_MEDIA_CATALOG_URL = ""
 DEFAULT_OFFICIAL_MEDIA_CATALOG_MANIFEST_URL = ""
 MAX_CATALOG_BYTES = 2 * 1024 * 1024
 MAX_MANIFEST_BYTES = 64 * 1024
