@@ -34,7 +34,7 @@ From script to storyboard, from assets to finished film — the whole chain.<br/
 Because people aren't beasts of burden.<br/>
 Because creativity is humanity's last line of defense.<br/>
 <br/>
-What DramaClaw sets out to do is simple:<br/>
+What AIPDD-Agent-Claw sets out to do is simple:<br/>
 <br/>
 <strong>Tear down the wall.</strong><br/>
 <br/>
@@ -90,9 +90,9 @@ Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#4
 
 <br/>
 
-<div align="center">
+<div align="center"> 
 
-## 🎬 Made with DramaClaw
+## 🎬 Made with AIPDD-Agent-Claw
 
 <sub>Real short dramas our team produced on this very pipeline &mdash; click a link to play.</sub>
 
@@ -129,22 +129,41 @@ Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#4
 
 <br/>
 
-## What is DramaClaw?
+## What is AIPDD-Agent-Claw?
 
-DramaClaw is a **source-available production line for AI drama** — and, increasingly, for any visual story you want to tell with generative models. It has two faces that share one asset library and one agent:
+**AIPDD-Agent-Claw is a heavily-modified fork built on [DramaClaw](https://github.com/dramaclaw/dramaclaw)'s infinite canvas.** We kept the canvas engine and rebuilt almost everything around it — a built-in **agent (Director)**, a full **MCP server** that opens the whole system to Claude Code / Codex, and a **~100-tool** surface spanning image, video, audio, script and one-tap batch jobs (see [What the AIPDD fork adds](#what-we-added)). The result is a **source-available production line for AI drama** — and, increasingly, for any visual story you want to tell with generative models. It has two faces that share one asset library and one agent:
 
-- **XiaHua — the infinite canvas.** A node-based workbench where you generate, edit and connect images, video, audio, 3D sets and scripts freely, then promote what you like back into the series. This is where most of our own creative work happens today, and where DramaClaw is heading.
-- **Series (XiaJi) — the pipeline.** Drop in a manuscript or screenplay and DramaClaw takes over the heavy lifting: structuring the story, planning episodes, writing scripts, drawing storyboards and first frames, synthesizing voice-over, and cutting the final film.
+- **Canvas — the infinite canvas.** A node-based workbench where you generate, edit and connect images, video, audio, 3D sets and scripts freely, then promote what you like back into the series. This is where most of our own creative work happens today, and where AIPDD-Agent-Claw is heading.
+- **Series — the pipeline.** Drop in a manuscript or screenplay and AIPDD-Agent-Claw takes over the heavy lifting: structuring the story, planning episodes, writing scripts, drawing storyboards and first frames, synthesizing voice-over, and cutting the final film.
 
-**Xia Director**, the built-in agent, sits across both: it answers questions about your project, drives pipeline tasks, and can build and run node graphs on the canvas for you.
+**Director**, the built-in agent, sits across both: it answers questions about your project, drives pipeline tasks, and can build and run node graphs on the canvas for you.
 
 It's built for creators, indie studios and creative engineers — run the whole "drama factory" on your own machine, without stitching together a dozen disconnected tools or handing your material to an opaque black-box cloud service. Although it's built around drama, the same canvas and pipeline carry to short-form ads, e-commerce product videos and other visual formats.
 
 <br/>
 
+## <a name="what-we-added"></a>What the AIPDD fork adds
+
+We started from DramaClaw's infinite canvas and rebuilt the stack around it. On top of a **self-contained, multi-license source build** (zero external images, zero default outbound calls), the fork layers in the capabilities that make this an **agent-operable drama factory**:
+
+**1 · A built-in agent — Director.** It reads your project, checks progress, advances script / shot tasks, audits deliverable completeness, drives pipeline jobs, and lays out and runs canvas node graphs for you — every canvas command reviewed in your browser first.
+
+**2 · A full MCP server — ~100 tools.** One stdio bridge (`uv run`) exposes the whole system to **Claude Code, Codex** and any MCP client — tools `aipdd_drama_*` + `vectcut_*`, loopback CE-owner or an `st-` API key. [Guide →](docs/en/guides/mcp-claude-code.md). It breaks down into:
+
+- **One-tap batch tools (the "tools page")** — video clone, short-video mix, whiteboard animation, explainer motion video, idea-to-video (one line → finished film), voice clone & synth, lip-sync, person replace, product replace, video-watermark removal, image-watermark removal, video dubbing, and Douyin copy-extract.
+- **Canvas generation verbs** — *image*: generate / edit / redraw / outpaint / relight / upscale / multi-view / template-edit / reverse-prompt · *video*: text-to-video / image-to-video / omni-reference / upscale / edit / extend · *audio*: vocal-accompaniment separation / music · *text*: generate / translate / story-script / video-script reverse / media copywrite.
+- **One-click automation & orchestration** — an automated storyboard step driver (style → screenplay → episodes → boards → first frames), batch shot videos / sketches / video-prompts by beat range, and a `run_pipeline` orchestrator with `manual` / `checkpoint` / `auto` modes plus run-status / cancel / suggest-config.
+- **Jianying / CapCut draft editing** — assemble storyboards, voice-over and subtitles into a real editing draft through the VectCut service (13 `vectcut_*` tools).
+
+**3 · Heavy re-engineering for self-hosting.** The DramaClaw gateway (AGPL-3.0), DA-2 (Apache-2.0) and ml-sharp (Apple) are **vendored** under [`third_party/`](./third_party/README.md); the whole stack builds from source, and remote catalog / release-feed calls are now **opt-in** instead of on by default.
+
+In one line: **AIPDD-Agent-Claw = DramaClaw's canvas + an agent + a ~100-tool MCP surface + a self-contained build** — a system you can drive by hand, by prompt, or from another AI agent.
+
+<br/>
+
 ## Core Capabilities
 
-### XiaHua — infinite canvas
+### Canvas — infinite canvas
 
 <p align="center">
   <img src="./assets/xiahua-canvas.jpg" width="900" alt="XiaHua canvas: a 17-node short-film workflow that Xia Director laid out and ran from one prompt"/>
@@ -183,7 +202,7 @@ Every step has its own interface — run them in order, skip steps, resume from 
 - **Visual Style** &mdash; upload a reference image to extract style parameters and apply them across the whole project
 - **Task Center** &mdash; status, progress, logs, cancel / retry, resume-from-checkpoint for long runs; prerequisites are validated before a job is queued
 
-#### XiaTang — asset library
+#### Asset library
 
 <p align="center">
   <img src="./assets/readme/asset-library.jpg" width="900" alt="XiaTang — asset library"/>
@@ -197,43 +216,43 @@ Every step has its own interface — run them in order, skip steps, resume from 
 </p>
 <p align="center"><sub>Screenshot-based feature illustration; interface details may differ from the current release.</sub></p>
 
-### Xia Director — the agent
+### Director — the agent
 
 <p align="center">
-  <img src="./assets/readme/xia-director.jpg" width="900" alt="Xia Director — project context and reviewed actions"/>
+  <img src="./assets/readme/xia-director.jpg" width="900" alt="Director — project context and reviewed actions"/>
 </p>
 <p align="center"><sub>Screenshot-based feature illustration; interface details may differ from the current release.</sub></p>
 
 **Today**
 
 - **Knows your project** &mdash; checks progress, advances script / shot tasks, audits deliverable completeness and suggests next steps
-- **Open to other agents** &mdash; a local MCP server exposes DramaClaw to Claude Code, Codex and any MCP client (loopback-only, explicit trust flag); see [MCP for Claude Code](docs/en/guides/mcp-claude-code.md)
+- **Open to other agents** &mdash; a local MCP server exposes AIPDD-Agent-Claw to Claude Code, Codex and any MCP client (loopback-only, explicit trust flag); see [MCP for Claude Code](docs/en/guides/mcp-claude-code.md)
 
 **Next**
 
-- **Works on the canvas** &mdash; the screenshot above is where this is going: describe the film, and Xia Director creates and connects the nodes, lays them out, runs them, and reviews the results, with every canvas command approved in your browser first. Canvas + agent is the core of DramaClaw from here on; see [In Development](#in-development).
+- **Works on the canvas** &mdash; the screenshot above is where this is going: describe the film, and Director creates and connects the nodes, lays them out, runs them, and reviews the results, with every canvas command approved in your browser first. Canvas + agent is the core of AIPDD-Agent-Claw from here on; see [In Development](#in-development).
 
 <br/>
 
-## Why DramaClaw?
+## Why AIPDD-Agent-Claw?
 
-**A canvas that understands drama, and an agent that works on it.** Generic node canvases will wire anything together but know nothing about episodes, characters or shots; series tools know the craft but lock you into a wizard. XiaHua gives you the free canvas with drama-aware nodes and skills, and Xia Director is being built to lay out, run and review those graphs for you. That combination is where DramaClaw is going.
+**A canvas that understands drama, and an agent that works on it.** Generic node canvases will wire anything together but know nothing about episodes, characters or shots; series tools know the craft but lock you into a wizard. Canvas gives you the free canvas with drama-aware nodes and skills, and Director is being built to lay out, run and review those graphs for you. That combination is where AIPDD-Agent-Claw is going.
 
-**Built for novel-to-short-drama.** General workflow tools can wire nodes together, but they don't know what an "episode beat" is, don't understand why a character's cross-scene identity consistency matters, and won't guard a chapter's emotional arc across image + voice + editing. DramaClaw builds all that judgment into the tool.
+**Built for novel-to-short-drama.** General workflow tools can wire nodes together, but they don't know what an "episode beat" is, don't understand why a character's cross-scene identity consistency matters, and won't guard a chapter's emotional arc across image + voice + editing. AIPDD-Agent-Claw builds all that judgment into the tool.
 
-**Canvas and pipeline, not canvas or pipeline.** Most tools give you either a free node canvas or a rigid wizard. DramaClaw runs both as dual tracks over one asset library: explore on the canvas, commit what works to the series, project the series back onto a canvas. The agent works on both.
+**Canvas and pipeline, not canvas or pipeline.** Most tools give you either a free node canvas or a rigid wizard. AIPDD-Agent-Claw runs both as dual tracks over one asset library: explore on the canvas, commit what works to the series, project the series back onto a canvas. The agent works on both.
 
 **Every step is decomposable.** Each stage is an independent async task with its own interface. Run sequentially, skip steps, resume mid-way — the toolchain itself is the product, with no hidden black box.
 
-**Self-hostable, model-neutral.** Your manuscript, your characters, your models, your servers. Use closed-source frontier models when you want the best results; switch to open-weight models when you want full control. DramaClaw won't lock you into any single vendor.
+**Self-hostable, model-neutral.** Your manuscript, your characters, your models, your servers. Use closed-source frontier models when you want the best results; switch to open-weight models when you want full control. AIPDD-Agent-Claw won't lock you into any single vendor.
 
-### How DramaClaw compares
+### How AIPDD-Agent-Claw compares
 
 The edge isn't "more generation" — it's organizing the whole short-drama production loop (script → assets → shots → canvas → final cut) into something reusable, collaborative and scalable.
 
 <sub>Legend: ✅ Full · ◐ Partial · ○ Planned · ❌ None — competitor names partially masked; comparison based on publicly available product docs and positioning.</sub>
 
-| Capability | L\*TV | R\*Hub | T\*Now | S\*ko | U\*dream | O\*II | J\*/K\* | **DramaClaw** |
+| Capability | L\*TV | R\*Hub | T\*Now | S\*ko | U\*dream | O\*II | J\*/K\* | **AIPDD-Agent-Claw** |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
 | Storyboard preview (script→shots, boards) | ◐ | ✅ | ◐ | ✅ | ◐ | ❌ | ❌ | ✅ |
 | Interactive series (multi-episode, branching, IP) | ◐ | ◐ | ◐ | ✅ | ◐ | ❌ | ❌ | ✅ |
@@ -253,7 +272,7 @@ The edge isn't "more generation" — it's organizing the whole short-drama produ
 
 ## System Requirements
 
-DramaClaw runs all inference through an **OpenAI-compatible gateway** — either the official DramaClaw gateway service or LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) routing to providers you configure. Nothing runs models on your machine, so the local footprint is light. An ordinary laptop or a small VPS is enough.
+AIPDD-Agent-Claw runs all inference through an **OpenAI-compatible gateway** — LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) routing to providers you configure. Nothing runs models on your machine, so the local footprint is light. An ordinary laptop or a small VPS is enough.
 
 | Item | Requirement |
 |---|---|
@@ -317,6 +336,27 @@ Full steps in the [Quick Start](docs/en/getting-started/quickstart.md).
 
 > LocalNewAPI's port binds only to `127.0.0.1` by default; set `ST_NEWAPI_BIND=0.0.0.0` in `.env` if you need remote access to it.
 
+### Cloud host / VPS (Linux) — shared or public deployment
+
+On a Linux server (your own VPS or a cloud instance), run the same source-build stack with Docker Engine and the `docker compose` plugin — install them via your distro's package manager or Docker's official Linux docs, then:
+
+```bash
+# 1 · get the code and configure it
+git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
+cd aipdd-drama-agent
+cp .env.example .env
+#    Edit .env: set ST_LOCAL_PASSWORD, PROMPT_EXPORT_PASSWORD and your model
+#    keys / official DC key before you start.
+
+# 2 · build & bring the stack up (api / newapi gateway / web, all from source)
+docker compose -f docker-compose.aipdd.yml up -d --build
+```
+
+- **Ports.** `8080` web UI · `8780` REST API · `3000` LocalNewAPI admin (bound to `127.0.0.1` by default). Put a **reverse proxy with TLS** (Caddy / Nginx / Traefik) in front of `8080` and keep `8780` / `3000` internal; open only `80` / `443` in the firewall / security group.
+- **First build needs room** — give the host ≥ 8 GB RAM and ≥ 40 GB disk, or the frontend build gets OOM-killed.
+- **Sign in** as the single-machine account `local` using `ST_LOCAL_PASSWORD` (or the one-time password printed to `docker compose -f docker-compose.aipdd.yml logs api` on first start).
+- **Multi-user?** CE is single-owner by design. To serve several users, enable `ST_CE_MULTI_USER` and put real auth + HTTPS in front. Full production notes: [Self-hosting guide](docs/en/guides/self-hosting.md).
+
 ### Local development (uv + Python 3.11+)
 
 ```bash
@@ -359,7 +399,7 @@ Whichever install path you chose, the app comes up the same way:
    - **Custom** — one click initializes LocalNewAPI, then add your own provider channels (API keys + model IDs) in its admin UI.
    - **LocalNewAPI + Official Hybrid** — official models for the main pipeline, your extra channels alongside.
 4. **Start creating** — two ways into the same asset library:
-   - **Series pipeline**: ingest a manuscript or screenplay (Fountain supported), then let DramaClaw plan episodes, write scripts, draw storyboards and first frames, synthesize voice-over and cut the final film. Each stage is an independent task in the **Task Center** — run sequentially, skip, or resume from any checkpoint.
+   - **Series pipeline**: ingest a manuscript or screenplay (Fountain supported), then let AIPDD-Agent-Claw plan episodes, write scripts, draw storyboards and first frames, synthesize voice-over and cut the final film. Each stage is an independent task in the **Task Center** — run sequentially, skip, or resume from any checkpoint.
    - **Canvas**: open the infinite canvas and drop / connect nodes (image, video, audio, script, 3D set…) to explore freely, then promote the results you like back into a series.
 
 Stay current: re-double-click the **Start** launcher to restart; check the running stack with `docker-compose -f docker-compose.aipdd.yml ps` and follow logs with `... logs -f api`. For a full walkthrough see the [product manual](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) and [Quick Start](docs/en/getting-started/quickstart.md).
@@ -368,17 +408,22 @@ Stay current: re-double-click the **Start** launcher to restart; check the runni
 
 ## <a name="supported-models"></a>Supported Models & Providers
 
-DramaClaw stays model-neutral — all text / image / video / audio models connect through an **OpenAI-compatible gateway**. Pick the mode in **Settings → Model Config**:
+AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models connect through an **OpenAI-compatible gateway**, so the same pipeline can ride **AIPDD's low-cost idle compute**, the official hosted models, **any NewAPI channel you wire in**, or **your own GPU via ComfyUI local compute**. Pick the mode in **Settings → Model Config**:
 
-- **Official (recommended)** — paste your DC key (get one at <https://susciyuan.com>), save, done. The official gateway already ships every model mapping DramaClaw needs; nothing to configure.
+- **Official (recommended)** — paste your DC key (get one at NewAPI), save, done. The official gateway already ships every model mapping DramaClaw needs; nothing to configure.
 - **Custom** — one click initializes LocalNewAPI, then add your own provider channels (API keys, model IDs) in its admin UI. Every model DramaClaw calls goes through your channels.
 - **LocalNewAPI + Official Hybrid** — keep the official models for the main pipeline and add extra channels (for example a local ComfyUI video workflow) through LocalNewAPI.
+
+> 🧠 **Bring your own compute — lower cost, stay in control.** The gateway is built so *you* choose where each generation runs:
+> - **AIPDD idle compute (cut costs).** Connecting the **AIPDD** channel lets generation ride the platform's **idle compute pool**, so heavy batch drama work runs at a fraction of on-demand pricing — the single biggest lever on production cost.
+> - **NewAPI, freely mixed.** The built-in **NewAPI** gateway lets you register many providers as channels and **combine them however you like** — official, AIPDD, a self-hosted box, or any OpenAI-compatible endpoint — per model, per stage.
+> - **ComfyUI, on your own GPU.** A first-class **ComfyUI** adapter routes image / video generation to a workflow running on **your machine**: your hardware does the rendering, with no per-call cloud quota. Register your local ComfyUI endpoint as a channel in **Custom** or **Hybrid** mode.
 
 Full walkthrough in [Configuring Models](docs/en/getting-started/configuring-models.md).
 
 ### LocalNewAPI: dramaclaw-gateway
 
-The `newapi` service in `docker-compose.yml` is [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), DramaClaw's own fork of [New API](https://github.com/QuantumNous/new-api). It speaks the **DC-Media** contract DramaClaw uses for image / video / audio (media roles, references, first / last frames) and converts each request into the provider's native API. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) on Docker Hub, pinned by `DRAMACLAW_GATEWAY_VERSION` in `.env`. It stays idle in Official mode and is only used once you switch to **Custom** or **LocalNewAPI + Official Hybrid**.
+The `newapi` service in `docker-compose.yml` is [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), AIPDD-Agent-Claw's own fork of [New API](https://github.com/QuantumNous/new-api). It speaks the **DC-Media** contract AIPDD-Agent-Claw uses for image / video / audio (media roles, references, first / last frames) and converts each request into the provider's native API. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) on Docker Hub, pinned by `DRAMACLAW_GATEWAY_VERSION` in `.env`. It stays idle in Official mode and is only used once you switch to **Custom** or **LocalNewAPI + Official Hybrid**.
 
 Provider adapters shipped in the gateway today (see the [channel support matrix](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md) for verification status): ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Want another provider? The gateway has a [scaffold generator and contribution guide](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
 
@@ -398,9 +443,9 @@ Provider adapters shipped in the gateway today (see the [channel support matrix]
 
 These are being built in the open and are not in a release yet. Watch the branches, or come help.
 
-- **Xia Director on the canvas** &mdash; the agent creates and connects nodes, updates node data, lays out and groups nodes, runs node actions and builds whole workflow graphs, with every canvas command approved in the open browser first.
+- **Director on the canvas** &mdash; the agent creates and connects nodes, updates node data, lays out and groups nodes, runs node actions and builds whole workflow graphs, with every canvas command approved in the open browser first.
 - **Workflow catalog and community skills** &mdash; a catalog of 11 workflow skills and 60 recipes (short drama, e-commerce ads, IP character ads, social campaigns, anime / Pixar / LEGO / kung-fu styles…) that lay out whole generation graphs; skills and recipes as installable, exportable, shareable bundles
-- **agent-kit** &mdash; a portable package that brings the same DramaClaw workflows to Hermes, OpenClaw, WorkBuddy, Claude Code and Codex
+- **agent-kit** &mdash; a portable package that brings the same AIPDD-Agent-Claw workflows to Hermes, OpenClaw, WorkBuddy, Claude Code and Codex
 - **Previz stage** &mdash; an in-browser 3D blocking stage as a canvas node: multi-track timeline, character rigs and paths, real lens / sensor camera model, close-up tracking, then capture the framed shot straight into the next node. Branch: `feat/previz-canvas-node`
 - **Interactive stories** &mdash; branching choice points on the canvas, compiled to an ink story and exported as a self-contained HTML player, with playtest stats and path coverage. Branch: `feat/canvas-fmv`
 - **Interactive ads** &mdash; the ad skills and recipes above, combined with branching playback, for product videos viewers can steer

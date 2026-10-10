@@ -25,6 +25,9 @@ inherits the same auth, project guards, and task queue as the web UI.
 - A running DramaClaw instance (`docker compose up -d`, REST API on `:8780`).
 - A configured, funded model gateway (Settings → Model Config) — the agent can
   plan/script without it, but image/video/audio generation needs working models.
+  Generation can ride **AIPDD's low-cost idle compute**, any **NewAPI** channel you
+  register, or **local ComfyUI** on your own GPU — see the
+  [model guide](../../../README.md#supported-models).
 - Local checkout with [`uv`](https://docs.astral.sh/uv/) synced (`uv sync`) so the
   `novelvideo` package is importable.
 
