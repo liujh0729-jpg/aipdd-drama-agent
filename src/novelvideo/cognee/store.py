@@ -1309,8 +1309,9 @@ class CogneeStore:
         try:
             log("调用 LLM 分配事件...")
             response = await litellm.acompletion(
-                model=os.environ.get("LLM_MODEL", "").strip()
-                or resolve_slot("COGNEE_LLM_MODEL"),
+                # 模型只认「设置 › 模型」：os.environ["LLM_MODEL"] 是 cognee 配置层写给
+                # 库自己消费的缓存，拿它当首选等于让 env 悄悄盖过设置。
+                model=resolve_slot("COGNEE_LLM_MODEL"),
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
                 response_format={"type": "json_object"},

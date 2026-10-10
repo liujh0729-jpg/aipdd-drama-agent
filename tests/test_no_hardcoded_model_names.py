@@ -5,7 +5,7 @@ req40 的原则是「渠道有什么模型，平台不该预先知道，只能�
 规矩**在代码层面也守得住** —— 否则下一次有人图省事在调用点补一个 ``"gemini-3.5-flash"``，
 「从网关摘掉的模型还会跑到一半才死」就会原地复发。
 
-四条规则：
+五条规则：
 
 1. **目录核心模块零真实模型名**：目录层 / 解析层 / 注册层 / 投影层文件里不许出现任何
    真实模型名字面量（``DC-*`` 槽位键除外 —— 它是路由键，不是模型名）。
@@ -14,6 +14,9 @@ req40 的原则是「渠道有什么模型，平台不该预先知道，只能�
 3. **解析入口调用点禁止真名**：``resolve_slot`` / ``get_newapi_text_*`` 的字符串实参只能
    是 env 键、``DC-*`` 槽位键或能力档名，绝不能是被当作兜底的模型名。
 4. **``*_MODEL`` 模块常量的字面默认值**必须是 ``DC-*`` 槽位键，或登记过的直连供应商参数。
+5. **槽位键是登记表键、不是环境变量源**：调用点不许 ``os.environ.get("HERMES_MODEL")``
+   这类把 env 排在「设置 › 模型」前面的写法（历史事故：cognee 配置层会把解析结果写进
+   ``os.environ["LLM_MODEL"]`` 供库自己消费，读取点拿它当首选就等于 env 悄悄盖过设置）。
 
 直连供应商（火山方舟 ARK / HuiMeng / DashScope CosyVoice / OpenRouter / OpenAI 图像 /
 Google 直连 / codex CLI / ComfyUI 工作流）不经过渠道目录，它们是「后端选择键」而不是
@@ -608,6 +611,81 @@ def test_module_constant_allowlist_is_not_stale() -> None:
         }
         missing = sorted(name for name in names if name not in present)
         assert not missing, f"{rel} 的常量白名单里有已不存在的名字：{missing}"
+
+
+# ---------------------------------------------------------------------------
+# 规则 5：模型名只能由「设置 › 模型」解析，调用点不许把 env 排在它前面。
+# ---------------------------------------------------------------------------
+
+# cognee 库只认这几个 env 名，``cognee/config.py`` 把面板解析结果**写**进它们给库消费。
+# 它们是输出缓存，不是输入源 —— 读它们当首选就等于让 env 盖过设置。
+SETTINGS_SINK_ENV_KEYS = frozenset({"LLM_MODEL", "EMBEDDING_MODEL"})
+
+# 例外：文件 → (原因, 允许读的键)。直连支路走自己的端点与密钥，和渠道目录无关
+# （缘由见规则 2 段头的 wave3 归档说明）。
+SLOT_KEY_ENV_READ_ALLOWLIST: dict[str, tuple[str, frozenset[str]]] = {
+    "cognee/config.py": (
+        "本模块就是那份 env 缓存的写入方，``get_cognee_status()`` 展示的正是它写进去的值",
+        SETTINGS_SINK_ENV_KEYS,
+    ),
+    "director_world/block_world_builder.py": (
+        "codex / OpenAI 直连 CLI 的 MODEL_NAME 兜底（不经网关，见 wave3 归档说明）",
+        frozenset({"MODEL_NAME"}),
+    ),
+}
+
+
+def _banned_env_keys() -> frozenset[str]:
+    from novelvideo.model_slots import SLOTS
+
+    return frozenset(SLOTS) | SETTINGS_SINK_ENV_KEYS
+
+
+def _slot_key_env_reads(tree: ast.Module) -> list[tuple[int, str]]:
+    """``os.environ.get("HERMES_MODEL")`` / ``os.getenv(...)`` 这类把 env 当模型源的读取。"""
+
+    banned = _banned_env_keys()
+    reads: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if getattr(node.func, "attr", None) not in {"get", "getenv"} or not node.args:
+            continue
+        key = node.args[0]
+        if (
+            isinstance(key, ast.Constant)
+            and isinstance(key.value, str)
+            and key.value in banned
+        ):
+            reads.append((node.lineno, key.value))
+    return reads
+
+
+def test_slot_keys_are_registry_ids_not_environment_sources() -> None:
+    offenders: list[str] = []
+    for path in _iter_module_files():
+        rel = _module_rel(path)
+        allowed = SLOT_KEY_ENV_READ_ALLOWLIST.get(rel, ("", frozenset()))[1]
+        for lineno, key in _slot_key_env_reads(_parse(path)):
+            if key in allowed:
+                continue
+            offenders.append(f"{rel}:{lineno} 读到了 {key}")
+    assert not offenders, (
+        "这些调用点把 env 排在「设置 › 模型」前面：面板里改了模型不会生效，运维设过同名"
+        'env 的机器还会默默跑回旧模型。模型名只许走 resolve_slot("<槽位键>")：\n'
+        + "\n".join(offenders)
+    )
+
+
+def test_slot_key_env_read_allowlist_is_not_stale() -> None:
+    for rel, (reason, keys) in SLOT_KEY_ENV_READ_ALLOWLIST.items():
+        assert reason.strip(), f"{rel} 的例外必须写原因"
+        assert keys, f"{rel} 的例外没有登记任何键，删掉这条"
+        path = SRC_ROOT / rel
+        assert path.exists(), f"例外指向的文件不存在：{rel}"
+        found = {key for _lineno, key in _slot_key_env_reads(_parse(path))}
+        dead = sorted(keys - found)
+        assert not dead, f"{rel} 的例外登记了代码里已不读的键：{dead}"
 
 
 def test_official_defaults_no_longer_ships_a_per_env_model_table() -> None:

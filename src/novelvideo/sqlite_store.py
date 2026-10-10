@@ -12,7 +12,6 @@ import functools
 import inspect
 import json
 import logging
-import os
 import sqlite3
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional
@@ -1973,8 +1972,9 @@ class SQLiteStore:
 只返回 JSON，不要有其他内容。"""
 
             response = await litellm.acompletion(
-                model=os.environ.get("LLM_MODEL", "").strip()
-                or resolve_slot("COGNEE_LLM_MODEL"),
+                # 模型只认「设置 › 模型」：os.environ["LLM_MODEL"] 是 cognee 配置层写给
+                # 库自己消费的缓存，拿它当首选等于让 env 悄悄盖过设置。
+                model=resolve_slot("COGNEE_LLM_MODEL"),
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
                 response_format={"type": "json_object"},
