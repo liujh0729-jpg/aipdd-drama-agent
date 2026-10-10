@@ -667,6 +667,76 @@ def test_resolve_slot_falls_back_to_catalog_composite_when_nothing_bound() -> No
     assert auto_fallback_call_name("embedding") == ""
 
 
+def test_catalog_default_prefers_the_provider_whose_llm_slots_are_bound() -> None:
+    """兜底名落在「这类端点真的跑过」的渠道，而不是渠道被写进设置的先后。
+
+    现场形状：一条上游 key 已失效的中转渠道排在列表最前，文本位一个都没绑，兜底
+    就从它的首个目录项提名 —— 于是每个文本调用都 401「无效的令牌」，知识图谱抽出
+    来是空的。
+    """
+    dead, live = "relay", "ark"
+    save_newapi_provider_channels(
+        [
+            {"provider": dead, "baseUrl": "https://relay.invalid/v1", "upstreamKey": "sk-dead"},
+            {"provider": live, "baseUrl": BASE_URL, "upstreamKey": "sk-live"},
+        ]
+    )
+    _seed_catalog(provider=dead, names=["aaa-dead-llm"])
+    _seed_catalog(provider=live, names=["zzz-live-llm"])
+
+    # 一个都没绑：保持存储顺序，行为不变。
+    assert auto_fallback_call_name("text") == f"{dead}::aaa-dead-llm"
+
+    # 同类功能位绑到 live：文本兜底立刻改投 live。
+    save_newapi_model_alias_mappings(
+        {"DC-story-planner-LLM": {"provider": live, "target": "zzz-live-llm", "capability": "text"}},
+        merge=True,
+    )
+    assert auto_fallback_call_name("text") == f"{live}::zzz-live-llm"
+
+
+def test_catalog_default_ignores_bindings_that_prove_nothing_about_chat() -> None:
+    """视频映射与没标 capability 的别名不能替 chat 端点作保。
+
+    上一案的完整版：生产里那条上游 key 已失效的中转渠道并不是没被用过 —— 它挂着
+    Seedance 的媒体映射，别名表里也有裸模型名。若「被绑定过」就是全部信号，它照样
+    排在最前，文本仍然 401。只有带 capability 的功能位别名（以及文本位的 Embedding）
+    才算「这家的语言端点活着」。
+    """
+    dead, live = "relay", "ark"
+    save_newapi_provider_channels(
+        [
+            {"provider": dead, "baseUrl": "https://relay.invalid/v1", "upstreamKey": "sk-dead"},
+            {"provider": live, "baseUrl": BASE_URL, "upstreamKey": "sk-live"},
+        ]
+    )
+    _seed_catalog(provider=dead, names=["aaa-dead-llm"])
+    _seed_catalog(provider=live, names=["zzz-live-llm"])
+    save_newapi_media_model_mappings(
+        {"AP Seedance-2.0": {"provider": dead, "upstreamModel": "aaa-dead-video", "mediaType": "video"}}
+    )
+    save_newapi_model_alias_mappings(
+        {"ap-dead-3.8-flash": {"provider": dead, "target": "aaa-dead-llm"}}, merge=True
+    )
+
+    # 只有媒体绑定 / 无 capability 的别名：排序不动，行为与原来一致。
+    assert auto_fallback_call_name("text") == f"{dead}::aaa-dead-llm"
+
+    # 把视觉位绑到 live —— 不是同类，但同一条 chat 链路，足以压过纯媒体绑定。
+    save_newapi_model_alias_mappings(
+        {"DC-video-prompt-optimizer-LLM": {"provider": live, "target": "zzz-live-llm", "capability": "vision"}},
+        merge=True,
+    )
+    assert auto_fallback_call_name("text") == f"{live}::zzz-live-llm"
+
+    # 换成 Embedding 也是同一类端点的证据。
+    save_newapi_model_alias_mappings(
+        {"DC-video-prompt-optimizer-LLM": {"provider": dead, "target": "aaa-dead-llm"}}, merge=False
+    )
+    save_newapi_embedding_model_config(provider=live, upstream_model="zzz-live-llm", dimension=1024)
+    assert auto_fallback_call_name("text") == f"{live}::zzz-live-llm"
+
+
 def test_factory_template_slot_keys_are_inert(monkeypatch: pytest.MonkeyPatch) -> None:
     """[aipdd fork delta] 出厂模板那 25 行 ``X=DC-x-LLM`` 如今是纯装饰：设不设都一样。
 

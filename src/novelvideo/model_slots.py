@@ -377,6 +377,52 @@ def _bound_slot_alias_for_capability(capability: str) -> str:
     return ""
 
 
+def _provider_binding_tiers(capability: str) -> dict[str, int]:
+    """各渠道跟「这一类模型」的亲近度：2=同类端点跑过，1=语言端点跑过，没提过名=0。
+
+    为什么不能只看「有没有绑定」：图谱抽不出实体的现场里，排在存储顺序最前的是一条
+    上游 key 已失效的中转渠道，而它恰恰**不是**没被用过 —— 操作员给它挂过 Seedance 的
+    媒体映射。视频/图像能跑不代表 chat 端点能用，所以媒体映射在这里一票都不值；真正
+    的信号是带 ``capability`` 的功能位别名（只有 LLM 位会写这个字段）：它在的话，说明
+    这家的对话/视觉端点在生产里通过过。Embedding 对文本而言也算同一类端点。
+
+    读失败就回空 dict：兜底顺序退回渠道的存储顺序，不值得为一次配置读取让解析链抛出
+    新异常。
+    """
+
+    wanted = str(capability or "text").strip().lower()
+    tiers: dict[str, int] = {}
+
+    def bump(provider: str, score: int) -> None:
+        if provider:
+            tiers[provider] = max(tiers.get(provider, 0), score)
+
+    def provider_of(entry: object) -> str:
+        return str((entry or {}).get("provider") or "").strip().lower()  # type: ignore[union-attr]
+
+    def capability_of(entry: object) -> str:
+        return str((entry or {}).get("capability") or "").strip().lower()  # type: ignore[union-attr]
+
+    try:
+        from novelvideo.model_gateway_settings import (
+            get_newapi_embedding_model_config,
+            get_newapi_model_alias_mappings,
+        )
+
+        for entry in (get_newapi_model_alias_mappings() or {}).values():
+            cap = capability_of(entry)
+            if cap == wanted:
+                bump(provider_of(entry), 2)
+            elif cap in ("text", "vision"):
+                # 另一类 LLM 位，但同一条 chat 链路：比没跑过语言的渠道可靠。
+                bump(provider_of(entry), 1)
+        if wanted == "text":
+            bump(provider_of(get_newapi_embedding_model_config() or {}), 1)
+    except Exception:  # noqa: BLE001 - 兜底提名不因读设置失败而抛
+        return {}
+    return tiers
+
+
 def _catalog_default_call_name(capability: str) -> str:
     """渠道目录里的首个可用项（复合调用名）；没有目录 / 没有渠道时回空串。
 
@@ -402,6 +448,15 @@ def _catalog_default_call_name(capability: str) -> str:
         channels = get_newapi_provider_channels()
     except Exception:  # noqa: BLE001
         return ""
+    # 渠道的先后本来只记录「谁先被写进设置」，而兜底名一旦落在一条上游 key 已失效的
+    # 中转渠道上，整条链就是 401 / 503。按绑定类别排一次亲近度：同档内保持存储顺序
+    # （sorted 稳定），所以没有任何绑定时行为与原来完全一致。
+    tiers = _provider_binding_tiers(wanted)
+    if tiers:
+        channels = sorted(
+            channels,
+            key=lambda ch: -tiers.get(str(ch.get("provider") or "").strip().lower(), 0),
+        )
     for channel in channels:
         provider = str(channel.get("provider") or "").strip().lower()
         if not provider or provider == "comfyui":
