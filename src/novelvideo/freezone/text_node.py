@@ -558,13 +558,10 @@ def create_freezone_video_story_script_agent(model: str | None = None) -> Agent:
             DEFAULT_FREEZONE_VISION_MODEL,
             timeout_seconds_override=300.0,
             capability="vision.analyze",
-            # [aipdd fork delta] 用户显式选了视觉模型时不让 env 默认反向覆盖
-            # （与文本 writer / 脚本节点同口径）。
+            # [aipdd fork delta] 用户在界面上显式选了视觉模型时以它为准（点名值还要过
+            # 渠道目录裁决）。带帧/角色图的多模态请求由 FREEZONE_VISION_MODEL 的
+            # capability=vision 隔离，不再读 env 兜底。
             model_name_override=model_text or None,
-            # [aipdd fork delta] 带帧/角色图的多模态请求，隔离到
-            # VISION_MODEL_FALLBACK，避免被 TEXT_MODEL_FALLBACK 的纯文本模型
-            # 打成 400「当前模型不支持请求所需的图片能力」。
-            fallback_env="VISION_MODEL_FALLBACK",
         ),
         system_prompt=freezone_story_script_system_prompt(with_vision=True),
         model_settings=get_newapi_structured_output_model_settings(),

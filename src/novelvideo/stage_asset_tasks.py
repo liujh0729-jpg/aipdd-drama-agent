@@ -182,8 +182,10 @@ class Scene360CatalogModelAuthority:
 
 
 def _default_image_model_for_stage() -> str:
-    """[aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：默认 image 由
-    「默认生成模型」面板写入的 media mappings 解析（DB→env→常量）。"""
+    """[aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：默认 image 只由「默认
+    生成模型」面板写入的 media mappings 解析。``NEWAPI_IMAGE_MODEL`` env 已退出这条链
+    （面板里换了模型而 env 还指着旧名时，看到和调用的不是同一个模型）；读不到设置就回
+    空串，由调用点按「未绑定」处理。"""
     try:
         from novelvideo.model_gateway_settings import (
             get_effective_default_image_model,
@@ -191,7 +193,7 @@ def _default_image_model_for_stage() -> str:
 
         return get_effective_default_image_model()
     except Exception:  # pragma: no cover - defensive fallback
-        return str(os.environ.get("NEWAPI_IMAGE_MODEL") or "").strip()
+        return ""
 
 
 def resolve_scene_360_image_model(provider: str = "", model: str = "") -> str:
@@ -229,27 +231,25 @@ def resolve_scene_360_image_model(provider: str = "", model: str = "") -> str:
         raise Scene360ImageModelSelectionError(
             f"unknown scene 360 image model selection: {resolved_model}"
         )
+    # [aipdd fork delta wave2] 以前这四条都先拿一个「按用途钉模型」的 env 抢位（
+    # ``SCENE_360_IMAGE_MODEL`` / ``SCENE_360_HUIMENG_MODEL`` / ``SCENE_360_OPENROUTER_MODEL``），
+    # 落空时还会现造一个内置厂商名（``gpt-image-2``）——设置页看不见、也没地方取消。
+    # 现在：网关路径只认面板默认图位；显式选了直连厂商时，模型名就是该厂商适配层的常量。
+    from novelvideo.config import (
+        HUIMENG_IMAGE_MODEL,
+        OPENAI_IMAGE_MODEL,
+        OPENROUTER_GPT_IMAGE2_MODEL,
+    )
+
     if resolved_provider in {"huimeng", "huimengi"}:
-        return (
-            os.environ.get("SCENE_360_HUIMENG_MODEL")
-            or os.environ.get("HUIMENG_IMAGE_MODEL")
-            or "image-2"
-        )
+        return HUIMENG_IMAGE_MODEL
     if resolved_provider == "openai":
-        return os.environ.get("OPENAI_IMAGE_MODEL") or "gpt-image-2"
+        return OPENAI_IMAGE_MODEL
     if resolved_provider == "newapi":
         # [aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：默认走面板配置的 image。
-        return (
-            os.environ.get("SCENE_360_IMAGE_MODEL")
-            or _default_image_model_for_stage()
-            or "gpt-image-2"
-        )
+        return _default_image_model_for_stage()
     if resolved_provider == "openrouter":
-        return (
-            os.environ.get("SCENE_360_OPENROUTER_MODEL")
-            or os.environ.get("OPENROUTER_GPT_IMAGE2_MODEL")
-            or "openai/gpt-5.4-image-2"
-        )
+        return OPENROUTER_GPT_IMAGE2_MODEL
     return ""
 
 

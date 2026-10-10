@@ -1347,7 +1347,9 @@ async def test_freezone_audio_generation_enqueues_speech_and_music_jobs(
     assert captured[1]["task_type"] == "freezone_audio_eleven_music"
     music_payload = captured[1]["payload"]
     assert music_payload["input"] == "雨夜悬疑配乐"
-    assert music_payload["model"] == "LingShan-MU-11"
+    # [aipdd fork delta] 入队时不再钉任何内置模型名（旧的 LingShan-MU-11 就是这样一个
+    # 渠道目录里不存在的名字）：默认音频位留给执行阶段按「设置 › 模型」解析。
+    assert music_payload["model"] == ""
     assert music_payload["music_length_ms"] == 30_500
     assert "billing" not in music_payload
 

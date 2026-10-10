@@ -73,6 +73,24 @@ export function forkProviderLabel(provider: string): string {
   return forkBrandLabel(provider) || provider;
 }
 
+// [aipdd fork delta] 渠道官网直达（设置面板渠道名旁那个「打开官网」链接的唯一真源）：
+// 用户在这里找注册与取 Key 的入口。只登记确认过的厂商官网——未收录的渠道返回空串，
+// 调用方据此不渲染链接，绝不猜 URL，也不留一个点不动的空图标。
+// VolcEngine 的官网与固定 API 端点（ark.cn-beijing.volces.com）不是一回事，这里要的是
+// 人读的厂商主页；MiniMax 双站同理，海外 / 国内是两个域名（与上面的品牌行一一对应）。
+export const PROVIDER_OFFICIAL_SITES: Record<string, string> = {
+  aipdd: "https://www.aipdd.work",
+  volcengine: "https://www.volcengine.com/",
+  minimax: "https://www.minimax.io/",
+  minimax_cn: "https://www.minimax.cn/",
+};
+
+/** 渠道官网地址；未登记官网或空 provider 返回空串（调用方不渲染链接）。 */
+export function providerOfficialSiteUrl(provider: string): string {
+  const key = String(provider || "").trim().toLowerCase();
+  return PROVIDER_OFFICIAL_SITES[key] || "";
+}
+
 // [aipdd fork delta] NewAPI 渠道类型名兜底表：设置面板「渠道 API Key」里按渠道
 // 类型展示的英文名（自 NewAPI channel types 精简而来）。原在 settings-dialog.tsx
 // 内部维护，画布模型选择器的渠道标注也要用同一张表，故收敛到本文件——渠道展示

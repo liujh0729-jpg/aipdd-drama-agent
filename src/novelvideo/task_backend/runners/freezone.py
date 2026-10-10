@@ -3638,7 +3638,8 @@ async def _run_freezone_audio_eleven_music_async(
         project_dir=project_dir,
         job_id=job_id,
         prompt=str(payload.get("input") or ""),
-        model=str(payload.get("model") or "LingShan-MU-11"),
+        # 留空 = 交 callee 解析默认音频位（代码里不再内置厂商名）。
+        model=str(payload.get("model") or ""),
         response_format=str(payload.get("response_format") or "mp3"),
         music_length_ms=int(payload.get("music_length_ms") or 30_000),
         force_instrumental=bool(payload.get("force_instrumental", True)),

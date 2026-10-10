@@ -440,7 +440,8 @@ def test_global_video_optimizer_wraps_plain_text_output_locally(monkeypatch, tmp
     assert "Output JSON" not in task
 
 
-def test_global_video_optimizer_keeps_legacy_global_video_model_fallback(monkeypatch):
+def test_global_video_optimizer_ignores_legacy_global_video_model_env(monkeypatch):
+    """旧的全局视频 env 不再作为 default_model 传进解析链：只认功能位自己。"""
     import novelvideo.config as config
     import novelvideo.agents.global_video_optimizer as global_video_optimizer
 
@@ -460,7 +461,9 @@ def test_global_video_optimizer_keeps_legacy_global_video_model_fallback(monkeyp
 
     global_video_optimizer.create_global_video_optimizer_agent()
 
-    assert model_calls == [("GLOBAL_VIDEO_OPTIMIZER_MODEL", "legacy-gemini-model")]
+    # default_model 位置只可能是空串：``GLOBAL_VIDEO_MODEL`` 已退出解析链，那个名字
+    # 不会再作为兜底递给网关（由「设置 › 模型」的绑定与渠道目录决定取谁）。
+    assert model_calls == [("GLOBAL_VIDEO_OPTIMIZER_MODEL", "")]
 
 
 def test_seedance2_prompt_composer_uses_newapi_composer_model_env(monkeypatch):
@@ -492,7 +495,8 @@ def test_seedance2_prompt_composer_uses_newapi_composer_model_env(monkeypatch):
     assert "output_retries" not in agent_kwargs
 
 
-def test_ai_identity_detector_keeps_legacy_global_video_model_fallback(monkeypatch):
+def test_ai_identity_detector_ignores_legacy_global_video_model_env(monkeypatch):
+    """身份识别位同样不再接 env 递来的兜底名。"""
     import novelvideo.config as config
     import novelvideo.agents.global_video_optimizer as global_video_optimizer
 
@@ -517,9 +521,7 @@ def test_ai_identity_detector_keeps_legacy_global_video_model_fallback(monkeypat
 
     global_video_optimizer._create_identity_detector_agent()
 
-    assert model_calls == [
-        ("GLOBAL_VIDEO_IDENTITY_DETECTOR_MODEL", "legacy-gemini-model")
-    ]
+    assert model_calls == [("GLOBAL_VIDEO_IDENTITY_DETECTOR_MODEL", "")]
 
 
 def test_ai_identity_detector_forces_structured_reasoning_off(monkeypatch):
@@ -535,7 +537,7 @@ def test_ai_identity_detector_forces_structured_reasoning_off(monkeypatch):
     monkeypatch.setattr(
         config,
         "get_newapi_text_pydantic_model",
-        lambda model_env, default_model, **_kwargs: "detector-model",
+        lambda model_env, default_model="", **_kwargs: "detector-model",
     )
     monkeypatch.setattr(
         config,

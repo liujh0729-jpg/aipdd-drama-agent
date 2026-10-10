@@ -21,8 +21,6 @@ from novelvideo.config import (
     get_grid_generation_config,
     get_style_preset,
     IMAGE_DEFAULT_STYLE,
-    NEWAPI_IMAGE_MODEL,
-    PROP_REF_IMAGE_MODEL,
     PROP_REF_IMAGE_PROVIDER,
     normalize_image_generation_selection,
 )
@@ -45,8 +43,9 @@ PROP_REF_IMAGE_SIZE = "0.5K"
 
 
 def _default_image_model() -> str:
-    """[aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：prop 参考图默认
-    走「默认生成模型」面板配置的 image，解析失败时才回退 env/常量。"""
+    """[aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：prop 参考图默认只走「默认
+    生成模型」面板配置的 image（``NEWAPI_IMAGE_MODEL`` env 已退出解析链）。读不到就回
+    空串 —— 未绑定由调用点拒绝，不再拿一个设置页看不见的名字去撞网关。"""
     try:
         from novelvideo.model_gateway_settings import (
             get_effective_default_image_model,
@@ -54,7 +53,7 @@ def _default_image_model() -> str:
 
         return get_effective_default_image_model()
     except Exception:  # pragma: no cover - defensive fallback
-        return str(NEWAPI_IMAGE_MODEL or "").strip()
+        return ""
 
 
 # [aipdd fork delta] generate_prop_reference 的分发只认这些直连 provider。动态
@@ -80,7 +79,9 @@ def resolve_prop_reference_image_model() -> str:
         prop_provider or config.get("provider") or "google"
     )
     if provider == "newapi":
-        return (PROP_REF_IMAGE_MODEL or _default_image_model()).strip()
+        # [aipdd fork delta wave2] ``PROP_REF_IMAGE_MODEL`` env 不再抢位：道具参考图就跟着
+        # 面板的默认图位（未配时返回空串，由调用点拦住）。
+        return _default_image_model().strip()
     return str(config.get("model") or "").strip()
 
 
@@ -211,7 +212,7 @@ async def generate_prop_reference(
                 "provider": "newapi",
                 "api_key": "request-scoped",
                 "base_url": "https://request-scoped.invalid/v1",
-                "model": selected_model or (PROP_REF_IMAGE_MODEL or _default_image_model()),
+                "model": selected_model or _default_image_model(),
                 "mode": "1x1",
                 "rows": 1,
                 "cols": 1,

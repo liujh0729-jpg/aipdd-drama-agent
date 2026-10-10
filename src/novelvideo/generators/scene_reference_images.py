@@ -11,17 +11,12 @@ from typing import Literal
 from novelvideo.config import (
     HUIMENGI_API_KEY,
     HUIMENG_IMAGE_MODEL,
-    NEWAPI_IMAGE_MODEL,
-    NEWAPI_NANOBANANA2_MODEL,
     OPENAI_API_KEY,
     OPENAI_IMAGE_MODEL,
     OPENROUTER_API_KEY,
     OPENROUTER_GPT_IMAGE2_MODEL,
-    SCENE_ASSET_MODEL,
     SCENE_ASSET_PROVIDER,
-    SCENE_MASTER_IMAGE_MODEL,
     SCENE_MASTER_IMAGE_PROVIDER,
-    SCENE_REVERSE_MASTER_IMAGE_MODEL,
     SCENE_REVERSE_MASTER_IMAGE_PROVIDER,
 )
 from novelvideo.generators.grid_generation import (
@@ -590,35 +585,34 @@ def _scene_image_model(
     provider: str,
     model: str | None,
 ) -> str:
+    """场景参考图的模型名。
+
+    [aipdd fork delta wave2] 以前这里有四个 env 抢位（``SCENE_MASTER_IMAGE_MODEL`` /
+    ``SCENE_REVERSE_MASTER_IMAGE_MODEL`` / ``SCENE_ASSET_MODEL`` / ``SCENE_ASSET_*_MODEL``）：
+    设了它们就盖过「设置 › 模型」，而那个值在设置页上看不见。现在只剩两级：调用点显式
+    传进来的那张（项目/画布选的），和面板的主/副位。网关路径上拿不到名字就是空串，
+    由调用点按「未绑定可用模型」拦住。
+    """
     if model:
         return model
-    if kind == "master" and SCENE_MASTER_IMAGE_MODEL:
-        return SCENE_MASTER_IMAGE_MODEL
-    if kind == "reverse_master" and SCENE_REVERSE_MASTER_IMAGE_MODEL:
-        return SCENE_REVERSE_MASTER_IMAGE_MODEL
     if provider == "newapi":
         # [aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：默认改走面板配置的
-        # 默认 image / 默认 nanobanana（DB→env→常量）。
+        # 默认 image / 副位 nanobanana（两者都只由面板的媒体映射决定）。
         from novelvideo.model_gateway_settings import (
             get_effective_default_image_model,
             get_effective_default_nanobanana_model,
         )
 
         if kind in {"master", "reverse_master"}:
-            return (
-                get_effective_default_nanobanana_model()
-                or NEWAPI_NANOBANANA2_MODEL
-            )
-        return SCENE_ASSET_MODEL or get_effective_default_image_model() or NEWAPI_IMAGE_MODEL
+            # 副位缺失时 ``get_effective_default_nanobanana_model`` 已经退到主位。
+            return get_effective_default_nanobanana_model()
+        return get_effective_default_image_model()
+    # 以下都是显式选了直连厂商的路径：模型名就是该厂商适配层的常量，不再按用途另指一个。
     if provider == "openai":
-        return SCENE_ASSET_MODEL or os.environ.get("SCENE_ASSET_OPENAI_MODEL") or OPENAI_IMAGE_MODEL
+        return OPENAI_IMAGE_MODEL
     if provider in {"huimeng", "huimengi"}:
-        return SCENE_ASSET_MODEL or HUIMENG_IMAGE_MODEL
-    return (
-        SCENE_ASSET_MODEL
-        or os.environ.get("SCENE_ASSET_OPENROUTER_MODEL")
-        or OPENROUTER_GPT_IMAGE2_MODEL
-    )
+        return HUIMENG_IMAGE_MODEL
+    return OPENROUTER_GPT_IMAGE2_MODEL
 
 
 def resolve_scene_reference_image_model(
@@ -638,8 +632,9 @@ def _scene_image_config(model: str) -> dict[str, str]:
         "image_size": "1K",
         "output_format": "png",
     }
+    # [aipdd fork delta wave2] 这里的名单不再携带发行方私有别名（旧的 LingShan-G2 已删）：
+    # 官方目录已经不携带它，渠道清单里也没这个名字；留着只会让一个不存在的名字拿到画质档位。
     if str(model or "").strip().lower() in {
-        "lingshan-g2",
         "gpt-image-2",
         "image-2",
         "image-2-official",

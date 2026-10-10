@@ -168,8 +168,35 @@ def _not_granted_signal(
     )
 
 
+def _gateway_unbound_guidance(call_name: str) -> str:
+    """网关说「没有可用渠道」时的指引 —— 按调用名是不是内部功能位分叉。
+
+    [aipdd fork delta] 两类同一个状态码，但动作完全不同：
+
+    - 真模型名（``{provider}::{model}`` / 裸名）：渠道里确实没注册这个名字，去网关侧
+      为渠道开通 / 改选候选；
+    - ``DC-*`` 内部功能位：它**不是模型名**，而是网关 model_mapping 的路由键，而这个
+      键只从「设置 → 模型」的功能位绑定投影出来。叫用户去「为渠道开通该模型」是一条
+      死路 —— 渠道目录里找不到这个选项，只能给功能位绑一个真模型。
+    """
+
+    from novelvideo.model_slots import is_internal_alias_name
+
+    if is_internal_alias_name(call_name):
+        return (
+            f"「{call_name}」是系统内部功能位名（不是渠道里的模型），报错来自本地网关而"
+            "不是上游：这个功能位还没绑定可用模型，所以网关里没有任何渠道会接这笔调用。"
+            "请到「设置 → 模型」给该功能位从渠道目录里选一个模型（渠道还没同步过清单时"
+            "先点「同步模型清单」）—— 网关侧的路由会随绑定自动投影，不需要手动开通。"
+        )
+    return (
+        "本地网关没有把该模型绑到可用渠道（报错来自网关，不是上游）：请在「设置"
+        " → 模型网关」为对应渠道开通该模型，或改选已就绪的其它候选。"
+    )
+
+
 def _guidance(
-    *, status: int | None, code: str, message: str, provider: str
+    *, status: int | None, code: str, message: str, provider: str, call_name: str = ""
 ) -> str:
     """按错误特征给最可行动的一句处理指引。
 
@@ -195,10 +222,7 @@ def _guidance(
         "no available channel" in signature
         or code.lower() in _GATEWAY_UNBOUND_CODES
     ):
-        return (
-            "本地网关没有把该模型绑到可用渠道（报错来自网关，不是上游）：请在「设置"
-            " → 模型网关」为对应渠道开通该模型，或改选已就绪的其它候选。"
-        )
+        return _gateway_unbound_guidance(call_name)
 
     if status == 404:
         return (
@@ -207,10 +231,7 @@ def _guidance(
         )
 
     if status == 503 or "no available channel" in signature:
-        return (
-            "本地网关没有把该模型绑到可用渠道（不是上游报错）：请在「设置 → 模型"
-            "网关」为对应渠道开通该模型，或改选已就绪的其它候选。"
-        )
+        return _gateway_unbound_guidance(call_name)
 
     if status in (401, 403):
         return (
@@ -258,7 +279,11 @@ def describe_model_call_failure(
     parts.append(
         "处理指引："
         + _guidance(
-            status=status, code=code, message=message, provider=provider
+            status=status,
+            code=code,
+            message=message,
+            provider=provider,
+            call_name=call_name,
         ).rstrip("。")
     )
     if request_id:

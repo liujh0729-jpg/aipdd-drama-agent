@@ -525,17 +525,14 @@ def _is_indextts2_model(model: str) -> bool:
     IndexTTS2 的复刻/情绪参数语义只在专用客户端里成立，命中时不走通用
     /audio/speech 分支。
 
-    [req40] 代码里不再有内置音频模型名，所以命中判定只看两件事：运维显式钉的
-    ``INDEXTTS2_NEWAPI_MODEL``，以及模型名里还带着 ``indextts`` 字样（渠道目录里
-    自己就是这么命名的）。
+    [aipdd fork delta] env ``INDEXTTS2_NEWAPI_MODEL`` 已退出解析链，代码里也不再有内置
+    音频模型名：命中判定只看**实际调用名本身**是否带着 IndexTTS 字样（渠道目录里就是
+    这么命名的）。比较前先抹掉连字符 / 下划线，``index-tts-2`` 这类写法也能命中。
     """
-    from novelvideo.config import INDEXTTS2_NEWAPI_MODEL
-
     clean = str(model or "").strip().casefold()
     if not clean:
         return True
-    known = str(INDEXTTS2_NEWAPI_MODEL or "").strip().casefold()
-    return clean == known or "indextts" in clean
+    return "indextts" in re.sub(r"[^a-z0-9]", "", clean)
 
 
 async def _generate_freezone_audio_speech_via_gateway(
@@ -1283,7 +1280,7 @@ async def generate_freezone_audio_eleven_music(
     respect_sections_durations: bool = True,
     output_format: str = "mp3_44100_128",
     response_format: str = "mp3",
-    model: str = "LingShan-MU-11",
+    model: str = "",
     egress_context: TrustedEgressContext | None = None,
 ) -> FreezoneAudioSpeechResult:
     """Generate standalone Freezone music through NewAPI's audio/speech endpoint."""
@@ -1309,7 +1306,12 @@ async def generate_freezone_audio_eleven_music(
         or "mp3_44100_128",
     }
 
-    model_name = str(model or "LingShan-MU-11").strip() or "LingShan-MU-11"
+    # [aipdd fork delta] 音乐模型不再内置厂商名：留空就走「设置 › 模型」的默认音频位
+    # （与 IndexTTS2 同一口径），没配就提交前拒（中文成因），而不是带着一个渠道
+    # 不认的名字去打 503 —— 上一个内置名 LingShan-MU-11 / LingShan-NB-2 正是这样在网关上撞回 503 的。
+    from novelvideo.model_slots import resolve_media_slot
+
+    model_name = str(model or "").strip() or resolve_media_slot("audio")
     try:
         request_payload = {
             "model": model_name,

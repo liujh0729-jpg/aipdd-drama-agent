@@ -14,6 +14,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from novelvideo.api.routes import model_gateway as _gateway
+from novelvideo.feature_provisioner import (
+    FeatureProvisionError,
+    provision_feature_routes,
+)
 from novelvideo.model_gateway_settings import (
     build_channel_registrations,
     get_newapi_provider_channels,
@@ -195,5 +199,98 @@ async def save_custom_newapi_alias_mappings(
             "mappings": saved,
             "projection": projection,
             "projectionFailed": [item for item in projection if not item.get("ok")],
+        },
+    }
+
+
+# --------------------------------------------------------------------------- #
+# [aipdd fork delta] 一键配齐：一次选择 → 整链要用的全部功能位绑定 + 媒体默认。
+# --------------------------------------------------------------------------- #
+
+
+class ProvisionFeatureRoutesBody(BaseModel):
+    """运行前收集的三个模型（全部可选；空 = 那一类不动）。
+
+    调用名的形状与设置页一致：文本 / 视觉用 ``{provider}::{model}`` 复合名（来自
+    ``/model-gateway/text-models`` 与 ``/vision-models``），图片 / 视频用「默认生成模型」
+    目录条目 id（来自 ``/freezone/{image,video}/models``）。
+    """
+
+    text_model: str | None = Field(default=None, alias="textModel")
+    vision_model: str | None = Field(default=None, alias="visionModel")
+    image_model: str | None = Field(default=None, alias="imageModel")
+    video_model: str | None = Field(default=None, alias="videoModel")
+    new_api_base_url: str | None = Field(default=None, alias="newApiBaseUrl")
+    database: NewApiDatabaseBody | None = None
+    # 写完是否立即把真源投影到网关渠道（与 alias-mappings 同一语义）。
+    sync: bool = True
+
+
+@router.post("/custom/newapi/feature-routes/provision")
+async def provision_custom_newapi_feature_routes(
+    body: ProvisionFeatureRoutesBody,
+) -> dict[str, Any]:
+    """把「这一部剧用哪几个模型」铺开成整链需要的全部绑定，并把真源投影到网关。
+
+    为什么这个动作要存在：整链（故事 / 剧本 / 资产 / 分镜 / 风格）会逐位踩过解析链，
+    出厂状态是那 22 个文本位 + 4 个视觉位全空 —— 只靠运行期兜底接住，用户永远看不见
+    自己在用什么，也永远有人撞上「未绑定可用模型」。这里让用户在创建处选一次，随后
+    每个功能位都有明确归属，广场与状态回显读的是同一份真源。
+
+    「挑不到」不是错误：没选的类保持原样，向量一类的只回提示（维度不容代猜），名字不
+    在渠道目录里才是 400 —— 那正是本接口要消灭的那条 503。
+    """
+
+    try:
+        require_ce_gateway_management()
+        result = await asyncio.to_thread(
+            provision_feature_routes,
+            text_model=body.text_model or "",
+            vision_model=body.vision_model or "",
+            image_model=body.image_model or "",
+            video_model=body.video_model or "",
+        )
+        # 真源变了，上一轮自检结果作废（与 alias-mappings 保存同一处理）。
+        reset_alias_mapping_health_cache()
+    except PermissionError as exc:
+        raise _permission_error(exc) from exc
+    except FeatureProvisionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - 与其他网关端点同一收口：不把栈抛给用户
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    # 投影是 best-effort（与 /media-model-mappings 同一语义）：真源已经落对了，网关那一侧
+    # 同步失败不该把这次配齐报成失败 —— 否则前端会把整链白中止一次，用户看到的还是
+    # 「配齐也报错」，而那两位其实已经指好了。
+    projection: list[dict[str, Any]] = []
+    projection_error = ""
+    if body.sync:
+        try:
+            cfg = _get_provisioner_config_from_request(
+                body.new_api_base_url, body.database
+            )
+            admin = _gateway.ensure_admin_access_token(cfg)
+            touched = {
+                str(item or "").strip().lower() for item in result.get("touched") or []
+            }
+            known = {channel["provider"] for channel in get_newapi_provider_channels()}
+            targets = sorted((touched | known) - {""})
+            projection = await asyncio.to_thread(
+                lambda: _project_provider_channel_mappings(cfg, admin, targets)
+            )
+        except Exception as exc:  # noqa: BLE001 - 投影失败不回滚真源
+            projection_error = str(exc)
+
+    return {
+        "ok": True,
+        "data": {
+            **{key: result.get(key) for key in ("text", "vision", "image", "video")},
+            "hints": result.get("hints") or [],
+            "touched": result.get("touched") or [],
+            "projection": projection,
+            "projectionFailed": [item for item in projection if not item.get("ok")],
+            "projectionError": projection_error,
         },
     }

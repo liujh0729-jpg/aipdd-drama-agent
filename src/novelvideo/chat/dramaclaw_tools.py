@@ -5777,7 +5777,13 @@ TOOLS = (
             {
                 "project_id": _TOOLS_PAGE_PROJECT_PROP,
                 "input": {"type": "string", "description": "Music description prompt (required)."},
-                "model": {"type": "string", "description": "Music model (default LingShan-MU-11)."},
+                "model": {
+                    "type": "string",
+                    "description": (
+                        "Music model; omit to use the default audio model configured in "
+                        "Settings > Models."
+                    ),
+                },
                 "response_format": {"type": "string", "enum": ["mp3", "opus", "pcm", "ulaw", "alaw"], "description": "Audio format (default mp3)."},
                 "music_length_ms": {"type": "integer", "description": "Target length in ms (default 30000)."},
                 "force_instrumental": {"type": "boolean", "description": "Force instrumental only (default true)."},

@@ -259,6 +259,23 @@ def _to_cognee_provider(provider: str) -> str:
     return "custom" if _is_newapi_provider(provider) else provider
 
 
+def _cognee_llm_call_name() -> str:
+    """Cognee 这一位实际要用的调用名：只由「设置 › 模型」的槽位绑定 + 渠道目录决定。
+
+    [aipdd fork delta] ``COGNEE_LLM_MODEL`` env 已退出解析链：它是注册表里的槽位键，不再是一个
+    可以在进程环境里钉模型名的入口。本函数在模块导入期就要求值，因歡不得抛
+    ``ModelSlotNotConfigured``：解析不到就回槽位别名，缺的那一位由提交链路前的
+    校验负责拦截。
+    """
+
+    try:
+        from novelvideo.config import get_newapi_text_model_name
+
+        return get_newapi_text_model_name("COGNEE_LLM_MODEL", DEFAULT_COGNEE_LLM_MODEL)
+    except Exception:  # noqa: BLE001 - 导入期不拦截，绕行到槽位别名
+        return str(DEFAULT_COGNEE_LLM_MODEL or "").strip()
+
+
 def _normalize_llm_model(provider: str, model: str) -> str:
     """规范化 LLM 模型名称。"""
     if provider == "gemini":
@@ -1229,7 +1246,7 @@ def _apply_embedding_env(llm_provider: str, api_key: str) -> tuple[str, str, str
 llm_provider = _resolve_llm_provider()
 llm_model = _normalize_llm_model(
     llm_provider,
-    os.getenv("COGNEE_LLM_MODEL", "").strip() or DEFAULT_COGNEE_LLM_MODEL,
+    _cognee_llm_call_name(),
 )
 _apply_embedding_runtime_defaults(llm_provider)
 
@@ -1283,7 +1300,6 @@ def init_cognee() -> None:
     重要：必须在导入 cognee 之前设置环境变量，因为 Cognee 在导入时会读取环境变量。
 
     EE 可使用的部署环境变量:
-        COGNEE_LLM_MODEL=DC-cognee-LLM
         NEWAPI_API_KEY=your_key
         NEWAPI_BASE_URL=https://your-newapi-host/v1
     """
@@ -1311,7 +1327,7 @@ def init_cognee() -> None:
 
     api_key = _resolve_llm_api_key(
         llm_provider,
-        os.getenv("COGNEE_LLM_MODEL", "").strip() or DEFAULT_COGNEE_LLM_MODEL,
+        _cognee_llm_call_name(),
     )
     if not api_key:
         raise ValueError(
@@ -1321,7 +1337,7 @@ def init_cognee() -> None:
 
     llm_model = _normalize_llm_model(
         llm_provider,
-        os.getenv("COGNEE_LLM_MODEL", "").strip() or DEFAULT_COGNEE_LLM_MODEL,
+        _cognee_llm_call_name(),
     )
 
     _apply_llm_env(llm_provider, llm_model, api_key)

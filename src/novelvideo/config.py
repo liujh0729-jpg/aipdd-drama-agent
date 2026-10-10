@@ -88,7 +88,6 @@ def get_pydantic_model(
     provider_override: str | None = None,
     model_name_override: str | None = None,
     *,
-    fallback_env: str = "TEXT_MODEL_FALLBACK",
     default_model: str | None = None,
 ):
     """Return a PydanticAI model routed through the effective NewAPI gateway.
@@ -102,9 +101,6 @@ def get_pydantic_model(
         provider_override: Select the legacy provider preset used for a default
             model name. The request transport remains NewAPI.
         model_name_override: Override the model name sent to NewAPI.
-        fallback_env: [aipdd fork delta] 全局兜底 env 名。视觉/多模态调用方必须传
-            ``VISION_MODEL_FALLBACK``，否则纯文本的 ``TEXT_MODEL_FALLBACK``
-            接管后网关会回 400「当前模型不支持请求所需的图片能力」。
         default_model: [aipdd fork delta req40] 兜底**槽位键**（``DC-*`` 内部功能位），
             不是模型名 —— 视觉调用方传 ``DEFAULT_FREEZONE_VISION_MODEL`` 这类别名，
             解析时还要校验它在用户设置里绑定的目标仍存在于渠道目录。
@@ -121,15 +117,13 @@ def get_pydantic_model(
         )
 
     preset = PROVIDER_PRESETS[provider]
-    # [aipdd fork delta] 只有显式指定（调用方 override 或 MODEL_NAME env）才"钉死"
-    # 模型；过去这里把 preset 的 legacy 默认模型（如 volcengine 的
-    # doubao-seed-1-6-251015）也当 override 传下去，短路了 TEXT/VISION fallback
-    # 链 —— 网关里没有该旧模型名时整条 superpower / verification / 审阅链路都会
-    # 400「endpoint closed」。未显式指定时改走 get_newapi_text_model_name 的四级
-    # 优先级：per-env → fallback_env → DEFAULT_TEXT_MODEL_BY_ENV → default_model。
-    model_name = str(model_name_override or "").strip() or _clean_env_value(
-        "MODEL_NAME"
-    )
+    # [aipdd fork delta] 只有调用方显式指定才"钉死"模型。过去这里把 preset 的 legacy
+    # 默认模型（如 volcengine 的 doubao-seed-1-6-251015）也当 override 传下去，短路了
+    # 槽位兜底链 —— 网关里没有该旧模型名时整条 superpower / verification / 审阅链路都
+    # 会 400「endpoint closed」。未显式指定时交给 resolve_slot：槽位绑定 → 同类已绑位
+    # → 渠道目录首项。
+    # [aipdd fork delta] ``MODEL_NAME`` env 已退出解析链：模型名的真源是「设置 › 模型」。
+    model_name = str(model_name_override or "").strip()
 
     if (
         model_name
@@ -145,7 +139,6 @@ def get_pydantic_model(
         "MODEL_NAME",
         default_model,
         model_name_override=model_name or None,
-        fallback_env=fallback_env,
         capability="text.generate.agent",
         timeout_seconds_override=_env_float(
             "MODEL_TIMEOUT",
@@ -167,17 +160,16 @@ def _clean_env_value(name: str | None) -> str | None:
 def get_newapi_text_model_name(
     model_env: str,
     default_model: str = "",
-    *,
-    fallback_env: str = "TEXT_MODEL_FALLBACK",
 ) -> str:
     """[aipdd fork delta req40] 功能位 → 调用名；**没有任何硬编码兜底模型名**。
 
-    合法来源只剩三层：该功能的单独 env 覆盖 → 全局兜底 env
-    （``TEXT_MODEL_FALLBACK`` / ``VISION_MODEL_FALLBACK``；视觉位必须隔离，纯文本兜底
-    接管带图调用会回 400「当前模型不支持请求所需的图片能力」）→ 用户在「设置 › 模型」
-    里给该槽位绑定、且绑定目标**仍在渠道目录里**的内部别名。
+    合法来源只剩两层：用户在「设置 › 模型」里给该槽位绑定、且绑定目标**仍在渠道目录
+    里**的内部别名；这一位自己不可用时按能力档自动兜底（同类已绑位 → 渠道目录首项）。
+    [aipdd fork delta] per-feature env 与 ``TEXT_MODEL_FALLBACK`` /
+    ``VISION_MODEL_FALLBACK`` 都已退出解析链 —— 模型名的真源是设置 + 渠道目录，不是
+    进程环境。文本 / 视觉的隔离由槽位登记表的 ``capability`` 保证。
 
-    三层都拿不到时抛 :class:`novelvideo.model_slots.ModelSlotNotConfigured`：任务在提
+    两层都拿不到时抛 :class:`novelvideo.model_slots.ModelSlotNotConfigured`：任务在提
     交前就被拒绝（HTTP 400 中文，含槽位名与设置入口），不会再带着网关里不存在的名字
     跑到一半撞 404 / 503。第二参数由「兜底模型名」变成「兜底槽位键」，调用方传的必须
     还是 ``DC-*`` 内部位。
@@ -187,7 +179,6 @@ def get_newapi_text_model_name(
     return resolve_slot(
         str(model_env or "").strip(),
         default_alias=str(default_model or "").strip(),
-        fallback_env=str(fallback_env or "").strip(),
     )
 
 
@@ -324,17 +315,15 @@ def get_newapi_text_pydantic_model(
     model_name_override: str | None = None,
     timeout_seconds_override: float | None = None,
     capability: str = "text.generate",
-    fallback_env: str = "TEXT_MODEL_FALLBACK",
 ):
     """Create a PydanticAI OpenAI-compatible model that routes through newAPI.
 
-    [aipdd fork delta] ``fallback_env`` 透传给 ``get_newapi_text_model_name``：
-    视觉/多模态调用方必须传 ``VISION_MODEL_FALLBACK``，否则会被纯文本兜底
-    ``TEXT_MODEL_FALLBACK``（如 ap-glm-5.2）接管，网关回 400「当前模型不支持
-    请求所需的图片能力」。
+    [aipdd fork delta] ``fallback_env`` 已删除：兜底不再读 env。视觉位由槽位登记表
+    的 ``capability`` 决定（见 ``model_slots.resolve_slot``），带图调用不会再被一个
+    纯文本的 env 兜底接管成 400「当前模型不支持请求所需的图片能力」。
     """
     model_name = str(model_name_override or "").strip() or get_newapi_text_model_name(
-        model_env, default_model, fallback_env=fallback_env
+        model_env, default_model
     )
     timeout_seconds = (
         float(timeout_seconds_override)
@@ -400,21 +389,18 @@ def get_newapi_structured_output_litellm_kwargs() -> dict:
 def get_superpower_pydantic_model(
     *,
     feature_provider_env: str | None = None,
-    feature_model_env: str | None = None,
-    fallback_env: str = "TEXT_MODEL_FALLBACK",
     default_model: str | None = None,
 ):
     """Return the multimodal model used by SuperPower prompt builders.
 
-    By default this inherits the normal MODEL_PROVIDER/MODEL_NAME settings.
-    Individual prompt builders can override that with feature-specific env vars
-    (for example GLOBAL_VIDEO_PROVIDER/GLOBAL_VIDEO_MODEL). Global
-    SUPERPOWER_* env vars remain available for deployments that want one shared
-    SuperPower provider without hard-coding Google/Gemini in code.
+    By default this inherits the deployment provider preset (``MODEL_PROVIDER``);
+    ``SUPERPOWER_*`` env only selects that preset (timeout / transport defaults),
+    it no longer selects a model name.
 
-    [aipdd fork delta] SuperPower 提示词构建都是带图调用（草图/首尾帧），调用方
-    必须传 ``fallback_env="VISION_MODEL_FALLBACK"``，并可用 ``default_model``
-    指定网关内已有的视觉别名兜底。
+    [aipdd fork delta] SuperPower 提示词构建都是带图调用（草图/首尾帧）：视觉隔离不再
+    靠 ``VISION_MODEL_FALLBACK``，而由 ``default_model`` 指向的视觉槽位别名 + 登记表
+    的 capability 决定。``SUPERPOWER_MODEL`` / ``SUPERPOWER_MODEL_NAME`` /
+    ``feature_model_env`` 这类**用 env 点模型名**的入口已删除 —— 模型名只听设置的。
     """
 
     provider_override = (
@@ -422,15 +408,8 @@ def get_superpower_pydantic_model(
         or _clean_env_value("SUPERPOWER_PROVIDER")
         or _clean_env_value("SUPERPOWER_MODEL_PROVIDER")
     )
-    model_name_override = (
-        _clean_env_value(feature_model_env)
-        or _clean_env_value("SUPERPOWER_MODEL")
-        or _clean_env_value("SUPERPOWER_MODEL_NAME")
-    )
     return get_pydantic_model(
         provider_override=provider_override,
-        model_name_override=model_name_override,
-        fallback_env=fallback_env,
         default_model=default_model,
     )
 
@@ -441,9 +420,17 @@ def get_model_info() -> dict:
     provider = PROVIDER_ALIASES.get(provider, provider)
     preset = PROVIDER_PRESETS.get(provider, {})
 
+    # [aipdd fork delta] ``model`` 回显通用位的实际解析结果（设置绑定 + 渠道目录），
+    # 不再读 ``MODEL_NAME`` env：env 已不参与模型名选定，回显必须与路由同一口径。
+    from novelvideo.model_slots import ModelSlotNotConfigured, resolve_slot
+
+    try:
+        resolved_model = resolve_slot("MODEL_NAME")
+    except ModelSlotNotConfigured:
+        resolved_model = str(preset.get("default_model") or "unknown")
     return {
         "provider": provider,
-        "model": os.environ.get("MODEL_NAME", preset.get("default_model", "unknown")),
+        "model": resolved_model,
         "base_url": os.environ.get("MODEL_BASE_URL", preset.get("base_url")),
         "timeout": int(os.environ.get("MODEL_TIMEOUT", preset.get("timeout", 120))),
     }
@@ -582,24 +569,22 @@ def get_newapi_runtime_credentials(
 # [aipdd fork delta req40] 不再预设模型名：语音合成模型由「设置 › 模型」的音频默认
 # 位决定（渠道目录里 kind==audio 的模型），这一项只是运维显式钉死的 env 覆盖。留空 =
 # 未配置，调用前直接报「未绑定可用模型」，不会拿一个网关注册表里不存在的名字去撞 404。
-INDEXTTS2_NEWAPI_MODEL = os.environ.get("INDEXTTS2_NEWAPI_MODEL", "").strip()
+# [aipdd fork delta] env 不再提供音频模型名：默认音频位由「设置 › 模型」决定。
+INDEXTTS2_NEWAPI_MODEL = ""
 INDEXTTS2_RECORD_PROVIDER = "newapi"
 
 
 def get_indextts2_record_model(invoked_model: str = "") -> str:
     """[aipdd fork delta req40] 语音调用**记账**用的模型名（不影响调用本身）。
 
-    以前是一张写死的常量表：默认名从代码里来，env 清空后就只能记成空串，账单上
-    看不出到底用了哪个模型。现在按「实际调用名 → 运维显式 env → 默认音频槽位」的
+    以前是一张写死的常量表：默认名从代码里来。现在按「实际调用名 →
+    「设置 › 模型」的默认音频槽位」的
     顺序解析，全落空就记空串 —— 记账标签绝不打挂已经在跑的任务。
     """
 
     clean = str(invoked_model or "").strip()
     if clean:
         return clean
-    pinned = str(os.environ.get("INDEXTTS2_NEWAPI_MODEL") or "").strip()
-    if pinned:
-        return pinned
     try:
         from novelvideo.model_slots import resolve_media_slot
 
@@ -609,27 +594,32 @@ def get_indextts2_record_model(invoked_model: str = "") -> str:
 # [aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：不再内置具体厂商模型名作为
 # 默认值；未显式配置 env 时，运行时由 model_gateway_settings.
 # get_effective_default_image_model() 从「默认生成模型」面板写入的 media mappings 解析。
-NEWAPI_IMAGE_MODEL = os.environ.get("NEWAPI_IMAGE_MODEL", "")
-NEWAPI_NANOBANANA2_MODEL = os.environ.get("NEWAPI_NANOBANANA2_MODEL", "")
+# [aipdd fork delta] 这两个 env 已退出解析链：默认图模型只由「设置 › 模型」的媒体
+# 映射决定（get_effective_default_image_model）。常量留空是为了让旧的选项表继续可导入。
+NEWAPI_IMAGE_MODEL = ""
+NEWAPI_NANOBANANA2_MODEL = ""
+# [aipdd fork delta wave2] 「按用途钉图」的这一批 env 也退出解析链。以前设了
+# ``SCENE_MASTER_IMAGE_MODEL`` / ``PROP_REF_IMAGE_MODEL`` 就会**压过**「设置 › 模型」里配的
+# 默认图：那个值在设置页上看不见，渠道下架时也不会自动取消绑定 —— ``No available
+# channel for model …`` 就是这么来的。现在用途只决定取主位还是副位（两张都来自面板的
+# 媒体映射），模型名一律只从设置来。下面四个常量留空只为兼容旧导入与旧选项表。
 SCENE_MASTER_IMAGE_PROVIDER = (
     os.environ.get("SCENE_MASTER_IMAGE_PROVIDER", "").strip().lower() or "newapi"
 )
-SCENE_MASTER_IMAGE_MODEL = os.environ.get("SCENE_MASTER_IMAGE_MODEL", "")
+SCENE_MASTER_IMAGE_MODEL = ""
 SCENE_REVERSE_MASTER_IMAGE_PROVIDER = (
     os.environ.get("SCENE_REVERSE_MASTER_IMAGE_PROVIDER", "").strip().lower()
     or "newapi"
 )
-SCENE_REVERSE_MASTER_IMAGE_MODEL = os.environ.get(
-    "SCENE_REVERSE_MASTER_IMAGE_MODEL", ""
-)
+SCENE_REVERSE_MASTER_IMAGE_MODEL = ""
 SCENE_360_IMAGE_PROVIDER = (
     os.environ.get("SCENE_360_IMAGE_PROVIDER", "").strip().lower() or "newapi"
 )
-SCENE_360_IMAGE_MODEL = os.environ.get("SCENE_360_IMAGE_MODEL", "")
+SCENE_360_IMAGE_MODEL = ""
 PROP_REF_IMAGE_PROVIDER = (
     os.environ.get("PROP_REF_IMAGE_PROVIDER", "").strip().lower() or "newapi"
 )
-PROP_REF_IMAGE_MODEL = os.environ.get("PROP_REF_IMAGE_MODEL", "")
+PROP_REF_IMAGE_MODEL = ""
 
 
 # =============================================================================
@@ -650,9 +640,10 @@ IMAGE_DEFAULT_WIDTH = int(os.environ.get("IMAGE_DEFAULT_WIDTH", "1440"))
 IMAGE_DEFAULT_HEIGHT = int(os.environ.get("IMAGE_DEFAULT_HEIGHT", "2560"))
 IMAGE_DEFAULT_STYLE = os.environ.get("IMAGE_DEFAULT_STYLE", "chinese_period_drama")
 
-# 角色参考图生成模型选择：**不再有内置首选**。留空 = 跟随「设置 › 模型」里的默认图
-# 模型（mediaModels / 目录）；只有在需要区分跨模型风格时才显式写 nanobanana / seedream。
-CHARACTER_IMAGE_MODEL = os.environ.get("CHARACTER_IMAGE_MODEL", "").strip()
+# 角色参考图生成模型选择：**env 已退出解析链**。以前设了它会**压过**「设置 › 模型」的
+# 默认图位（而且它装的是生成器家族名 nanobanana / seedream，不是模型名）。现在只认
+# get_character_image_selection()（项目/画布显式选的那张 > 面板默认图）。常量留空只为兼容旧导入。
+CHARACTER_IMAGE_MODEL = ""
 
 # 风格预设统一由 src/novelvideo/styles/presets/*.json 提供。
 
@@ -894,11 +885,29 @@ NEWAPI_VIDEO_MODELS = _csv_env(
     "NEWAPI_VIDEO_MODELS",
     "seedance-1.0-pro-fast,seedance-1.5-pro,seedance-2.0,seedance-2.0-fast,seedance-2.0-value,seedance-2.0-fast-value,seedance-2.0-mini,seedance-2.5",
 )
-DEFAULT_VIDEO_MODEL = os.environ.get(
-    "DEFAULT_VIDEO_MODEL",
-    os.environ.get("NEWAPI_VIDEO_MODEL", ""),
-).strip()
-NEWAPI_VIDEO_MODEL = os.environ.get("NEWAPI_VIDEO_MODEL", DEFAULT_VIDEO_MODEL).strip()
+# [aipdd fork delta] ``DEFAULT_VIDEO_MODEL`` / ``NEWAPI_VIDEO_MODEL`` env 已退出解析链：
+# 默认视频模型只认「设置 › 模型」的视频媒体映射（见
+# model_gateway_settings.get_effective_default_video_model）。两个常量留空只为让旧引用
+# 继续可导入，真正的解析走 get_newapi_video_model()。
+DEFAULT_VIDEO_MODEL = ""
+NEWAPI_VIDEO_MODEL = ""
+
+
+def get_newapi_video_model() -> str:
+    """默认视频模型名（只读设置）；没配就回空串，由调用点决定是「未绑定」还是报错。
+
+    不进提交前拒绝那一层：这个函数多处被用作状态回显与候选补全，拒绝发生在真正提
+    交任务时（seedance2 / video_generator 的调用链）。
+    """
+
+    try:
+        from novelvideo.model_gateway_settings import get_effective_default_video_model
+
+        return str(get_effective_default_video_model() or "").strip()
+    except Exception:  # noqa: BLE001 - 设置读不了就是未配置，不能抛新异常
+        return ""
+
+
 NEWAPI_VIDEO_RESOLUTION = os.environ.get("NEWAPI_VIDEO_RESOLUTION", "720p")
 # 「哪些视频模型能带音轨」是按**已选中的模型名**派生的运营参数（不是可调用兜底名）：
 # 目录当前不承载该能力，渠道换了名字就对不上号，因此仍走 env 覆盖。
@@ -915,10 +924,8 @@ NEWAPI_VIDEO_DURATION_BOUNDS = os.environ.get(
 # 视频生成后端: newapi_<模型>（模型名来自渠道目录）、comfyui、seedance_fast、
 # seedance_pro、seedance_pro_silent、grok_720。没配默认视频模型时留 "newapi"，
 # 由生成器按「设置 › 模型」的默认视频位解析具体模型（解析不到 = 提交前拒绝）。
-VIDEO_BACKEND = os.environ.get(
-    "VIDEO_BACKEND",
-    f"newapi_{DEFAULT_VIDEO_MODEL}" if DEFAULT_VIDEO_MODEL else "newapi",
-)
+# [aipdd fork delta] 不再从 ``DEFAULT_VIDEO_MODEL`` env 反推后端名：env 不参与模型名选定。
+VIDEO_BACKEND = os.environ.get("VIDEO_BACKEND", "newapi").strip()
 
 # Seedance 模型（火山方舟）
 SEEDANCE_FAST_MODEL = os.environ.get(
@@ -974,7 +981,7 @@ def get_video_generation_config() -> dict:
         "huimengi_video_resolution": HUIMENGI_VIDEO_RESOLUTION,
         "newapi_base_url": NEWAPI_BASE_URL,
         "newapi_video_models": list(NEWAPI_VIDEO_MODELS),
-        "newapi_video_model": NEWAPI_VIDEO_MODEL,
+        "newapi_video_model": get_newapi_video_model(),
         "newapi_video_resolution": NEWAPI_VIDEO_RESOLUTION,
         "comfyui_url": COMFYUI_VIDEO_URL,
         "comfyui_workflow": COMFYUI_WORKFLOW,
@@ -1030,9 +1037,12 @@ HUIMENG_IMAGE_OFFICIAL_MODEL = os.environ.get(
 )
 HUIMENG_NANOBANANA2_MODEL = os.environ.get("HUIMENG_NANOBANANA2_MODEL", "nb-2")
 SCENE_360_PROVIDER = os.environ.get("SCENE_360_PROVIDER") or NANOBANANA_PROVIDER
-SCENE_360_HUIMENG_MODEL = os.environ.get("SCENE_360_HUIMENG_MODEL", HUIMENG_IMAGE_MODEL)
+# [aipdd fork delta wave2] 这两个只是「360 图 / 场景资产图」用途上的 env 抢位：设了就会
+# 盖过「设置 › 模型」。现在它们退回成各自厂商适配层的别名（走直连时才用得到），网关
+# 路径的模型名一律只从面板的媒体映射来。
+SCENE_360_HUIMENG_MODEL = HUIMENG_IMAGE_MODEL
 SCENE_ASSET_PROVIDER = os.environ.get("SCENE_ASSET_PROVIDER") or NANOBANANA_PROVIDER
-SCENE_ASSET_MODEL = os.environ.get("SCENE_ASSET_MODEL", "")
+SCENE_ASSET_MODEL = ""
 OPENAI_IMAGE_QUALITY = os.environ.get("OPENAI_IMAGE_QUALITY", "medium")
 OPENAI_SKETCH_IMAGE_QUALITY = os.environ.get("OPENAI_SKETCH_IMAGE_QUALITY", "low")
 _DEFAULT_SKETCH_SELECTION_EXPLICIT = "DEFAULT_SKETCH_IMAGE_SELECTION" in os.environ
@@ -1324,11 +1334,8 @@ def get_character_image_selection() -> str:
     if candidate:
         return candidate
 
-    legacy_model = str(CHARACTER_IMAGE_MODEL or "").strip()
-    legacy_selection = _visible_image_generation_selection(legacy_model)
-    if legacy_selection:
-        return legacy_selection
-
+    # [aipdd fork delta wave2] 以前这里拿 ``CHARACTER_IMAGE_MODEL`` env 当次级来源：
+    # 一个设置页看不见的名字能赢过面板。现在只认显式选择，然后回默认渲染/草图位。
     return normalize_image_generation_selection(
         DEFAULT_RENDER_IMAGE_SELECTION,
         fallback=DEFAULT_SKETCH_IMAGE_SELECTION,
@@ -1373,8 +1380,10 @@ def _image_provider_config(
     model_override: str | None = None,
     selection_override: str | None = None,
 ) -> dict:
+    selection_key = ""
     if selection_override:
         selection = normalize_image_generation_selection(selection_override)
+        selection_key = selection
         # [aipdd fork delta] 兼容动态 mediaModels 图源（如面板把默认图模型设成
         # 网关里的 ap-image-2.0）：旧代码只查硬编码 IMAGE_GENERATION_SELECTIONS，
         # 动态名会 KeyError。未命中硬编码表时回退到 resolve_image_selection。
@@ -1426,16 +1435,27 @@ def _image_provider_config(
         try:
             from novelvideo.model_gateway_settings import (
                 get_effective_default_image_model,
+                get_effective_default_nanobanana_model,
                 resolve_media_provider_override,
             )
 
             _img_default_model = get_effective_default_image_model()
+            if selection_key == "newapi_nanobanana2":
+                # [aipdd fork delta] 「NewAPI Nano Banana 2」这个选项不再由
+                # ``NEWAPI_NANOBANANA2_MODEL`` env 点名：它对应「默认生成模型」面板里
+                # 图片类的**第二张**（只配一张时与主位同名）。两个选项的差别因此落在
+                # 面板顺序上，而不是落在一个设置页看不见的 env 值上。
+                _img_default_model = (
+                    get_effective_default_nanobanana_model() or _img_default_model
+                )
             _provider_override = resolve_media_provider_override(
                 model or _img_default_model, media_type="image"
             )
         except Exception:
+            # 设置读不了 = 未配置：由调用点按「未绑定可用模型」拦住。这里绝不回落任何
+            # 常量名（``NEWAPI_IMAGE_MODEL`` 现在只是让旧选项表可导入的空占位常量）。
             _provider_override = None
-            _img_default_model = str(NEWAPI_IMAGE_MODEL or "").strip()
+            _img_default_model = ""
         if _provider_override:
             _img_base_url, _img_api_key, _ = _provider_override
         return {

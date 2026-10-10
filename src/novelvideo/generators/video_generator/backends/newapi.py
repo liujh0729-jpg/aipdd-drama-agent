@@ -346,10 +346,13 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         egress_context: object | None = None,
     ):
         from novelvideo.config import (
-            NEWAPI_VIDEO_MODEL,
             NEWAPI_VIDEO_RESOLUTION,
+            get_newapi_video_model,
         )
 
+        # [aipdd fork delta] 默认视频模型只读「设置 › 模型」的视频映射：
+        # ``NEWAPI_VIDEO_MODEL`` env 已退出解析链（面板看不见的名字不能赢过用户选的默认）。
+        default_video_model = get_newapi_video_model()
         self.egress_context = _video_egress_context(egress_context)
         # [aipdd fork delta req46] 生效渠道的 provider（设置页渠道卡上的那个 key）。
         # 组织任务走信封解析、平台侧不认得它的渠道，所以留空：判定回落 host 兜底。
@@ -376,7 +379,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
 
                     active_gateway = get_effective_newapi_config()
                     media_mapping = get_newapi_media_model_mappings().get(
-                        model or NEWAPI_VIDEO_MODEL,
+                        model or default_video_model,
                         {},
                     )
                     if (
@@ -397,13 +400,13 @@ class NewApiVideoGenerator(VideoGeneratorBase):
                     )
 
                     _provider_override = resolve_media_provider_override(
-                        model or NEWAPI_VIDEO_MODEL, media_type="video"
+                        model or default_video_model, media_type="video"
                     )
                 except Exception:
                     _provider_override = None
                 if _provider_override:
                     self.base_url, self.api_key, self.channel_provider = _provider_override
-        self.model = model or NEWAPI_VIDEO_MODEL
+        self.model = model or default_video_model
         self.resolution = resolution or NEWAPI_VIDEO_RESOLUTION
         self.model_params = model_params or {}
         self.request_schema = request_schema or {}

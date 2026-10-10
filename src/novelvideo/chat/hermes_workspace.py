@@ -151,11 +151,25 @@ def effective_gateway_credentials() -> tuple[str, str]:
 
 
 def _hermes_model_default() -> str:
-    return _root_value(
-        "HERMES_MODEL",
-        "HERMES_MODEL_DEFAULT",
-        "DRAMACLAW_HERMES_MODEL",
-    ) or _DEFAULT_HERMES_MODEL
+    """Hermes / 导演聊天的默认模型：只读「设置 › 模型」里 ``HERMES_MODEL`` 这一功能位。
+
+    [aipdd fork delta] 以前从 root ``.env`` / 进程环境取 ``HERMES_MODEL``：设置页换了绑定，
+    写进 worker ``config.yaml`` 的还是环境里那个旧名字，聊天的模型和面板显示的对不上。
+    现在走同一条槽位解析链（槽位绑定 → 同类已绑位 → 渠道目录首项）；这是写配置文件的
+    展示路径，解析不到就回内部别名，绝不在这上面抛 ``ModelSlotNotConfigured``。
+    ``HERMES_MODEL_API_MODE`` / ``HERMES_MODEL_CONTEXT_LENGTH`` 仍是部署参数，照旧读 env。
+    """
+    try:
+        from novelvideo.config import get_newapi_text_model_name
+
+        resolved = str(
+            get_newapi_text_model_name("HERMES_MODEL", _DEFAULT_HERMES_MODEL) or ""
+        ).strip()
+        if resolved:
+            return resolved
+    except Exception:  # noqa: BLE001 - 工作区初始化不能因为一个模型名解析失败而崩
+        _log.debug("hermes model slot unresolved, using internal alias", exc_info=True)
+    return _DEFAULT_HERMES_MODEL
 
 
 def _hermes_model_api_mode() -> str:
@@ -628,11 +642,14 @@ def _dump_hermes_config_yaml(config: dict) -> str:
 
 
 def _ensure_model_config_from_env(config_yaml: Path) -> None:
-    """Apply explicit Hermes model env overrides to existing config.yaml files."""
+    """Apply explicit Hermes model *deployment parameter* env overrides to existing config.yaml.
+
+    [aipdd fork delta] ``HERMES_MODEL`` / ``DRAMACLAW_HERMES_MODEL`` 的模型名覆盖已删：模
+    型名由「设置 › 模型」的 ``HERMES_MODEL`` 功能位决定（下面的 _ensure_model_gateway_config
+    就按那条写 ``default``，env 再写一次只会互相盖）。API mode 与 context length 是网关能力
+    参数、不是模型选择，继续读 env。
+    """
     overrides: dict[str, object] = {}
-    model = _root_value("HERMES_MODEL", "HERMES_MODEL_DEFAULT", "DRAMACLAW_HERMES_MODEL")
-    if model:
-        overrides["default"] = model
     api_mode = _root_value("HERMES_MODEL_API_MODE")
     if api_mode:
         overrides["api_mode"] = api_mode

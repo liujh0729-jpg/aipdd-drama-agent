@@ -22,22 +22,30 @@ from novelvideo.freezone.vision_gateway import (
 )
 
 
-def test_resolve_freezone_vision_model_isolated_from_text_fallback(
+def test_resolve_freezone_vision_model_keeps_vision_capability_without_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """[aipdd fork delta] 视觉解析不能被纯文本兜底接管（否则网关回 400）。"""
-    monkeypatch.delenv("FREEZONE_VISION_MODEL", raising=False)
-    monkeypatch.delenv("VISION_MODEL_FALLBACK", raising=False)
-    monkeypatch.setenv("TEXT_MODEL_FALLBACK", "ap-glm-text-only")
+    """[aipdd fork delta] 视觉解析不能被纯文本模型接管 —— 隔离改由登记表能力档负责。
 
-    # 显式 override 优先级最高。
-    assert resolve_freezone_vision_model("explicit-vision") == "explicit-vision"
-    # TEXT_MODEL_FALLBACK 不得劫持视觉 alias。
-    assert resolve_freezone_vision_model() != "ap-glm-text-only"
-    assert resolve_freezone_vision_model() == "DC-freezone-vision-LLM"
-    # 运维设 VISION_MODEL_FALLBACK 才把视觉指到网关真正开通的模型。
+    旧守卫的实现是「运维设 ``VISION_MODEL_FALLBACK`` 才把视觉指到真开的模型，
+    ``TEXT_MODEL_FALLBACK`` 不得劫持」。两档 env 都退出解析链后，这句话必须有新的守法人：
+    ``FREEZONE_VISION_MODEL`` 在槽位登记表里钉死 ``capability=vision``，兜底只会提名同能力
+    的模型；env 里写什么都不改路由（宁可提交前 400，也不塞一个纯文本名）。
+    """
+    from novelvideo import model_slots
+    from novelvideo.official_defaults import DEFAULT_FREEZONE_VISION_MODEL
+
+    monkeypatch.delenv("FREEZONE_VISION_MODEL", raising=False)
+    monkeypatch.setenv("TEXT_MODEL_FALLBACK", "ap-glm-text-only")
     monkeypatch.setenv("VISION_MODEL_FALLBACK", "doubao-vision-pro")
-    assert resolve_freezone_vision_model() == "doubao-vision-pro"
+
+    # 调用点显式点名（界面上选中的那一个）优先级最高。
+    assert resolve_freezone_vision_model("explicit-vision") == "explicit-vision"
+    # env 里那两个名字都没有插队的资格。
+    resolved = resolve_freezone_vision_model()
+    assert resolved not in {"ap-glm-text-only", "doubao-vision-pro"}
+    assert resolved == DEFAULT_FREEZONE_VISION_MODEL
+    assert model_slots.SLOTS["FREEZONE_VISION_MODEL"].capability == "vision"
 
 
 @pytest.mark.asyncio
@@ -224,7 +232,10 @@ async def test_vision_gateway_uses_pydantic_agent_and_logical_model(
         )
         return TestModel(custom_output_text="视觉解析结果")
 
+    from novelvideo.official_defaults import DEFAULT_FREEZONE_VISION_MODEL
+
     monkeypatch.setattr(config, "get_newapi_text_pydantic_model", fake_get_model)
+    # [aipdd fork delta] 同名 env 不再是模型名来源：传输层拿到的仍是这一位的内部别名。
     monkeypatch.setenv("FREEZONE_VISION_MODEL", "custom-vision-model")
 
     model, output = await call_freezone_vision_model(
@@ -233,13 +244,26 @@ async def test_vision_gateway_uses_pydantic_agent_and_logical_model(
         timeout_seconds=FREEZONE_VIDEO_ANALYSIS_TIMEOUT_SECONDS,
     )
 
-    assert model == "custom-vision-model"
+    assert model == DEFAULT_FREEZONE_VISION_MODEL
+    assert model != "custom-vision-model"
     assert output == "视觉解析结果"
     assert captured["model_env"] == "FREEZONE_VISION_MODEL"
-    assert captured["model_name_override"] == "custom-vision-model"
+    assert captured["default_model"] == DEFAULT_FREEZONE_VISION_MODEL
+    assert captured["model_name_override"] == DEFAULT_FREEZONE_VISION_MODEL
     assert (
         captured["timeout_seconds_override"] == FREEZONE_VIDEO_ANALYSIS_TIMEOUT_SECONDS
     )
+
+    # 调用点显式给名是合法入口（用户在渠道目录里选中的那一项）。
+    captured.clear()
+    picked, _ = await call_freezone_vision_model(
+        prompt="分析图片",
+        images=[VisionInput(data=b"image", media_type="image/png")],
+        timeout_seconds=FREEZONE_VIDEO_ANALYSIS_TIMEOUT_SECONDS,
+        model_override="explicit-vision",
+    )
+    assert picked == "explicit-vision"
+    assert captured["model_name_override"] == "explicit-vision"
 
 
 @pytest.mark.parametrize(

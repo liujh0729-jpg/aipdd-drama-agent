@@ -3,7 +3,8 @@
 // [aipdd fork delta] 一键流水线控制条单测：只验证 UI 编排（三档切换、发射入参、
 // 运行前设置对话框、检查点审批对话框、requires_input 不误报完成、停止接线），
 // 循环本身由 pipeline-driver.test.ts 覆盖。
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const runPipelineDriven = vi.hoisted(() => vi.fn());
@@ -57,9 +58,39 @@ vi.mock("@/stores/aspect-ratio-store", () => ({
     setOrientation: vi.fn(),
   }),
 }));
+// [aipdd fork delta] 运行前「一键配齐」：控制条在发射整链之前，先把用户选的三个模型
+// 铺开成整链要用的全部功能位绑定。这里只验编排（什么时候发、发什么、失败就不跑），
+// 真实铺绑由后端 tests/test_feature_provisioner.py 覆盖。
+const provisionMutateAsync = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/queries/model-gateway", () => ({
+  useProvisionFeatureRoutes: () => ({ mutateAsync: provisionMutateAsync }),
+}));
+
+// 弹窗里的三类模型候选：给固定条目，用例才点得到具体选项（id 与真实目录同形）。
+const catalogModels = vi.hoisted(() => ({
+  text: [{ id: "aipdd::ap-live-llm", label: "ap-live-llm" }],
+  image: [{ id: "ap-image-2.0", label: "ap-image-2.0" }],
+  video: [{ id: "ap-video-1", label: "ap-video-1" }],
+}));
+vi.mock("@/features/canvas/hooks/useFreezoneTextModels", () => ({
+  useFreezoneTextModels: () => ({
+    models: catalogModels.text,
+    isLoading: false,
+    isFallback: false,
+    error: null,
+  }),
+}));
+vi.mock("@/features/canvas/hooks/useFreezoneVideoModels", () => ({
+  useFreezoneVideoModels: () => ({
+    models: catalogModels.video,
+    isLoading: false,
+    isFallback: false,
+    error: null,
+  }),
+}));
 vi.mock("@/features/canvas/hooks/useFreezoneImageModels", () => ({
   useFreezoneImageModels: () => ({
-    models: [],
+    models: catalogModels.image,
     isLoading: false,
     isFallback: false,
     error: null,
@@ -75,6 +106,8 @@ import { PipelineControlBar } from "@/components/pipeline-control-bar";
 beforeEach(() => {
   vi.clearAllMocks();
   promptItems.current = [];
+  // 默认「配齐」成功且没有需要提示的缺口：失败路径由具体用例覆写。
+  provisionMutateAsync.mockResolvedValue({ hints: [], touched: [] });
 });
 
 describe("PipelineControlBar", () => {
@@ -255,5 +288,113 @@ describe("PipelineControlBar", () => {
     render(<PipelineControlBar project="proj-a" />);
     fireEvent.click(screen.getByRole("button", { name: /pipeline.runAll/ }));
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("模型不可用"));
+  });
+
+  // 「三个模型 → 一键配齐」的编排契约（[aipdd fork delta]）。
+  it("skips provisioning when none of the three models was picked", async () => {
+    runPipelineDriven.mockResolvedValue({ kind: "completed", stage: "done", message: "" });
+    render(<PipelineControlBar project="proj-a" storyCharCount={50} />);
+    fireEvent.click(screen.getByRole("button", { name: /pipeline.runAll/ }));
+    await waitFor(() => expect(runPipelineDriven).toHaveBeenCalledTimes(1));
+    // 三个都留空 = 什么都没选：不该白写一遍设置，照旧交后端解析链（含运行期兜底）。
+    expect(provisionMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("provisions the picked models before firing the pipeline", async () => {
+    const user = userEvent.setup();
+    runPipelineDriven.mockResolvedValue({ kind: "completed", stage: "done", message: "" });
+    render(<PipelineControlBar project="proj-a" storyCharCount={50} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /pipeline.settings.button/ }));
+    const dialog = await screen.findByRole("dialog");
+    // 四个下拉：文本 / 图片 / 视频 / 导演风格（风格不参与配齐）。
+    const [textSelect, imageSelect, videoSelect] = within(dialog).getAllByRole("combobox");
+    await user.click(textSelect);
+    await user.click(await screen.findByRole("option", { name: "ap-live-llm" }));
+    await user.click(imageSelect);
+    await user.click(await screen.findByRole("option", { name: "ap-image-2.0" }));
+    await user.click(videoSelect);
+    await user.click(await screen.findByRole("option", { name: "ap-video-1" }));
+    await user.click(within(dialog).getByRole("button", { name: "pipeline.settings.close" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /pipeline.runAll/ }));
+    await waitFor(() => expect(provisionMutateAsync).toHaveBeenCalledTimes(1));
+    // 图片模型走 settings.model（媒体目录条目 id），文本走复合调用名。
+    expect(provisionMutateAsync.mock.calls[0][0]).toEqual({
+      textModel: "aipdd::ap-live-llm",
+      imageModel: "ap-image-2.0",
+      videoModel: "ap-video-1",
+    });
+    await waitFor(() => expect(runPipelineDriven).toHaveBeenCalledTimes(1));
+    // 配齐先于发射：整链读到的就是这一次刚铺好的绑定。
+    expect(
+      provisionMutateAsync.mock.invocationCallOrder[0],
+    ).toBeLessThan(runPipelineDriven.mock.invocationCallOrder[0]);
+  });
+
+  it("aborts the run when provisioning fails, surfacing the backend reason", async () => {
+    const user = userEvent.setup();
+    runPipelineDriven.mockResolvedValue({ kind: "completed", stage: "done", message: "" });
+    // 后端在名字不在渠道清单时回 400 中文 —— 这是唯一该拦住一次运行的理由。
+    provisionMutateAsync.mockRejectedValueOnce(
+      new Error("LingShan-NB-2 不在渠道 aipdd 的模型清单里（已从渠道下架或尚未开通）"),
+    );
+    render(<PipelineControlBar project="proj-a" storyCharCount={50} />);
+    fireEvent.click(screen.getByRole("button", { name: /pipeline.settings.button/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "ap-live-llm" }));
+    await user.click(within(dialog).getByRole("button", { name: "pipeline.settings.close" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /pipeline.runAll/ }));
+    await waitFor(() => expect(provisionMutateAsync).toHaveBeenCalledTimes(1));
+    expect(runPipelineDriven).not.toHaveBeenCalled();
+    await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1));
+    expect(toastError.mock.calls[0][0]).toContain("不在渠道");
+  });
+
+  it("warns about gaps without blocking the run", async () => {
+    const user = userEvent.setup();
+    runPipelineDriven.mockResolvedValue({ kind: "completed", stage: "done", message: "" });
+    // 挑不到的那几位（典型是向量位要人填维度）：只提醒，不拦这次运行。
+    provisionMutateAsync.mockResolvedValueOnce({
+      hints: ["向量模型还没绑定，请到「设置 › 模型」补绑定向量模型。"],
+      touched: [],
+    });
+    render(<PipelineControlBar project="proj-a" storyCharCount={50} />);
+    fireEvent.click(screen.getByRole("button", { name: /pipeline.settings.button/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "ap-live-llm" }));
+    await user.click(within(dialog).getByRole("button", { name: "pipeline.settings.close" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /pipeline.runAll/ }));
+    await waitFor(() => expect(toastWarning).toHaveBeenCalledWith(
+      "向量模型还没绑定，请到「设置 › 模型」补绑定向量模型。",
+    ));
+    await waitFor(() => expect(runPipelineDriven).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps the run going when only the gateway projection failed", async () => {
+    const user = userEvent.setup();
+    runPipelineDriven.mockResolvedValue({ kind: "completed", stage: "done", message: "" });
+    // 真源已经落对了，只是没投到网关渠道：提醒去哪儿补同步，不拦这次运行。
+    provisionMutateAsync.mockResolvedValueOnce({
+      hints: [],
+      touched: ["aipdd"],
+      projectionError: "admin token 获取失败",
+    });
+    render(<PipelineControlBar project="proj-a" storyCharCount={50} />);
+    fireEvent.click(screen.getByRole("button", { name: /pipeline.settings.button/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "ap-live-llm" }));
+    await user.click(within(dialog).getByRole("button", { name: "pipeline.settings.close" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /pipeline.runAll/ }));
+    await waitFor(() => expect(toastWarning).toHaveBeenCalledWith(
+      "pipeline.provisionProjectionFailed",
+    ));
+    await waitFor(() => expect(runPipelineDriven).toHaveBeenCalledTimes(1));
   });
 });

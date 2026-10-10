@@ -54,10 +54,9 @@ class ImageVerifier:
             from novelvideo.official_defaults import DEFAULT_FREEZONE_VISION_MODEL
 
             self._agent = Agent(
-                # [aipdd fork delta] 验证对比图片（带图），隔离到 VISION_MODEL_FALLBACK，
-                # 避免被纯文本兜底打成 400「当前模型不支持请求所需的图片能力」。
+                # [aipdd fork delta] 验证对比图片（带图）：视觉隔离由点名的视觉槽位
+                # 别名（DC-freezone-vision-LLM）的 capability 决定，不再读 env 兜底。
                 get_pydantic_model(
-                    fallback_env="VISION_MODEL_FALLBACK",
                     default_model=DEFAULT_FREEZONE_VISION_MODEL,
                 ),
                 system_prompt=SKETCH_VERIFY_PROMPT,

@@ -12,6 +12,7 @@ import {
   localizedBrandDescription,
   localizedBrandName,
   providerChannelLabel,
+  providerOfficialSiteUrl,
 } from "@/lib/provider-labels";
 import { enTranslation } from "../helpers/i18n-fixtures";
 
@@ -91,5 +92,37 @@ describe("品牌名按界面语言取词", () => {
     expect(localizedBrandName("")).toBe("");
     expect(providerChannelLabel("")).toBe("");
     expect(providerChannelLabel("  ")).toBe("");
+  });
+});
+
+// [aipdd fork delta] 渠道官网直达契约：设置面板渠道名旁的链接只认 PROVIDER_OFFICIAL_SITES
+// 这一张表。未登记的渠道必须落回空串（调用方据此不渲染链接）——宁可不给入口，也不能
+// 猜一个域名把用户带到别的地方去。
+describe("providerOfficialSiteUrl", () => {
+  it("四家已确认厂商给出官网地址（MiniMax 双站各一条）", () => {
+    expect(providerOfficialSiteUrl("aipdd")).toBe("https://www.aipdd.work");
+    expect(providerOfficialSiteUrl("volcengine")).toBe(
+      "https://www.volcengine.com/",
+    );
+    expect(providerOfficialSiteUrl("minimax")).toBe("https://www.minimax.io/");
+    expect(providerOfficialSiteUrl("minimax_cn")).toBe(
+      "https://www.minimax.cn/",
+    );
+  });
+
+  it("大小写 / 首尾空白不影响命中", () => {
+    expect(providerOfficialSiteUrl(" AIPDD ")).toBe("https://www.aipdd.work");
+    expect(providerOfficialSiteUrl("MiniMax_CN")).toBe(
+      "https://www.minimax.cn/",
+    );
+  });
+
+  it("未登记渠道与空值返回空串（不猜 URL）", () => {
+    expect(providerOfficialSiteUrl("newapi")).toBe("");
+    expect(providerOfficialSiteUrl("comfyui")).toBe("");
+    // MediaKit 归在 VolcEngine 卡内，自己不占官网链接行。
+    expect(providerOfficialSiteUrl("mediakit")).toBe("");
+    expect(providerOfficialSiteUrl("")).toBe("");
+    expect(providerOfficialSiteUrl("  ")).toBe("");
   });
 });

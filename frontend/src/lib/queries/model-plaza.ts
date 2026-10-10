@@ -9,11 +9,13 @@ import { queryKeys } from "@/lib/query-keys";
 import type { OkResponse } from "@/types/api";
 
 // [aipdd fork delta] 原 audio（语音合成）与 official-catalog（官方目录）两个来源已整体移除。
+// [aipdd fork delta] env-override 已改名 model-slot：环境变量不再参与模型名选定，
+// 这一分区只回答「每个功能位实际跑在哪个模型上」。
 export type PlazaConnector =
   | "gateway"
   | "comfyui"
   | "mediakit"
-  | "env-override";
+  | "model-slot";
 
 export type PlazaCapability =
   | "text"
@@ -83,9 +85,11 @@ export interface PlazaModel {
   probeUnusable?: boolean;
   fallbackProvider?: string;
   fallbackModel?: string;
-  /** [aipdd fork delta] env-override 条目的「功能位」业务标识（如 SCREENPLAY_NORMALIZER_MODEL）；
-   * 卡片标题/调用名展示的是模型名，env 仅作功能位说明。 */
-  env?: string;
+  /** [aipdd fork delta] model-slot 条目的「功能位」内部键（如 SCREENPLAY_NORMALIZER_MODEL）；
+   * 卡片标题/调用名展示的是模型名，槽位键仅作排错附注。 */
+  slot?: string;
+  /** 功能位的中文功能名（后端 model_slots 登记表），卡片上给用户看的那一行。 */
+  slotLabel?: string;
   mediaType?: string;
   dimension?: number | string;
   batchSize?: number | string;

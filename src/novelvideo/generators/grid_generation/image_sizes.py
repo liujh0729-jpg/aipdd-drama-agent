@@ -193,10 +193,12 @@ def _legacy_newapi_image_quality_default(model: str | None) -> bool:
 
     [aipdd fork delta] 仅供「完全没有目录 schema」的旧链路（主线渲染等配置驱
     动的路径）使用。画布 / freezone 链路一律以目录声明为准，不要再往这里加名字。
+
+    [aipdd fork delta wave2] 名单里不再携带发行方私有别名（旧的 LingShan-G2 已删）：
+    官方目录与渠道清单都没有这个名字，留着就是给一个不存在的模型开画质档位。
     """
     model_name = str(model or "").strip().lower()
     return model_name in {
-        "lingshan-g2",
         "gpt-image-2",
         "image-2",
         "image-2-official",

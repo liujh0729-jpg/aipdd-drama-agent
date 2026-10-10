@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import contextvars
 import logging
-import os
 from dataclasses import fields, is_dataclass
+from functools import cache
 from typing import Any, Optional
 
 logger = logging.getLogger("novelvideo.llm_instrumentation")
@@ -245,42 +245,31 @@ def _strip_model_provider_prefix(model: str) -> str:
     return value
 
 
+@cache
+def _normalization_aliases() -> tuple[str, ...]:
+    """归一化比对照：功能位登记表里的内部别名（``DC-*``），不读环境变量。
+
+    [aipdd fork delta] 这里以前逐个 ``os.environ.get("X_MODEL")`` 取「配置值」来并名字，
+    而那些 per-feature env 已全部退出模型解析链（模板里也删了）——留着会让人误以为还能
+    用 env 指模型。本函数的职责只是把 ``DC-x-LLM-v2`` 这类带后缀的调用名并回槽位别名，
+    让用量统计按功能位聚合，登记表就是这些别名的唯一真源。
+    """
+    from novelvideo.model_slots import SLOTS
+
+    return tuple(sorted({str(slot.alias).strip() for slot in SLOTS.values() if slot.alias}))
+
+
 def _normalize_recorded_model_name(model: str) -> str:
     raw = (model or "").strip()
     if not raw:
         return ""
     plain = _strip_model_provider_prefix(raw)
-    for env_key in (
-        "COGNEE_LLM_MODEL",
-        "COGNEE_EMBEDDING_MODEL",
-        "IDENTITY_PLANNER_CAST_MODEL",
-        "IDENTITY_PLANNER_ANALYSIS_MODEL",
-        "IDENTITY_PLANNER_APPEARANCE_MODEL",
-        "EPISODE_SCENE_PLANNER_MODEL",
-        "EPISODE_PROP_PLANNER_MODEL",
-        "LITERAL_BEAT_META_MODEL",
-        "SCENE_BUILD_MODEL",
-        "NARRATED_SCENE_ASSET_MODEL",
-        "GLOBAL_VIDEO_IDENTITY_DETECTOR_MODEL",
-        "GLOBAL_VIDEO_OPTIMIZER_MODEL",
-        "SEEDANCE2_PROMPT_COMPOSER_MODEL",
-        "NEWAPI_IMAGE_MODEL",
-        "NEWAPI_NANOBANANA2_MODEL",
-        "PROP_REF_IMAGE_MODEL",
-        "SCENE_MASTER_IMAGE_MODEL",
-        "SCENE_REVERSE_MASTER_IMAGE_MODEL",
-        "SCENE_360_IMAGE_MODEL",
-        "SCENE_ASSET_MODEL",
-        "NEWAPI_VIDEO_MODEL",
-        "DEFAULT_VIDEO_MODEL",
-        "INDEXTTS2_NEWAPI_MODEL",
-    ):
-        configured = os.environ.get(env_key, "").strip()
-        if not configured:
+    for alias in _normalization_aliases():
+        alias_plain = _strip_model_provider_prefix(alias)
+        if not alias_plain:
             continue
-        configured_plain = _strip_model_provider_prefix(configured)
-        if plain == configured_plain or plain.startswith(f"{configured_plain}-"):
-            return configured_plain
+        if plain == alias_plain or plain.startswith(f"{alias_plain}-"):
+            return alias_plain
     return plain
 
 

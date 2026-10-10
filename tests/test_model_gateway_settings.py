@@ -740,10 +740,21 @@ def test_ee_media_model_mappings_do_not_open_ce_settings(monkeypatch, tmp_path):
     assert not (tmp_path / "state").exists()
 
 
-def test_ee_platform_video_paths_do_not_call_ce_media_model_accessor(
-    monkeypatch,
-    tmp_path,
-):
+def test_ee_platform_video_paths_do_not_open_ce_settings_db(monkeypatch, tmp_path):
+    """[aipdd fork delta] EE 的视频路径不碰 CE 的 settings.db，也不从 env 里挑模型名。
+
+    旧守卫拦的是「有没有调用 CE 的媒体映射读取函数」——那时 EE 靠 ``NEWAPI_VIDEO_MODEL``
+    env 拿默认模型，那次调用根本不会发生。env 退出解析链后默认模型统一走媒体映射读取，
+    EE 分支由 :func:`get_newapi_media_model_mappings` 自己短路回空字典，真正的边界不再是
+    调用与否，而是**有没有打开 CE 的库**。这里把它换成记账 + 断言没打开，同时钉住
+    「env 里那个名字进不了候选」。
+    """
+    opened: list[str] = []
+
+    def _no_open():
+        opened.append("settings.db")
+        raise AssertionError("EE must not open CE settings.db")
+
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.setenv("ST_EDITION", "ee")
     monkeypatch.setenv("ST_CONTROL_PLANE_DSN", "postgresql://control-plane")
@@ -751,11 +762,8 @@ def test_ee_platform_video_paths_do_not_call_ce_media_model_accessor(
     monkeypatch.setenv("NEWAPI_BASE_URL", "https://ee-gateway.example/v1")
     monkeypatch.setattr(config, "NEWAPI_API_KEY", "sk-ee-secret")
     monkeypatch.setattr(config, "NEWAPI_BASE_URL", "https://ee-gateway.example/v1")
-    monkeypatch.setattr(
-        model_gateway_settings,
-        "get_newapi_media_model_mappings",
-        lambda: pytest.fail("EE video paths must not call the CE accessor"),
-    )
+    monkeypatch.setattr(model_gateway_settings, "_connect", _no_open)
+    monkeypatch.setenv("NEWAPI_VIDEO_MODEL", "env-only-video-model")
 
     generator = NewApiVideoGenerator(model="seedance-2.0")
     options = newapi_video_backend_options()
@@ -763,6 +771,9 @@ def test_ee_platform_video_paths_do_not_call_ce_media_model_accessor(
     assert generator.api_key == "sk-ee-secret"
     assert generator.base_url == "https://ee-gateway.example/v1"
     assert "newapi_seedance-2.0" in options
+    assert "newapi_env-only-video-model" not in options
+    assert opened == []
+    assert not (tmp_path / "state").exists()
 
 
 def test_ee_model_gateway_settings_reader_does_not_open_sqlite(monkeypatch, tmp_path):
@@ -839,6 +850,12 @@ def test_cognee_embedding_provider_env_cannot_bypass_newapi(monkeypatch, tmp_pat
 
 
 def test_ee_cognee_embedding_ignores_ce_database_config(monkeypatch, tmp_path):
+    """EE 不读 CE 库里的嵌入绑定；模型名同样不由 ``COGNEE_EMBEDDING_MODEL`` env 决定。
+
+    [aipdd fork delta] env 里那个 ``DC-ee-embedding`` 过去会直接当成模型名发给网关 ——
+    设置页看不见它，渠道下架时也不会自动取消。现在这一位没绑定就回内部槽位别名，
+    尺寸仍可按部署数据配置（``COGNEE_EMBEDDING_DIM`` 不是模型名）。
+    """
     _isolate_settings_db(monkeypatch, tmp_path)
     save_newapi_embedding_model_config(
         provider="openai",
@@ -854,7 +871,8 @@ def test_ee_cognee_embedding_ignores_ce_database_config(monkeypatch, tmp_path):
 
     assert effective.source == "environment"
     assert effective.provider == "newapi"
-    assert effective.model == "DC-ee-embedding"
+    assert effective.model == "DC-cognee-embedding"
+    assert effective.model != "DC-ee-embedding"
     assert effective.dimensions == "1536"
     assert effective.upstream_model == ""
 
@@ -3771,7 +3789,7 @@ def test_custom_newapi_media_models_groups_by_provider_and_persists_mapping(
         json={
             "newApiBaseUrl": "http://new-api:3000",
             "models": {
-                "LingShan-G2": {
+                "ap-image-2": {
                     "provider": "newapi",
                     "upstreamModel": "gpt-image-upstream",
                 },
@@ -3787,9 +3805,9 @@ def test_custom_newapi_media_models_groups_by_provider_and_persists_mapping(
                     "provider": "volcengine",
                     "upstreamModel": "index-tts-2-upstream",
                 },
-                "LingShan-MU-11": {
+                "ap-audio-11": {
                     "provider": "volcengine",
-                    "upstreamModel": "lingshan-mu-upstream",
+                    "upstreamModel": "ap-audio-upstream",
                 },
             },
         },
@@ -3802,13 +3820,13 @@ def test_custom_newapi_media_models_groups_by_provider_and_persists_mapping(
     assert len(payloads) == 2
     by_name = {payload["channel"]["name"]: payload["channel"] for payload in payloads}
     assert json.loads(by_name["DC-newapi"]["model_mapping"]) == {
-        "LingShan-G2": "gpt-image-upstream",
+        "ap-image-2": "gpt-image-upstream",
     }
     assert json.loads(by_name["DC-volcengine"]["model_mapping"]) == {
         "seedance-1.5-pro": "doubao-seedance-1-5",
         "seedance-2.0-fast": "seedance-2.0-fast",
         "index-tts-2": "index-tts-2-upstream",
-        "LingShan-MU-11": "lingshan-mu-upstream",
+        "ap-audio-11": "ap-audio-upstream",
     }
     assert by_name["DC-newapi"]["key"] == "sk-newapi-upstream-secret"
     # [aipdd fork delta] volcengine/ark/doubao 的 baseUrl 入库时补齐本地直连所需的
@@ -3821,7 +3839,7 @@ def test_custom_newapi_media_models_groups_by_provider_and_persists_mapping(
     config_response = client.get("/model-gateway/config")
     media_models = config_response.json()["data"]["provisioner"]["mediaModels"]
     expected_mappings = {
-        "LingShan-G2": {
+        "ap-image-2": {
             "provider": "newapi",
             "upstreamModel": "gpt-image-upstream",
         },
@@ -3837,9 +3855,9 @@ def test_custom_newapi_media_models_groups_by_provider_and_persists_mapping(
             "provider": "volcengine",
             "upstreamModel": "index-tts-2-upstream",
         },
-        "LingShan-MU-11": {
+        "ap-audio-11": {
             "provider": "volcengine",
-            "upstreamModel": "lingshan-mu-upstream",
+            "upstreamModel": "ap-audio-upstream",
         },
     }
     assert {
@@ -3849,10 +3867,9 @@ def test_custom_newapi_media_models_groups_by_provider_and_persists_mapping(
         }
         for model, entry in media_models.items()
     } == expected_mappings
-    assert media_models["LingShan-G2"]["mediaType"] == "image"
+    assert media_models["ap-image-2"]["mediaType"] == "image"
     assert media_models["seedance-1.5-pro"]["mediaType"] == "video"
     assert media_models["index-tts-2"]["mediaType"] == "audio"
-
 
 def test_ce_media_model_catalog_uses_saved_custom_model_capabilities(
     monkeypatch, tmp_path
@@ -3909,7 +3926,11 @@ def test_official_media_model_catalog_uses_ce_export_shape():
     images = get_official_media_model_catalog("image")
     videos = get_official_media_model_catalog("video")
 
-    assert len(images) == 8
+    # [aipdd fork delta wave2] 官方目录不再携带 LingShan 一族的图片模型：它们在上游
+    # 已不在渠道清单里，绑着只会撞回 ``No available channel``。catalogVersion 同步升到
+    # 2026.10.10.1。
+    assert len(images) == 3
+    assert not [entry for entry in images if "LingShan" in entry["id"]]
     assert len(videos) == 11
     assert [entry["id"] for entry in videos[:2]] == [
         "wan3.0-video-prime",

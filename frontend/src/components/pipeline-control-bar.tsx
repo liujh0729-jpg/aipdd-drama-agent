@@ -29,6 +29,7 @@ import type { PlanStep } from "@/api/pipeline";
 import type { Episode } from "@/types/episode";
 import type { OkResponse } from "@/types/api";
 import { useEpisodes } from "@/lib/queries/episodes";
+import { useProvisionFeatureRoutes } from "@/lib/queries/model-gateway";
 import { usePromptLibrary } from "@/lib/queries/prompt-library";
 import { useProjectAspectRatio } from "@/stores/aspect-ratio-store";
 import { STORY_VERSION_PROMPT_KEY } from "@/lib/episode-auto-pipeline";
@@ -75,6 +76,8 @@ function toGenerationSettings(s: PipelineRunSettings): PipelineGenerationSetting
 function isCustomized(s: PipelineRunSettings, defaultAspect: PipelineRunSettings["aspectRatio"]): boolean {
   return Boolean(
     s.model ||
+      s.textModel ||
+      s.videoModel ||
       s.storyStyle ||
       // 故事版是全自动的默认前置，开着不算「已配置」；用户主动关掉才提示偏离。
       !s.includeStoryVersion ||
@@ -210,6 +213,37 @@ export function PipelineControlBar({
     };
   }, [settings.includeStoryVersion, storyVersionBasePrompt, project, queryClient, t]);
 
+  const provision = useProvisionFeatureRoutes();
+
+  /**
+   * [aipdd fork delta] 运行前把「三个模型」这一次选择铺开成整链要用的全部功能位绑定。
+   *
+   * 只在用户真的选过时发这一笔（三个都留空 = 什么都不动，交回后端既有的解析链）。名字
+   * 不在渠道目录里时后端回 400 中文 —— 那是「配齐」唯一该拦住一次运行的理由：继续跑
+   * 下去只会让整链在网关的 ``No available channel``（503）上撞得七零八落。
+   */
+  const provisionModels = useCallback(async (): Promise<boolean> => {
+    const input = {
+      textModel: settings.textModel || undefined,
+      imageModel: settings.model || undefined,
+      videoModel: settings.videoModel || undefined,
+    };
+    if (!input.textModel && !input.imageModel && !input.videoModel) return true;
+    try {
+      const result = await provision.mutateAsync(input);
+      if (result?.hints?.length) {
+        // 挑不到的那几位（典型是向量位要人填维度）：说清楚去哪儿补，但不拦这次运行。
+        toast.warning(result.hints.slice(0, 2).join("；"));
+      } else if ((result?.projectionFailed ?? []).length || result?.projectionError) {
+        toast.warning(t("pipeline.provisionProjectionFailed"));
+      }
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      return false;
+    }
+  }, [provision, settings.textModel, settings.model, settings.videoModel, t]);
+
   const run = useCallback(async () => {
     // 空故事 / 前置任务未终态都不发计划请求：整链第一步就是故事→剧本，
     // 叠发只会拿到半截状态白烧一轮轮询。
@@ -224,6 +258,10 @@ export function PipelineControlBar({
       // 联动：先把页面上的故事落盘，计划器读到的就是用户刚看到的那一份；前置失败
       // （保存报错）直接中止，不用旧故事静默跑一轮。故事正文不再走运行参数。
       if (prepareStory && !(await prepareStory())) {
+        setRunning(false);
+        return;
+      }
+      if (!(await provisionModels())) {
         setRunning(false);
         return;
       }
@@ -264,6 +302,7 @@ export function PipelineControlBar({
     mode,
     settings,
     storyCharCount,
+    provisionModels,
     prepareStory,
     busy,
     storyVersionAvailable,

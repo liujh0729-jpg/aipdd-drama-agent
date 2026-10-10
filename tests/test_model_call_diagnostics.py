@@ -70,6 +70,40 @@ def test_gateway_model_not_found_points_at_channel_binding() -> None:
     assert "设置 → 模型网关" in detail
 
 
+def test_gateway_unbound_on_internal_slot_points_at_feature_binding() -> None:
+    """[aipdd fork delta] ``DC-*`` 同一个 503 但动作完全不同：绑功能位，不是开通模型。
+
+    回归场景：导演剧本功能位没绑模型时，用户拿到的是「No available channel for model
+    DC-director-screenwriter-LLM」，而旧文案让他去「设置 → 模型网关」为渠道开通这个
+    「模型」—— 渠道目录里根本没这一项，于是一条死路。它不是模型名，而是只从功能位
+    绑定投影的路由键。
+    """
+
+    exc = ModelHTTPError(
+        503,
+        "DC-director-screenwriter-LLM",
+        {
+            "error": {
+                "message": (
+                    "No available channel for model DC-director-screenwriter-LLM "
+                    "under group default (distributor)"
+                ),
+                "type": "new_api_error",
+                "code": "model_not_found",
+            }
+        },
+    )
+    detail = describe_model_call_failure(exc)
+    assert "HTTP 503" in detail
+    assert "DC-director-screenwriter-LLM" in detail
+    assert "内部功能位" in detail
+    assert "还没绑定可用模型" in detail
+    assert "设置 → 模型" in detail
+    assert "自动投影" in detail
+    # 不能再让用户去网关侧「为渠道开通」一个不存在的模型。
+    assert "为对应渠道开通该模型" not in detail
+
+
 def test_auth_and_vision_failures_have_their_own_guidance() -> None:
     unauthorized = describe_model_call_failure(
         ModelHTTPError(

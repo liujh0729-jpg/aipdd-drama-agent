@@ -813,7 +813,9 @@ def test_m06_freezone_task_backend_responses_are_ce_ee_isomorphic(
     cases = _freezone_task_cases(client, assets)
     assert len(cases) == 29
     for task_type, response in cases:
-        assert response.status_code == 200, response.text
+        # [测试卫生] 失败时得说出是哪一条路由：不带 task_type 时 29 个用例只透出一句
+        # detail，定位成本全压在人工上。
+        assert response.status_code == 200, f"{task_type}: {response.text}"
         _assert_freezone_http_task_shape(response.json(), task_type=task_type)
 
     response = client.post(

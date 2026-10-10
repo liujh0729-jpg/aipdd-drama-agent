@@ -243,9 +243,16 @@ def test_state_root_falls_back_to_repo(monkeypatch, tmp_path):
     assert hw._state_root() == tmp_path / "repo" / "state"
 
 
-def test_fresh_config_uses_model_env_but_keeps_newapi_transport(
+def test_fresh_config_ignores_env_model_name_but_keeps_newapi_transport(
     isolated_workspace, repo_skills, repo_plugins, monkeypatch
 ):
+    """[aipdd fork delta] ``.env`` 里的 ``HERMES_MODEL`` 不再决定模型名，transport 参数照旧。
+
+    工作区 ``.env`` 里写着一个渠道目录里可能根本不存在的真名，而设置页看不见它、渠道下架也
+    不会自动取消 —— 导演聊天就会稳定撞网关 503。现在这一位只读「设置 › 模型」的
+    ``HERMES_MODEL`` 功能位：没绑定时回内部槽位别名，由解析链按能力档兜底 / 前置拒绝。
+    传输参数（api_mode / context_length）是部署数据，不是模型名，仍按 ``.env`` 生效。
+    """
     save_official_newapi_key(api_key="root-key", activate=True)
     # [aipdd fork delta req41] 网关地址是部署数据（env / 数据库），不再是代码常量：
     # 用例显式给一个，验证它确实透到 Hermes 的 transport 配置里。
@@ -268,10 +275,11 @@ def test_fresh_config_uses_model_env_but_keeps_newapi_transport(
     home = hw.ensure_user_hermes_workspace("admin")
     config = (home / "config.yaml").read_text(encoding="utf-8")
 
-    assert "  default: gemini-3.5-flash" in config
+    assert "  default: DC-hermes-LLM" in config
+    assert "gemini-3.5-flash" not in config
     parsed = yaml.safe_load(config)
     assert parsed["model"]["provider"] == "custom:dramaclaw"
-    assert parsed["model"]["default"] == "gemini-3.5-flash"
+    assert parsed["model"]["default"] == "DC-hermes-LLM"
     assert parsed["model"]["context_length"] == 65536
     assert "api_key" not in parsed["model"]
     provider = _dramaclaw_provider(parsed)

@@ -128,22 +128,24 @@ describe("ModelPlazaPage fork channel labels", () => {
     expect(screen.getByTitle("AIPDD")).toBeInTheDocument();
   });
 
-  // [aipdd fork delta] env 名（SCREENPLAY_NORMALIZER_MODEL 等）是业务标识：
-  // 卡片标题必须是模型名（方便调用），env 只能作为「功能位」辅助展示。
-  it("shows the model name as the title and the env as the feature slot for env-override cards", () => {
+  // [aipdd fork delta] env-override 分区已改名 model-slot：环境变量不再参与选名，
+  // 这一分区只回答「每个功能位实际跑在哪个模型上」。卡片标题必须是模型名（方便
+  // 直接拿去调用），内部槽位键只作为排错附注留在 title 里。
+  it("shows the model name as the title and the Chinese feature label on model-slot cards", () => {
     setPlaza([
       makeModel({
-        id: "env-override:SCREENPLAY_NORMALIZER_MODEL",
+        id: "model-slot:SCREENPLAY_NORMALIZER_MODEL",
         displayName: "DC-screenplay-normalizer-LLM",
         modelName: "DC-screenplay-normalizer-LLM",
-        connector: "env-override",
+        connector: "model-slot",
         invokeKind: "openai-chat",
         capabilities: ["text"],
         provider: "aipdd",
         channelName: "AIPDD",
-        env: "SCREENPLAY_NORMALIZER_MODEL",
+        slot: "SCREENPLAY_NORMALIZER_MODEL",
+        slotLabel: "剧本归一化",
         inUseBy: ["SCREENPLAY_NORMALIZER_MODEL"],
-        note: "perEnv",
+        note: "defaultAlias",
       }),
     ]);
 
@@ -152,21 +154,27 @@ describe("ModelPlazaPage fork channel labels", () => {
     expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
       "DC-screenplay-normalizer-LLM",
     );
-    // 功能位行：label 走 i18n key，值是 env 业务标识。
+    // 功能位行：label 走 i18n key，给用户看的值是中文功能名。
     expect(screen.getByText("models.plaza.field.feature")).toBeInTheDocument();
-    expect(screen.getByText("SCREENPLAY_NORMALIZER_MODEL")).toBeInTheDocument();
+    expect(screen.getByText("剧本归一化")).toBeInTheDocument();
+    // 内部槽位键不占正文，只在悬停 title 里给排障的人看。
+    expect(
+      screen.getByTitle("剧本归一化 \u00b7 SCREENPLAY_NORMALIZER_MODEL"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("models.plaza.note.defaultAlias")).toBeInTheDocument();
   });
 
-  it("matches env-override cards when searching by the feature-slot env name", () => {
+  it("matches model-slot cards when searching by the slot key or its label", () => {
     setPlaza([
       makeModel({
-        id: "env-override:STYLE_ANALYZER_MODEL",
+        id: "model-slot:STYLE_ANALYZER_MODEL",
         displayName: "DC-style-analyzer-LLM",
         modelName: "DC-style-analyzer-LLM",
-        connector: "env-override",
+        connector: "model-slot",
         invokeKind: "openai-chat",
         capabilities: ["text"],
-        env: "STYLE_ANALYZER_MODEL",
+        slot: "STYLE_ANALYZER_MODEL",
+        slotLabel: "风格分析",
         inUseBy: ["STYLE_ANALYZER_MODEL"],
       }),
       makeModel({ id: "gateway:other", displayName: "OtherModel" }),
@@ -174,11 +182,17 @@ describe("ModelPlazaPage fork channel labels", () => {
 
     render(<ModelPlazaPage />);
 
-    fireEvent.change(screen.getByPlaceholderText("models.plaza.search.placeholder"), {
-      target: { value: "STYLE_ANALYZER_MODEL" },
-    });
+    const search = screen.getByPlaceholderText("models.plaza.search.placeholder");
+    fireEvent.change(search, { target: { value: "STYLE_ANALYZER_MODEL" } });
 
     // displayName 在标题与调用名两处渲染，用标题断言唯一性。
+    expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
+      "DC-style-analyzer-LLM",
+    );
+    expect(screen.queryByText("OtherModel")).not.toBeInTheDocument();
+
+    // 中文功能名也必须搜得到（用户只对得上设置页的那个词）。
+    fireEvent.change(search, { target: { value: "风格分析" } });
     expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
       "DC-style-analyzer-LLM",
     );

@@ -155,11 +155,11 @@ def embedding_model_spec(
                 if not declared:
                     # 维度没来头 = 向量模型根本没绑定（或渠道没声明）：按 req40 口径提交前拒绝，
                     # 不凭空建库（API 层统一转 HTTP 400 中文）。
-                    from novelvideo.model_slots import REASON_UNBOUND, SLOT_COGNEE_EMBEDDING
+                    from novelvideo.model_slots import REASON_UNBOUND
                     from novelvideo.model_slots import ModelSlotNotConfigured
 
                     raise ModelSlotNotConfigured(
-                        SLOT_COGNEE_EMBEDDING,
+                        "COGNEE_EMBEDDING_MODEL",
                         REASON_UNBOUND,
                         detail="向量维度未知：请填维度或重新同步会声明 embedding_dimensions 的渠道目录",
                     )

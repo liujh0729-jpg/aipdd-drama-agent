@@ -400,6 +400,54 @@ describe("渠道连接卡：Key 保留", () => {
   });
 });
 
+// [aipdd fork delta] 渠道名旁的官网直达：已登记官网的厂商给链接（新窗口 + noopener），
+// 没登记的渠道（newapi 这类自配网关）不渲染链接——不给一个点开是空地址的死图标。
+describe("渠道连接卡：官网直达链接", () => {
+  it("AIPDD 卡给出官网链接，新窗口打开且不回传 referrer", () => {
+    render(
+      <ProviderConnectCard
+        title="AIPDD"
+        description="平台闲置算力渠道"
+        provider="aipdd"
+        presetBaseUrl="https://api.aipdd.work/v1"
+        fixedBaseUrl
+        saved={{
+          provider: "aipdd",
+          configured: false,
+          upstreamKeyPreview: "",
+          baseUrl: "",
+        }}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: "打开 AIPDD 官网" });
+    expect(link).toHaveAttribute("href", "https://www.aipdd.work");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    // title 就是地址本身：用户悬停能看到官网域名，不必先点开。
+    expect(link).toHaveAttribute("title", "https://www.aipdd.work");
+  });
+
+  it("未登记官网的渠道不渲染链接", () => {
+    render(
+      <ProviderConnectCard
+        title="NewAPI"
+        description="外部 OpenAI 兼容渠道"
+        provider="newapi"
+        presetBaseUrl="https://newapi.example/v1"
+        saved={{
+          provider: "newapi",
+          configured: false,
+          upstreamKeyPreview: "",
+          baseUrl: "",
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("link", { name: /官网/ })).not.toBeInTheDocument();
+  });
+});
+
 describe("渠道连接：火山 AI MediaKit 归属 VolcEngine", () => {
   it("MediaKit 子区块渲染在 VolcEngine 卡内，顶层不再多一张独立卡", async () => {
     mocks.fetchUpstreamModels.mockResolvedValue({

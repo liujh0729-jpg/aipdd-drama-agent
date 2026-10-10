@@ -12,6 +12,8 @@
    只回默认。
 4. story-script 对非白名单模型不再拒绝，透传为 ``explicit`` 选择，且 Agent
    按解析后的模型 id 分键缓存（不再命中全局单例）。
+5. 「默认图」那个请求体默认值是**选择键**（``newapi_gpt_image2``）而不是模型名：入队前的
+   目录门禁必须先把它换成面板默认图位（其次才是目录自己的第一条），不让它去比目录 id。
 """
 
 from __future__ import annotations
@@ -518,3 +520,53 @@ def test_story_script_agent_cached_per_model_id(
     assert second is not first  # distinct id → distinct agent
     assert created == ["model-a", "model-b"]
     text_node._story_script_agents.clear()
+
+
+def test_default_image_selection_key_resolves_before_the_catalog_gate(monkeypatch):
+    """「默认图」选择键进门禁前先换成真名，不要拿一个键去比目录 id。
+
+    [aipdd fork delta wave2] 官方目录下线 LingShan 一族后，再也没人拿 aliases 兜住这个
+    键：用户什么都没改，路由却回 409「该媒体模型未对当前组织开放、已停用或不存在」。
+    现在先问「设置 › 模型」的主/副位，面板空着就退到目录自己的第一条。
+    """
+    import novelvideo.model_gateway_settings as mgs
+    from novelvideo.api.routes.freezone.catalog import (
+        _default_image_selection_slot,
+        _normalize_requested_media_model,
+    )
+
+    catalog = [
+        {
+            "catalogId": "seedream-4.5",
+            "id": "seedream-4.5",
+            "apiModel": "seedream-4.5",
+            "gatewayModel": "seedream-4.5",
+        }
+    ]
+    monkeypatch.setattr(mgs, "get_effective_default_image_model", lambda: "ap-gpt-image-2")
+    monkeypatch.setattr(mgs, "get_effective_default_nanobanana_model", lambda: "ap-nanobanana-2")
+
+    # 主位 / 副位各自对号，旧项目里存的 huimeng_gpt_image2 / nanobanana 这类别名键同口径。
+    assert _default_image_selection_slot("newapi_gpt_image2") == "primary"
+    assert _default_image_selection_slot("huimeng_gpt_image2") == "primary"
+    assert _default_image_selection_slot("nanobanana") == "secondary"
+    assert _default_image_selection_slot("seedream-4.5") == ""
+    assert _normalize_requested_media_model("image", "newapi_gpt_image2", catalog) == "ap-gpt-image-2"
+    assert _normalize_requested_media_model("image", "huimeng_gpt_image2", catalog) == "ap-gpt-image-2"
+    assert _normalize_requested_media_model("image", "nanobanana", catalog) == "ap-nanobanana-2"
+
+    # 面板没配 → 退到目录自己的第一条；目录也空 → 空串（由调用点说「当前没有可用的图片模型」）。
+    monkeypatch.setattr(mgs, "get_effective_default_image_model", lambda: "")
+    assert _normalize_requested_media_model("image", "newapi_gpt_image2", catalog) == "seedream-4.5"
+    assert _normalize_requested_media_model("image", "newapi_gpt_image2", []) == ""
+
+    # 用户显式点名的模型原样进门禁：不在目录里照旧 409，这条防线不放宽。
+    assert (
+        _normalize_requested_media_model("image", "someone-elses-model", catalog)
+        == "someone-elses-model"
+    )
+    # 非图片类型不参与这次归一。
+    assert (
+        _normalize_requested_media_model("video", "newapi_gpt_image2", catalog)
+        == "newapi_gpt_image2"
+    )

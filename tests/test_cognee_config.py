@@ -191,12 +191,16 @@ def test_newapi_cognee_env_maps_to_openai_compatible_gateway(monkeypatch):
     )
 
     assert provider == "custom"
-    assert model == "openai/gemini-embedding-001"
+    # [aipdd fork delta] ``COGNEE_EMBEDDING_MODEL`` 已退出解析链：本用例断言的是
+    # 「网关地址 / 密钥仍按 env 映射，模型名不再来自 env」。未绑定嵌入模型时回内部槽位
+    # 别名，真名只由「设置 › 模型 › 向量模型」+ 渠道目录决定。
+    assert model == "openai/DC-cognee-embedding"
+    assert model != "openai/gemini-embedding-001"
     assert dimensions == "3072"
     assert api_key == "newapi-token"
     assert os.environ["EMBEDDING_ENDPOINT"] == "http://127.0.0.1:3000/v1"
     assert os.environ["EMBEDDING_PROVIDER"] == "custom"
-    assert os.environ["EMBEDDING_MODEL"] == "openai/gemini-embedding-001"
+    assert os.environ["EMBEDDING_MODEL"] == "openai/DC-cognee-embedding"
 
 
 def test_gemini_direct_does_not_inherit_newapi_endpoint(monkeypatch):

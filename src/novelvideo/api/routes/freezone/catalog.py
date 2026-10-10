@@ -130,6 +130,84 @@ async def _scoped_media_model_catalog(
         raise HTTPException(503, "媒体模型目录暂不可用，请稍后重试") from None
 
 
+# [aipdd fork delta wave2] 请求体里「默认图」那个位装的是**选择键**（``newapi_gpt_image2``）
+# 而不是模型名：它是多个 Pydantic 请求体的 default 值，一路传到入队前的目录门禁。以前官方
+# 目录靠一条带 aliases 的条目兜住这个键；条目下线后键就悬空了 —— 用户什么都没改，门禁却回
+# 409「该媒体模型未对当前组织开放、已停用或不存在」。现在按面板的默认图位把它换成真名：
+# 先问面板（主位 / 副位），面板没配再退到目录自己的第一条；目录也为空才报「当前没有可用的
+# 图片模型」。旧项目/旧画布节点里存的 huimeng_gpt_image2 这类别名键一并走同一个口径。
+_DEFAULT_IMAGE_SELECTION_SLOTS = {
+    "newapi_gpt_image2": "primary",
+    "newapi_nanobanana2": "secondary",
+}
+
+
+def _default_image_selection_slot(value: str | None) -> str:
+    """认出请求里的「默认图」选择键：返回它对应的面板位（primary/secondary），否则空串。"""
+    clean = str(value or "").strip()
+    if not clean:
+        return ""
+    slot = _DEFAULT_IMAGE_SELECTION_SLOTS.get(clean)
+    if slot:
+        return slot
+    try:
+        from novelvideo.config import LEGACY_IMAGE_GENERATION_SELECTION_ALIASES
+    except Exception:  # noqa: BLE001 - 认不出就当普通模型名
+        return ""
+    canonical = str(LEGACY_IMAGE_GENERATION_SELECTION_ALIASES.get(clean) or "").strip()
+    return _DEFAULT_IMAGE_SELECTION_SLOTS.get(canonical, "")
+
+
+def _default_image_catalog_identifier(
+    slot: str,
+    catalog: list[dict[str, Any]] | None,
+) -> str:
+    """把「默认图」选择键解成一个目录里真实可见的模型名：先面板，再目录默认。"""
+    resolved = ""
+    try:
+        if slot == "secondary":
+            from novelvideo.model_gateway_settings import (
+                get_effective_default_nanobanana_model,
+            )
+
+            resolved = str(get_effective_default_nanobanana_model() or "").strip()
+        else:
+            from novelvideo.model_gateway_settings import (
+                get_effective_default_image_model,
+            )
+
+            resolved = str(get_effective_default_image_model() or "").strip()
+    except Exception:  # noqa: BLE001 - 解不到就回目录默认
+        resolved = ""
+    if resolved:
+        return resolved
+    for entry in catalog or []:
+        identifiers = _catalog_entry_identifiers(entry)
+        if identifiers:
+            return str(
+                entry.get("catalogId")
+                or entry.get("catalog_id")
+                or entry.get("id")
+                or next(iter(identifiers))
+            )
+    return ""
+
+
+def _normalize_requested_media_model(
+    media_type: str,
+    requested: str | None,
+    catalog: list[dict[str, Any]] | None,
+) -> str:
+    """把请求里的媒体模型名归一：「默认图」选择键换成目录里真实可见的模型名。"""
+    clean = str(requested or "").strip()
+    if str(media_type or "").strip().lower() != "image":
+        return clean
+    slot = _default_image_selection_slot(clean)
+    if not slot:
+        return clean
+    return _default_image_catalog_identifier(slot, catalog)
+
+
 def _media_model_unavailable(media_type: str, catalog: list[dict[str, Any]]) -> HTTPException:
     media_label = {
         "image": "图片",
@@ -168,7 +246,7 @@ async def _require_scoped_media_model(
     )
     if catalog is None:
         return None
-    clean_requested = str(requested or "").strip()
+    clean_requested = _normalize_requested_media_model(media_type, requested, catalog)
     entry = next(
         (
             item
@@ -314,6 +392,10 @@ def _catalog_image_execution_selection(
         raise HTTPException(400, "model provider does not match configured media model")
 
     clean_model = str(requested_model or "").strip()
+    # [aipdd fork delta wave2] 「默认图」那个请求体默认值装的是选择键而不是模型名：
+    # 上面已经按它解出了目录条目，这里再拿它去对目录身份就是自己跟自己 400。
+    if _default_image_selection_slot(clean_model):
+        clean_model = ""
     if clean_model and clean_model not in _catalog_entry_identifiers(entry):
         raise HTTPException(400, "model does not match configured media model")
     return provider, model
@@ -327,7 +409,6 @@ async def _resolve_catalog_request(
     mode: str | None = None,
     requester_user_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
-    requested = str(model or "").strip()
     catalog = (
         await _freezone._scoped_media_model_catalog(
             media_type,
@@ -336,6 +417,7 @@ async def _resolve_catalog_request(
         if requester_user_id is not None
         else await _freezone._ee_media_model_catalog(media_type)
     )
+    requested = _normalize_requested_media_model(media_type, model, catalog)
     entry = next(
         (
             item

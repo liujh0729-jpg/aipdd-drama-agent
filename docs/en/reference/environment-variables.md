@@ -28,7 +28,42 @@ address, while the local channel uses the bundled LocalNewAPI.
 | `NEWAPI_TEXT_TIMEOUT_SECONDS` | `120` | HTTP timeout for text models (seconds). |
 | `NEWAPI_TEXT_TRUST_ENV` | `true` | Whether the text client reads the system proxy; set `false` when an internal gateway is being blocked by a proxy. |
 
-About **30 `*_MODEL` logical model names** (e.g. `HERMES_MODEL=DC-hermes-LLM`) map to real upstream models. Configure LocalNewAPI mappings in the web UI—see [Configuring Model Providers](../getting-started/configuring-models.md).
+Model names are **not configured through environment variables**: which model each feature
+slot binds to (general text generation, cast planning, image understanding, style analysis,
+and so on) is chosen only in the web "Settings → Models" page, and the bindable list comes
+from the channel catalog. The former `*_MODEL=DC-*-LLM` entries plus
+`TEXT_MODEL_FALLBACK` / `VISION_MODEL_FALLBACK` have all left the resolution chain.
+The reason: env used to win over the settings page, so when the panel switched models while
+the environment still pointed at an old name, users saw one model while another one actually
+ran—and a delisted name turns into a gateway 503 dead link. When nothing resolves, tasks are
+rejected before submission with a Chinese message pointing back to the settings page; the
+system never falls back to a preset model name. See
+[Configuring Model Providers](../getting-started/configuring-models.md).
+
+### Exception: direct-egress side paths (inactive in the default deployment)
+
+A few side paths talk to the vendor directly and never go through the channel catalog, so they
+still carry their own env keys and a factory default name:
+
+| Variable | Purpose | Requires |
+|---|---|---|
+| `SCENE_SPATIAL_CONTRACT_MODEL` (falls back to `OPENROUTER_VISION_MODEL`, factory name `openai/gpt-5.5`) | Scene-360 spatial contract / overlap VLM | `OPENROUTER_API_KEY` set, otherwise the whole step is skipped |
+| `VOXEL_VLM_MODEL` / `VOXEL_VLM_PROVIDER` | Scene voxelization codegen | same as above |
+| `SKETCH_GATE_MODEL` / `SKETCH_GATE_PROVIDER` / `SKETCH_GATE_API_KEY` | Sketch visual quality gate | both provider and key present, otherwise no gating |
+| `BLOCK_WORLD_MODEL` (falls back to `MODEL_PROVIDER` / `MODEL_NAME`) | Director-world block builder (host codex CLI) | the CLI installed on the host |
+
+Keeping these out of the "Settings → Models" list is deliberate: their model name is decoupled
+from endpoint and credentials—name resolution through the gateway yields a *gateway-routable*
+real name, which turned against a direct endpoint only produces 404/400—and none of these vendor
+keys are set in the default deployment, so not a single one of them runs. Under an organization
+(multi-user) deployment these direct children are denied by the egress boundary regardless of
+this section.
+
+To actually enable one in production, the order matters: first add that vendor as an
+OpenAI-compatible channel under "Settings → Model Gateway", then move the call site onto the
+gateway as a whole (name / base URL / key switched as a pair in one commit)—do not feed a
+settings-page name to a direct endpoint. The constraint, the field evidence and the trigger
+conditions are recorded in the wave3 archive note inside `tests/test_no_hardcoded_model_names.py`.
 
 ## Reference Media Relay (optional)
 

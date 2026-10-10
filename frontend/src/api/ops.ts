@@ -3225,13 +3225,13 @@ export async function submitFreezoneVideoDubbing(
 
 /**
  * 文本生成音乐请求。除 input 外全部可选，不传走后端默认。
- * model / response_format / output_format 不需要前端传（走后端默认 LingShan-MU-11 / mp3 /
- * mp3_44100_128），故不在此暴露。
+ * response_format / output_format 不需要前端传（走后端默认 mp3 / mp3_44100_128），
+ * 故不在此暴露；model 只在用户显式选了模型时才带上，留空由后端解析默认音频位。
  */
 export interface FreezoneAudioMusicPayload {
   /** 音乐描述 prompt（风格、乐器、氛围等）；映射到后端 `input`。 */
   prompt: string;
-  /** [aipdd fork delta] 选定的音乐模型；留空走后端默认 LingShan-MU-11。 */
+  /** [aipdd fork delta] 选定的音乐模型；留空 = 后端解析「设置 › 模型」的默认音频模型。 */
   model?: string;
   /** 生成长度（毫秒），范围 3000–600000，留空走后端默认 30000。 */
   musicLengthMs?: number;
@@ -3258,8 +3258,8 @@ export async function submitFreezoneAudioMusic(
       method: "POST",
       json: {
         input: payload.prompt,
-        // [aipdd fork delta] 后端全程透传 body.model；不选时省略 key 让
-        // pydantic 默认值（LingShan-MU-11）生效。
+        // [aipdd fork delta] 后端全程透传 body.model；不选时省略 key，让后端去解析
+        // 「设置 › 模型」里配好的默认音频模型，没配就在提交前拦住。
         ...(payload.model ? { model: payload.model } : {}),
         music_length_ms: payload.musicLengthMs,
         force_instrumental: payload.forceInstrumental,

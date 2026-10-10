@@ -169,8 +169,12 @@ def test_ce_custom_without_any_dimension_source_is_refused(monkeypatch, tmp_path
 
     with pytest.raises(ModelSlotNotConfigured) as caught:
         embedding_model_for_new_project()
-    assert caught.value.slot == COGNEE_EMBEDDING_MODEL_LEGACY
+    # 抛的是内部槽位键（供排错），给用户看的那行以中文功能名开头。
+    assert caught.value.slot == "COGNEE_EMBEDDING_MODEL"
+    assert caught.value.display_name == "向量模型"
     assert "未绑定可用模型" in caught.value.message
+    assert "向量模型 · COGNEE_EMBEDDING_MODEL" in caught.value.message
+    assert "设置 › 模型" in caught.value.message
 
 
 def test_legacy_project_binding_is_backfilled_once(monkeypatch, tmp_path):

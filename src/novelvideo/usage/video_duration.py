@@ -24,12 +24,13 @@ def parse_video_duration_bounds(raw: str) -> dict[str, tuple[int, int]]:
 
 
 def _gateway_model_from_backend(backend: str | None) -> str:
-    from novelvideo.config import NEWAPI_VIDEO_MODEL
+    from novelvideo.config import get_newapi_video_model
 
     value = str(backend or "").strip()
     lowered = value.lower()
     if lowered == "newapi":
-        return NEWAPI_VIDEO_MODEL
+        # [aipdd fork delta] 默认视频模型只读设置（env ``NEWAPI_VIDEO_MODEL`` 已退出解析链）。
+        return get_newapi_video_model()
     for prefix in ("newapi_", "huimeng_", "huimengi_"):
         if lowered.startswith(prefix):
             return value[len(prefix) :].strip()

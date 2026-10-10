@@ -1229,3 +1229,75 @@ export function useCheckAliasMappingHealth() {
     },
   });
 }
+
+// --------------------------------------------------------------------------- //
+// [aipdd fork delta] 一键配齐：在创建剧集处选一次模型，铺成整链要用的全部功能位绑定。
+// --------------------------------------------------------------------------- //
+
+/** 运行前收集的三个模型（全部可选；空 = 那一类不动）。 */
+export interface ProvisionFeatureRoutesInput {
+  /** 文本模型调用名（``{provider}::{model}``，候选来自 /model-gateway/text-models）。 */
+  textModel?: string;
+  /** 视觉理解模型（选填；留空由后端按“选的文本模型能读图就沿用 → 否则从目录挑”）。 */
+  visionModel?: string;
+  /** 图片模型（「默认生成模型」目录条目 id）。 */
+  imageModel?: string;
+  /** 视频模型（同上，mediaType=video）。 */
+  videoModel?: string;
+  sync?: boolean;
+}
+
+/** 一类功能位（或一个媒体默认）的配齐结果。 */
+export interface ProvisionSlotRow {
+  model: string;
+  provider?: string;
+  target?: string;
+  /** 视觉位的来源：explicit（用户选的）/ same-as-text / catalog（系统替挑的）。 */
+  source?: string;
+  slots?: string[];
+  bound: number;
+  /** 只填缺口时保留下未动的个数（系统替挑的名字不抢用户手动绑好的位）。 */
+  preserved?: number;
+  hint?: string;
+  ok?: boolean;
+}
+
+export interface ProvisionFeatureRoutesResult {
+  text?: ProvisionSlotRow | null;
+  vision?: ProvisionSlotRow | null;
+  image?: ProvisionSlotRow | null;
+  video?: ProvisionSlotRow | null;
+  hints: string[];
+  touched: string[];
+  projectionFailed?: unknown[];
+  projectionError?: string;
+}
+
+/**
+ * [aipdd fork delta] 把一次选择写进两个真源（功能位绑定表 + 媒体默认），随后投影到网关。
+ *
+ * 为什么要前端主动调：出厂状态是 22 个文本位 + 4 个视觉位全空，运行期兜底能接住但用户
+ * 看不见自己在用什么，也永远有人撞上「未绑定可用模型」。这一笔是幂等的（只写选中的那些）。
+ */
+export function useProvisionFeatureRoutes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ProvisionFeatureRoutesInput) => {
+      const res = await api
+        .post("api/v1/model-gateway/custom/newapi/feature-routes/provision", {
+          json: { sync: true, ...input },
+          timeout: 120_000,
+        })
+        .json<OkResponse<ProvisionFeatureRoutesResult> | ErrorResponse>();
+      if ("detail" in res) throw new Error(String(res.detail));
+      return ("data" in res ? res.data : undefined) as
+        | ProvisionFeatureRoutesResult
+        | undefined;
+    },
+    onSuccess: () => {
+      // 绑定表与媒体目录都变了：广场 / 功能位 / 三个模型候选都得重取。
+      qc.invalidateQueries({ queryKey: queryKeys.modelGateway() });
+      window.dispatchEvent(new CustomEvent("media-model-catalog-updated"));
+    },
+  });
+}

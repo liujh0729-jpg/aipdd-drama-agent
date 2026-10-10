@@ -217,8 +217,8 @@ def test_plaza_lists_all_connectors_including_comfyui_and_mediakit(
     assert entries[f"{model_plaza.CONNECTOR_MEDIAKIT}:video-enhance"]["status"] == (
         model_plaza.STATUS_MAPPED
     )
-    # env-override 把全部功能位槽位列出来，包括仍走默认别名的（登记表 = model_slots）。
-    assert counts["env-override"] == len(model_slots.FEATURE_SLOTS)
+    # 「模型功能位」分区把全部功能位列出来，包括仍走默认别名的（登记表 = model_slots）。
+    assert counts["model-slot"] == len(model_slots.FEATURE_SLOTS)
 
 
 def test_plaza_gateway_entries_share_alias_health_verdict(
@@ -237,7 +237,13 @@ def test_plaza_gateway_entries_share_alias_health_verdict(
     assert text["modelName"] == "aipdd::glm-4.6"
     assert text["upstreamModel"] == "glm-4.6"
     assert text["capabilities"] == ["text"]
-    assert text["inUseBy"] == ["HERMES_MODEL", "SCENE_HEADER_AUTOGEN_MODEL"]
+    # [aipdd fork delta] 没绑的文本位现在自动跟随同类里已绑好的 HERMES（兜底第一档），
+    # 这张卡的 inUse 因此覆盖全部文本位 —— 广场报的就是实际会跑的那条路由。
+    assert set(text["inUseBy"]) == {
+        env for env, slot in model_slots.FEATURE_SLOTS.items()
+        if slot.capability == "text"
+    }
+    assert {"HERMES_MODEL", "SCENE_HEADER_AUTOGEN_MODEL"} <= set(text["inUseBy"])
 
     vision = entries["gateway:ark::doubao-vision"]
     # 拍平后备援退役：渠道可用即无备注，也不再有 fallback 字段；能力声明照旧
@@ -454,8 +460,8 @@ def test_plaza_channel_names_follow_fork_provider_labels(
     assert entries["gateway:seedream-4"]["channelName"] == "AIPDD"
     assert entries["gateway:doubao-embedding-vision"]["channelName"] == "AIPDD"
 
-    # env-override 条目同样不再把 provider id 当展示名。
-    assert entries["env-override:HERMES_MODEL"]["channelName"] == "AIPDD"
+    # 「模型功能位」条目同样不再把 provider id 当展示名。
+    assert entries["model-slot:HERMES_MODEL"]["channelName"] == "AIPDD"
 
     # 其余渠道取自身 id；自带固定展示名的条目不受映射影响。
     assert entries["gateway:Doubao-Seedance"]["channelName"] == "ark"
@@ -559,7 +565,15 @@ def test_plaza_in_use_by_reverse_lookup_respects_effective_layer(
     assert target["inUseBy"] == sorted(
         env for env, (model, _layer) in routes.items() if model == "DC-hermes-LLM"
     )
-    assert target["inUseBy"] == ["HERMES_MODEL", "SCENE_HEADER_AUTOGEN_MODEL"]
+    # [aipdd fork delta] 不止自己绑过的那两位：剩下的文本功能位也都反查落在这同一个
+    # 真名上 —— 它们没绑定，实际会跑在同类已绑位的调用名上（model_slots 的两档兜底）。
+    # 广场回答的是「这一步现在实际跑在哪个模型上」，不是「谁自己点过绑定」。
+    assert target["inUseBy"] == sorted(
+        env
+        for env, slot in model_slots.FEATURE_SLOTS.items()
+        if slot.capability == "text"
+    )
+    assert {"HERMES_MODEL", "SCENE_HEADER_AUTOGEN_MODEL"} <= set(target["inUseBy"])
 
     # 图 / 影 / 音的默认模型位反查 default_<media>_model。
     assert entries["gateway:seedream-4"]["inUseBy"] == ["default_image_model"]
@@ -568,93 +582,122 @@ def test_plaza_in_use_by_reverse_lookup_respects_effective_layer(
         "knowledge_graph_embedding"
     ]
 
-    # 全局兜底接管后，别名不再被算作这些功能位的当前模型；env-override 条目改为
-    # 标 globalFallback，指向兜底模型本身。
+    # [aipdd fork delta] 环境变量不再参与模型选定：把旧的 per-feature env 与两档全局
+    # 兜底全设上，反查落点与功能位卡片都必须一动不动 —— 设置页看不见的名字不能赢过用户
+    # 的绑定，这是「模型只读设置、不读 .env」的可执行契约。
     monkeypatch.setenv("TEXT_MODEL_FALLBACK", "ap-glm-5.2")
+    monkeypatch.setenv("VISION_MODEL_FALLBACK", "ap-glm-5.2")
+    monkeypatch.setenv("NEWAPI_TEXT_MODEL", "ap-glm-5.2")
+    monkeypatch.setenv("HERMES_MODEL", "ap-glm-5.2")
+    monkeypatch.setenv("STYLE_ANALYZER_MODEL", "ap-vision-pro")
     refreshed = _by_id(model_plaza.build_model_plaza())
-    assert refreshed["gateway:aipdd::glm-4.6"]["inUseBy"] == []
-    # 视觉别名走的是 VISION_MODEL_FALLBACK，不能被纯文本兜底接管（250828 那类 400 的根）。
-    assert refreshed["gateway:ark::doubao-vision"]["inUseBy"] == [
-        "FREEZONE_VISION_MODEL"
-    ]
-    hermes = refreshed["env-override:HERMES_MODEL"]
-    assert hermes["note"] == "globalFallback"
-    assert hermes["modelName"] == "ap-glm-5.2"
-    assert hermes["inUseBy"] == ["HERMES_MODEL"]
-    # 标题是模型名（方便调用），env 名回填 extra。
-    assert hermes["displayName"] == "ap-glm-5.2"
-    assert hermes["env"] == "HERMES_MODEL"
+    assert refreshed["gateway:aipdd::glm-4.6"]["inUseBy"] == entries[
+        "gateway:aipdd::glm-4.6"
+    ]["inUseBy"]
+    # 视觉位与文本位各自留在自己的能力档上（带图调用不被纯文本模型接管）。
+    vision_users = refreshed["gateway:ark::doubao-vision"]["inUseBy"]
+    assert "FREEZONE_VISION_MODEL" in vision_users
+    assert vision_users == sorted(
+        env
+        for env, slot in model_slots.FEATURE_SLOTS.items()
+        if slot.capability == "vision"
+    )
+    hermes = refreshed["model-slot:HERMES_MODEL"]
+    assert hermes["note"] == "defaultAlias"
+    assert hermes["modelName"] == "glm-4.6"
+    # 标题是模型名（方便调用），功能位键与中文用途回填 extra。
+    assert hermes["displayName"] == "glm-4.6"
+    assert hermes["slot"] == "HERMES_MODEL"
+    assert hermes["slotLabel"] == model_slots.FEATURE_SLOTS["HERMES_MODEL"].label
 
 
-def test_plaza_env_override_cards_show_model_names_as_titles(
+def test_plaza_model_slot_cards_show_model_names_as_titles(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    """[aipdd fork delta] env 名是业务标识：标题必须放模型名，env 名回填 extra.env。
+    """[aipdd fork delta] 功能位键是业务标识：标题放模型名，键名与中文用途回填 extra。
 
-    这类卡片的存在价值是「这个功能位现在跑在哪个模型上」——展示层给可复制调用
-    的模型名，env 名只在 extra 里保留身份，供前端渲染「功能位」行。
+    这类卡片的存在价值是「这个功能位现在实际跑在哪个模型上」——展示层给能直接调通的
+    模型名，功能位键只在 extra 里保留身份（前端渲染「模型功能位」行、排错时定位）。
     """
     _seed_full_plaza(monkeypatch, tmp_path)
     entries = _by_id(model_plaza.build_model_plaza())
 
-    # 默认层：标题是官方默认别名。
-    screenplay = entries["env-override:SCREENPLAY_NORMALIZER_MODEL"]
-    assert screenplay["displayName"] == "DC-screenplay-normalizer-LLM"
-    assert screenplay["env"] == "SCREENPLAY_NORMALIZER_MODEL"
+    # 默认层：这一位自己没绑定，实际兜到同类已绑位的调用名上 —— 标题给能直接调通的
+    # 真名（不是会撞 503 的槽位键），层级单列 autoFallback，不装作它自己绑过。
+    screenplay = entries["model-slot:SCREENPLAY_NORMALIZER_MODEL"]
+    assert screenplay["displayName"] == "glm-4.6"
+    assert screenplay["note"] == "autoFallback"
+    assert screenplay["slot"] == "SCREENPLAY_NORMALIZER_MODEL"
+    assert screenplay["slotLabel"] == model_slots.FEATURE_SLOTS[
+        "SCREENPLAY_NORMALIZER_MODEL"
+    ].label
 
-    # per-env 覆盖层：标题即覆盖写入的模型名。
-    monkeypatch.setenv("STYLE_ANALYZER_MODEL", "ap-vision-pro")
-    refreshed = _by_id(model_plaza.build_model_plaza())
-    style = refreshed["env-override:STYLE_ANALYZER_MODEL"]
-    assert style["displayName"] == "ap-vision-pro"
-    assert style["env"] == "STYLE_ANALYZER_MODEL"
-    assert style["note"] == "perEnv"
+    # 自己绑过的那一位仍是 defaultAlias：两层不能混同。
+    hermes = entries["model-slot:HERMES_MODEL"]
+    assert hermes["displayName"] == "glm-4.6"
+    assert hermes["note"] == "defaultAlias"
 
-    # _ENV_SLOT_NAMES 第二类（实际设置的 slot env）同样以模型名为标题。
-    monkeypatch.setenv("TEXT_MODEL_FALLBACK", "ap-glm-5.2")
-    refreshed2 = _by_id(model_plaza.build_model_plaza())
-    fallback = refreshed2["env-override:TEXT_MODEL_FALLBACK"]
-    assert fallback["displayName"] == "ap-glm-5.2"
-    assert fallback["env"] == "TEXT_MODEL_FALLBACK"
-    assert fallback["note"] == "envSet"
-    assert fallback["modelName"] == "ap-glm-5.2"
+    # [aipdd fork delta] 以前这里还断言 per-env 覆盖层（设 STYLE_ANALYZER_MODEL 就换
+    # 卡片）与 envSet 型卡片。env 已退出解析链，两类层级一起删掉：广场只报「槽位绑定 /
+    # 自动兜底 / 未绑定」三种事实，显示的就是实际会走的路由。
+    assert not hasattr(model_plaza, "_LAYER_PER_ENV")
+    assert not hasattr(model_plaza, "_LAYER_FALLBACK")
+    assert not hasattr(model_plaza, "_ENV_SLOT_NAMES")
+    slot_cards = [
+        entry
+        for entry in entries.values()
+        if entry["connector"] == model_plaza.CONNECTOR_SLOT
+    ]
+    assert slot_cards
+    assert {entry["note"] for entry in slot_cards} <= {
+        model_plaza._LAYER_DEFAULT_ALIAS,
+        model_plaza._LAYER_AUTO_FALLBACK,
+        model_plaza._LAYER_UNBOUND,
+    }
 
 
-def test_plaza_env_override_hides_foreign_provider_models(
+
+def test_plaza_model_slot_hides_foreign_provider_models(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    """[aipdd fork delta] 环境变量分区只保留本 fork 渠道（AIPDD / NewAPI /
-    火山引擎 / ComfyUI / MediaKit）：功能位被外部渠道接管时不再作为
-    「环境变量模型」出现（清理规则）。
+    """[aipdd fork delta] 「模型功能位」分区只保留本 fork 渠道（AIPDD / NewAPI /
+    火山引擎 / ComfyUI / MediaKit）：功能位指向外部渠道时不再列进本分区（清理规则）。
 
-    空 provider 的内置别名不受影响：它们没有指向任何外部渠道，且
-    「25 个功能位全列出」是广场的设计前提。
+    空 provider 的内置别名不受影响：它们没有指向任何外部渠道，且「功能位全量列出」
+    是广场的设计前提。
     """
     _seed_full_plaza(monkeypatch, tmp_path)
-    # 功能位显式切到外部渠道模型（模拟误设 / 旧配置残留）。
-    monkeypatch.setenv("HERMES_MODEL", "gemini-3.5-flash")
-    # envSet 型 slot 同样指向外部渠道。
-    monkeypatch.setenv("NEWAPI_TEXT_MODEL", "gemini-3.5-flash")
+    # 把通用文本位的绑定改指外部渠道（模拟渠道删除后残留的映射）。
     save_newapi_model_alias_mappings(
-        {"gemini-3.5-flash": {"provider": "google", "target": "gemini-3.5-flash"}},
+        {
+            "DC-hermes-LLM": {
+                "provider": "google",
+                "target": "gemini-3.5-flash",
+            },
+        },
         merge=True,
     )
 
     data = model_plaza.build_model_plaza()
+    slot_entries = [m for m in data["models"] if m["connector"] == "model-slot"]
     counts = {item["id"]: item["modelCount"] for item in data["connectors"]}
-    ids = {entry["id"] for entry in data["models"]}
 
-    # 被外部渠道接管的功能位整条消失；其余内置别名功能位照常全量列出。
-    assert "env-override:HERMES_MODEL" not in ids
-    assert "env-override:NEWAPI_TEXT_MODEL" not in ids
-    assert "env-override:SCENE_HEADER_AUTOGEN_MODEL" in ids
-    assert counts["env-override"] == len(model_slots.FEATURE_SLOTS) - 1
+    assert counts["model-slot"] == len(slot_entries)
+    # 指向未登记渠道的那一位整条消失，其余照常列出；绝不出现外部渠道卡片。
+    # （空 provider = 没登记归属的内置别名，按设计保留，见 _slot_provider_visible。）
+    assert all(model_plaza._slot_provider_visible(m["provider"]) for m in slot_entries)
+    assert not any(m["provider"] == "google" for m in slot_entries)
+    # [aipdd fork delta] env 里写别的名字也换不动路由：设置绑定才是真源。
+    monkeypatch.setenv("SCENE_HEADER_AUTOGEN_MODEL", "gemini-3.5-flash")
+    after_env = _by_id(model_plaza.build_model_plaza())
+    before = _by_id(data)
+    for entry_id, entry in after_env.items():
+        if entry["connector"] != "model-slot":
+            continue
+        assert entry["displayName"] == before[entry_id]["displayName"]
 
-    # 本渠道功能位（aipdd / ark 等）不受清理影响。
-    entries = _by_id(data)
-    assert entries["env-override:SCENE_HEADER_AUTOGEN_MODEL"]["channelName"] == "AIPDD"
 
 
 def test_plaza_never_leaks_billing_fields_or_raw_secrets(
@@ -724,14 +767,14 @@ def test_plaza_public_base_url_comes_from_request_origin_not_host_guess(
     assert override == "http://192.168.1.20:3000/v1"
 
     # 它只是对外地址，不是模型：设了它不能凭空长出一张「模型名 = URL」的卡片
-    # （env-override 卡片数不变，gateway.publicBaseUrl 跟随覆盖值）。
+    # （「模型功能位」卡片数不变，gateway.publicBaseUrl 跟随覆盖值）。
     refreshed = model_plaza.build_model_plaza()
     assert refreshed["gateway"]["publicBaseUrl"] == "http://192.168.1.20:3000/v1"
-    env_override = [m for m in refreshed["models"] if m["connector"] == "env-override"]
-    assert len(env_override) == len(model_slots.FEATURE_SLOTS)
+    slot_cards = [m for m in refreshed["models"] if m["connector"] == "model-slot"]
+    assert len(slot_cards) == len(model_slots.FEATURE_SLOTS)
     # env 名现在在 extra.env：指针型 env 不得长出卡片（标题与 env 都不含它）。
-    assert all(m.get("env") != "NEWAPI_PUBLIC_BASE_URL" for m in env_override)
-    assert all(m["displayName"] != "NEWAPI_PUBLIC_BASE_URL" for m in env_override)
+    assert all(m.get("slot") != "NEWAPI_PUBLIC_BASE_URL" for m in slot_cards)
+    assert all(m["displayName"] != "NEWAPI_PUBLIC_BASE_URL" for m in slot_cards)
     model_plaza.set_request_origin("")
 
 
@@ -781,7 +824,7 @@ def test_plaza_survives_unconfigured_gateway(
     # （DC-* 内部别名不会替上来充数）；功能位照常全列出、标 unmapped。
     assert [m for m in data["models"] if m["connector"] == "gateway"] == []
     first_env = sorted(model_slots.FEATURE_SLOTS)[0]
-    assert entries[f"env-override:{first_env}"]["status"] == model_plaza.STATUS_UNMAPPED
+    assert entries[f"model-slot:{first_env}"]["status"] == model_plaza.STATUS_UNMAPPED
     assert entries[f"{model_plaza.CONNECTOR_MEDIAKIT}:video-enhance"]["status"] == (
         model_plaza.STATUS_NO_CHANNEL
     )
@@ -1113,9 +1156,9 @@ def test_plaza_probe_cache_failure_does_not_break_catalog(
 
 
 # ---------------------------------------------------------------------------
-# [aipdd fork delta] The env-override whitelist must stay in sync with
+# [aipdd fork delta] The model-slot whitelist must stay in sync with
 # _FORK_PROVIDER_LABELS: a newly added channel that is not whitelisted here has
-# its feature slots silently hidden by _env_override_visible (violates the
+# its feature slots silently hidden by _slot_provider_visible (violates the
 # "never silently disappear" rule). Regression guard for req46 / req48 channels.
 # ---------------------------------------------------------------------------
 
@@ -1138,12 +1181,12 @@ def test_plaza_probe_cache_failure_does_not_break_catalog(
         "mediakit",
     ],
 )
-def test_env_override_visible_whitelists_fork_channels(provider: str) -> None:
-    assert model_plaza._env_override_visible(provider) is True
+def test_slot_provider_visible_whitelists_fork_channels(provider: str) -> None:
+    assert model_plaza._slot_provider_visible(provider) is True
 
 
-def test_env_override_visible_keeps_empty_and_hides_unknown() -> None:
+def test_slot_provider_visible_keeps_empty_and_hides_unknown() -> None:
     # Empty provider = unregistered built-in alias: kept.
-    assert model_plaza._env_override_visible("") is True
+    assert model_plaza._slot_provider_visible("") is True
     # An external / removed channel that is not whitelisted is hidden.
-    assert model_plaza._env_override_visible("some_random_vendor") is False
+    assert model_plaza._slot_provider_visible("some_random_vendor") is False

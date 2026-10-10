@@ -47,11 +47,9 @@ services:
       NEWAPI_ADMIN_USERNAME: root
       # 默认开；用户在同目录 .env 里写 NEWAPI_PROVISIONER_ENABLED=false 即可关（compose 插值读 .env）。
       NEWAPI_PROVISIONER_ENABLED: "${NEWAPI_PROVISIONER_ENABLED:-true}"
-      # [aipdd fork delta req41] 下面三项只把 .env 里的显式选择透进容器，**都不预填值**：
-      # 留空时由代码走正常链路（兜底名回「设置 › 模型」绑定的槽位，对外地址回请求 Host 推导）。
+      # [aipdd fork delta] 模型名不在 env 里选（TEXT/VISION_MODEL_FALLBACK 已随解析链
+      # 一起去掉），本编排只透传对外地址这一项部署数据：留空时由代码按请求 Host 推导。
       # 本编排不写死模型名 / 主机名 —— 那些是部署方的数据。
-      TEXT_MODEL_FALLBACK: "${TEXT_MODEL_FALLBACK:-}"
-      VISION_MODEL_FALLBACK: "${VISION_MODEL_FALLBACK:-}"
       NEWAPI_PUBLIC_BASE_URL: "${NEWAPI_PUBLIC_BASE_URL:-}"
     # 宿主发布端口可配，便于一机多套（每套换 ST_API_PORT + 换 -p 项目名）。
     # 冒号右侧 8780 是容器内端口，固定不变（web 经内部网络访问它）。

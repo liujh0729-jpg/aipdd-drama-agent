@@ -8,7 +8,7 @@
   DC-* 这类内部功能位别名只活在项目内部与网关投影里，不作为「模型」对外展示 ——
   广场是给别人照着调用的，示例里的 model 必须能直接调通。
 * 收录范围是「本项目里所有可配置、能被调用的模型」，按四个 connector 聚合
-  （gateway / comfyui / mediakit / env-override）。
+  （gateway / comfyui / mediakit / model-slot）。
   [aipdd fork delta] 原 audio（IndexTTS2 / CosyVoice / Edge TTS 语音合成位）与
   official-catalog（官方内置媒体目录）两个来源已整体移除。
   未配置 / 缺 key 的条目**照常列出并标 ``noChannel``**，不从列表里静默消失，
@@ -58,14 +58,14 @@ logger = logging.getLogger(__name__)
 CONNECTOR_GATEWAY = "gateway"
 CONNECTOR_COMFYUI = "comfyui"
 CONNECTOR_MEDIAKIT = "mediakit"
-CONNECTOR_ENV_OVERRIDE = "env-override"
+CONNECTOR_SLOT = "model-slot"
 
 # 顺序即广场分区的展示顺序。
 PLAZA_CONNECTORS: tuple[str, ...] = (
     CONNECTOR_GATEWAY,
     CONNECTOR_COMFYUI,
     CONNECTOR_MEDIAKIT,
-    CONNECTOR_ENV_OVERRIDE,
+    CONNECTOR_SLOT,
 )
 
 PLAZA_CAPABILITIES: tuple[str, ...] = (
@@ -156,7 +156,7 @@ def _clean(value: Any) -> str:
 # mediakit（火山 AI MediaKit）虽作为独立产品线条目展示，但渠道归属 VolcEngine
 #（同为火山引擎，只是 Base URL / API Key 独立），不让裸 provider id 漏进渠道筛选；
 # 其余渠道取其自身 id。仅作用于「未显式传展示名」的条目（gateway 别名 / 媒体 /
-# embedding / env-override），ComfyUI 等自带固定展示名的条目不受影响。
+# embedding / model-slot），ComfyUI 等自带固定展示名的条目不受影响。
 _FORK_PROVIDER_LABELS: dict[str, str] = {
     "aipdd": "AIPDD",
     "newapi": "NewAPI",
@@ -179,14 +179,14 @@ _FORK_PROVIDER_LABELS: dict[str, str] = {
 }
 
 
-# [aipdd fork delta] 「环境变量」分区只保留本 fork 自建 / 已接入渠道的模型：
+# [aipdd fork delta] 「功能位」分区只保留本 fork 自建 / 已接入渠道的模型：
 # AIPDD、外部 NewAPI（newapi）与其它额外渠道（openai）、火山引擎系（volcengine /
 # ark / doubao / doubaovideo / jimeng）、ComfyUI、火山 AI MediaKit、MiniMax 双站
 # （minimax / minimax_cn）、以及 req48 接入的三家官方渠道（openai_official /
-# anthropic / gemini）。功能位被外部渠道（或已移除的映射）接管时不再作为「环境变量
-# 模型」展示。口径与 _FORK_PROVIDER_LABELS 逐项对齐：登记了展示名的渠道必须同步进本
-# 白名单，否则指向该渠道的功能位会被 _env_override_visible 静默隐藏（违反「绝不静默消失」）。
-_FORK_ENV_OVERRIDE_PROVIDERS: frozenset[str] = frozenset(
+# anthropic / gemini）。功能位指向这些之外的渠道（或已移除的映射）时不进本分区。
+# 口径与 _FORK_PROVIDER_LABELS 逐项对齐：登记了展示名的渠道必须同步进本
+# 白名单，否则指向该渠道的功能位会被 _slot_provider_visible 静默隐藏（违反「绝不静默消失」）。
+_FORK_SLOT_PROVIDERS: frozenset[str] = frozenset(
     {
         "aipdd",
         "openai",
@@ -209,9 +209,9 @@ _FORK_ENV_OVERRIDE_PROVIDERS: frozenset[str] = frozenset(
 )
 
 
-def _env_override_visible(provider: str) -> bool:
+def _slot_provider_visible(provider: str) -> bool:
     """空 provider = 未登记的内置别名，保留；非空必须是本 fork 允许的渠道。"""
-    return not provider or provider in _FORK_ENV_OVERRIDE_PROVIDERS
+    return not provider or provider in _FORK_SLOT_PROVIDERS
 
 
 def _channel_label(provider: str) -> str:
@@ -219,49 +219,36 @@ def _channel_label(provider: str) -> str:
 
 
 def _effective_feature_routes() -> dict[str, tuple[str, str]]:
-    """功能位 -> ``(实际生效的模型名, 命中层级)``。
+    """功能位 -> ``(实际生效的调用名, 命中层级)``。
 
-    层级词表对齐 ``config.get_newapi_text_model_name`` 的三级优先级：per-env 覆盖 >
-    全局兜底（TEXT/VISION_MODEL_FALLBACK）> 槽位别名。
+    [aipdd fork delta] 层级词表对齐 ``model_slots.resolve_slot`` 的两层事实：**槽位
+    绑定（defaultAlias）** → **自动兜底（autoFallback：同类已绑位 / 渠道目录首项）**
+    → 两个都拿不到就是 **unbound**。原先的 per-env 覆盖与全局兜底（TEXT/VISION_MODEL_
+    FALLBACK）两层已随「解析链不再读 env」删掉 —— 广场显示的就是实际会走的路由，
+    而路由只由「设置 › 模型」+ 渠道目录决定。
 
     [aipdd fork delta req40] 功能位清单直接读 ``model_slots`` 登记表（旧
     ``DEFAULT_TEXT_MODEL_BY_ENV`` 表已并入）。解析不出「目录里真实存在且已绑定」的模
-    型时标记为 ``unbound`` 而不是假装能用官方别名 —— 广场显示的就是实际会走的路由。
+    型时标记为 ``unbound`` 而不是假装能用官方别名。
     """
     from novelvideo import config as _config
 
     routes: dict[str, tuple[str, str]] = {}
-    for env, slot in sorted(FEATURE_SLOTS.items()):
-        default_alias = slot.alias
-        fallback_env = (
-            "VISION_MODEL_FALLBACK"
-            if slot.capability == "vision"
-            else "TEXT_MODEL_FALLBACK"
-        )
-        per_env = _clean(os.environ.get(env))
-        global_fallback = _clean(os.environ.get(fallback_env))
-        if per_env:
-            routes[env] = (per_env, _LAYER_PER_ENV)
-        elif global_fallback:
-            routes[env] = (global_fallback, _LAYER_FALLBACK)
+    for key, slot in sorted(FEATURE_SLOTS.items()):
+        default_alias = _clean(slot.alias)
+        try:
+            effective = _clean(_config.get_newapi_text_model_name(key, default_alias))
+        except Exception as exc:  # noqa: BLE001 - 目录不因单个功能位解析失败而崩
+            logger.debug("[aipdd fork delta] WP-E: feature slot %s unresolved: %s", key, exc)
+            routes[key] = (default_alias, _LAYER_UNBOUND)
+            continue
+        if not effective or effective == default_alias:
+            routes[key] = (effective or default_alias, _LAYER_DEFAULT_ALIAS)
         else:
-            try:
-                effective = _clean(
-                    _config.get_newapi_text_model_name(
-                        env,
-                        _clean(default_alias),
-                        # 视觉位只能被 VISION_MODEL_FALLBACK 接管：把纯文本兜底塞进
-                        # 多模态请求就是 250828 那类 400 的源头。
-                        fallback_env=fallback_env,
-                    )
-                )
-            except Exception as exc:  # noqa: BLE001 - 目录不因单个功能位解析失败而崩
-                logger.debug(
-                    "[aipdd fork delta] WP-E: env layer %s unresolved: %s", env, exc
-                )
-                routes[env] = (_clean(default_alias), _LAYER_UNBOUND)
-                continue
-            routes[env] = (effective or _clean(default_alias), _LAYER_DEFAULT_ALIAS)
+            # [aipdd fork delta] 这一位自己没绑（或绑定已失效），实际跑在别的调用名
+            # 上 —— 同类已绑位的别名，或渠道目录首项的复合名。名字照实显示，但层级
+            # 不能再报「走官方默认别名」：那是说这一位有自己的绑定，而它没有。
+            routes[key] = (effective, _LAYER_AUTO_FALLBACK)
     return routes
 
 
@@ -896,33 +883,49 @@ def _mediakit_entries() -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# connector: env-override（环境变量级可配置位，并标出当前哪一层生效）
+# connector: model-slot（功能位当前跑在哪个模型上，并标出命中层级）
 # ---------------------------------------------------------------------------
 
-#  get_newapi_text_model_name 的优先级：per-env > 全局兜底 > 官方别名 > 硬编码兑底。
-_LAYER_PER_ENV = "perEnv"
-_LAYER_FALLBACK = "globalFallback"
+#  resolve_slot 的层级：槽位绑定（defaultAlias）> 自动兜底（autoFallback）> 未绑定。
+#  per-env / 全局兜底 env 两层已随「解析链不再读 env」删除。
 _LAYER_DEFAULT_ALIAS = "defaultAlias"
 # [aipdd fork delta req40] 槽位未绑定 / 绑定目标已从渠道下架：广场照实标记，不再显示成可用。
 _LAYER_UNBOUND = "unbound"
-
-# 这些 env 实际设置的位（语音合成相关项已随 audio 来源整体移除）。
-_ENV_SLOT_NAMES: tuple[str, ...] = (
-    "TEXT_MODEL_FALLBACK",
-    "VISION_MODEL_FALLBACK",
-    "NEWAPI_TEXT_MODEL",
-    "NEWAPI_IMAGE_MODEL",
-    "NEWAPI_NANOBANANA2_MODEL",
-    "COGNEE_EMBEDDING_MODEL",
-    "NEWAPI_PUBLIC_BASE_URL",
-)
+# [aipdd fork delta] 未绑定的功能位自动落到「同类已绑位 / 渠道目录首项」上：显示实际会跑
+# 的调用名，层级单列 —— 广场不能把「蹭别人的绑定」说成「这一位自己绑好了」。
+_LAYER_AUTO_FALLBACK = "autoFallback"
 
 
-def _env_override_entries(routes: dict[str, tuple[str, str]]) -> list[dict[str, Any]]:
+def _model_slot_status(
+    *, layer: str, tracked: dict[str, Any], has_key: bool
+) -> str:
+    """功能位条目的在册状态（从主表达式抽出来，免得两处判定各写一份）。
+
+    [aipdd fork delta] ``unbound`` 层 = 解析器拒绝了这个功能位（没绑定 / 渠道还没同步
+    清单 / 绑定目标已下架）：它绝不能被显示成「已映射」—— 广场要说清「这个步骤现在
+    跑在哪个模型上」，而答案是「还没跑起来」。也没绑定时也不该报「没有可用渠道」：
+    渠道可能在转，只是这一位还没人选模型，「未映射」才是用户能执行的那个动作。
+
+    ``autoFallback`` 层反过来：兜底目标按构造就是可路由的（要么已随绑定投影进网关，
+    要么跟着渠道目录拍平注册），所以它跟正常绑定同一口径 —— 在册就报已映射。
+    """
+
+    target = _clean(tracked.get("target"))
+    if layer == _LAYER_UNBOUND:
+        return STATUS_UNMAPPED
+    if layer == _LAYER_DEFAULT_ALIAS and not target:
+        return STATUS_UNMAPPED
+    if has_key and (layer != _LAYER_DEFAULT_ALIAS or target):
+        return STATUS_MAPPED
+    return STATUS_NO_CHANNEL
+
+
+def _model_slot_entries(routes: dict[str, tuple[str, str]]) -> list[dict[str, Any]]:
     """每个功能位一条，并标出当前哪一层生效。
 
-    没有 env 覆盖的功能位会作为 ``defaultAlias`` 列出 —— 广场要说清「这个步骤
-    现在到底跑在哪个模型上」，只列已设的 env 反而看不到全貌。
+    [aipdd fork delta] 以前这里还会按 ``_ENV_SLOT_NAMES`` 补几张「环境变量已显式设
+    置」的卡片：env 退出解析链后那些值不再决定任何路由，列出来只会误导（看上去像
+    「改 env 能换模型」）。现在这一个分区只说一件事：每个功能位实际跑在哪个模型上。
     """
     entries: list[dict[str, Any]] = []
     alias_mappings = get_newapi_model_alias_mappings()
@@ -936,14 +939,14 @@ def _env_override_entries(routes: dict[str, tuple[str, str]]) -> list[dict[str, 
     }
     by_name = _models_by_provider(channels)
 
-    for index, (env, (effective_model, layer)) in enumerate(sorted(routes.items())):
+    for index, (slot_key, (effective_model, layer)) in enumerate(sorted(routes.items())):
         if not effective_model:
             continue
         tracked = alias_mappings.get(effective_model)
         tracked = tracked if isinstance(tracked, dict) else {}
         provider = _clean(tracked.get("provider")).lower()
-        # [aipdd fork delta] 指向外部渠道的功能位不进环境变量分区（清理规则）。
-        if not _env_override_visible(provider):
+        # [aipdd fork delta] 指向不展示渠道的功能位不进本分区（清理规则）。
+        if not _slot_provider_visible(provider):
             continue
         # [aipdd fork delta] 调用名 = 上游真名（别名换 target）：示例里出现的名字
         # 必须是能直接调通的模型名，DC-* 这类内部功能位名不作为调用对象。
@@ -952,17 +955,18 @@ def _env_override_entries(routes: dict[str, tuple[str, str]]) -> list[dict[str, 
             provider = _pick_provider_for_model(
                 call_name, by_name, channels
             ) or _pick_provider_for_model(effective_model, by_name, channels)
-            if not _env_override_visible(provider):
+            if not _slot_provider_visible(provider):
                 continue
         capability = _alias_capability(call_name, tracked, provider)
         media_invoke = _media_invoke(capability, model_name=call_name, provider=provider)
+        slot_label = FEATURE_SLOTS[slot_key].label if slot_key in FEATURE_SLOTS else ""
         entries.append(
             _entry(
-                # 同一个 env 只一条；env 名是业务标识、模型名才是展示与调用对象，
-                # 所以标题放真名、env 回填 extra，id 保持幂等。
-                entry_id=f"{CONNECTOR_ENV_OVERRIDE}:{env}",
+                # 同一个功能位只一条；槽位键是业务标识、模型名才是展示与调用对象，
+                # 所以标题放真名、槽位键回填 extra，id 保持幂等。
+                entry_id=f"{CONNECTOR_SLOT}:{slot_key}",
                 display_name=call_name,
-                connector=CONNECTOR_ENV_OVERRIDE,
+                connector=CONNECTOR_SLOT,
                 invoke_kind=media_invoke[0] if media_invoke else INVOKE_OPENAI_CHAT,
                 capabilities=[capability]
                 if media_invoke
@@ -970,76 +974,18 @@ def _env_override_entries(routes: dict[str, tuple[str, str]]) -> list[dict[str, 
                 model_name=call_name,
                 provider=provider,
                 upstream_model=call_name,
-                vendor="Environment override",
+                vendor="",
                 base_url=base_url,
                 # 别名目标→看真源是否已映射；直接写的真实模型名→网关在册即可调。
-                status=STATUS_MAPPED
-                if has_key and (layer != _LAYER_DEFAULT_ALIAS or tracked)
-                else STATUS_UNMAPPED
-                if not tracked and layer == _LAYER_DEFAULT_ALIAS
-                else STATUS_NO_CHANNEL,
+                status=_model_slot_status(
+                    layer=layer, tracked=tracked, has_key=has_key
+                ),
                 note=layer,
-                in_use_by=[env],
+                in_use_by=[slot_key],
                 sort_order=index,
                 api_key_preview=mask_secret(_clean(gateway.api_key)),
-                extra={"env": env},
-            )
-        )
-
-    for index, env in enumerate(_ENV_SLOT_NAMES):
-        # [aipdd fork delta] 只指地址的环境变量不是模型：compose 里默认设了
-        # NEWAPI_PUBLIC_BASE_URL 后，这里会凭空长出一张「模型名 = URL」的卡片，
-        # 探活也会把 URL 当模型名发给网关。对外地址的展示位在 gateway.publicBaseUrl。
-        if env == "NEWAPI_PUBLIC_BASE_URL":
-            continue
-        value = _clean(os.environ.get(env))
-        if not value:
-            continue
-        capabilities = (
-            ["embedding"]
-            if env == "COGNEE_EMBEDDING_MODEL"
-            else ["image"]
-            if env in {"NEWAPI_IMAGE_MODEL", "NEWAPI_NANOBANANA2_MODEL"}
-            else ["text", "vision"]
-            if env == "VISION_MODEL_FALLBACK"
-            else ["text"]
-        )
-        tracked = alias_mappings.get(value)
-        tracked = tracked if isinstance(tracked, dict) else {}
-        # [aipdd fork delta] 调用名 = 上游真名（别名换 target）；调用形式由槽位能力
-        # 决定（嵌入/图像各自走对应的 OpenAI 兼容端点）。
-        call_name = _clean(tracked.get("target")) or value
-        # [aipdd fork delta] 未登记归属按上游真名反查服务渠道，查不到留空；不再
-        # 回落成「newapi」（网关自身执行身份不是渠道）。
-        provider = _clean(tracked.get("provider")).lower()
-        if not provider:
-            provider = _pick_provider_for_model(
-                call_name, by_name, channels
-            ) or _pick_provider_for_model(value, by_name, channels)
-        # [aipdd fork delta] 与功能位循环同一条清理规则。
-        if not _env_override_visible(provider):
-            continue
-        media_invoke = _media_invoke(
-            capabilities[0], model_name=call_name, provider=provider
-        )
-        entries.append(
-            _entry(
-                entry_id=f"{CONNECTOR_ENV_OVERRIDE}:{env}",
-                display_name=call_name,
-                connector=CONNECTOR_ENV_OVERRIDE,
-                invoke_kind=media_invoke[0] if media_invoke else INVOKE_OPENAI_CHAT,
-                capabilities=capabilities,
-                model_name=call_name,
-                provider=provider,
-                upstream_model=call_name,
-                vendor="Environment override",
-                base_url=base_url,
-                status=STATUS_MAPPED,
-                note="envSet",
-                in_use_by=[env],
-                sort_order=200 + index,
-                api_key_preview=mask_secret(_clean(gateway.api_key)),
-                extra={"env": env},
+                # 中文功能名给用户看，内部键只作为排错用附注（与报错文案同一口径）。
+                extra={"slot": slot_key, "slotLabel": slot_label},
             )
         )
     return entries
@@ -1304,7 +1250,7 @@ def build_model_plaza(*, connector: str = "", health: dict[str, Any] | None = No
         ],
         CONNECTOR_COMFYUI: _comfyui_entries,
         CONNECTOR_MEDIAKIT: _mediakit_entries,
-        CONNECTOR_ENV_OVERRIDE: lambda: _env_override_entries(routes),
+        CONNECTOR_SLOT: lambda: _model_slot_entries(routes),
     }
     models: list[dict[str, Any]] = []
     for connector_id in PLAZA_CONNECTORS:

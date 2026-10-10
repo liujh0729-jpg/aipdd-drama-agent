@@ -121,9 +121,10 @@ def parse_newapi_video_backend(backend: str | None) -> str | None:
     value = str(backend or "").strip()
     lowered = value.lower()
     if lowered == "newapi":
-        from novelvideo.config import NEWAPI_VIDEO_MODEL
+        from novelvideo.config import get_newapi_video_model
 
-        return NEWAPI_VIDEO_MODEL
+        # [aipdd fork delta] 默认视频模型只读设置：env ``NEWAPI_VIDEO_MODEL`` 已退出解析链。
+        return get_newapi_video_model()
     if lowered.startswith(NEWAPI_VIDEO_BACKEND_PREFIX):
         model = value[len(NEWAPI_VIDEO_BACKEND_PREFIX) :].strip()
         return model or None

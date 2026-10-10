@@ -5,6 +5,11 @@
 // 再由 PipelineControlBar 透传给服务端权威计划器。故事正文不在这里输入：
 // 整链以「故事」栏目里的正文为唯一真源（运行前自动落盘），弹窗只回显字数。本组件不复制
 // 任何阶段状态机——只做输入编排。样式遵循 DESIGN.md（圆角/间距/层级 tokens）。
+//
+// [aipdd fork delta] 「三个模型」是本轮加的：一条整链（故事→剧本→资产→分镜→风格）要吃
+// 22 个文本功能位 + 4 个视觉理解位，出厂状态它们全空——只靠运行期兜底接住，用户既不知道
+// 自己在用哪个模型，也还是有人在「未绑定可用模型」面前撞墙。所以这里让用户在创建处一次
+// 挑定，运行前由 PipelineControlBar 把这一次选择铺开成整链要用的全部绑定。
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -27,13 +32,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFreezoneImageModels } from "@/features/canvas/hooks/useFreezoneImageModels";
+import { useFreezoneTextModels } from "@/features/canvas/hooks/useFreezoneTextModels";
+import { useFreezoneVideoModels } from "@/features/canvas/hooks/useFreezoneVideoModels";
 import { STORY_STYLE_VALUES, storyStyleI18nKey } from "@/lib/queries/story-project";
 import { cn } from "@/lib/utils";
 
 /** 一键流水线的一次运行输入（全部可选；留空即交后端智能默认/推导）。 */
 export interface PipelineRunSettings {
-  /** 图片生成模型 id（freezone 图片目录之一）；留空走后端默认模型链。 */
+  /**
+   * 图片生成模型 id（freezone 图片目录之一）；留空走后端默认模型链。
+   * 运行前与 ``textModel`` / ``videoModel`` 一起交「一键配齐」写成该类型的默认。
+   */
   model: string;
+  /**
+   * [aipdd fork delta] 文本模型调用名（``{provider}::{model}``）；留空 = 不动功能位绑定。
+   * 选中即把整链要用的 21 个文本功能位全数指到它（见后端 feature_provisioner）。
+   */
+  textModel: string;
+  /** 视频模型 id（freezone 视频目录之一）；留空 = 不改默认。 */
+  videoModel: string;
   /** 导演风格 key（'' = 自动推荐，对齐后端 STORY_STYLE_AUTO）。 */
   storyStyle: string;
   /** 画幅：竖屏 2:3 / 横屏 16:9。 */
@@ -50,6 +67,8 @@ export interface PipelineRunSettings {
 
 export const EMPTY_PIPELINE_RUN_SETTINGS: PipelineRunSettings = {
   model: "",
+  textModel: "",
+  videoModel: "",
   storyStyle: "",
   aspectRatio: "2:3",
   episodeCount: null,
@@ -65,6 +84,11 @@ function parseNumber(raw: string): number | null {
   const n = Number(trimmed);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
 }
+
+// 哨兵值不能是空串：Base UI Select 会把空串当未选中，标签就回落到 placeholder，
+// 「沿用当前」/ 「自动推荐」这两种真实状态反而显示不出来。
+const MODEL_KEEP = "__keep__";
+const STYLE_AUTO = "__auto__";
 
 const ASPECTS: { value: PipelineRunSettings["aspectRatio"]; key: string }[] = [
   { value: "2:3", key: "pipeline.settings.aspectPortrait" },
@@ -94,6 +118,32 @@ export function PipelineSettingsDialog({
 }: PipelineSettingsDialogProps) {
   const { t } = useTranslation();
   const imageCatalog = useFreezoneImageModels(project);
+  const videoCatalog = useFreezoneVideoModels(project);
+  // 文本候选是全局端点（不挂项目作用域）：传项目名只为把拉取激活。
+  const textCatalog = useFreezoneTextModels(project);
+
+  // base-ui Select 收起时靠 Root 上的 items 把值映射成可读标签；少了它，触发器会把
+  // ``__keep__``、``{provider}::{model}`` 这类内部调用名直接甩到用户眼前。
+  const keepItem = { value: MODEL_KEEP, label: t("pipeline.settings.modelKeep") };
+  const textItems = [
+    keepItem,
+    ...textCatalog.models.map((m) => ({ value: m.id, label: m.label })),
+  ];
+  const imageItems = [
+    keepItem,
+    ...imageCatalog.models.map((m) => ({ value: m.id, label: m.label })),
+  ];
+  const videoItems = [
+    keepItem,
+    ...videoCatalog.models.map((m) => ({ value: m.id, label: m.label })),
+  ];
+  const styleItems = [
+    { value: STYLE_AUTO, label: t("storyPage.style.auto") },
+    ...STORY_STYLE_VALUES.filter((v) => v !== "").map((v) => ({
+      value: v,
+      label: t(storyStyleI18nKey(v)),
+    })),
+  ];
 
   const set = <K extends keyof PipelineRunSettings>(
     key: K,
@@ -148,55 +198,137 @@ export function PipelineSettingsDialog({
             </div>
           </div>
 
-          {/* 模型 + 导演风格。 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>{t("pipeline.settings.model")}</Label>
-              <Select
-                value={value.model || "__default__"}
-                onValueChange={(next) =>
-                  set("model", next === "__default__" ? "" : String(next ?? ""))
-                }
-                disabled={imageCatalog.isLoading}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t("pipeline.settings.modelDefault")} />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectItem value="__default__">
-                    {t("pipeline.settings.modelDefault")}
-                  </SelectItem>
-                  {imageCatalog.models.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.label}
+          {/* 模型：整链要用的三类。留空 = 不改当前设置（运行期照旧自动兜底），
+              选了就把这一次选择铺到整链用得到的每个功能位上。 */}
+          <div className="space-y-2">
+            <Label>{t("pipeline.settings.models")}</Label>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label
+                  htmlFor="pipeline-text-model"
+                  className="text-xs font-normal text-muted-foreground"
+                >
+                  {t("pipeline.settings.textModel")}
+                </Label>
+                <Select
+                  items={textItems}
+                  value={value.textModel || MODEL_KEEP}
+                  onValueChange={(next) =>
+                    set(
+                      "textModel",
+                      next === MODEL_KEEP ? "" : String(next ?? ""),
+                    )
+                  }
+                  disabled={textCatalog.isLoading}
+                >
+                  <SelectTrigger id="pipeline-text-model" className="w-full">
+                    <SelectValue placeholder={t("pipeline.settings.modelKeep")} />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectItem value={MODEL_KEEP}>
+                      {t("pipeline.settings.modelKeep")}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t("pipeline.settings.style")}</Label>
-              <Select
-                value={value.storyStyle || "__auto__"}
-                onValueChange={(next) =>
-                  set("storyStyle", next === "__auto__" ? "" : String(next ?? ""))
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t("storyPage.style.auto")} />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectItem value="__auto__">
-                    {t("storyPage.style.auto")}
-                  </SelectItem>
-                  {STORY_STYLE_VALUES.filter((v) => v !== "").map((v) => (
-                    <SelectItem key={v} value={v}>
-                      {t(storyStyleI18nKey(v))}
+                    {textCatalog.models.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label
+                  htmlFor="pipeline-image-model"
+                  className="text-xs font-normal text-muted-foreground"
+                >
+                  {t("pipeline.settings.imageModel")}
+                </Label>
+                <Select
+                  items={imageItems}
+                  value={value.model || MODEL_KEEP}
+                  onValueChange={(next) =>
+                    set("model", next === MODEL_KEEP ? "" : String(next ?? ""))
+                  }
+                  disabled={imageCatalog.isLoading}
+                >
+                  <SelectTrigger id="pipeline-image-model" className="w-full">
+                    <SelectValue placeholder={t("pipeline.settings.modelKeep")} />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectItem value={MODEL_KEEP}>
+                      {t("pipeline.settings.modelKeep")}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    {imageCatalog.models.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label
+                  htmlFor="pipeline-video-model"
+                  className="text-xs font-normal text-muted-foreground"
+                >
+                  {t("pipeline.settings.videoModel")}
+                </Label>
+                <Select
+                  items={videoItems}
+                  value={value.videoModel || MODEL_KEEP}
+                  onValueChange={(next) =>
+                    set(
+                      "videoModel",
+                      next === MODEL_KEEP ? "" : String(next ?? ""),
+                    )
+                  }
+                  disabled={videoCatalog.isLoading}
+                >
+                  <SelectTrigger id="pipeline-video-model" className="w-full">
+                    <SelectValue placeholder={t("pipeline.settings.modelKeep")} />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectItem value={MODEL_KEEP}>
+                      {t("pipeline.settings.modelKeep")}
+                    </SelectItem>
+                    {videoCatalog.models.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              {t("pipeline.settings.modelsHint")}
+            </p>
+          </div>
+
+          {/* 导演风格。 */}
+          <div className="space-y-1.5">
+            <Label>{t("pipeline.settings.style")}</Label>
+            <Select
+              items={styleItems}
+              value={value.storyStyle || STYLE_AUTO}
+              onValueChange={(next) =>
+                set("storyStyle", next === STYLE_AUTO ? "" : String(next ?? ""))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("storyPage.style.auto")} />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false}>
+                <SelectItem value={STYLE_AUTO}>
+                  {t("storyPage.style.auto")}
+                </SelectItem>
+                {STORY_STYLE_VALUES.filter((v) => v !== "").map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {t(storyStyleI18nKey(v))}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* 时长：集数 / 总时长 / 单集时长。 */}

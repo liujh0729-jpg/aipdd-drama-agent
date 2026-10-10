@@ -200,10 +200,9 @@ def image_media_type(path: str) -> str:
 def resolve_freezone_vision_model(model_override: str | None = None) -> str:
     """Return the logical NewAPI model shared by Freezone vision tasks.
 
-    [aipdd fork delta] 视觉/多模态理解绝不能被只支持文本的 ``TEXT_MODEL_FALLBACK``
-    接管（否则纯文本模型被塞进图片请求，网关回 400「不支持图片能力」）。这里显式
-    把全局兜底隔离到 ``VISION_MODEL_FALLBACK``，让运维把理解类任务指到网关真正
-    开通的视觉模型；官方部署两者都不设 → 行为不变。
+    [aipdd fork delta] 视觉/多模态理解绝不能被只支持文本的模型接管（否则图片请求回
+    400「不支持图片能力」）。env 退出解析链后，这条隔离由登记表里
+    ``FREEZONE_VISION_MODEL`` 的 ``capability=vision`` 保证：兜底只会提名同能力的模型。
     """
     clean_override = str(model_override or "").strip()
     if clean_override:
@@ -214,7 +213,6 @@ def resolve_freezone_vision_model(model_override: str | None = None) -> str:
     return get_newapi_text_model_name(
         "FREEZONE_VISION_MODEL",
         DEFAULT_FREEZONE_VISION_MODEL,
-        fallback_env="VISION_MODEL_FALLBACK",
     )
 
 

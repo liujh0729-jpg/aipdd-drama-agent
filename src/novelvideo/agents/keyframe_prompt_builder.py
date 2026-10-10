@@ -25,10 +25,9 @@ def create_keyframe_prompt_builder_agent(language: str = "zh") -> Agent:
     model = get_newapi_text_pydantic_model(
         "KEYFRAME_PROMPT_MODEL",
         DEFAULT_VIDEO_PROMPT_OPTIMIZER_MODEL,
+        # [aipdd fork delta] 分析首尾帧差异（带图）：视觉隔离由 DC-video-prompt-optimizer-LLM
+        # 在登记表里的 capability=vision 决定，不再读 env 兜底。
         capability="text.generate.agent",
-        # [aipdd fork delta] 分析首尾帧差异（带图），隔离到 VISION_MODEL_FALLBACK，
-        # 避免被 TEXT_MODEL_FALLBACK（ap-glm-5.2 等纯文本模型）打成 400。
-        fallback_env="VISION_MODEL_FALLBACK",
     )
     return Agent(
         model,

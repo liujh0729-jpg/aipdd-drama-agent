@@ -71,15 +71,14 @@ Return ONLY valid JSON with no markdown formatting:
         # [aipdd fork delta req40] 这里不再写任何真实模型名当兜底：调用方没点名时传的
         # 是**槽位键** ``DC-style-analyzer-LLM``，绑哪个模型由「设置 › 模型」+ 渠道目录
         # 决定；解析不到会在提交前抛 ModelSlotNotConfigured（HTTP 400 中文）。
-        # ``STYLE_ANALYZER_MODEL`` env 覆盖由 resolve_slot 统一读取，此处不再重复读一次。
+        # ``STYLE_ANALYZER_MODEL`` 已不再去进程环境里读：绑定只来自「设置 › 模型」。
         self.model = str(model or "").strip()
         self.agent = Agent(
-            # 分析参考图（带图），隔离到 VISION_MODEL_FALLBACK：纯文本兜底接管会回 400
-            # 「当前模型不支持请求所需的图片能力」。
+            # 分析参考图（带图）：视觉隔离由登记表里 STYLE_ANALYZER_MODEL 的
+            # capability=vision 决定，不再读 env 兜底。
             get_newapi_text_pydantic_model(
                 "STYLE_ANALYZER_MODEL",
                 self.model or SLOT_STYLE_ANALYZER,
-                fallback_env="VISION_MODEL_FALLBACK",
             ),
             system_prompt="You analyze reference images and return reusable visual style settings.",
             model_settings=get_newapi_structured_output_model_settings(),

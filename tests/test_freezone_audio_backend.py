@@ -139,7 +139,7 @@ async def test_newapi_audio_uses_saved_custom_gateway_before_env(
         output_path = tmp_path / "audio.mp3"
         await audio_node._write_newapi_audio_speech(
             output_path=output_path,
-            model="LingShan-MU-11",
+            model="ap-music-1",
             input_text="quiet piano",
         )
 
@@ -565,15 +565,17 @@ async def test_freezone_audio_eleven_music_uses_newapi_music_metadata(
         force_instrumental=True,
         respect_sections_durations=True,
         output_format="mp3_44100_128",
+        # [aipdd fork delta] 厂商名不再内置：模型要么由调用方给，要么从默认音频位解析。
+        model="ap-music-1",
     )
 
-    assert result.model == "LingShan-MU-11"
+    assert result.model == "ap-music-1"
     assert result.duration_ms == 30_000
-    assert result.voice_source == "LingShan-MU-11"
+    assert result.voice_source == "ap-music-1"
     assert calls == [
         {
             "output_path": freezone_audio_eleven_music_output_path(tmp_path, "music-1"),
-            "model": "LingShan-MU-11",
+            "model": "ap-music-1",
             "input_text": "Mysterious original soundtrack, rainforest.",
             "response_format": "mp3",
             "metadata": {
@@ -596,3 +598,76 @@ async def test_freezone_audio_eleven_music_rejects_out_of_range_length(tmp_path:
             prompt="short sting",
             music_length_ms=2999,
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_freezone_audio_eleven_music_resolves_the_default_audio_slot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[aipdd fork delta] 留空 = 走「设置 › 模型」的默认音频位；env 不再参与选名。
+
+    旧的内置名 LingShan-MU-11 不在任何渠道目录里，打出去就是网关那句
+    ``No available channel``（503）—— 报错来自网关，用户完全无从下手。同一条理由适用于
+    ``NEWAPI_AUDIO_MODEL``：它排在面板前面时，用户换了默认音频模型、任务还跑在 env 那个名字
+    上。现在这一位只认媒体模型映射（同类型 enabled、sortOrder 最小的一条），env 里写别的
+    名字不改变路由。
+    """
+    from novelvideo.model_gateway_settings import save_newapi_media_model_mappings
+
+    calls: list[dict] = []
+
+    async def fake_write_newapi_audio_speech(**kwargs):
+        calls.append(kwargs)
+        output_path = Path(kwargs["output_path"])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"music")
+
+    monkeypatch.setattr(audio_node, "_write_newapi_audio_speech", fake_write_newapi_audio_speech)
+    monkeypatch.setattr(audio_node, "_duration_ms", lambda _path: 0)
+    _isolate_settings_db(monkeypatch, tmp_path)
+    save_newapi_media_model_mappings(
+        {
+            "ap-music-default": {
+                "provider": "newapi",
+                "upstreamModel": "music-upstream",
+                "mediaType": "audio",
+                "enabled": True,
+                "sortOrder": 0,
+            }
+        }
+    )
+    monkeypatch.setenv("NEWAPI_AUDIO_MODEL", "env-only-audio-model")
+
+    result = await audio_node.generate_freezone_audio_eleven_music(
+        project_dir=tmp_path,
+        job_id="music-default",
+        prompt="strings only",
+    )
+    assert result.model == "ap-music-default"
+    assert calls[0]["model"] == "ap-music-default"
+
+
+@pytest.mark.asyncio
+async def test_freezone_audio_eleven_music_refuses_before_submit_when_audio_slot_empty(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """默认音频位没配：提交前就拒（带中文成因），不拿空模型名去打网关。"""
+    from novelvideo.model_slots import ModelSlotNotConfigured
+
+    _isolate_settings_db(monkeypatch, tmp_path)
+    monkeypatch.delenv("NEWAPI_AUDIO_MODEL", raising=False)
+    monkeypatch.setattr(audio_node, "_write_newapi_audio_speech", _fail_if_called)
+
+    with pytest.raises(ModelSlotNotConfigured):
+        await audio_node.generate_freezone_audio_eleven_music(
+            project_dir=tmp_path,
+            job_id="music-unbound",
+            prompt="strings only",
+        )
+
+
+async def _fail_if_called(**_kwargs) -> None:
+    raise AssertionError("unbound audio slot must not reach the gateway")

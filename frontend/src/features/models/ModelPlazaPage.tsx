@@ -36,7 +36,7 @@ const CONNECTOR_ORDER: PlazaConnector[] = [
   "gateway",
   "comfyui",
   "mediakit",
-  "env-override",
+  "model-slot",
 ];
 
 const STATUS_TONE: Record<string, string> = {
@@ -251,13 +251,16 @@ function ModelCard({ model }: { model: PlazaModel }) {
               : t("models.plaza.notUsed")}
           </dd>
         </div>
-        {/* [aipdd fork delta] env-override 卡片：标题是模型名（调用对象），
-            这里补一行「功能位」把业务标识（SCREENPLAY_NORMALIZER_MODEL 等）明示出来。 */}
-        {model.env ? (
+        {/* [aipdd fork delta] model-slot 卡片：标题是模型名（调用对象），
+            这里补一行「功能位」：给用户看中文功能名，内部键留在 title 里供排错。 */}
+        {model.slot ? (
           <div className="flex items-center justify-between gap-2">
             <dt className="shrink-0 text-muted-foreground">{t("models.plaza.field.feature")}</dt>
-            <dd className="truncate font-mono text-muted-foreground" title={model.env}>
-              {model.env}
+            <dd
+              className="truncate text-muted-foreground"
+              title={model.slotLabel ? `${model.slotLabel} \u00b7 ${model.slot}` : model.slot}
+            >
+              {model.slotLabel || model.slot}
             </dd>
           </div>
         ) : null}
@@ -380,9 +383,10 @@ export function ModelPlazaPage() {
         // 渠道名搜索也用界面语言的品牌写法（en/vi 搜 “mediakit” 能命中）。
         localizedBrandName(item.provider) || item.channelName,
         item.inUseBy.join(" "),
-        // [aipdd fork delta] env 是业务标识：按 SCREENPLAY_NORMALIZER_MODEL 这类
-        // 功能位名搜索时应能命中对应模型卡片。
-        item.env ?? "",
+        // [aipdd fork delta] 槽位键是内部标识：按 SCREENPLAY_NORMALIZER_MODEL 这类
+        // 功能位名搜索时应能命中对应模型卡片；中文功能名同样可搜。
+        item.slot ?? "",
+        item.slotLabel ?? "",
       ]
         .join(" ")
         .toLowerCase()

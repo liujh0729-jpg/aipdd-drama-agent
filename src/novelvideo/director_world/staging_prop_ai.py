@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import math
-import os
 import re
 import sys
 from typing import Any
@@ -233,11 +232,14 @@ def resolve_model_config(
     require_direct_model_egress_allowed(egress_context)
     from novelvideo.config import get_newapi_runtime_credentials
 
-    model = (
-        str(request.get("model") or "").strip()
-        or os.environ.get("STAGING_PROP_MODEL")
-        or STAGING_PROP_MODEL
-    )
+    # [aipdd fork delta] env ``STAGING_PROP_MODEL`` 已退出解析链：这一位的模型名只认
+    # 「设置 › 模型」的绑定（外加同类已绑位 / 渠道目录首项两档自动兜底）。请求里显式
+    # 带了 model 仍然优先——那是调用方指定的目标，不是环境里飘着的旧名字。
+    model = str(request.get("model") or "").strip()
+    if not model:
+        from novelvideo.config import get_newapi_text_model_name
+
+        model = get_newapi_text_model_name("STAGING_PROP_MODEL", STAGING_PROP_MODEL)
     api_key, base_url = get_newapi_runtime_credentials(
         api_key_override=str(request.get("api_key") or "").strip() or None,
         base_url_override=str(request.get("base_url") or "").strip() or None,

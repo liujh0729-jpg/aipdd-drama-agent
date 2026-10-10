@@ -463,6 +463,33 @@ def test_platform_still_launches_the_openrouter_vlm_children(
     assert "scene_360_builder" in launched
 
 
+def test_platform_without_openrouter_key_skips_the_vlm_children(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """wave3 归档的成立前提：没配 OpenRouter Key 时，两个直连旁路整段不起进程。
+
+    它们带着出厂默认模型名（``openai/gpt-5.5``）且不经过渠道目录。只要这道 gating
+    还在，那个名字在默认部署里就到不了上游，“已申报的债”这个定性才成立。所以本例钉的
+    是 gating 本身 —— 谁把它拿掉（或把默认名改成无条件解析），这里先红，而不是
+    等到线上表现为“偶发质量下降”才发现。
+    """
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("SCENE_SPATIAL_CONTRACT_MODEL", raising=False)
+    monkeypatch.delenv("OPENROUTER_VISION_MODEL", raising=False)
+    pair = _master_pair(tmp_path)
+    harness = _SceneHarness(monkeypatch, None)
+
+    _run_pano(
+        tmp_path,
+        source="master",
+        master_path_override=pair["master"],
+        reverse_master_path_override=pair["reverse"],
+    )
+
+    assert harness.modules_launched() == ["scene_360_builder"]
+
+
 # --- 子进程侧：fail-closed，绝不回落平台 Key ----------------------------------------
 
 

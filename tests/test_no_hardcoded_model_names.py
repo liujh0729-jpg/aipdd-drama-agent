@@ -234,10 +234,34 @@ DIRECT_VENDOR_ALLOWLIST: dict[str, tuple[str, frozenset[str]]] = {
         frozenset({"cosyvoice-v3-plus"}),
     ),
     "stage_asset_tasks.py": (
-        "OpenAI 图像 / OpenRouter 直连参数（场景资产与空间契约）",
-        frozenset({"gpt-5.4-image-2", "gpt-5.5", "gpt-image-2"}),
+        # [aipdd fork delta wave2] 场景 360 / 资产图那个内置名已随「按用途钉图」的 env 一起退出
+        # 解析链，只剩空间契约直连 OpenRouter 的 --model 参数。
+        "空间契约直连参数（不经网关，见本段头的 wave3 归档说明）",
+        frozenset({"gpt-5.5"}),
     ),
     # ---- 不经网关的宿主 CLI / 直连 LLM 参数：codex CLI 与 google / OpenRouter 校验位。
+    #
+    # [aipdd fork delta wave3 归档] 下面这些名字**故意**不迁进「设置 › 模型」，不是漏网的写死：
+    #
+    # * 部署内不可达（实测）：运行中的 aipdd-drama-api 里 OPENROUTER_API_KEY / MODEL_PROVIDER /
+    #   MODEL_NAME / SCENE_SPATIAL_CONTRACT_MODEL / OPENROUTER_VISION_MODEL / SKETCH_GATE_MODEL /
+    #   VOXEL_VLM_MODEL / BLOCK_WORLD_MODEL 全为空，compose 也不透传；空间契约与重叠分析在调用点
+    #   还额外 gating（stage_asset_tasks 要求 OPENROUTER_API_KEY 在场），所以这些默认名当前
+    #   一个都不会被送到上游 —— 它们是死默认名，不是隐蔽在跑的网关调用。
+    # * 边界另有用例钉着，不缺安全性：test_p0g4l_scene_360_subprocess_egress 断言 org 轨直接
+    #   DENY 不起子进程、平台轨起进程但平台密钥被从子进程 env 剥掉。
+    # * 真正的障碍是**名字与端点解耦**：`model_slots.resolve_slot` 给的是「网关可路由真名」，
+    #   把它打给 OpenRouter / Gemini / 宿主 codex CLI 的直连端点只会制造 404/400 的新故障，
+    #   且这几处覆盖极薄，坏掉表现为「偶发质量下降」而非报错 —— 半迁移比不迁移更糟。
+    #
+    # 要动就一次动完（名字 / base_url / 鉴权同一个 commit 成对出现，做完删掉对应登记条目）：
+    # ① 先把 OpenRouter 之类在「设置 › 模型网关」配成一条 OpenAI 兼容渠道（baseUrl 归一会自动补
+    # /v1，清单走 /v1/models，不需要改代码）；② 调用点整体改走网关，凭证按
+    # task_backend.subprocesses.build_model_child_env 的收口注入子进程，不走「透传父环境」；
+    # ③ 名字改用槽位键 + 目录绑定解析，禁止再传字面量（规则 3 的调用点用例也会跟着放行）。
+    #
+    # 触发条件（任一成立才动）：部署里真的配了该供应商 Key 并要启用这条能力；org 多用户要把它
+    # 收进网关；或这个默认名下架导致 503/404。
     "chat/service.py": (
         "宿主 codex CLI 的 --model 参数（不是网关调用名）",
         frozenset({"gpt-5.4"}),
@@ -247,23 +271,23 @@ DIRECT_VENDOR_ALLOWLIST: dict[str, tuple[str, frozenset[str]]] = {
         frozenset({"claude-"}),
     ),
     "director_world/block_world_builder.py": (
-        "codex CLI 直调的 --model 参数",
+        "codex CLI 直调的 --model 参数（宿主 CLI，不经网关，见 wave3 归档说明）",
         frozenset({"gpt-5.4"}),
     ),
     "director_world/scene_overlap_analyzer.py": (
-        "google 直连（GOOGLE_API_KEY）的 model 参数",
+        "google 直连（GOOGLE_API_KEY）的 model 参数（部署内未配该密钥，见 wave3 归档说明）",
         frozenset({"gemini-3.5-flash"}),
     ),
     "director_world/scene_spatial_contract.py": (
-        "OpenRouter 直连的 model 参数",
+        "OpenRouter 直连的 model 参数（部署内未配该密钥，见 wave3 归档说明）",
         frozenset({"gpt-5.5"}),
     ),
     "generators/scene_voxel/codegen_agent.py": (
-        "OpenRouter 直连的 model 参数",
+        "OpenRouter 直连的 model 参数（部署内未配该密钥，见 wave3 归档说明）",
         frozenset({"gpt-5.5"}),
     ),
     "verification/sketch_visual_gate.py": (
-        "google / OpenRouter 直连校验位的 model 参数",
+        "google / OpenRouter 直连校验位的 model 参数（密钥缺失时整道门跳过，见 wave3 归档说明）",
         frozenset({"gemini-3.5-flash"}),
     ),
     # ---- 遗留分类兜底：渠道没声明元数据时按名字归类（计划 §5 明确保留为兜底）。

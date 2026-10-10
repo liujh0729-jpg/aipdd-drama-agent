@@ -85,19 +85,18 @@ def _build_media_model_channel_specs(
         upstream_model = (item.upstream_model or "").strip() or model
         media_type = str(item.media_type or "").strip().lower()
         if not media_type:
-            # [aipdd fork delta] 优先由面板显式传入 mediaType；兜底按已知厂商别名
-            # + 通用命名特征归类。LingShan-G2 / LingShan-NB-2 是上游发行方的图片
-            # 模型别名，与上游契约保持一致：丢了这两个特判，面板/CLI 不带类型
-            # 保存时会把图片模型存成 video，然后在画布视频下拉里出现。
+            # [aipdd fork delta] 优先由面板显式传入 mediaType；兜底按通用命名特征归类。
+            # [aipdd fork delta wave2] 旧的 LingShan-G2 / NB-2 / MU-11 硬编码特判已删：
+            # 官方目录不再携带这些名字，留着就是「代码里藏着一个渠道已经不卖的模型」；
+            # 真需要区分类型的模型由面板把 mediaType 一并传下来，而不是由后端猜。
             lowered = model.lower()
             if (
-                model in {"LingShan-G2", "LingShan-NB-2"}
-                or lowered.startswith(("seedream-", "doubao-seedream"))
+                lowered.startswith(("seedream-", "doubao-seedream"))
                 or "image" in lowered
                 or "nanobanana" in lowered
             ):
                 media_type = "image"
-            elif model in {"index-tts-2", "LingShan-MU-11"}:
+            elif model in {"index-tts-2"}:
                 media_type = "audio"
             elif _guessed_media_type(model) == "music":
                 # [aipdd fork delta req46] 音乐判定不在这里再抄一份关键词表：

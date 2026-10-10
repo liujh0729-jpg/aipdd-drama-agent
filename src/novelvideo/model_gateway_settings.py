@@ -2189,11 +2189,12 @@ def get_newapi_media_model_mappings() -> dict[str, dict[str, Any]]:
     )
 
 
-# [aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：默认出图模型改由「默认生成
+# [aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：默认出图模型由「默认生成
 # 模型」面板写入的 media model mappings 决定（同类型里 enabled、sortOrder 最小者为
-# 默认），其次 env 覆盖，最后兜底常量。scene_360 / prop / scene_ref / sketch /
-# stage / image config 等消费点统一走这里，不再各自硬编码模型名。
-def _default_media_model_from_mappings(media_type: str) -> str:
+# 默认）。scene_360 / prop / scene_ref / sketch / stage / image config 等消费点统一
+# 走这里，不再各自硬编码模型名，也不再读 ``NEWAPI_*_MODEL`` env：面板里的顺序就
+# 是实际调用的顺序。
+def _default_media_model_from_mappings(media_type: str, *, index: int = 0) -> str:
     wanted = str(media_type or "").strip().lower()
     if not wanted:
         return ""
@@ -2222,46 +2223,43 @@ def _default_media_model_from_mappings(media_type: str) -> str:
         return (order, kv[0])
 
     entries.sort(key=_sort_key)
-    return entries[0][0]
+    try:
+        return entries[index][0]
+    except IndexError:
+        return ""
 
 
 def get_effective_default_image_model() -> str:
-    """Resolve the default image model: DB mappings -> env -> bundled const."""
-    from novelvideo import config as _config
+    """Resolve the default image model from the settings media mappings only.
 
-    db_model = _default_media_model_from_mappings("image")
-    if db_model:
-        return db_model
-    env_model = str(os.environ.get("NEWAPI_IMAGE_MODEL") or "").strip()
-    return env_model or str(getattr(_config, "NEWAPI_IMAGE_MODEL", "") or "").strip()
+    [aipdd fork delta] ``NEWAPI_IMAGE_MODEL`` env 已退出解析链：面板里换了默认图模型
+    而 env 还指着旧名字时，用户看到的和实际调用的就不是同一个模型了。
+    """
+
+    return _default_media_model_from_mappings("image")
 
 
 def get_effective_default_video_model() -> str:
-    """Resolve the default video model: DB mappings -> env -> bundled const."""
-    from novelvideo import config as _config
+    """Resolve the default video model from the settings media mappings only.
 
-    db_model = _default_media_model_from_mappings("video")
-    if db_model:
-        return db_model
-    env_model = str(os.environ.get("NEWAPI_VIDEO_MODEL") or "").strip()
-    return env_model or str(getattr(_config, "NEWAPI_VIDEO_MODEL", "") or "").strip()
+    [aipdd fork delta] ``NEWAPI_VIDEO_MODEL`` / ``DEFAULT_VIDEO_MODEL`` env 也退出了这
+    条链：默认视频模型只认「设置 › 模型」里拖出来的那一条（同类型 enabled、
+    sortOrder 最小）。
+    """
+
+    return _default_media_model_from_mappings("video")
 
 
 def get_effective_default_nanobanana_model() -> str:
-    """Resolve the default secondary (nanobanana) image model.
+    """Resolve the secondary (nanobanana) image model from the settings mappings.
 
-    Falls back to the primary default image when no dedicated nanobanana model
-    is configured, so a single configured default image covers both slots.
+    [aipdd fork delta] 以前 ``NEWAPI_NANOBANANA2_MODEL`` env 排在面板前面（一个设置页
+    看不见的名字赢了用户选的默认图模型）。现在两个位同源：主位取排序后的第一条，
+    副位取第二条；只配了一个默认图时两条是同一个名字（单默认覆盖两个位）。
     """
-    from novelvideo import config as _config
 
-    env_model = str(os.environ.get("NEWAPI_NANOBANANA2_MODEL") or "").strip()
-    if env_model:
-        return env_model
-    db_model = _default_media_model_from_mappings("image")
-    if db_model:
-        return db_model
-    return str(getattr(_config, "NEWAPI_NANOBANANA2_MODEL", "") or "").strip()
+    image_mappings = _default_media_model_from_mappings("image", index=1)
+    return image_mappings or _default_media_model_from_mappings("image")
 
 
 def resolve_default_media_model(media_type: str) -> str:
@@ -2278,27 +2276,19 @@ def get_effective_default_text_model() -> str:
     The authoritative text routing is per-feature via gateway modelMapping; this
     only surfaces a representative id for the settings UI combination summary.
 
-    [aipdd fork delta] 与 freezone 纯文本执行链对齐：显式 env ``NEWAPI_TEXT_MODEL``
-    优先；否则复用 ``FREEZONE_TEXT_WRITER_MODEL`` 的解析链（per-env →
-    ``TEXT_MODEL_FALLBACK`` → 槽位绑定）。此前只读 env/config，未走兜底链——明明设了
-    ``TEXT_MODEL_FALLBACK`` 仍回显空串，工具页只能显示「跟随系统默认」而看不到实际会
-    用的模型。
+    [aipdd fork delta] 回显与路由必须同一口径：env ``NEWAPI_TEXT_MODEL`` 与 legacy
+    常量都不再参与 —— 它们赢过设置页时，面板显示的是一个模型、实际跑的是另一个。
+    现在只解析 ``FREEZONE_TEXT_WRITER_MODEL`` 这一位的实际落点（含同类已绑位 / 渠道
+    目录首项两档自动兜底）。
 
     [req40] 这只是**状态回显**，不是调用：解析不到（槽位未绑定 / 绑定目标已下架）就回
     空串，让设置页显示「未绑定」，绝不在展示路径上抛 ``ModelSlotNotConfigured``。真正
     的提交前拒绝发生在调用链上。
     """
-    from novelvideo import config as _config
     from novelvideo.config import get_newapi_text_model_name
     from novelvideo.model_slots import ModelSlotNotConfigured
     from novelvideo.official_defaults import DEFAULT_FREEZONE_TEXT_WRITER_MODEL
 
-    env_model = str(os.environ.get("NEWAPI_TEXT_MODEL") or "").strip()
-    if env_model:
-        return env_model
-    legacy = str(getattr(_config, "NEWAPI_TEXT_MODEL", "") or "").strip()
-    if legacy:
-        return legacy
     try:
         return get_newapi_text_model_name(
             "FREEZONE_TEXT_WRITER_MODEL", DEFAULT_FREEZONE_TEXT_WRITER_MODEL
@@ -3281,9 +3271,10 @@ def get_effective_cognee_embedding_config(
     del env_provider, llm_provider
     provider = DEFAULT_COGNEE_EMBEDDING_PROVIDER
     default_model = DEFAULT_COGNEE_EMBEDDING_MODEL
-    model = str(
-        env_model or os.environ.get("COGNEE_EMBEDDING_MODEL", default_model)
-    ).strip()
+    # [aipdd fork delta] ``COGNEE_EMBEDDING_MODEL`` env 已退出解析链：嵌入模型只认「设置 ›
+    # 模型」的嵌入绑定（上面 saved 分支）。没绑时回槽位别名，由提交链路的
+    # require_embedding_slot 负责拦截，不再允许一个设置页看不见的 env 名字接管。
+    model = str(env_model or default_model).strip()
     dimensions = (
         str(
             env_dimensions

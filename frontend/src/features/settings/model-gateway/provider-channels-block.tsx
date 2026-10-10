@@ -68,6 +68,8 @@ import {
   normalizeProviderChannelSettings,
   type ChannelCapability,
 } from "./shared";
+// [aipdd fork delta] 渠道名旁的官网直达链接（URL 真源在 @/lib/provider-labels）。
+import { ProviderOfficialSiteLink } from "./provider-official-site-link";
 
 /**
  * [aipdd fork delta] 不当作供应商渠道出现的 provider：火山 AI MediaKit 本就跟随
@@ -694,11 +696,21 @@ function ChannelCapabilitiesDialog({
                       className="grid grid-cols-[160px_minmax(210px,1fr)_minmax(220px,1.2fr)_90px] items-center gap-3 border-b border-border/70 px-5 py-3 last:border-b-0"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-medium text-foreground">
-                          {localizedBrandName(item.provider) ||
-                            item.name ||
-                            featureProviderLabel(item.provider)}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-xs font-medium text-foreground">
+                            {localizedBrandName(item.provider) ||
+                              item.name ||
+                              featureProviderLabel(item.provider)}
+                          </p>
+                          <ProviderOfficialSiteLink
+                            provider={item.provider}
+                            brand={
+                              localizedBrandName(item.provider) ||
+                              item.name ||
+                              featureProviderLabel(item.provider)
+                            }
+                          />
+                        </div>
                         <code className="block truncate text-[10px] text-muted-foreground">
                           {item.provider}
                         </code>
@@ -973,8 +985,15 @@ function ProviderChannelRow({
           <Label className="justify-start text-[11px] font-normal text-muted-foreground">
             {t("settings.modelConfig.featureModels.channelProvider")}
           </Label>
-          <div className="mt-1.5 h-9 rounded-md border border-border/70 bg-white/[0.03] px-3 py-2 text-xs text-foreground">
-            {channelType?.name || featureProviderLabel(provider)}
+          <div className="mt-1.5 flex h-9 items-center gap-1.5 rounded-md border border-border/70 bg-white/[0.03] px-3 py-2 text-xs text-foreground">
+            <span className="min-w-0 truncate">
+              {channelType?.name || featureProviderLabel(provider)}
+            </span>
+            <ProviderOfficialSiteLink
+              provider={provider}
+              brand={channelType?.name || featureProviderLabel(provider)}
+              className="ml-auto"
+            />
           </div>
         </div>
         <div>

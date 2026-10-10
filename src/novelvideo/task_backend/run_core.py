@@ -51,6 +51,8 @@ _PROJECT_TASK_RESOURCE_KINDS = {
     "build_scenes": "script",
     "build_props": "script",
     "build_episodes": "script",
+    "graph_preview": "script",
+    "script_auto": "script",
     "script_writer": "script",
     "novel_to_screenplay": "script",
     "beat_video_prompt": "script",
@@ -294,7 +296,17 @@ async def _emit_project_task_metrics(
         clean_outcome = "failed" if outcome == "failed" else "success"
 
         if task_type == "ingest_fast":
-            model = os.environ.get("COGNEE_LLM_MODEL", "").strip()
+            # [aipdd fork delta] 记账标签用实际解析出来的调用名：``COGNEE_LLM_MODEL`` env 已不再
+            # 参与模型名选定，账单上也不能写一个设置页看不见的旧名字。
+            try:
+                from novelvideo.config import get_newapi_text_model_name
+                from novelvideo.official_defaults import DEFAULT_COGNEE_LLM_MODEL
+
+                model = get_newapi_text_model_name(
+                    "COGNEE_LLM_MODEL", DEFAULT_COGNEE_LLM_MODEL
+                )
+            except Exception:  # noqa: BLE001 - 记账失败不能影响已完成的任务
+                model = ""
             if clean_outcome == "success":
                 await usage_meter.bump_content_counter(
                     user_id=user_id,

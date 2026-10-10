@@ -3,6 +3,10 @@
 
 Each env template key must be read by the runtime surface that owns the
 template, or be explicitly covered by an allowlist entry in this file.
+
+[aipdd fork delta] 槽位登记表 ``_SLOT_ALIASES`` 不再是「运行期真的会读」的来源：
+``model_slots.resolve_slot`` 已完全不读进程环境，槽位名只是内部键。所以模板里再写
+``X_MODEL=DC-x-LLM`` 一律判死键 —— 模型绑定的真源是「设置 › 模型」+ 渠道目录。
 """
 
 from __future__ import annotations
@@ -839,37 +843,6 @@ def _script_env_keys(path: Path) -> set[str]:
     return keys
 
 
-def _slot_registry_env_keys(py_files: list[Path]) -> set[str]:
-    """[aipdd fork delta req40] 功能位登记表里的 env 名同样是「运行期真的会读」。
-
-    ``model_slots.resolve_slot`` 按登记表逐条 ``os.environ.get(key)`` 取值，静态扫描
-    看不见这些键名；不承认登记表，棘轮就会把模板里合法的功能位全判成死键。登记表是
-    槽位名的唯一真源，这里按 AST 读它，不再维护第二份名单。
-    """
-
-    keys: set[str] = set()
-    for path in py_files:
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except (OSError, SyntaxError, ValueError):
-            continue
-        for node in getattr(tree, "body", []):
-            target_name = ""
-            if isinstance(node, ast.Assign) and node.targets:
-                if isinstance(node.targets[0], ast.Name):
-                    target_name = node.targets[0].id
-            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-                target_name = node.target.id
-            if target_name != "_SLOT_ALIASES":
-                continue
-            for element in getattr(node.value, "elts", []) or []:
-                if isinstance(element, ast.Tuple) and element.elts:
-                    first = element.elts[0]
-                    if isinstance(first, ast.Constant) and isinstance(first.value, str):
-                        keys.add(first.value)
-    return keys
-
-
 def collect_static_env_keys(scan_roots: list[Path]) -> set[str]:
     keys: set[str] = set()
     files = _iter_scan_files(scan_roots)
@@ -880,7 +853,6 @@ def collect_static_env_keys(scan_roots: list[Path]) -> set[str]:
             keys.update(_python_env_keys(path, reader_functions))
         else:
             keys.update(_script_env_keys(path))
-    keys.update(_slot_registry_env_keys(py_files))
     return keys
 
 

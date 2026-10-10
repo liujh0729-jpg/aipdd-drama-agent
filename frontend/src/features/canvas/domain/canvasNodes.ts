@@ -535,8 +535,9 @@ export interface AudioNodeData extends NodeDisplayData {
   audioKind?: 'speech' | 'music';
   /**
    * [aipdd fork delta] 选定的音频模型（后台「默认生成模型」mediaType=audio
-   * 目录条目的 id）。''/缺省 = 不传 model，走后端默认引擎（语音 IndexTTS2 /
-   * 音乐 LingShan-MU-11）。speech 与 music 两种形态共用同一个候选目录。
+   * 目录条目的 id）。''/缺省 = 不传 model，由后端解析「设置 › 模型」里配好的
+   * 默认音频模型（语音与音乐共用同一个默认音频位）。speech 与 music 两种形态
+   * 共用同一个候选目录。
    */
   model?: string;
   /** music 模式：生成长度(毫秒),范围 3000–600000,缺省按后端默认 30000。 */

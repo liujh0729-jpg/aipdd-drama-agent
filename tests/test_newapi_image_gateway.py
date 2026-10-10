@@ -65,10 +65,57 @@ def _patch_scene_newapi_gateway(
     )
 
 
+def _as_ce_local(monkeypatch) -> None:
+    """把这条用例切回「CE 自建、设置库自己说话」。
+
+    本模块的 autouse fixture 设了 ``ST_CONTROL_PLANE_DSN``，守的是 env 驱动的底层适配器；
+    而媒体模型映射在控制面模式下恒为空。默认图模型的名字现在**只**来自那张映射表，所以要先
+    把控制面摘掉才谈得上验证来源。
+    """
+    monkeypatch.delenv("ST_CONTROL_PLANE_DSN", raising=False)
+    monkeypatch.setenv("ST_EDITION", "ce")
+
+
+def _seed_image_mappings(*names: str) -> None:
+    """按面板顺序写「默认生成模型」的图片映射（第 1 条 = 主位，第 2 条 = 副位）。"""
+    from novelvideo.model_gateway_settings import save_newapi_media_model_mappings
+
+    save_newapi_media_model_mappings(
+        {
+            name: {
+                "provider": "newapi",
+                "upstreamModel": name,
+                "mediaType": "image",
+                "sortOrder": index,
+            }
+            for index, name in enumerate(names)
+        }
+    )
+
+
+def _pin_default_image_models(
+    monkeypatch, *, primary: str = "", secondary: str = ""
+) -> None:
+    """把「设置 › 模型」的默认图主/副位钉成给定名字。
+
+    [aipdd fork delta wave2] 本模块钉在控制面模式下（autouse fixture 设了
+    ``ST_CONTROL_PLANE_DSN``，媒体映射恒为空），守的是底层适配器；用途位现在**只**从
+    设置的这两个读取函数取名，所以在这里把它们钉住。同名 env 照设也不用。
+    """
+    import novelvideo.model_gateway_settings as mgs
+
+    monkeypatch.setattr(mgs, "get_effective_default_image_model", lambda: primary)
+    monkeypatch.setattr(mgs, "get_effective_default_nanobanana_model", lambda: secondary)
+
+
 def test_dc_image_2_selection_maps_to_newapi_gpt_image2(monkeypatch, tmp_path):
+    """默认图主位的名字只来自「设置 › 模型」，同名 env 完全不进配置。
+
+    [aipdd fork delta] 旧断言写的是 ``NEWAPI_IMAGE_MODEL=LingShan-G2``：一个设置页看不见、
+    渠道下架也不会自动取消的名字排在面板前面。现在同名 env 照设，但它不再参与解析。
+    """
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    _as_ce_local(monkeypatch)
     monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "LingShan-G2")
     monkeypatch.setenv("DEFAULT_CHARACTER_IMAGE_SELECTION", "newapi_gpt_image2")
 
@@ -76,22 +123,37 @@ def test_dc_image_2_selection_maps_to_newapi_gpt_image2(monkeypatch, tmp_path):
 
     config = _reload_isolated(monkeypatch, config)
 
-    # [aipdd fork delta] 图源选项 label 去厂商化：不再把发行方模型名（LingShan-G2）
-    # 当展示名，改为通用 "NewAPI Image"；模型 id 仍由 NEWAPI_IMAGE_MODEL 决定。
-    assert config.character_image_selection_options()["newapi_gpt_image2"] == "NewAPI Image"
+    # 「默认生成模型」面板还没图源时，下拉退回两张通用槽位：label 里不带发行方模型名。
+    assert config.character_image_selection_options() == {
+        "newapi_gpt_image2": "NewAPI Image",
+        "newapi_nanobanana2": "NewAPI Nano Banana 2",
+    }
     assert config.get_character_image_selection() == "newapi_gpt_image2"
 
+    # 主位还没配 = 模型名是空串，由调用点按「未绑定可用模型」拦住；env 的名字不参与。
     image_config = config.get_grid_generation_config(selection_override="newapi_gpt_image2")
     assert image_config["provider"] == "newapi"
-    assert image_config["api_key"] == "newapi-token"
-    assert image_config["base_url"] == "http://newapi.test/v1"
-    assert image_config["model"] == "LingShan-G2"
+    assert image_config["model"] == ""
+
+    # 配上以后：下拉以面板为准，配置里的模型名也只从面板来。
+    _seed_image_mappings("ap-gpt-image-2")
+    assert config.character_image_selection_options() == {
+        "ap-gpt-image-2": "newapi · ap-gpt-image-2"
+    }
+    image_config = config.get_grid_generation_config(selection_override="newapi_gpt_image2")
+    assert image_config["model"] == "ap-gpt-image-2"
+    assert image_config["model"] != "LingShan-G2"
 
 
 def test_dc_banana_2_selection_maps_to_newapi_nanobanana2(monkeypatch, tmp_path):
+    """``newapi_nanobanana2`` 选项 = 面板里的**第二张**默认图，不再由 env 点名。
+
+    [aipdd fork delta] 两个可见选项的差别落在面板顺序上：主位取第一条，副位取第二条
+    （只配一条时两个位同名）。``NEWAPI_NANOBANANA2_MODEL`` 照设也不用。
+    """
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    _as_ce_local(monkeypatch)
+    _seed_image_mappings("ap-gpt-image-2", "ap-nanobanana-2")
     monkeypatch.setenv("NEWAPI_NANOBANANA2_MODEL", "LingShan-NB-2")
     monkeypatch.setenv("DEFAULT_CHARACTER_IMAGE_SELECTION", "newapi_nanobanana2")
 
@@ -99,20 +161,23 @@ def test_dc_banana_2_selection_maps_to_newapi_nanobanana2(monkeypatch, tmp_path)
 
     config = _reload_isolated(monkeypatch, config)
 
-    assert (
-        config.character_image_selection_options()["newapi_nanobanana2"]
-        == "NewAPI Nano Banana 2"
-    )
     assert config.get_character_image_selection() == "newapi_nanobanana2"
 
     image_config = config.get_grid_generation_config(selection_override="newapi_nanobanana2")
     assert image_config["provider"] == "newapi"
-    assert image_config["api_key"] == "newapi-token"
-    assert image_config["base_url"] == "http://newapi.test/v1"
-    assert image_config["model"] == "LingShan-NB-2"
+    assert image_config["model"] == "ap-nanobanana-2"
+    assert image_config["model"] != "LingShan-NB-2"
+    # 主位仍然是第一张：两个选项的差别只在面板顺序上。
+    primary = config.get_grid_generation_config(selection_override="newapi_gpt_image2")
+    assert primary["model"] == "ap-gpt-image-2"
 
 
 def test_fixed_asset_image_providers_default_to_newapi_when_env_is_empty(monkeypatch):
+    """按用途钉图的那几个 PROVIDER 留空时跟随 newapi；模型名来自设置的默认图位。
+
+    [aipdd fork delta] ``NEWAPI_IMAGE_MODEL`` 不再提供任何模型名：默认图位没配就是空，
+    由调用点按「未绑定可用模型」拦住，而不是拿一个 env 名字去打网关。
+    """
     for key in (
         "PROP_REF_IMAGE_PROVIDER",
         "SCENE_MASTER_IMAGE_PROVIDER",
@@ -120,6 +185,7 @@ def test_fixed_asset_image_providers_default_to_newapi_when_env_is_empty(monkeyp
         "SCENE_360_IMAGE_PROVIDER",
     ):
         monkeypatch.setenv(key, "")
+    _as_ce_local(monkeypatch)
     monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "LingShan-G2")
 
     import novelvideo.config as config
@@ -136,12 +202,94 @@ def test_fixed_asset_image_providers_default_to_newapi_when_env_is_empty(monkeyp
     prop_generation = _reload_isolated(monkeypatch, prop_generation)
     scene_reference_images = _reload_isolated(monkeypatch, scene_reference_images)
 
-    assert prop_generation.resolve_prop_reference_image_model() == "LingShan-G2"
+    # 默认图位还没配：解析结果是空串（调用点负责拒绝），env 那个名字不参与。
+    assert prop_generation.resolve_prop_reference_image_model() == ""
+
+    _seed_image_mappings("ap-gpt-image-2")
+    assert prop_generation.resolve_prop_reference_image_model() == "ap-gpt-image-2"
     assert scene_reference_images._scene_image_provider("master", None) == "newapi"
     assert scene_reference_images._scene_image_provider("reverse_master", None) == "newapi"
 
 
-def test_newapi_sketch_config_defaults_to_dc_image2_low_quality(monkeypatch):
+def test_purpose_image_envs_are_inert_and_settings_decide(monkeypatch, tmp_path):
+    """按用途钉图的那批 env 整批退出解析链：名字只由「设置 › 模型」的主/副位决定。
+
+    [aipdd fork delta wave2] ``SCENE_MASTER_IMAGE_MODEL`` / ``SCENE_REVERSE_MASTER_IMAGE_MODEL``
+    / ``SCENE_360_IMAGE_MODEL`` / ``SCENE_ASSET_MODEL`` / ``PROP_REF_IMAGE_MODEL`` /
+    ``CHARACTER_IMAGE_MODEL`` 以前各自钉住一条生成链：它们在设置页上看不见，渠道下架时也
+    不会自动取消绑定 —— 生产上的 ``No available channel for model LingShan-NB-2`` 就是这么
+    来的。现在用途只决定取面板的主位还是副位，模型名一律只从设置来。
+    """
+    _isolate_settings_db(monkeypatch, tmp_path)
+    _as_ce_local(monkeypatch)
+    # 厂商选择（provider）仍是部署级参数，这里把它钉成网关路径，只谈模型名的来源。
+    for key in (
+        "PROP_REF_IMAGE_PROVIDER",
+        "SCENE_MASTER_IMAGE_PROVIDER",
+        "SCENE_REVERSE_MASTER_IMAGE_PROVIDER",
+        "SCENE_360_IMAGE_PROVIDER",
+        "SCENE_ASSET_PROVIDER",
+    ):
+        monkeypatch.setenv(key, "newapi")
+    for key in (
+        "NEWAPI_IMAGE_MODEL",
+        "NEWAPI_NANOBANANA2_MODEL",
+        "SCENE_MASTER_IMAGE_MODEL",
+        "SCENE_REVERSE_MASTER_IMAGE_MODEL",
+        "SCENE_360_IMAGE_MODEL",
+        "SCENE_ASSET_MODEL",
+        "PROP_REF_IMAGE_MODEL",
+        "CHARACTER_IMAGE_MODEL",
+    ):
+        monkeypatch.setenv(key, "LingShan-NB-2")
+    for key in (
+        "CHARACTER_IMAGE_SELECTION",
+        "DEFAULT_CHARACTER_IMAGE_SELECTION",
+        "DEFAULT_RENDER_IMAGE_SELECTION",
+        "DEFAULT_SKETCH_IMAGE_SELECTION",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    import novelvideo.config as config
+    from novelvideo.generators import prop_generation, scene_reference_images
+
+    config = _reload_isolated(monkeypatch, config)
+    prop_generation = _reload_isolated(monkeypatch, prop_generation)
+    scene_reference_images = _reload_isolated(monkeypatch, scene_reference_images)
+
+    # 常量层面就没读 env：这批键留空，只为让旧的导入和旧选项表继续可用。
+    assert config.NEWAPI_IMAGE_MODEL == config.NEWAPI_NANOBANANA2_MODEL == ""
+    assert config.SCENE_MASTER_IMAGE_MODEL == config.SCENE_REVERSE_MASTER_IMAGE_MODEL == ""
+    assert config.SCENE_360_IMAGE_MODEL == config.SCENE_ASSET_MODEL == ""
+    assert config.PROP_REF_IMAGE_MODEL == config.CHARACTER_IMAGE_MODEL == ""
+
+    # 面板还没图源：每个用途位都是空串，由调用点按「未绑定可用模型」拦住。
+    assert prop_generation.resolve_prop_reference_image_model() == ""
+    assert scene_reference_images.resolve_scene_reference_image_model("master") == ""
+    assert scene_reference_images.resolve_scene_reference_image_model("spatial_layout") == ""
+    assert scene_reference_images.resolve_scene_reference_image_model("reverse_master") == ""
+    assert config.get_character_image_selection() == "newapi_gpt_image2"
+
+    # 配上以后：主位给道具 / 空间布局，副位给场景主图与反向主图；env 那个名字一个都不出现。
+    _seed_image_mappings("ap-gpt-image-2", "ap-nanobanana-2")
+    assert prop_generation.resolve_prop_reference_image_model() == "ap-gpt-image-2"
+    assert (
+        scene_reference_images.resolve_scene_reference_image_model("spatial_layout")
+        == "ap-gpt-image-2"
+    )
+    assert (
+        scene_reference_images.resolve_scene_reference_image_model("master")
+        == "ap-nanobanana-2"
+    )
+    assert (
+        scene_reference_images.resolve_scene_reference_image_model("reverse_master")
+        == "ap-nanobanana-2"
+    )
+    assert config.get_character_image_selection() == "newapi_gpt_image2"
+
+
+def test_newapi_sketch_config_defaults_to_dc_image2_low_quality(monkeypatch, tmp_path):
+    """草图位跟随面板默认图（主位），画质按名字的历史档位下发。"""
     import httpx
     import novelvideo.config as config
     from novelvideo.generators import grid_generation
@@ -174,17 +322,22 @@ def test_newapi_sketch_config_defaults_to_dc_image2_low_quality(monkeypatch):
             posted["json"] = json
             return FakeResponse()
 
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    _isolate_settings_db(monkeypatch, tmp_path)
+    _as_ce_local(monkeypatch)
+    _seed_image_mappings("ap-gpt-image-2")
     monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "LingShan-G2")
     monkeypatch.setenv("DEFAULT_SKETCH_IMAGE_SELECTION", "newapi_gpt_image2")
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
     config = _reload_isolated(monkeypatch, config)
+    # CE 本地时网关凭据来自设置库，按本模块惯例钉上网关。
+    _patch_scene_newapi_gateway(monkeypatch)
     sketch_config = config.get_sketch_generation_config()
 
     assert sketch_config["provider"] == "newapi"
-    assert sketch_config["model"] == "LingShan-G2"
+    assert sketch_config["api_key"] == "newapi-token"
+    assert sketch_config["base_url"] == "http://newapi.test/v1"
+    assert sketch_config["model"] == "ap-gpt-image-2"
     assert sketch_config["image_size"] == "1K"
     assert sketch_config["openai_image_quality"] == "low"
 
@@ -208,7 +361,7 @@ def test_newapi_sketch_config_defaults_to_dc_image2_low_quality(monkeypatch):
     assert image_bytes == b"sketch"
     assert error == ""
     assert posted["timeout"] == grid_generation.NEWAPI_IMAGE_HTTP_TIMEOUT_SECONDS == 1800.0
-    assert posted["json"]["model"] == "LingShan-G2"
+    assert posted["json"]["model"] == "ap-gpt-image-2"
     assert posted["json"]["quality"] == "low"
     assert (posted["json"]["width"], posted["json"]["height"]) == (688, 1024)
     assert posted["json"]["metadata"] == {"ratio": "2:3", "resolution": "1k"}
@@ -216,7 +369,8 @@ def test_newapi_sketch_config_defaults_to_dc_image2_low_quality(monkeypatch):
     assert trace == {"request_id": "req-sketch", "response_id": "resp-sketch"}
 
 
-def test_newapi_sketch_config_can_use_dc_banana2_without_quality(monkeypatch):
+def test_newapi_sketch_config_can_use_dc_banana2_without_quality(monkeypatch, tmp_path):
+    """副位（面板第二张默认图）不下发画质档位；名字同样只由设置决定。"""
     import httpx
     import novelvideo.config as config
     from novelvideo.generators import grid_generation
@@ -244,17 +398,19 @@ def test_newapi_sketch_config_can_use_dc_banana2_without_quality(monkeypatch):
             posted["json"] = json
             return FakeResponse()
 
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    _isolate_settings_db(monkeypatch, tmp_path)
+    _as_ce_local(monkeypatch)
+    _seed_image_mappings("ap-gpt-image-2", "ap-nanobanana-2")
     monkeypatch.setenv("NEWAPI_NANOBANANA2_MODEL", "LingShan-NB-2")
     monkeypatch.setenv("DEFAULT_SKETCH_IMAGE_SELECTION", "newapi_nanobanana2")
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
     config = _reload_isolated(monkeypatch, config)
+    _patch_scene_newapi_gateway(monkeypatch)
     sketch_config = config.get_sketch_generation_config()
 
     assert sketch_config["provider"] == "newapi"
-    assert sketch_config["model"] == "LingShan-NB-2"
+    assert sketch_config["model"] == "ap-nanobanana-2"
     assert sketch_config["image_size"] == "1K"
 
     image_bytes, _text, error = run_async(
@@ -273,7 +429,7 @@ def test_newapi_sketch_config_can_use_dc_banana2_without_quality(monkeypatch):
 
     assert image_bytes == b"sketch"
     assert error == ""
-    assert posted["json"]["model"] == "LingShan-NB-2"
+    assert posted["json"]["model"] == "ap-nanobanana-2"
     assert "quality" not in posted["json"]
     assert (posted["json"]["width"], posted["json"]["height"]) == (688, 1024)
     assert posted["json"]["metadata"] == {"ratio": "2:3", "resolution": "1k"}
@@ -600,7 +756,9 @@ def test_newapi_image_call_sends_gpt_image2_params(monkeypatch):
     image_bytes, _text, error = run_async(
         grid_generation._call_newapi_image_api(
             api_key="newapi-token",
-            model="LingShan-G2",
+            # [aipdd fork delta wave2] 以前这里写的是 LingShan-G2（一个目录与渠道都不再携带
+            # 的名字）。用例守的是 gpt-image 家族的历史画质兜底，名字就用它的本名。
+            model="gpt-image-2",
             prompt="portrait prompt",
             image_config={
                 "aspect_ratio": "3:4",
@@ -615,7 +773,7 @@ def test_newapi_image_call_sends_gpt_image2_params(monkeypatch):
     assert error == ""
     assert posted["url"] == "http://newapi.test/v1/images/generations"
     assert posted["headers"]["Authorization"] == "Bearer newapi-token"
-    assert posted["json"]["model"] == "LingShan-G2"
+    assert posted["json"]["model"] == "gpt-image-2"
     assert posted["json"]["prompt"] == "portrait prompt"
     assert posted["json"]["quality"] == "medium"
     assert (posted["json"]["width"], posted["json"]["height"]) == (768, 1024)
@@ -1398,7 +1556,9 @@ def test_newapi_scene_master_uses_text_only_nanobanana2(monkeypatch, tmp_path):
         fake_call_newapi_image_api,
     )
     monkeypatch.setattr(scene_reference_images, "SCENE_MASTER_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setattr(scene_reference_images, "SCENE_MASTER_IMAGE_MODEL", "LingShan-NB-2")
+    # [aipdd fork delta wave2] master 取面板副位；以前这里是 SCENE_MASTER_IMAGE_MODEL
+    # env 钉一个设置页看不见、渠道下架也不会自动取消的名字。
+    _pin_default_image_models(monkeypatch, secondary="ap-nanobanana-2")
 
     scene = NovelScene(
         name="古董店",
@@ -1421,7 +1581,7 @@ def test_newapi_scene_master_uses_text_only_nanobanana2(monkeypatch, tmp_path):
     assert output_path.read_bytes() == b"scene-master"
     assert captured["api_key"] == "newapi-token"
     assert captured["base_url"] == "http://newapi.test/v1"
-    assert captured["model"] == "LingShan-NB-2"
+    assert captured["model"] == "ap-nanobanana-2"
     assert captured["reference_images"] is None
     assert captured["image_config"] == {
         "aspect_ratio": "16:9",
@@ -1449,7 +1609,7 @@ async def test_newapi_scene_reference_accepts_copied_file_without_image_bytes(
 
     _patch_scene_newapi_gateway(monkeypatch)
     monkeypatch.setattr(scene_reference_images, "SCENE_MASTER_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setattr(scene_reference_images, "SCENE_MASTER_IMAGE_MODEL", "LingShan-NB-2")
+    _pin_default_image_models(monkeypatch, secondary="ap-nanobanana-2")
     monkeypatch.setattr(scene_reference_images, "_call_newapi_image_api", copied_image)
     scene = NovelScene(name="古董店", scene_type="interior", environment_prompt="古董店室内")
 
@@ -1482,7 +1642,7 @@ def test_newapi_scene_time_plate_master_injects_time_and_base_reference(monkeypa
     )
     _patch_scene_newapi_gateway(monkeypatch)
     monkeypatch.setattr(scene_reference_images, "SCENE_MASTER_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setattr(scene_reference_images, "SCENE_MASTER_IMAGE_MODEL", "LingShan-NB-2")
+    _pin_default_image_models(monkeypatch, secondary="ap-nanobanana-2")
 
     scene = NovelScene(
         name="古董店_夜晚",
@@ -1531,7 +1691,7 @@ def test_newapi_scene_variant_plate_master_keeps_described_lighting(monkeypatch,
     )
     _patch_scene_newapi_gateway(monkeypatch)
     monkeypatch.setattr(scene_reference_images, "SCENE_MASTER_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setattr(scene_reference_images, "SCENE_MASTER_IMAGE_MODEL", "LingShan-NB-2")
+    _pin_default_image_models(monkeypatch, secondary="ap-nanobanana-2")
 
     scene = NovelScene(
         name="城市街道_雨夜版",
@@ -1582,11 +1742,9 @@ def test_newapi_reverse_master_uses_master_reference_nanobanana2(monkeypatch, tm
     )
     _patch_scene_newapi_gateway(monkeypatch)
     monkeypatch.setattr(scene_reference_images, "SCENE_REVERSE_MASTER_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setattr(
-        scene_reference_images,
-        "SCENE_REVERSE_MASTER_IMAGE_MODEL",
-        "LingShan-NB-2",
-    )
+    # [aipdd fork delta wave2] 旧写法是 SCENE_REVERSE_MASTER_IMAGE_MODEL env 钉一个
+    # 设置页看不见的名字；现在 reverse_master 就是面板副位。
+    _pin_default_image_models(monkeypatch, secondary="ap-nanobanana-2")
 
     scene = NovelScene(
         name="古董店",
@@ -1609,7 +1767,7 @@ def test_newapi_reverse_master_uses_master_reference_nanobanana2(monkeypatch, tm
     assert output_path.read_bytes() == b"scene-reverse"
     assert captured["api_key"] == "newapi-token"
     assert captured["base_url"] == "http://newapi.test/v1"
-    assert captured["model"] == "LingShan-NB-2"
+    assert captured["model"] == "ap-nanobanana-2"
     assert captured["reference_images"] == [
         ("scene_master_master.png", b"master-bytes", "image/png")
     ]
@@ -1643,11 +1801,8 @@ def test_newapi_reverse_master_can_use_gpt_image2_quality_medium(monkeypatch, tm
     )
     _patch_scene_newapi_gateway(monkeypatch)
     monkeypatch.setattr(scene_reference_images, "SCENE_REVERSE_MASTER_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setattr(
-        scene_reference_images,
-        "SCENE_REVERSE_MASTER_IMAGE_MODEL",
-        "LingShan-G2",
-    )
+    # [aipdd fork delta wave2] reverse_master 取面板的**副位**；名字不再由 env 点名。
+    _pin_default_image_models(monkeypatch, secondary="gpt-image-2")
 
     scene = NovelScene(
         name="古董店",
@@ -1663,7 +1818,7 @@ def test_newapi_reverse_master_can_use_gpt_image2_quality_medium(monkeypatch, tm
         )
     )
 
-    assert captured["model"] == "LingShan-G2"
+    assert captured["model"] == "gpt-image-2"
     assert captured["reference_images"] == [
         ("scene_master_master.png", b"master-bytes", "image/png")
     ]
@@ -1710,7 +1865,9 @@ def test_newapi_prop_reference_gpt_image2_sends_quality_medium(monkeypatch, tmp_
     monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
     monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
+    # [aipdd fork delta wave2] ``PROP_REF_IMAGE_MODEL`` 已退出解析链，只认设置的主位。
     monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "LingShan-G2")
+    _pin_default_image_models(monkeypatch, primary="gpt-image-2")
     _reload_isolated(monkeypatch, config)
     prop_generation = _reload_isolated(monkeypatch, prop_generation)
     monkeypatch.setattr(
@@ -1731,7 +1888,7 @@ def test_newapi_prop_reference_gpt_image2_sends_quality_medium(monkeypatch, tmp_
     assert output_path.read_bytes() == b"prop-ref"
     assert posted["url"] == "http://newapi.test/v1/images/generations"
     assert posted["headers"]["Authorization"] == "Bearer newapi-token"
-    assert posted["json"]["model"] == "LingShan-G2"
+    assert posted["json"]["model"] == "gpt-image-2"
     assert posted["json"]["quality"] == "medium"
     assert (posted["json"]["width"], posted["json"]["height"]) == (1088, 608)
     assert posted["json"]["metadata"] == {"ratio": "16:9", "resolution": "1k"}
@@ -1771,7 +1928,9 @@ def test_newapi_prop_reference_nanobanana2_omits_quality(monkeypatch, tmp_path):
     monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
     monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
+    # [aipdd fork delta wave2] 同名 env 照设，已不再进解析链：模型名只从设置来。
     monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "LingShan-NB-2")
+    _pin_default_image_models(monkeypatch, primary="ap-nanobanana-2")
     _reload_isolated(monkeypatch, config)
     prop_generation = _reload_isolated(monkeypatch, prop_generation)
     monkeypatch.setattr(
@@ -1790,7 +1949,7 @@ def test_newapi_prop_reference_nanobanana2_omits_quality(monkeypatch, tmp_path):
 
     assert result == str(output_path)
     assert output_path.read_bytes() == b"prop-ref"
-    assert posted["json"]["model"] == "LingShan-NB-2"
+    assert posted["json"]["model"] == "ap-nanobanana-2"
     assert "quality" not in posted["json"]
     assert (posted["json"]["width"], posted["json"]["height"]) == (1088, 608)
     assert posted["json"]["metadata"] == {"ratio": "16:9", "resolution": "1k"}

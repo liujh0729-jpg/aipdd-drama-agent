@@ -7,7 +7,7 @@
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentNamespace": "https://supertale.local/spdx/supertale-ce/bb2dd8180d0f7743",
+  "documentNamespace": "https://supertale.local/spdx/supertale-ce/c294c35eaef3b0f1",
   "name": "supertale-ce-p0b-sbom",
   "packages": [
     {
@@ -18,7 +18,7 @@
       "licenseConcluded": "Elastic-2.0",
       "licenseDeclared": "Elastic-2.0",
       "name": "supertale-ce",
-      "versionInfo": "2.0.1"
+      "versionInfo": "2.0.5"
     },
     {
       "SPDXID": "SPDXRef-Package-aiofiles",
@@ -249,6 +249,26 @@
       "licenseDeclared": "MIT",
       "name": "black",
       "versionInfo": "26.5.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-boto3",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "boto3",
+      "versionInfo": "1.43.110"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-botocore",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "botocore",
+      "versionInfo": "1.43.110"
     },
     {
       "SPDXID": "SPDXRef-Package-cbor2",
@@ -1051,6 +1071,16 @@
       "versionInfo": "1.0.9"
     },
     {
+      "SPDXID": "SPDXRef-Package-langid",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "langid",
+      "versionInfo": "1.1.6"
+    },
+    {
       "SPDXID": "SPDXRef-Package-limits",
       "copyrightText": "NOASSERTION",
       "downloadLocation": "NOASSERTION",
@@ -1409,6 +1439,16 @@
       "licenseDeclared": "Apache-2.0",
       "name": "openai",
       "versionInfo": "2.43.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-opencv-python-headless",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "opencv-python-headless",
+      "versionInfo": "4.11.0.86"
     },
     {
       "SPDXID": "SPDXRef-Package-opentelemetry-api",
@@ -1961,6 +2001,16 @@
       "versionInfo": "0.15.20"
     },
     {
+      "SPDXID": "SPDXRef-Package-s3transfer",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "name": "s3transfer",
+      "versionInfo": "0.19.2"
+    },
+    {
       "SPDXID": "SPDXRef-Package-safetensors",
       "copyrightText": "NOASSERTION",
       "downloadLocation": "NOASSERTION",
@@ -2361,6 +2411,16 @@
       "versionInfo": "15.0.1"
     },
     {
+      "SPDXID": "SPDXRef-Package-wordninja",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "wordninja",
+      "versionInfo": "2.0.0"
+    },
+    {
       "SPDXID": "SPDXRef-Package-wrapt",
       "copyrightText": "NOASSERTION",
       "downloadLocation": "NOASSERTION",
@@ -2379,6 +2439,16 @@
       "licenseDeclared": "Apache-2.0",
       "name": "yarl",
       "versionInfo": "1.24.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-yt-dlp",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Unlicense",
+      "licenseDeclared": "Unlicense",
+      "name": "yt-dlp",
+      "versionInfo": "2026.8.19"
     },
     {
       "SPDXID": "SPDXRef-Package-zipp",
@@ -2504,6 +2574,16 @@
     },
     {
       "relatedSpdxElement": "SPDXRef-Package-black",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-boto3",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-botocore",
       "relationshipType": "DEPENDS_ON",
       "spdxElementId": "SPDXRef-Package-supertale-ce"
     },
@@ -2908,6 +2988,11 @@
       "spdxElementId": "SPDXRef-Package-supertale-ce"
     },
     {
+      "relatedSpdxElement": "SPDXRef-Package-langid",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
       "relatedSpdxElement": "SPDXRef-Package-limits",
       "relationshipType": "DEPENDS_ON",
       "spdxElementId": "SPDXRef-Package-supertale-ce"
@@ -3084,6 +3169,11 @@
     },
     {
       "relatedSpdxElement": "SPDXRef-Package-openai",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-opencv-python-headless",
       "relationshipType": "DEPENDS_ON",
       "spdxElementId": "SPDXRef-Package-supertale-ce"
     },
@@ -3363,6 +3453,11 @@
       "spdxElementId": "SPDXRef-Package-supertale-ce"
     },
     {
+      "relatedSpdxElement": "SPDXRef-Package-s3transfer",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
       "relatedSpdxElement": "SPDXRef-Package-safetensors",
       "relationshipType": "DEPENDS_ON",
       "spdxElementId": "SPDXRef-Package-supertale-ce"
@@ -3563,12 +3658,22 @@
       "spdxElementId": "SPDXRef-Package-supertale-ce"
     },
     {
+      "relatedSpdxElement": "SPDXRef-Package-wordninja",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
       "relatedSpdxElement": "SPDXRef-Package-wrapt",
       "relationshipType": "DEPENDS_ON",
       "spdxElementId": "SPDXRef-Package-supertale-ce"
     },
     {
       "relatedSpdxElement": "SPDXRef-Package-yarl",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-supertale-ce"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-yt-dlp",
       "relationshipType": "DEPENDS_ON",
       "spdxElementId": "SPDXRef-Package-supertale-ce"
     },

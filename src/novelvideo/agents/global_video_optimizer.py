@@ -164,13 +164,11 @@ def create_global_video_reviewer_agent(language: str = "en") -> Agent:
     )
     from novelvideo.official_defaults import DEFAULT_VIDEO_PROMPT_OPTIMIZER_MODEL
 
-    # [aipdd fork delta] 审核环节要对比提示词与草图帧（带图），必须隔离到
-    # VISION_MODEL_FALLBACK，避免被纯文本兜底打成 400「不支持图片能力」；
-    # 同时兜底别名指向网关内已有的视觉别名（官方 DC-* 别名体系）。
+    # [aipdd fork delta] 审核环节要对比提示词与草图帧（带图）：视觉隔离由点名的视觉
+    # 槽位别名（DC-video-prompt-optimizer-LLM，capability=vision）决定。
+    # ``GLOBAL_VIDEO_MODEL`` env 已退出解析链，模型名只听设置的。
     model = get_superpower_pydantic_model(
         feature_provider_env="GLOBAL_VIDEO_PROVIDER",
-        feature_model_env="GLOBAL_VIDEO_MODEL",
-        fallback_env="VISION_MODEL_FALLBACK",
         default_model=DEFAULT_VIDEO_PROMPT_OPTIMIZER_MODEL,
     )
     return Agent(
@@ -186,17 +184,12 @@ def create_global_video_optimizer_agent(language: str = "zh") -> Agent:
     """创建全局视频优化 Agent。"""
     from novelvideo.config import get_newapi_text_pydantic_model
 
-    legacy_model = os.environ.get("GLOBAL_VIDEO_MODEL", "").strip()
+    # [aipdd fork delta] 这一位需要读草图帧（带图），登记表把它记成 capability=vision：
+    # 带图调用的隔离与模型名都不再来自 env（``GLOBAL_VIDEO_MODEL`` 已退出解析链）。
     return Agent(
         get_newapi_text_pydantic_model(
             "GLOBAL_VIDEO_OPTIMIZER_MODEL",
-            # [req40] 旧 env GLOBAL_VIDEO_MODEL 只在用户真设了时才作为显式点名传下去：
-            # 代码不再自带任何实名，名字合不合法由渠道目录裁决。
-            legacy_model,
             capability="text.generate.agent",
-            # [aipdd fork delta] 需要读草图帧（带图），隔离到 VISION_MODEL_FALLBACK，
-            # 避免被 TEXT_MODEL_FALLBACK（ap-glm-5.2 等纯文本模型）打成 400。
-            fallback_env="VISION_MODEL_FALLBACK",
         ),
         system_prompt=(
             f"{GLOBAL_VIDEO_OPTIMIZER_INSTRUCTIONS_EN}\n\n"
@@ -756,15 +749,12 @@ def _create_identity_detector_agent() -> Agent:
         get_newapi_text_pydantic_model,
     )
 
-    legacy_model = os.environ.get("GLOBAL_VIDEO_MODEL", "").strip()
+    # [aipdd fork delta] 基于草图帧做视觉识别（带图）：隔离由登记表的
+    # capability=vision 决定，模型名不再由 env 点名。
     return Agent(
         get_newapi_text_pydantic_model(
             "GLOBAL_VIDEO_IDENTITY_DETECTOR_MODEL",
-            legacy_model,
             capability="text.generate.agent",
-            # [aipdd fork delta] 基于草图帧做视觉识别（带图），隔离到
-            # VISION_MODEL_FALLBACK。
-            fallback_env="VISION_MODEL_FALLBACK",
         ),
         system_prompt=AI_IDENTITY_DETECTOR_INSTRUCTIONS,
         model_settings=get_newapi_structured_output_model_settings(),

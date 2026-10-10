@@ -52,6 +52,8 @@ import {
   ANTHROPIC_BASE_URL,
   GEMINI_BASE_URL,
 } from "./shared";
+// [aipdd fork delta] 渠道名旁的官网直达链接（URL 真源在 @/lib/provider-labels）。
+import { ProviderOfficialSiteLink } from "./provider-official-site-link";
 
 // [aipdd fork delta] 简洁的“渠道连接”卡片：把 AIPDD / 外部 NewAPI（OpenAI 兼容）
 // 的 Base URL + Key 直接摆到自定义页最前面，点“保存并同步”即写入渠道真源（settings 库）。
@@ -272,7 +274,10 @@ function ProviderConnectCard({
     <div className="rounded-md border border-border/70 p-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-medium text-foreground">{title}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs font-medium text-foreground">{title}</p>
+            <ProviderOfficialSiteLink provider={provider} brand={title} />
+          </div>
           <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
             {description}
           </p>

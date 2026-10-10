@@ -655,10 +655,9 @@ class CogneeStore:
 
         os.environ["COGNEE_TELEMETRY_ENABLED"] = "false"
 
-        if not os.getenv("LLM_API_KEY") and not os.getenv("OPENAI_API_KEY"):
-            raise ValueError(
-                "LLM API key 未设置。请在 .env 文件中添加:\n" "  OPENAI_API_KEY=your_key_here"
-            )
+        # 不设 env 门禁。[aipdd fork delta] 网关凭据由设置页解析（init_cognee 会
+        # 报「未设置 Cognee LLM Key」），再看一次进程 env 只会把已经在设置里配好的
+        # 部署挡在一个 .env 文件上。
 
         if rebuild:
             report(INGEST_PROGRESS_MILESTONES["prune"], "清理旧图谱...")

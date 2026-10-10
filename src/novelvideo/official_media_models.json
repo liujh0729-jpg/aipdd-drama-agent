@@ -1,67 +1,8 @@
 {
   "version": 1,
-  "catalogVersion": "2026.09.11.1",
+  "catalogVersion": "2026.10.10.1",
   "name": "DramaClaw CE official media models",
   "mediaModels": {
-    "LingShan-G2": {
-      "provider": "newapi",
-      "upstreamModel": "LingShan-G2",
-      "mediaType": "image",
-      "label": "LingShan G2",
-      "enabled": true,
-      "sortOrder": 10,
-      "aliases": ["gpt-image-2", "huimeng_gpt_image2", "newapi_gpt_image2"],
-      "config": {
-        "request": {"endpoint": "images/generations", "parameters": []},
-        "ratioOptions": ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"],
-        "qualityOptions": ["low", "medium", "high"],
-        "resolutionOptions": ["1K", "2K", "4K"]
-      }
-    },
-    "LingShan-G25-Fast": {
-      "provider": "newapi",
-      "upstreamModel": "LingShan-G25-Fast",
-      "mediaType": "image",
-      "label": "LingShan G25 Fast",
-      "enabled": true,
-      "sortOrder": 11,
-      "aliases": [],
-      "config": {
-        "request": {"endpoint": "images/generations", "parameters": []},
-        "ratioOptions": ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"],
-        "qualityOptions": ["low", "medium", "high"],
-        "resolutionOptions": ["1K", "2K", "4K"]
-      }
-    },
-    "LingShan-G25-Pro": {
-      "provider": "newapi",
-      "upstreamModel": "LingShan-G25-Pro",
-      "mediaType": "image",
-      "label": "LingShan G25 Pro",
-      "enabled": true,
-      "sortOrder": 12,
-      "aliases": [],
-      "config": {
-        "request": {"endpoint": "images/generations", "parameters": []},
-        "ratioOptions": ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"],
-        "qualityOptions": ["low", "medium", "high"],
-        "resolutionOptions": ["1K", "2K", "4K"]
-      }
-    },
-    "LingShan-NB-2": {
-      "provider": "newapi",
-      "upstreamModel": "LingShan-NB-2",
-      "mediaType": "image",
-      "label": "LingShan NB 2",
-      "enabled": true,
-      "sortOrder": 20,
-      "aliases": ["nano-banana-2", "nanobanana2", "newapi_nanobanana2"],
-      "config": {
-        "request": {"endpoint": "images/generations", "parameters": []},
-        "ratioOptions": ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9", "5:4", "4:5", "1:4", "4:1", "1:8", "8:1"],
-        "resolutionOptions": ["1K", "2K", "4K"]
-      }
-    },
     "seedream-4.5": {
       "provider": "newapi",
       "upstreamModel": "seedream-4.5",
@@ -108,20 +49,6 @@
         "minPixels": 3686400,
         "ratioOptions": ["1:1", "16:9", "9:16", "3:2", "3:4", "21:9", "2:3", "4:3"],
         "resolutionOptions": ["2K", "3K"]
-      }
-    },
-    "LingShan-NB-Pro": {
-      "provider": "newapi",
-      "upstreamModel": "LingShan-NB-Pro",
-      "mediaType": "image",
-      "label": "LingShan NB Pro",
-      "enabled": true,
-      "sortOrder": 100,
-      "aliases": [],
-      "config": {
-        "request": {"endpoint": "images/generations", "parameters": []},
-        "ratioOptions": ["1:1", "9:16", "16:9", "4:3", "3:4", "2:3", "3:2", "5:4", "4:5", "21:9"],
-        "resolutionOptions": ["1K", "2K", "4K"]
       }
     },
     "wan3.0-video-prime": {

@@ -27,7 +27,32 @@ CE 的渠道选择、网关地址和 token 由网页「设置 → 模型配置�
 | `NEWAPI_TEXT_TIMEOUT_SECONDS` | `120` | 文本模型 HTTP 超时(秒)。 |
 | `NEWAPI_TEXT_TRUST_ENV` | `true` | 是否让文本客户端读系统代理;内网网关被代理拦截时设 `false`。 |
 
-约 **30 个 `*_MODEL` 逻辑模型名**（如 `HERMES_MODEL=DC-hermes-LLM`）映射到网关后台的真实模型。LocalNewAPI 的映射在网页配置——详见[配置模型供应商](../getting-started/configuring-models.md)。
+模型名**不通过环境变量配置**：每个功能位（通用文本生成、出场角色筛选、图片理解、风格分析……）
+绑哪个模型，只在网页「设置 → 模型」里选，可绑清单来自渠道目录；模板里以前那些
+`*_MODEL=DC-*-LLM` 与 `TEXT_MODEL_FALLBACK` / `VISION_MODEL_FALLBACK` 已全部退出解析链。
+原因：env 排在设置前面，面板换了模型而环境还指着旧名字时，用户看到一个模型、实际跑的是
+另一个；名字下架后更会变成网关 503 死链。解析不到时任务在提交前就报中文错误并指回设置页，
+系统绝不回落到任何预设模型名——详见[配置模型供应商](../getting-started/configuring-models.md)。
+
+### 例外：不经网关的直连旁路（默认部署内不生效）
+
+少数旁路能力直连供应商、不经过渠道目录，因此仍保留自己的 env 键与出厂默认名：
+
+| 变量 | 用途 | 生效前提 |
+|---|---|---|
+| `SCENE_SPATIAL_CONTRACT_MODEL`（回退 `OPENROUTER_VISION_MODEL`，出厂名 `openai/gpt-5.5`） | 场景 360 的空间契约 / 重叠分析 VLM | 配了 `OPENROUTER_API_KEY`，否则整段跳过 |
+| `VOXEL_VLM_MODEL` / `VOXEL_VLM_PROVIDER` | 场景体素化 codegen | 同上 |
+| `SKETCH_GATE_MODEL` / `SKETCH_GATE_PROVIDER` / `SKETCH_GATE_API_KEY` | 草图视觉质量门 | provider 与 key 同时在场，否则不做门控 |
+| `BLOCK_WORLD_MODEL`（回退 `MODEL_PROVIDER` / `MODEL_NAME`） | 导演世界 block world（宿主 codex CLI） | 宿主机装了该 CLI |
+
+这几处**不并进「设置 → 模型」清单**是有意为之：它们的模型名与端点、鉴权是解耦的——网关解析出来
+的是「网关可路由真名」，把它打给直连端点只会变成 404/400；而且默认部署里这些密钥都不配，一条也
+不会跑到。组织（多用户）部署下这些直连子进程会被 egress 边界直接拒绝，不依赖本节配置。
+
+真要在生产启用，正确顺序是：先把该供应商在「设置 → 模型网关」配成一条 OpenAI 兼容渠道，再把
+调用点整体改走网关（名字 / base_url / 密钥三件事同一个提交里成对切换），而不是只把设置里的名字
+塞给直连端点。这条约束、实证与触发条件登记在 `tests/test_no_hardcoded_model_names.py` 的
+wave3 归档说明里。
 
 ## 参考媒体 relay(可选)
 
