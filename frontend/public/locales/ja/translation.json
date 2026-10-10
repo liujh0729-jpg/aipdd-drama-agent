@@ -4070,7 +4070,7 @@
       "progress": "进度 {{percent}}%",
       "openHint": "点击查看",
       "closeHint": "点击收起",
-      "aipddAttribution": "基于DramaClaw深度优化开源"
+      "aipddAttribution": "Powered by AIPDD & DramaClaw"
     },
     "title": "任务中心",
     "toast": {

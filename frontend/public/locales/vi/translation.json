@@ -4070,7 +4070,7 @@
       "progress": "Tiến độ {{percent}}%",
       "openHint": "Bấm để mở",
       "closeHint": "Bấm để thu gọn",
-      "aipddAttribution": "Mã nguồn mở tối ưu sâu dựa trên DramaClaw"
+      "aipddAttribution": "Powered by AIPDD & DramaClaw"
     },
     "title": "Trung tâm tác vụ",
     "toast": {

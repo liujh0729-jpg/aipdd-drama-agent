@@ -4070,7 +4070,7 @@
       "progress": "Progress {{percent}}%",
       "openHint": "Click to open",
       "closeHint": "Click to collapse",
-      "aipddAttribution": "Deeply optimized open source based on DramaClaw"
+      "aipddAttribution": "Powered by AIPDD & DramaClaw"
     },
     "title": "Task Center",
     "toast": {
