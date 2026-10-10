@@ -1088,6 +1088,37 @@ def test_newapi_base_url_normalizers_keep_admin_and_relay_urls_separate():
     )
 
 
+def test_normalize_admin_base_url_adds_missing_scheme():
+    # [aipdd fork delta] 只填 host:port（漏协议）不再撞「must be an HTTP service URL」。
+    assert normalize_admin_base_url("new-api:3000") == "http://new-api:3000"
+    assert normalize_admin_base_url("new-api:3000/v1") == "http://new-api:3000"
+    assert normalize_admin_base_url("127.0.0.1:3000") == "http://127.0.0.1:3000"
+    # 已带 https 不动。
+    assert normalize_admin_base_url("https://gw.example") == "https://gw.example"
+
+
+def test_require_newapi_admin_service_unconfigured_is_actionable():
+    # [aipdd fork delta] 地址为空时报可执行提示（去哪设），而不是底层通用错。
+    from novelvideo.newapi_provisioner import (
+        ADMIN_BASE_URL_UNCONFIGURED_HINT,
+        NewApiProvisionerConfig,
+        require_newapi_admin_service,
+    )
+
+    cfg = NewApiProvisionerConfig(
+        admin_base_url="",
+        sql_dsn="local",
+        sqlite_path="/tmp/x.db",
+        admin_username="root",
+        init_timeout_ms=1000,
+        relay_token_name="relay",
+    )
+    with pytest.raises(ValueError) as exc:
+        require_newapi_admin_service(cfg)
+    assert str(exc.value) == ADMIN_BASE_URL_UNCONFIGURED_HINT
+    assert "must be an HTTP service URL" not in str(exc.value)
+
+
 def test_build_channel_payload_maps_dc_models_to_upstream_models():
     payload = build_channel_payload(
         provider="ali",

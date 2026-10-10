@@ -1835,7 +1835,7 @@
       "empty": "没有符合条件的模型。",
       "notUsed": "暂未被功能位使用",
       "inUseByCount": "被 {{n}} 个功能使用",
-      "sourceNote": "真源是本项目的设置存储，网关只是投影；渠道与别名映射请在「设置 → 模型网关」里维护。",
+      "sourceNote": "真源是本项目的设置存储，网关只是投影；渠道与别名映射请在「设置 → 模型与渠道」里维护。",
       "callKeyNote": "示例里的 <API_KEY> 填「设置 → API 密钥」生成的统一密钥（st- 开头）；同一把密钥也用于 MCP 接入，上面的网关密钥由服务端注入、无需自行填写。",
       "search": {
         "placeholder": "搜索模型名 / 上游模型 / 渠道"
@@ -1968,7 +1968,7 @@
       "libraryEmpty": "素材库里没有匹配类型的素材。",
       "libraryError": "素材库加载失败。",
       "modelLoading": "正在加载模型…",
-      "modelEmpty": "没有可用模型，请先到「设置 → 模型网关」配置该类型模型。",
+      "modelEmpty": "没有可用模型，请先到「设置 → 模型与渠道」配置该类型模型。",
       "noTasks": "暂无任务记录。",
       "openResult": "打开结果",
       "savedToLibrary": "已存入资产库「待分类资产」",
@@ -2173,7 +2173,7 @@
       "asrAuto": "自动选择（优先已就绪通道）",
       "asrHint": "留空时在执行时自动挑选能接收本地音频的已就绪候选；FunASR 需要公网音频直链，不参与本地替换。",
       "asrHintSelected": "用该候选识别原始素材中的台词，再按参考音频的音色重新合成。",
-      "asrNotConfigured": "所选 ASR 通道尚未就绪：请在「设置 → 模型网关 / 火山语音」完成配置，或改选其它候选。"
+      "asrNotConfigured": "所选 ASR 通道尚未就绪：请在「设置 → 模型与渠道 / 火山语音」完成配置，或改选其它候选。"
     },
     "videoDubbing": {
       "title": "视频配音",
@@ -2276,7 +2276,7 @@
       "engineMediakit": "火山 AI-MediaKit",
       "engineHintLocal": "本机 FFmpeg 擦除：不出网、无额外费用，复杂背景下效果一般。",
       "engineHintMediakit": "火山 AI MediaKit 云端擦除：高帧率 OCR + AIGC 图像修复，无痕重建背景；可智能识别或框选区域。",
-      "engineHintMediakitUnconfigured": "未配置 MediaKit API Key，提交后将自动回退本地擦除；可在「设置 → 模型网关」配置。",
+      "engineHintMediakitUnconfigured": "未配置 MediaKit API Key，提交后将自动回退本地擦除；可在「设置 → 模型与渠道」配置。",
       "engineHintSeedance": "AI 视频编辑：按处理指令生成式去除水印，适合复杂画面；消耗所选视频模型额度。",
       "prompt": "处理指令",
       "defaultPrompt": "去除视频中的水印与台标，保持画面其余部分不变",
@@ -2913,7 +2913,7 @@
     "clearName": "清空项目名称",
     "nameNoChinese": "项目名称不能包含中文字符",
     "nameTooLong": "项目名称最多 64 个字符",
-    "nameInvalid": "项目名称只能包含英文字母、数字和下划线",
+    "nameInvalid": "项目名称可包含中文、英文字母、数字和下划线",
     "nameExistsActive": "已存在同名项目，请更换名称",
     "nameExistsArchived": "归档中已有同名项目，请先取消归档或更换名称",
     "nameExistsDeleted": "回收站中已有同名项目，请永久删除后再创建",

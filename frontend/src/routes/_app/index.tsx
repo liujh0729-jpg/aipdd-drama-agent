@@ -103,7 +103,9 @@ const SORT_OPTIONS: { value: SortKey; labelKey: string }[] = [
   { value: "name-desc", labelKey: "project.sort.nameDesc" },
 ];
 
-const PROJECT_NAME_PATTERN = /^[a-zA-Z0-9_]+$/;
+// [aipdd fork delta] 项目名放开中文：中文 / 英文字母 / 数字 / 下划线，与后端
+// validate_project_name 同口径（仍不收 / \ . 等路径分隔符）。
+const PROJECT_NAME_PATTERN = /^[a-zA-Z0-9_\u4e00-\u9fff]+$/;
 export const PROJECT_NAME_MAX_LENGTH = 64;
 
 export function getProjectNameValidationKey(name: string): string | null {

@@ -1835,7 +1835,7 @@
       "empty": "Không có mô hình nào khớp bộ lọc.",
       "notUsed": "Chưa được tính năng nào sử dụng",
       "inUseByCount": "Được {{n}} tính năng sử dụng",
-      "sourceNote": "Nguồn thật là bảng cài đặt của dự án, gateway chỉ là bản chiếu; hãy quản lý kênh và ánh xạ bí danh trong Cài đặt → Model Gateway.",
+      "sourceNote": "Nguồn thật là bảng cài đặt của dự án, gateway chỉ là bản chiếu; hãy quản lý kênh và ánh xạ bí danh trong Cài đặt → Model & Kênh.",
       "callKeyNote": "Thay <API_KEY> trong ví dụ bằng API key thống nhất tạo trong Cài đặt → API key (bắt đầu bằng st-). Cùng khóa này cũng dùng cho MCP; khóa gateway ở trên do máy chủ chèn, không cần tự điền.",
       "search": {
         "placeholder": "Tìm mô hình / mô hình nguồn / kênh"
@@ -1968,7 +1968,7 @@
       "libraryEmpty": "Không có tài nguyên khớp loại trong thư viện.",
       "libraryError": "Không tải được thư viện.",
       "modelLoading": "Đang tải mô hình…",
-      "modelEmpty": "Không có mô hình khả dụng. Hãy cấu hình mô hình cho loại này trong Cài đặt → Cổng mô hình trước.",
+      "modelEmpty": "Không có mô hình khả dụng. Hãy cấu hình mô hình cho loại này trong Cài đặt → Model & Kênh trước.",
       "noTasks": "Chưa có tác vụ.",
       "openResult": "Mở kết quả",
       "savedToLibrary": "Đã lưu vào “Chưa phân nhóm” trong thư viện tài sản",
@@ -2173,7 +2173,7 @@
       "asrAuto": "Tự chọn (ưu tiên kênh đã sẵn sàng)",
       "asrHint": "Để tự chọn, hệ thống sẽ tìm ứng viên ASR đã sẵn sàng và nhận âm thanh cục bộ lúc chạy; FunASR cần liên kết âm thanh công khai nên không dùng cho thay thế cục bộ.",
       "asrHintSelected": "Ứng viên này sẽ nhận lời thoại từ nguồn, sau đó tổng hợp lại theo âm sắc của âm thanh tham chiếu.",
-      "asrNotConfigured": "Kênh ASR đã chọn chưa sẵn sàng: hoàn tất cấu hình trong Cài đặt → Model Gateway / VolcEngine Speech, hoặc chọn ứng viên khác."
+      "asrNotConfigured": "Kênh ASR đã chọn chưa sẵn sàng: hoàn tất cấu hình trong Cài đặt → Model & Kênh / VolcEngine Speech, hoặc chọn ứng viên khác."
     },
     "videoDubbing": {
       "title": "Lồng tiếng video",
@@ -2276,7 +2276,7 @@
       "engineMediakit": "Volcengine AI MediaKit",
       "engineHintLocal": "Chạy ffmpeg trên máy: không ra mạng, không tốn thêm phí; nền phức tạp hiệu quả có hạn.",
       "engineHintMediakit": "Xóa trên đám mây Volcengine AI MediaKit: OCR tần số cao + AIGC phục hồi nền liền mạch; hỗ trợ nhận diện tự động hoặc kéo vùng.",
-      "engineHintMediakitUnconfigured": "Chưa cấu hình API Key MediaKit; tác vụ sẽ tự động quay về xóa cục bộ. Cấu hình tại Cài đặt → Model Gateway.",
+      "engineHintMediakitUnconfigured": "Chưa cấu hình API Key MediaKit; tác vụ sẽ tự động quay về xóa cục bộ. Cấu hình tại Cài đặt → Model & Kênh.",
       "engineHintSeedance": "Chỉnh sửa video AI: xóa watermark bằng sinh tạo theo hướng dẫn, phù hợp cảnh phức tạp; dùng hạn mức mô hình video đã chọn.",
       "prompt": "Hướng dẫn xử lý",
       "defaultPrompt": "Xóa watermark và logo khỏi video, giữ nguyên phần còn lại của khung hình",
@@ -2913,7 +2913,7 @@
     "clearName": "Xoá tên dự án",
     "nameNoChinese": "Tên dự án không được chứa ký tự tiếng Trung.",
     "nameTooLong": "Tên dự án dài tối đa 64 ký tự.",
-    "nameInvalid": "Tên dự án chỉ được chứa chữ cái, chữ số và dấu gạch dưới.",
+    "nameInvalid": "Tên dự án có thể chứa chữ Hán, chữ cái, chữ số và dấu gạch dưới.",
     "nameExistsActive": "Đã có dự án trùng tên này. Hãy chọn tên khác.",
     "nameExistsArchived": "Một dự án đã lưu trữ đang dùng tên này. Hãy bỏ lưu trữ nó hoặc chọn tên khác.",
     "nameExistsDeleted": "Một dự án trùng tên đang nằm trong Thùng rác. Hãy khôi phục hoặc xoá vĩnh viễn nó trước khi tạo mới.",

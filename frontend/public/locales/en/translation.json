@@ -1835,7 +1835,7 @@
       "empty": "No models match the current filters.",
       "notUsed": "Not used by any feature slot",
       "inUseByCount": "Used by {{n}} features",
-      "sourceNote": "This project's settings store is the source of truth and the gateway is a projection; manage channels and alias mappings under Settings → Model Gateway.",
+      "sourceNote": "This project's settings store is the source of truth and the gateway is a projection; manage channels and alias mappings under Settings → Models & Channels.",
       "callKeyNote": "Replace <API_KEY> in the examples with the unified key generated under Settings → API keys (st- prefix). The same key also serves MCP access; the gateway key above is injected server-side and never entered by hand.",
       "search": {
         "placeholder": "Search model / upstream model / channel"
@@ -1968,7 +1968,7 @@
       "libraryEmpty": "No matching assets in the library.",
       "libraryError": "Failed to load the asset library.",
       "modelLoading": "Loading models…",
-      "modelEmpty": "No model available. Configure one for this media type under Settings → Model Gateway first.",
+      "modelEmpty": "No model available. Configure one for this media type under Settings → Models & Channels first.",
       "noTasks": "No tasks yet.",
       "openResult": "Open result",
       "savedToLibrary": "Saved to “Uncategorized” in the asset library",
@@ -2173,7 +2173,7 @@
       "asrAuto": "Auto (prefer a ready channel)",
       "asrHint": "When left on auto, a ready candidate that accepts local audio is picked at execution time; FunASR needs a public audio URL, so it never applies to local replacement.",
       "asrHintSelected": "This candidate transcribes the dialogue in the source, then the lines are re-synthesised with the reference timbre.",
-      "asrNotConfigured": "The selected ASR channel is not ready: finish its configuration under Settings → Model Gateway / VolcEngine Speech, or pick another candidate."
+      "asrNotConfigured": "The selected ASR channel is not ready: finish its configuration under Settings → Models & Channels / VolcEngine Speech, or pick another candidate."
     },
     "videoDubbing": {
       "title": "Video dubbing",
@@ -2276,7 +2276,7 @@
       "engineMediakit": "Volcengine AI MediaKit",
       "engineHintLocal": "Runs ffmpeg on this machine: no network, no extra cost; quality is limited on complex backgrounds.",
       "engineHintMediakit": "Cloud erasing on Volcengine AI MediaKit: high-frame-rate OCR + AIGC inpainting rebuilds the background seamlessly; works with auto-detect or box region.",
-      "engineHintMediakitUnconfigured": "MediaKit API key is not configured; submissions fall back to local erasing. Configure it in Settings → Model Gateway.",
+      "engineHintMediakitUnconfigured": "MediaKit API key is not configured; submissions fall back to local erasing. Configure it in Settings → Models & Channels.",
       "engineHintSeedance": "AI video editing: generative watermark removal per your instruction, best for complex scenes; uses the selected video model's quota.",
       "prompt": "Instruction",
       "defaultPrompt": "Remove the watermark and logo from the video, keeping the rest of the frame unchanged",
@@ -2913,7 +2913,7 @@
     "clearName": "Clear project name",
     "nameNoChinese": "Project name cannot contain Chinese characters.",
     "nameTooLong": "Project name must be at most 64 characters long.",
-    "nameInvalid": "Project name can only contain letters, numbers, and underscores.",
+    "nameInvalid": "Project name can contain Chinese characters, letters, numbers, and underscores.",
     "nameExistsActive": "A project with this name already exists. Choose another name.",
     "nameExistsArchived": "An archived project already uses this name. Unarchive it or choose another name.",
     "nameExistsDeleted": "A project with this name is in Trash. Restore or permanently delete it before creating a new one.",

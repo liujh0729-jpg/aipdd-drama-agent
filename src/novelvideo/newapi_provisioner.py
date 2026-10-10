@@ -351,6 +351,23 @@ class NewApiAdminServiceIdentity:
             raise ValueError("admin_base_url must be an HTTP service URL")
 
 
+# [aipdd fork delta] 管理面地址未配置时的可执行错误（说清去哪设、合法入口是什么）。
+# 早先这条只在 wait_for_newapi 里抛，但 ensure_newapi_setup 会先跑
+# require_newapi_admin_service 构造 identity，空地址会先撞上
+# NewApiAdminServiceIdentity 的底层通用错「must be an HTTP service URL」，
+# 把可执行提示挡住——这里统一复用同一条可执行文案。
+ADMIN_BASE_URL_UNCONFIGURED_HINT = (
+    "未配置 NewAPI 管理面地址：请在「设置 › 模型」填自定义网关的管理面地址，"
+    "或在环境变量 NEWAPI_ADMIN_BASE_URL 指定（容器内部署时是网关服务地址，"
+    "如 http://newapi:3000，不是 127.0.0.1）。"
+)
+
+
+def _is_valid_http_service_url(value: str | None) -> bool:
+    parsed = urlparse(normalize_admin_base_url(value))
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
 def require_newapi_admin_service(
     cfg: NewApiProvisionerConfig,
     *,
@@ -361,6 +378,11 @@ def require_newapi_admin_service(
 
     if context is not None:
         raise ServiceControlEgressDenied()
+    if identity is None:
+        # 地址未配置 / 非合法 HTTP 服务时，先给可执行提示（由调用方转成 4xx），
+        # 不要让 NewApiAdminServiceIdentity.__post_init__ 抛看不懂的通用错。
+        if not _is_valid_http_service_url(cfg.admin_base_url):
+            raise ValueError(ADMIN_BASE_URL_UNCONFIGURED_HINT)
     resolved = identity or NewApiAdminServiceIdentity(
         credential_id="svc-newapi-admin",
         credential_version=1,
@@ -502,6 +524,13 @@ def require_provisioner_enabled() -> None:
 
 def normalize_admin_base_url(value: str | None) -> str:
     base = str(value or "").strip().rstrip("/")
+    if not base:
+        return ""
+    # [aipdd fork delta] 允许只填 host:port（漏了协议）：补 http:// 再走后续判断，
+    # 否则 NewApiAdminServiceIdentity 会抛「must be an HTTP service URL」这种用户
+    # 看不懂的内部错误。管理面是内网 HTTP 服务，缺协议一律按 http 处理。
+    if "://" not in base:
+        base = f"http://{base}"
     if base.endswith("/v1"):
         base = base[:-3].rstrip("/")
     return base
@@ -1411,11 +1440,7 @@ def wait_for_db(cfg: NewApiProvisionerConfig) -> NewApiDB:
 def wait_for_newapi(cfg: NewApiProvisionerConfig) -> None:
     if not cfg.admin_base_url:
         # [aipdd fork delta req41] 报错要可执行：说清去哪设、两个合法入口各是什么。
-        raise RuntimeError(
-            "未配置 NewAPI 管理面地址：请在「设置 › 模型」填自定义网关的管理面地址，"
-            "或在环境变量 NEWAPI_ADMIN_BASE_URL 指定（容器内部署时是网关服务地址，"
-            "如 http://newapi:3000，不是 127.0.0.1）。"
-        )
+        raise RuntimeError(ADMIN_BASE_URL_UNCONFIGURED_HINT)
     deadline = time.monotonic() + cfg.init_timeout_ms / 1000
     last_error: Exception | None = None
     while time.monotonic() < deadline:

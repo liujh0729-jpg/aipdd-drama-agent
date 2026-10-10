@@ -147,10 +147,16 @@ def validate_project_name(name: str):
             status_code=400,
             detail="Project name must be at most 64 characters long",
         )
-    if not name or not re.match(r"^[a-zA-Z0-9_]+$", name):
+    # [aipdd fork delta] 项目名放开中文：只允许中文 / 英文字母 / 数字 / 下划线（
+    # 与用户名 USERNAME_RE 同口径）。仍不收 / \ . 等路径分隔符，中文本身不含分隔符，
+    # 项目名直接作目录名也不会路径穿越。
+    if not name or not re.match(r"^[A-Za-z0-9_\u4e00-\u9fff]+$", name):
         raise HTTPException(
             status_code=400,
-            detail="Project name must contain only letters, digits, and underscores",
+            detail=(
+                "Project name must contain only Chinese characters, "
+                "letters, digits, and underscores"
+            ),
         )
     if name.startswith(RESERVED_PROJECT_PREFIX):
         raise HTTPException(
