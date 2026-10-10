@@ -97,3 +97,77 @@ reason = "第三方许可证全文汇编(vendored),上游原文含 open source/o
 path = "DCO"
 guards = ["banned-words"]
 reason = "Developer Certificate of Origin 1.1 标准法律文本(Linux Foundation),原文含 open source license 措辞,不可改,非本项目自称"
+
+
+# ── vendored 上游文档：banned-words 守栏豁免 ─────────────────────────
+# 这些文件是随仓库一起收录的第三方 / 上游原文，措辞归上游所有、不可改写；
+# 守栏要挡的是**本项目对外自称**的措辞，因此逐文件登记（守栏按精确路径放行）。
+[[skip]]
+path = "third_party/dramaclaw-gateway/NOTICE"
+guards = ["banned-words"]
+reason = "网关 vendored 上游的法律声明原文，措辞不可改，非本项目自称"
+
+[[skip]]
+path = "third_party/dramaclaw-gateway/README.md"
+guards = ["banned-words"]
+reason = "网关 vendored 上游 README 原文，措辞不可改，非本项目自称"
+
+[[skip]]
+path = "third_party/dramaclaw-gateway/README.en.md"
+guards = ["banned-words"]
+reason = "网关 vendored 上游 README 英文译文原文，措辞不可改"
+
+[[skip]]
+path = "third_party/dramaclaw-gateway/README.fr.md"
+guards = ["banned-words"]
+reason = "网关 vendored 上游 README 法文译文原文，措辞不可改"
+
+[[skip]]
+path = "third_party/dramaclaw-gateway/README.zh_CN.md"
+guards = ["banned-words"]
+reason = "网关 vendored 上游 README 中文译文原文，措辞不可改"
+
+[[skip]]
+path = "third_party/dramaclaw-gateway/THIRD-PARTY-LICENSES.md"
+guards = ["banned-words"]
+reason = "网关第三方许可证全文汇编，上游许可证原文含该措辞"
+
+[[skip]]
+path = "third_party/dramaclaw-gateway/web/AGENTS.md"
+guards = ["banned-words"]
+reason = "网关子仓自带的贡献者说明，随上游一起 vendored"
+
+[[skip]]
+path = "third_party/ml-sharp/README.md"
+guards = ["banned-words"]
+reason = "Apple ML-Sharp vendored 上游 README 原文，措辞不可改"
+
+[[skip]]
+path = "third_party/ml-sharp/CODE_OF_CONDUCT.md"
+guards = ["banned-words"]
+reason = "Apple ML-Sharp vendored 上游行为准则原文，措辞不可改"
+
+[[skip]]
+path = "services/vectcut/README.md"
+guards = ["banned-words"]
+reason = "剪映草稿服务 vendored 上游 README 原文，措辞不可改"
+
+[[skip]]
+path = "services/vectcut/README-zh.md"
+guards = ["banned-words"]
+reason = "剪映草稿服务 vendored 上游中文 README 原文，措辞不可改"
+
+[[skip]]
+path = "services/vectcut/vectcut-skill/README.md"
+guards = ["banned-words"]
+reason = "剪映草稿服务自带技能包说明，随上游一起 vendored"
+
+[[skip]]
+path = "services/vectcut/vectcut-skill/README_EN.md"
+guards = ["banned-words"]
+reason = "剪映草稿服务自带技能包英文说明，随上游一起 vendored"
+
+[[skip]]
+path = "services/vectcut/vectcut-skill/skill/SKILL.md"
+guards = ["banned-words"]
+reason = "剪映草稿服务技能定义文件，随上游一起 vendored"

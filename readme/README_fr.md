@@ -121,7 +121,7 @@ Pourquoi, et la FAQ : <a href="https://github.com/dramaclaw/dramaclaw/issues/475
 
 ## Qu'est-ce que AIPDD-Agent-Claw ?
 
-DramaClaw est une **chaîne de production open-source pour le drame IA** — et, de plus en plus, pour tout récit visuel que vous voulez créer avec des modèles génératifs. Elle a deux visages qui partagent une seule bibliothèque d'assets et un seul agent :
+DramaClaw est une **chaîne de production source-available pour le drame IA** — et, de plus en plus, pour tout récit visuel que vous voulez créer avec des modèles génératifs. Elle a deux visages qui partagent une seule bibliothèque d'assets et un seul agent :
 
 - **XiaHua — le canvas infini.** Un atelier à base de nœuds où vous générez, éditez et reliez librement images, vidéo, audio, décors 3D et scripts, puis remontez ce qui vous plaît dans la série. C'est là qu'aujourd'hui se fait l'essentiel de notre travail créatif, et c'est là que va DramaClaw.
 - **Series (XiaJi) — le pipeline.** Déposez un manuscrit ou un scénario et DramaClaw prend en charge le gros du travail : structurer l'histoire, planifier les épisodes, écrire les scripts, dessiner les storyboards et les premières images, synthétiser la voix off, et monter le film final.
