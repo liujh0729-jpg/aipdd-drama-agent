@@ -65,7 +65,7 @@ DramaClaw مرخّص بـ <a href="../LICENSES/Elastic-2.0.txt">رخصة Elastic
 [![Release](https://img.shields.io/github/v/release/liujh0729-jpg/aipdd-drama-agent?include_prereleases&sort=semver)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](#quick-start)
 
-[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; **العربية** &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; <a href="https://dramaclaw.ai" dir="rtl">الموقع الرسمي</a> &nbsp;|&nbsp; <a href="../docs/en/README.md" dir="rtl">الوثائق</a> &nbsp;|&nbsp; <a href="../docs/en/getting-started/quickstart.md" dir="rtl">البدء السريع</a>
+[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; **العربية** &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; <a href="https://www.aipdd.work" dir="rtl">الموقع الرسمي</a> &nbsp;|&nbsp; <a href="../docs/en/README.md" dir="rtl">الوثائق</a> &nbsp;|&nbsp; <a href="../docs/en/getting-started/quickstart.md" dir="rtl">البدء السريع</a>
 
 </div>
 
@@ -225,6 +225,21 @@ DramaClaw هو **خط إنتاج مفتوح المصدر للدراما بالذ
 
 ### Xia Director — الوكيل الذكي
 
+<div align="center">
+
+**Director — الوكيل المدمج**
+
+<img src="../assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="AIPDD-Agent-Claw Director agent"/>
+
+**صفحة الأدوات بنقرة واحدة**
+
+<img src="../assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="AIPDD-Agent-Claw one-tap tools page"/>
+
+**MCP — النظام بأكمله بنحو 100 أداة**
+
+<img src="../assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="AIPDD-Agent-Claw MCP server"/>
+
+</div>
 <p align="center">
   <img src="../assets/readme/xia-director.jpg" width="900" alt="Xia Director — سياق المشروع والإجراءات المراجَعة"/>
 </p>

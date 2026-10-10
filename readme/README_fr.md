@@ -64,7 +64,7 @@ Pourquoi, et la FAQ : <a href="https://github.com/dramaclaw/dramaclaw/issues/475
 [![Release](https://img.shields.io/github/v/release/liujh0729-jpg/aipdd-drama-agent?include_prereleases&sort=semver)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](#démarrage-rapide)
 
-[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; **Français** &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; [Site officiel](https://dramaclaw.ai) &nbsp;|&nbsp; [Documentation](../docs/en/README.md) &nbsp;|&nbsp; [Démarrage rapide](../docs/en/getting-started/quickstart.md)
+[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; **Français** &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; [Site officiel](https://www.aipdd.work) &nbsp;|&nbsp; [Documentation](../docs/en/README.md) &nbsp;|&nbsp; [Démarrage rapide](../docs/en/getting-started/quickstart.md)
 
 </div>
 
@@ -200,6 +200,22 @@ Chaque étape a sa propre interface — enchaînez-les, sautez-en, reprenez depu
 <p align="center"><sub>Illustration de fonction par capture d'écran ; les détails d'interface peuvent différer de la version actuelle.</sub></p>
 
 ### Xia Director — l'agent
+
+<div align="center">
+
+**Director — l'agent intégré**
+
+<img src="../assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="AIPDD-Agent-Claw Director agent"/>
+
+**Page d'outils en un clic**
+
+<img src="../assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="AIPDD-Agent-Claw one-tap tools page"/>
+
+**MCP — tout le système en ~100 outils**
+
+<img src="../assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="AIPDD-Agent-Claw MCP server"/>
+
+</div>
 
 <p align="center">
   <img src="../assets/readme/xia-director.jpg" width="900" alt="Xia Director — project context and reviewed actions"/>

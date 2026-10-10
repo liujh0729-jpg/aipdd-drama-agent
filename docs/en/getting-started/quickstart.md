@@ -3,9 +3,9 @@
 
 # Quickstart
 
-> Run DramaClaw locally and produce your first result.
+> Run AIPDD-Agent-Claw locally and produce your first result.
 
-DramaClaw is the Community Edition (CE): it runs on a single machine with no PostgreSQL / Redis required. By default `docker compose` brings up three services: `api` (the creation backend, :8780), `newapi` (LocalNewAPI, idle until you switch to Custom or LocalNewAPI + Official Hybrid mode), and `web` (the browser UI, :8080). Models are served through the **DramaClaw official gateway** by default — paste in a DC key and you're ready to go.
+AIPDD-Agent-Claw is the Community Edition (CE): it runs on a single machine with no PostgreSQL / Redis required. By default `docker compose` brings up three services: `api` (the creation backend, :8780), `newapi` (LocalNewAPI, idle until you switch to Custom or LocalNewAPI + Official Hybrid mode), and `web` (the browser UI, :8080). Models are served through the **AIPDD official gateway** by default — paste in a DC key and you're ready to go.
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ docker compose ps   # api, newapi, and web should all be running
 
 ## Enter your DC key (one-time, required)
 
-1. Open **`http://localhost:8080`** in your browser — this is the DramaClaw UI.
+1. Open **`http://localhost:8080`** in your browser — this is the AIPDD-Agent-Claw UI.
 2. Go to Settings → **Model Configuration → Official Channel**. The gateway address is already prefilled as `https://susciyuan.com/v1`.
 3. **Paste your DC key** and click "Save and Enable". It works immediately, with **no model mapping required** (the official gateway has everything configured on the backend).
 

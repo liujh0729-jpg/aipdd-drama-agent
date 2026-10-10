@@ -64,7 +64,7 @@ DramaClaw распространяется под <a href="../LICENSES/Elastic-2
 [![Release](https://img.shields.io/github/v/release/liujh0729-jpg/aipdd-drama-agent?include_prereleases&sort=semver)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](#быстрый-старт)
 
-[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; **Русский** &nbsp;|&nbsp; [Сайт](https://dramaclaw.ai) &nbsp;|&nbsp; [Документация](../docs/en/README.md) &nbsp;|&nbsp; [Быстрый старт](../docs/en/getting-started/quickstart.md)
+[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; **Русский** &nbsp;|&nbsp; [Сайт](https://www.aipdd.work) &nbsp;|&nbsp; [Документация](../docs/en/README.md) &nbsp;|&nbsp; [Быстрый старт](../docs/en/getting-started/quickstart.md)
 
 </div>
 
@@ -200,6 +200,22 @@ DramaClaw — это **source-available производственная лин�
 <p align="center"><sub>Иллюстрация функции по скриншоту; детали интерфейса могут отличаться от текущей версии.</sub></p>
 
 ### Xia Director — агент
+
+<div align="center">
+
+**Director — встроенный агент**
+
+<img src="../assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="AIPDD-Agent-Claw Director agent"/>
+
+**Страница инструментов в один клик**
+
+<img src="../assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="AIPDD-Agent-Claw one-tap tools page"/>
+
+**MCP — вся система как ~100 инструментов**
+
+<img src="../assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="AIPDD-Agent-Claw MCP server"/>
+
+</div>
 
 <p align="center">
   <img src="../assets/readme/xia-director.jpg" width="900" alt="Xia Director — project context and reviewed actions"/>

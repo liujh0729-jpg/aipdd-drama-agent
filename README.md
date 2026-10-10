@@ -64,7 +64,9 @@ Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#4
 [![Release](https://img.shields.io/github/v/release/liujh0729-jpg/aipdd-drama-agent?include_prereleases&sort=semver)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](#quick-start)
 
-**English** &nbsp;· &nbsp; [简体中文](./readme/README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./readme/README_vi.md) &nbsp;· &nbsp; [日本語](./readme/README_ja.md) &nbsp;· &nbsp; [العربية](./readme/README_ar.md) &nbsp;· &nbsp; [Français](./readme/README_fr.md) &nbsp;· &nbsp; [Español](./readme/README_es.md) &nbsp;· &nbsp; [Русский](./readme/README_ru.md) &nbsp;|&nbsp; [Website](https://dramaclaw.ai) &nbsp;|&nbsp; [Docs](./docs/en/README.md) &nbsp;|&nbsp; [Quick Start](./docs/en/getting-started/quickstart.md)
+**English** &nbsp;· &nbsp; [简体中文](./readme/README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./readme/README_vi.md) &nbsp;· &nbsp; [日本語](./readme/README_ja.md) &nbsp;· &nbsp; [العربية](./readme/README_ar.md) &nbsp;· &nbsp; [Français](./readme/README_fr.md) &nbsp;· &nbsp; [Español](./readme/README_es.md) &nbsp;· &nbsp; [Русский](./readme/README_ru.md) &nbsp;|&nbsp;
+
+[Website](https://www.aipdd.work) &nbsp;|&nbsp; [Docs](./docs/en/README.md) &nbsp;|&nbsp; [Quick Start](./docs/en/getting-started/quickstart.md)
 
 </div>
 
@@ -158,6 +160,22 @@ We started from DramaClaw's infinite canvas and rebuilt the stack around it. On 
 **3 · Heavy re-engineering for self-hosting.** The DramaClaw gateway (AGPL-3.0), DA-2 (Apache-2.0) and ml-sharp (Apple) are **vendored** under [`third_party/`](./third_party/README.md); the whole stack builds from source, and remote catalog / release-feed calls are now **opt-in** instead of on by default.
 
 In one line: **AIPDD-Agent-Claw = DramaClaw's canvas + an agent + a ~100-tool MCP surface + a self-contained build** — a system you can drive by hand, by prompt, or from another AI agent.
+
+<div align="center">
+
+**Director — the built-in agent**
+
+<img src="./assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="AIPDD-Agent-Claw Director agent driving a project"/>
+
+**One-tap tools page**
+
+<img src="./assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="AIPDD-Agent-Claw one-tap tools page"/>
+
+**MCP — the whole system as ~100 tools**
+
+<img src="./assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="AIPDD-Agent-Claw MCP server exposing ~100 tools"/>
+
+</div>
 
 <br/>
 

@@ -3,9 +3,9 @@
 
 # 快速开始
 
-> 本地跑起 DramaClaw,产出第一个结果。
+> 本地跑起 AIPDD-Agent-Claw,产出第一个结果。
 
-DramaClaw 是社区版(CE),单机运行、无需 PostgreSQL / Redis。默认 `docker compose` 起三个服务:`api`(创作后端,:8780)、`newapi`(LocalNewAPI,切到自定义/LocalNewAPI + 官方混合模式前闲置)、`web`(浏览器界面,:8080);模型默认走 **DramaClaw 官方网关**,填一个 DC key 即用。
+AIPDD-Agent-Claw 是社区版(CE),单机运行、无需 PostgreSQL / Redis。默认 `docker compose` 起三个服务:`api`(创作后端,:8780)、`newapi`(LocalNewAPI,切到自定义/LocalNewAPI + 官方混合模式前闲置)、`web`(浏览器界面,:8080);模型默认走 **AIPDD 官方网关**,填一个 DC key 即用。
 
 ## 前置
 
@@ -33,7 +33,7 @@ docker compose ps   # api, newapi, web 应该都在运行
 
 ## 填入 DC key(必做一次)
 
-1. 浏览器打开 **`http://localhost:8080`** —— 这就是 DramaClaw 的界面。
+1. 浏览器打开 **`http://localhost:8080`** —— 这就是 AIPDD-Agent-Claw 的界面。
 2. 进入设置 → **模型配置 → 官方渠道**。网关地址已预填 `https://susciyuan.com/v1`。
 3. **粘贴你的 DC key**,点「保存并启用」。立即可用,**无需映射任何模型**(官方网关后台已配齐)。
 

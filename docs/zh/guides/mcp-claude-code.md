@@ -1,9 +1,9 @@
 <!-- lang-switch -->
 [English](../../en/guides/mcp-claude-code.md) · **简体中文**
 
-# 用 AI 客户端驱动 DramaClaw（MCP）
+# 用 AI 客户端驱动 AIPDD-Agent-Claw（MCP）
 
-DramaClaw 内置一个 [MCP](https://modelcontextprotocol.io) 服务器，把整条短剧管线
+AIPDD-Agent-Claw 内置一个 [MCP](https://modelcontextprotocol.io) 服务器，把整条短剧管线
 —— 导入、角色、剧本、分镜、首帧、视频、音频、合成、导出、剪映 / CapCut
 剪辑草稿，工具页的批量处理（视频复刻 / 混剪短视频 / 白板动画视频 / 科普讲解视频 / 一句话生成短视频 /
 人声复刻 / 对口型 / 换人 / 去水印 / 抖音文案提取），一键自动化（故事→分镜步进
@@ -11,13 +11,13 @@ DramaClaw 内置一个 [MCP](https://modelcontextprotocol.io) 服务器，把整
 图片编辑 / 生视频 / 音频 / 文本脚本 / 资源目录读 —— 共 100 个工具。
 任何会说 MCP 的客户端（**Claude Code**、Codex 等）都能用它从头做完一部短剧。
 
-服务器（`src/novelvideo/chat/dramaclaw_mcp.py`）是 DramaClaw REST API 之上的薄
+服务器（`src/novelvideo/chat/dramaclaw_mcp.py`）是 AIPDD-Agent-Claw REST API 之上的 薄
 stdio 桥：每个工具就是对你自己实例的一次 HTTP 调用，因此天然继承与网页端一致的
 鉴权、项目护栏与任务队列。
 
 ## 前置条件
 
-- 一个正在运行的 DramaClaw 实例（`docker compose up -d`，REST API 在 `:8780`）。
+- 一个正在运行的 AIPDD-Agent-Claw 实例（`docker compose up -d`，REST API 在 `:8780`）。
 - 已配置、可用的模型网关（设置 → 模型配置）—— 规划 / 写剧本不依赖模型，但
   图像 / 视频 / 音频生成需要真实可用的模型。生成可走 **AIPDD 平台的低成本闲置
   算力**、你在 **NewAPI** 里注册的任意渠道，或**本机 ComfyUI 自持 GPU**——详见

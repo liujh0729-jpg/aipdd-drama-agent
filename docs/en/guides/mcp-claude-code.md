@@ -1,9 +1,9 @@
 <!-- lang-switch -->
 **English** · [简体中文](../../zh/guides/mcp-claude-code.md)
 
-# Driving DramaClaw from an AI agent (MCP)
+# Driving AIPDD-Agent-Claw from an AI agent (MCP)
 
-DramaClaw ships an [MCP](https://modelcontextprotocol.io) server that exposes the
+AIPDD-Agent-Claw ships an [MCP](https://modelcontextprotocol.io) server that exposes the
 whole drama pipeline — ingest, characters, script, storyboards, first frames,
 video, audio, compose, export, Jianying/CapCut draft editing, the tools-page
 batch suite (video remake / short-video mixing / whiteboard animation /
@@ -17,12 +17,12 @@ tools. Any MCP-speaking agent (**Claude Code**, Codex, etc.) can use it to build
 a drama end to end.
 
 The server (`src/novelvideo/chat/dramaclaw_mcp.py`) is a thin stdio bridge over
-the DramaClaw REST API: each tool is an HTTP call to your running instance, so it
+the AIPDD-Agent-Claw REST API: each tool is an HTTP call to your running instance, so it
 inherits the same auth, project guards, and task queue as the web UI.
 
 ## Prerequisites
 
-- A running DramaClaw instance (`docker compose up -d`, REST API on `:8780`).
+- A running AIPDD-Agent-Claw instance (`docker compose up -d`, REST API on `:8780`).
 - A configured, funded model gateway (Settings → Model Config) — the agent can
   plan/script without it, but image/video/audio generation needs working models.
   Generation can ride **AIPDD's low-cost idle compute**, any **NewAPI** channel you

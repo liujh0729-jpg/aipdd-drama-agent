@@ -64,7 +64,7 @@ DramaClaw は <a href="../LICENSES/Elastic-2.0.txt">Elastic License 2.0</a> で�
 [![Release](https://img.shields.io/github/v/release/liujh0729-jpg/aipdd-drama-agent?include_prereleases&sort=semver)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](#quick-start)
 
-[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; **日本語** &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; [公式サイト](https://dramaclaw.ai) &nbsp;|&nbsp; [ドキュメント](../docs/en/README.md) &nbsp;|&nbsp; [クイックスタート](../docs/en/getting-started/quickstart.md)
+[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; **日本語** &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; [公式サイト](https://www.aipdd.work) &nbsp;|&nbsp; [ドキュメント](../docs/en/README.md) &nbsp;|&nbsp; [クイックスタート](../docs/en/getting-started/quickstart.md)
 
 </div>
 
@@ -200,6 +200,22 @@ DramaClaw は **AI ドラマのためのソース公開型プロダクション�
 <p align="center"><sub>スクリーンショットによる機能イメージ。UI の詳細は現在のリリースと異なる場合があります。</sub></p>
 
 ### Xia Director —— エージェント
+
+<div align="center">
+
+**Director —— 組み込みエージェント**
+
+<img src="../assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="AIPDD-Agent-Claw Director agent"/>
+
+**ワンタップ ツールページ**
+
+<img src="../assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="AIPDD-Agent-Claw one-tap tools page"/>
+
+**MCP —— システム全体を約 100 ツールで**
+
+<img src="../assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="AIPDD-Agent-Claw MCP server"/>
+
+</div>
 
 <p align="center">
   <img src="../assets/readme/xia-director.jpg" width="900" alt="Xia Director — project context and reviewed actions"/>
