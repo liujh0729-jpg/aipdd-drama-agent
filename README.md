@@ -64,7 +64,7 @@ Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#4
 [![Release](https://img.shields.io/github/v/release/liujh0729-jpg/aipdd-drama-agent?include_prereleases&sort=semver)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](#quick-start)
 
-**English** &nbsp;· &nbsp; [简体中文](./readme/README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./readme/README_vi.md) &nbsp;· &nbsp; [日本語](./readme/README_ja.md) &nbsp;· &nbsp; [العربية](./readme/README_ar.md) &nbsp;· &nbsp; [Français](./readme/README_fr.md) &nbsp;· &nbsp; [Español](./readme/README_es.md) &nbsp;· &nbsp; [Русский](./readme/README_ru.md) &nbsp;|&nbsp;
+**English** &nbsp;· &nbsp; [简体中文](./readme/README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./readme/README_vi.md) &nbsp;· &nbsp; [日本語](./readme/README_ja.md) &nbsp;· &nbsp; [العربية](./readme/README_ar.md) &nbsp;· &nbsp; [Français](./readme/README_fr.md) &nbsp;· &nbsp; [Español](./readme/README_es.md) &nbsp;· &nbsp; [Русский](./readme/README_ru.md) 
 
 [Website](https://www.aipdd.work) &nbsp;|&nbsp; [Docs](./docs/en/README.md) &nbsp;|&nbsp; [Quick Start](./docs/en/getting-started/quickstart.md)
 
@@ -479,18 +479,6 @@ These are being built in the open and are not in a release yet. Watch the branch
 - [Self-hosting guide](./docs/en/guides/self-hosting.md)
 - [Configuring model providers](./docs/en/getting-started/configuring-models.md)
 - [More docs &rarr;](./docs/en/README.md)
-
-<br/>
-
-## Join the Community / Contribute
-
-- [Report a Bug](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=bug_report.yml)
-- [Request a Feature](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=feature_request.yml)
-- [Join the Discussion](https://github.com/liujh0729-jpg/aipdd-drama-agent/discussions)
-- [Contributing Guide](./CONTRIBUTING.md)
-- [Security Policy](./SECURITY.md)
-
-We continuously curate and label [`good first issue`](https://github.com/liujh0729-jpg/aipdd-drama-agent/labels/good%20first%20issue) — a great place to start.
 
 <br/>
 
