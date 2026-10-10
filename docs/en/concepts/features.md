@@ -8,7 +8,7 @@ What DramaClaw CE can do — a complete pipeline that turns a **novel manuscript
 ## Creative Flow
 
 ### 📥 Import and Story Graph
-Import a novel manuscript; the `cognee` knowledge graph **parses the source text** and builds queryable **characters, relationships, and a timeline** that ground the planning that follows. You can also arrange assets and ideas directly on the **Freezone free-form canvas** as a starting point.
+Import a novel manuscript and get queryable **characters, relationships, and a timeline** to ground the planning that follows. Structured projects (`knowledge_pipeline = structured_v1`) build the graph on demand: press **Build graph** on the script page and the system extracts evidence chunk by chunk and merges it into a bounded snapshot. Legacy projects are still graphed by `cognee` during ingestion. The same page offers **One-click automation**, which runs characters → episodes → scenes / props in a single task (text understanding only, no image generation) so you can move straight to imagery. You can also arrange assets and ideas directly on the **Freezone free-form canvas** as a starting point.
 
 ### 📖 Script Generation and Episodes
 Turn the novel into a **structured script**, automatically **split into episodes and scenes**, organized in a unified script format (episode-scene, characters, shot description, dialogue, sound effects / VFX / system audio). Supports adaptation / direct-translation / storyboard modes, with a review-and-repair loop.
