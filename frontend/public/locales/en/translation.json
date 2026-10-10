@@ -3874,7 +3874,11 @@
         "scenes": "Step 3 · Extracting scenes…",
         "props": "Step 4 · Props…",
         "graph": "Step 5 · Generating the knowledge graph…",
-        "done": "Automation complete"
+        "done": "Automation complete",
+        "doneGapCast": "Automation complete, but no characters were extracted. Check the text model under Settings → Models, then retry on the Script page.",
+        "doneGapScenes": "Automation complete, but scenes were not generated. Retry them on the Scenes page.",
+        "doneGapGraph": "Automation complete, but the knowledge graph was not generated. Tap \"Generate graph\" on the Script page to retry.",
+        "doneGapsBoth": "Automation complete, but scenes and the knowledge graph were not generated. Retry each on its own page."
       },
       "ingest": {
         "reading": "Reading and validating source text...",

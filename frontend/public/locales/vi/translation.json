@@ -3874,7 +3874,11 @@
         "scenes": "Bước 3 · Trích xuất bối cảnh...",
         "props": "Bước 4 · Đạo cụ...",
         "graph": "Bước 5 · Tạo đồ thị tri thức...",
-        "done": "Tự động hóa hoàn tất"
+        "done": "Tự động hóa hoàn tất",
+        "doneGapCast": "Tự động hóa hoàn tất nhưng chưa trích xuất được nhân vật nào. Kiểm tra mô hình văn bản trong Cài đặt → Mô hình rồi thử lại ở trang Kịch bản.",
+        "doneGapScenes": "Tự động hóa hoàn tất nhưng chưa tạo bối cảnh. Có thể thử lại ở trang Bối cảnh.",
+        "doneGapGraph": "Tự động hóa hoàn tất nhưng chưa tạo đồ thị tri thức. Bấm \"Tạo đồ thị tri thức\" ở trang Kịch bản để thử lại.",
+        "doneGapsBoth": "Tự động hóa hoàn tất nhưng chưa tạo bối cảnh và đồ thị tri thức. Có thể thử lại từng phần ở trang tương ứng."
       },
       "ingest": {
         "reading": "Đang đọc và kiểm tra văn bản gốc...",
