@@ -162,6 +162,59 @@ async def test_plans_episodes_when_characters_ready():
     assert post["body"] == {"target_episodes": 8}
 
 
+async def test_yields_to_running_script_auto():
+    """一键自动化在跑时计划器必须让路：它覆盖角色/分集/场景道具，再排一步就是双 writer。"""
+    read, calls = make_read(
+        {
+            ("GET", f"{P}/story/source"): story("山"),
+            ("GET", f"{P}/story/generate-script/result"): screenplay("completed"),
+            ("GET", f"{P}/episodes"): {"ok": True, "data": []},
+            ("GET", f"{P}/tasks"): {
+                "ok": True,
+                "data": [
+                    {"task_type": "ingest_fast", "episode": 0, "status": "completed"},
+                    {
+                        "task_type": "script_auto",
+                        "episode": 0,
+                        "status": "running",
+                        "progress": 0.45,
+                        "current_task": "正在规划场景",
+                    },
+                ],
+            },
+            ("GET", f"{P}/characters"): {"ok": True, "data": []},
+        }
+    )
+    step = await plan_next(read, "test", {})
+    assert step["stage"] == "script_auto_running" and step["status"] == "running"
+    assert step["task"]["progress"] == 0.45
+    # 让路 = 不发射任何动作，也不再去读角色表（角色由自动化自己写入）。
+    assert not step["actions"]
+    assert ("GET", f"{P}/characters") not in [(c["method"], c["path"]) for c in calls]
+
+
+async def test_completed_script_auto_does_not_block_the_planner():
+    """自动化跑完就该继续推进：不能因为历史上有一条 script_auto 而永久卡住。"""
+    read, _ = make_read(
+        {
+            ("GET", f"{P}/story/source"): story("山"),
+            ("GET", f"{P}/story/generate-script/result"): screenplay("completed"),
+            ("GET", f"{P}/episodes"): {"ok": True, "data": []},
+            ("GET", f"{P}/tasks"): {
+                "ok": True,
+                "data": [
+                    {"task_type": "ingest_fast", "episode": 0, "status": "completed"},
+                    {"task_type": "script_auto", "episode": 0, "status": "completed"},
+                    {"task_type": "build_characters", "episode": 0, "status": "completed"},
+                ],
+            },
+            ("GET", f"{P}/characters"): {"ok": True, "data": [{"name": "小明"}]},
+        }
+    )
+    step = await plan_next(read, "test", {"episode_count": 6})
+    assert step["stage"] == "episodes_planning"
+
+
 # --------------------------------------------------------------------------- #
 # 逐集：身份 → 脚本（含可选故事版）→ 草图 → 首帧 → done
 # --------------------------------------------------------------------------- #

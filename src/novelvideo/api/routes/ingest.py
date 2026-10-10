@@ -148,6 +148,14 @@ async def _enqueue_ingest_followup_task(
     Shared by 「生成图谱」 and 「一键自动化」 so both answer the same two questions
     before any work is queued — is there text to analyse, and may this caller
     edit the project — and answer them in the same response shape.
+
+    No "already running" guard belongs here: the local backend reserves tasks by
+    ``(task_type, project, episode)`` and hands back the existing row while it is
+    still active, so a double click queues nothing. The two types are distinct
+    rows, and racing them costs a second pass over the same text — the sidecar
+    write is locked and atomic, so the worst case is wasted tokens, not a torn
+    graph. The UI gates the buttons against each other and the pipeline planner
+    yields to a running automation, which covers the callers that exist.
     """
 
     resolved = await resolve_project_scope(project, user, required_role="editor")

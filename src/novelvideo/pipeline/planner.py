@@ -246,6 +246,12 @@ async def _plan_project_stage(read: Read, project: str, opts: dict[str, Any]) ->
             next_hint="稍后再次调用计划器推进",
         )
 
+    # 「一键自动化」（script_auto）是一条覆盖角色→分集→场景/道具→图谱的整链任务，
+    # 写的是与下面分步动作同一批产物。它在跑时计划器必须让路，否则会自动排出第二个
+    # build_characters，两个 writer 同时改同一份 cast 状态。
+    if _task_phase(_ep0("script_auto")) == "running":
+        return _running("script_auto")
+
     characters = _rows(
         await read("GET", f"/api/v1/projects/{project}/characters"), "characters", "items"
     )
