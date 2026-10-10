@@ -14,7 +14,7 @@ services:
       args:
         # 默认精简镜像；需 3DGS/SHARP world 特性时 INSTALL_WORLD=1（Mac 无 GPU）。
         INSTALL_WORLD: "${INSTALL_WORLD:-0}"
-    image: aipdd/dramaclaw-api:${DRAMACLAW_VERSION:-2.0.99}
+    image: aipdd/dramaclaw-api:${DRAMACLAW_VERSION:-2.1.1}
     # [aipdd fork delta] 固定容器名：MCP 栏目「本地 Agent 工具」写入的
     # aipdd-drama 条目以 docker exec 进本容器启动 MCP server，需要稳定可寻址的名字
     #（品牌改名前为 dramaclaw-api，外部已接入的配置在重新连接后迁移）。
@@ -60,21 +60,13 @@ services:
       # .env 里写 NEWAPI_PUBLIC_BASE_URL=https://你的域名/gateway/v1。
       NEWAPI_PUBLIC_BASE_URL: "${NEWAPI_PUBLIC_BASE_URL:-}"
       NEWAPI_PROVISIONER_ENABLED: "${NEWAPI_PROVISIONER_ENABLED:-true}"
-      # [aipdd fork delta req41] 全局文本模型兜底**不写死模型名**。旧默认钉在具体某个
-      # 渠道的具体模型上，那份数据其实是部署方在「设置 › 模型」里选的：换渠道即失效，
-      # 模型下架后更会变成一条「代码里写着一个已不存在的模型」的死链（本批 req40 修的正是
-      # 这类死名）。
-      # 现在解析链只认：具体功能 env → 本项（若 .env 显式设了）→ 「设置 › 模型」里绑定的
-      # DC-*-LLM 槽位；三者都没有则任务前置拒 400，提示去设置页从渠道目录选模型。
-      # 想给一批功能定同一个文本模型：.env 里覆盖 TEXT_MODEL_FALLBACK=<provider>::<模型名>。
-      TEXT_MODEL_FALLBACK: "${TEXT_MODEL_FALLBACK:-}"
-      # [aipdd fork delta req41] 全局视觉模型兜底同上：不写死模型名，也不在编排里预设默认。
-      # 带图请求（草图/首尾帧/参考图、视频解读、风格分析、带图分镜脚本）绝不能被纯文本
-      # 兜底接管（网关会回 400「当前模型不支持请求所需的图片能力」）；代码侧已把这些调用
-      # 隔离到 VISION_MODEL_FALLBACK 这一档。
-      # 未绑定时同样前置拒 400，指引去设置页给视觉槽位选一个实测带图可用的模型；
-      # 需要 env 兜底时覆盖 VISION_MODEL_FALLBACK=<provider>::<模型名>。
-      VISION_MODEL_FALLBACK: "${VISION_MODEL_FALLBACK:-}"
+      # [aipdd fork delta] 这里不再有 TEXT_MODEL_FALLBACK / VISION_MODEL_FALLBACK：
+      # 模型名的真源是「设置 › 模型」的槽位绑定 + 渠道目录，环境变量不参与选名。旧的两档
+      # 全局兜底排在设置前面，容器里留着一个空值就等于留一条「换部署即失效」的隐式路由：
+      # 面板换了模型，任务还跑在 env 指的那个名字上，名字下架就撞网关 503。解析不到时任务
+      # 在提交前就报中文错误并指回设置页，绝不回落到预设模型名。
+      # 带图请求（草图/首尾帧/参考图、视频解读、风格分析、带图分镜脚本）由功能位登记的
+      # 能力档隔离，不会被纯文本模型接管。
       # [aipdd fork delta] 解除任务准入并发闸。上游默认“项目闸 12 + 人均闸 3”
       # （default 车道）是给多租户 SaaS 做公平性用的，本 fork 是单机自建部署：
       # 一个人几百个图/草图/五官垫图的批量派发会被卡在“lane is full (3/3)”
@@ -142,7 +134,7 @@ services:
     build:
       context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
       dockerfile: Dockerfile
-    image: aipdd/dramaclaw-gateway:${DRAMACLAW_VERSION:-2.0.99}
+    image: aipdd/dramaclaw-gateway:${DRAMACLAW_VERSION:-2.1.1}
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
@@ -170,7 +162,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: aipdd/dramaclaw-web:${DRAMACLAW_VERSION:-2.0.99}
+    image: aipdd/dramaclaw-web:${DRAMACLAW_VERSION:-2.1.1}
     restart: unless-stopped
     environment:
       BACKEND_HOST: api
