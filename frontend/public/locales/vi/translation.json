@@ -1876,7 +1876,7 @@
         "gateway": "Model Gateway",
         "comfyui": "ComfyUI",
         "mediakit": "Volcengine AI MediaKit",
-        "env-override": "Biến môi trường"
+        "model-slot": "Vị trí mô hình"
       },
       "capability": {
         "text": "Văn bản",
@@ -1918,10 +1918,9 @@
         "disabled": "Kênh đã bị tắt",
         "unconfigured": "Chưa cấu hình mô hình nhúng",
         "backendForcedFfmpeg": "Backend bị ép dùng ffmpeg, MediaKit không tham gia",
-        "envSet": "Đặt rõ qua biến môi trường",
-        "perEnv": "Bị ghi đè bởi biến môi trường cấp dự án",
-        "globalFallback": "Do mô hình dự phòng toàn cục đảm nhận",
-        "defaultAlias": "Dùng bí danh mặc định chính thức"
+        "defaultAlias": "Đã gán cho vị trí này",
+        "unbound": "Tính năng này chưa gắn mô hình",
+        "autoFallback": "Chưa gắn · tự theo mô hình của tính năng cùng loại"
       },
       "example": {
         "curl": "curl",
@@ -3477,6 +3476,19 @@
       "failed": "Nhập thất bại"
     },
     "previewHeading": "Xem trước cấu trúc kịch bản",
+    "graph": {
+      "build": "Tạo đồ thị tri thức",
+      "running": "Đang tạo đồ thị tri thức…",
+      "emptyTitle": "Chưa có đồ thị tri thức",
+      "emptyHint": "Nhập liệu chỉ tách văn bản. Bấm để mô hình trích xuất nhân vật và quan hệ, đồ thị sẽ xuất hiện.",
+      "buildQueued": "Đã xếp hàng tạo đồ thị tri thức"
+    },
+    "auto": {
+      "start": "Tự động hóa một chạm",
+      "hint": "Sau khi nhập, tự tạo nhân vật, phân tập, bối cảnh và đồ thị; dừng ở tài nguyên, không sinh ảnh.",
+      "running": "Đang tự động hóa…",
+      "queued": "Đã xếp hàng tự động hóa (mục tiêu {{targetEpisodes}} tập)"
+    },
     "knowledgeGraph": {
       "title": "Sơ đồ tri thức",
       "stats": "{{nodes}} node · {{edges}} mối quan hệ",
@@ -3746,6 +3758,8 @@
     "allProjects": "Tất cả dự án (+{{count}})",
     "currentOnly": "Chỉ dự án hiện tại ({{count}} dự án khác)",
     "types": {
+      "graph_preview": "Tạo đồ thị tri thức",
+      "script_auto": "Tự động hóa kịch bản",
       "build_characters": "Dựng nhân vật",
       "ingest_fast": "Nhập truyện nhanh",
       "build_episodes": "Lên kế hoạch tập phim",
@@ -3846,6 +3860,22 @@
       "withEpisode": "{{label}} (Tập {{episode}})"
     },
     "progress": {
+      "graph": {
+        "chunking": "Đang tách văn bản...",
+        "extracting": "Đang trích xuất nhân vật và quan hệ theo đoạn...",
+        "publishing": "Đang ghi xem trước đồ thị...",
+        "done": "Đã tạo xong đồ thị tri thức",
+        "noResults": "Trích xuất đồ thị không có kết quả",
+        "nothingToAnalyze": "Không có nội dung để phân tích"
+      },
+      "auto": {
+        "characters": "Bước 1 · Trích xuất nhân vật...",
+        "episodes": "Bước 2 · Lên kế hoạch phân tập...",
+        "scenes": "Bước 3 · Trích xuất bối cảnh...",
+        "props": "Bước 4 · Đạo cụ...",
+        "graph": "Bước 5 · Tạo đồ thị tri thức...",
+        "done": "Tự động hóa hoàn tất"
+      },
       "ingest": {
         "reading": "Đang đọc và kiểm tra văn bản gốc...",
         "validated": "Văn bản gốc đã hợp lệ",
@@ -3913,6 +3943,20 @@
       }
     },
     "log": {
+      "graph": {
+        "chunked": "Tách xác định: {{chunkCount}} đoạn ({{sectionType}})",
+        "reusingChunks": "Dùng lại {{cachedCount}} đoạn đã xong, chỉ chạy lại {{pendingCount}} đoạn",
+        "chunksDone": "Hoàn tất trích xuất đồ thị theo đoạn: {{succeeded}}/{{total}} thành công",
+        "chunkFailed": "⚠️ Trích xuất đồ thị đoạn {{sectionLabel}} thất bại, đã bỏ qua: {{error}}",
+        "emptyChunks": "⚠️ Văn bản tách ra không có đoạn nào, chưa tạo đồ thị",
+        "noEvidence": "⚠️ Không trích xuất được thực thể có căn cứ trong văn bản, giữ xem trước đồ thị hiện tại",
+        "published": "Đã tạo đồ thị: {{nodeCount}} nút / {{edgeCount}} quan hệ"
+      },
+      "auto": {
+        "charactersDone": "Nhân vật hoàn tất: thêm {{addedCount}}",
+        "scenesFailed": "⚠️ Trích xuất bối cảnh chưa hoàn tất, có thể chạy lại riêng: {{error}}",
+        "graphFailed": "⚠️ Chưa tạo được đồ thị tri thức, bấm “Tạo đồ thị tri thức” để chạy lại riêng: {{error}}"
+      },
       "comfyui": {
         "adaptationBound": "Tham số được nạp theo ánh xạ node đã phân tích (workflow: {{workflow}})"
       },
@@ -4250,6 +4294,7 @@
     "approvalCancel": "Hủy",
     "needStory": "Dự án chưa có câu chuyện — hãy nhập hoặc dán nội dung ở phía trên trước",
     "busy": "Tác vụ trước vẫn đang chạy — hãy chờ hoàn tất trước khi chạy toàn quy trình",
+    "provisionProjectionFailed": "Đã cấu hình mô hình nhưng đồng bộ sang kênh gateway thất bại: hãy đồng bộ lại kênh trong Cài đặt > Mô hình.",
     "settings": {
       "button": "Cài đặt trước khi chạy",
       "title": "Cài đặt trước khi chạy",
@@ -4258,8 +4303,12 @@
       "aspect": "Tỉ lệ khung",
       "aspectPortrait": "Dọc",
       "aspectLandscape": "Ngang",
-      "model": "Mô hình tạo",
-      "modelDefault": "Mặc định (chuỗi mô hình hệ thống)",
+      "models": "Mô hình toàn chuỗi",
+      "textModel": "Mô hình văn bản",
+      "imageModel": "Mô hình ảnh",
+      "videoModel": "Mô hình video",
+      "modelKeep": "Giữ hiện tại",
+      "modelsHint": "Chọn một lần là phủ toàn chuỗi: mọi vị trí chức năng dùng cho cốt truyện, kịch bản, tài nguyên, phân cảnh và phong cách đều trỏ tới nó. Để trống thì giữ nguyên thiết lập hiện tại.",
       "style": "Phong cách đạo diễn",
       "duration": "Thời lượng & số tập",
       "episodeCount": "Số tập",
@@ -8535,6 +8584,7 @@
       "baseUrlHint": "Runtime CE tự động cấu hình URL của LocalNewAPI.",
       "effectiveBadge": "Đang dùng: {{channel}}",
       "guide": "Hướng dẫn cấu hình",
+      "providerOfficialSite": "Mở trang chủ {{brand}}",
       "loading": "Đang tải…",
       "requestFailed": "Yêu cầu thất bại, vui lòng thử lại.",
       "activateMode": "Đặt làm chế độ đang dùng",

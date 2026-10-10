@@ -132,6 +132,11 @@ class AutoSceneHeadersStart(BaseModel):
     filename: str
 
 
+class IngestAutoStart(BaseModel):
+    # 一键自动化只做到资产为止，分集数量是它唯一需要用户决定的参数。
+    target_episodes: int = 10
+
+
 class AutoSceneHeadersApply(BaseModel):
     # 增强场景头文件名（uploads/ 下的 *.scenes.txt）。
     filename: str
@@ -2570,7 +2575,10 @@ class FreezoneAudioMusicRequest(BaseModel):
         description="音乐描述 prompt。",
         examples=["cinematic rain-soaked suspense music"],
     )
-    model: str = Field(default="LingShan-MU-11", description="音乐模型，默认 LingShan-MU-11。")
+    model: str = Field(
+        default="",
+        description="音乐模型；留空 = 用「设置 › 模型」里配好的默认音频模型。",
+    )
     response_format: Literal["mp3", "opus", "pcm", "ulaw", "alaw"] = Field(
         default="mp3",
         description="音频返回格式。mp3 会自动映射为 mp3_44100_128。",
@@ -2598,7 +2606,7 @@ class FreezoneAudioMusicRequest(BaseModel):
 class FreezoneMusicCreateRequest(BaseModel):
     """[aipdd fork delta req46] 工具页「音乐创作」：MiniMax Music 3.0 五种模式。
 
-    与上面的画布音乐节点不同链路：那条走网关通用音频协议 + LingShan，本条直连
+    与上面的画布音乐节点不同链路：那条走网关通用音频协议 + 默认音频位，本条直连
     厂商音乐接口（模式→字段在 ``freezone/minimax_music.py`` 收口）。模型名与站点
     都来自设置：``model`` 留空 = 用设置页「音乐默认模型」，两者皆空提交期拦住。
     """

@@ -1876,7 +1876,7 @@
         "gateway": "Model Gateway",
         "comfyui": "ComfyUI",
         "mediakit": "Volcengine AI MediaKit",
-        "env-override": "Env Overrides"
+        "model-slot": "Model Slots"
       },
       "capability": {
         "text": "Text",
@@ -1918,10 +1918,9 @@
         "disabled": "Channel is disabled",
         "unconfigured": "Embedding model not configured",
         "backendForcedFfmpeg": "Backend is forced to ffmpeg, MediaKit is bypassed",
-        "envSet": "Explicitly set via environment variable",
-        "perEnv": "Overridden by project-level env var",
-        "globalFallback": "Taken over by the global fallback model",
-        "defaultAlias": "Uses the official default alias"
+        "defaultAlias": "Bound to this slot",
+        "unbound": "No model bound to this feature yet",
+        "autoFallback": "Unbound · auto-following a sibling feature's model"
       },
       "example": {
         "curl": "curl",
@@ -3477,6 +3476,19 @@
       "failed": "Import failed"
     },
     "previewHeading": "Script Structure Preview",
+    "graph": {
+      "build": "Generate graph",
+      "running": "Generating the knowledge graph…",
+      "emptyTitle": "No knowledge graph yet",
+      "emptyHint": "Import only splits the text. Run this to have the model extract people and relations before the graph appears.",
+      "buildQueued": "Graph generation task queued"
+    },
+    "auto": {
+      "start": "One-click automation",
+      "hint": "After import, builds characters, episodes, scenes and the graph automatically. Stops at assets — no images are rendered.",
+      "running": "Automation in progress…",
+      "queued": "Automation task queued (target {{targetEpisodes}} episodes)"
+    },
     "knowledgeGraph": {
       "title": "Knowledge Graph",
       "stats": "{{nodes}} nodes · {{edges}} relationships",
@@ -3746,6 +3758,8 @@
     "allProjects": "All projects (+{{count}})",
     "currentOnly": "Current project only ({{count}} others)",
     "types": {
+      "graph_preview": "Generate graph",
+      "script_auto": "Script automation",
       "build_characters": "Build characters",
       "ingest_fast": "Quick ingest",
       "build_episodes": "Plan episodes",
@@ -3846,6 +3860,22 @@
       "withEpisode": "{{label}} (Ep {{episode}})"
     },
     "progress": {
+      "graph": {
+        "chunking": "Splitting the source…",
+        "extracting": "Extracting people and relations per chunk…",
+        "publishing": "Writing the graph preview…",
+        "done": "Knowledge graph generated",
+        "noResults": "Graph extraction returned no results",
+        "nothingToAnalyze": "Nothing to analyze"
+      },
+      "auto": {
+        "characters": "Step 1 · Extracting characters…",
+        "episodes": "Step 2 · Planning episodes…",
+        "scenes": "Step 3 · Extracting scenes…",
+        "props": "Step 4 · Props…",
+        "graph": "Step 5 · Generating the knowledge graph…",
+        "done": "Automation complete"
+      },
       "ingest": {
         "reading": "Reading and validating source text...",
         "validated": "Source text validated",
@@ -3913,6 +3943,20 @@
       }
     },
     "log": {
+      "graph": {
+        "chunked": "Deterministic split: {{chunkCount}} chunks ({{sectionType}})",
+        "reusingChunks": "Reusing {{cachedCount}} finished chunks, re-running only {{pendingCount}}",
+        "chunksDone": "Chunk graph extraction done: {{succeeded}}/{{total}} succeeded",
+        "chunkFailed": "⚠️ Graph extraction failed for chunk {{sectionLabel}}, skipped: {{error}}",
+        "emptyChunks": "⚠️ The source split into no chunks; no graph was generated",
+        "noEvidence": "⚠️ No entity backed by the source text was found; keeping the current graph preview",
+        "published": "Graph generated: {{nodeCount}} nodes / {{edgeCount}} relations"
+      },
+      "auto": {
+        "charactersDone": "Characters done: {{addedCount}} added",
+        "scenesFailed": "⚠️ Scene extraction did not finish; you can retry it separately: {{error}}",
+        "graphFailed": "⚠️ The knowledge graph was not generated; use “Generate graph” to retry separately: {{error}}"
+      },
       "comfyui": {
         "adaptationBound": "Parameters injected per the analyzed node bindings (workflow: {{workflow}})"
       },
@@ -4250,6 +4294,7 @@
     "approvalCancel": "Cancel",
     "needStory": "This project has no story yet — import or paste one above first",
     "busy": "Another task is still running — wait for it before running the pipeline",
+    "provisionProjectionFailed": "Models are configured, but syncing them to the gateway channel failed. Re-sync the channel in Settings > Models.",
     "settings": {
       "button": "Pre-run settings",
       "title": "Pre-run settings",
@@ -4258,8 +4303,12 @@
       "aspect": "Aspect ratio",
       "aspectPortrait": "Portrait",
       "aspectLandscape": "Landscape",
-      "model": "Generation model",
-      "modelDefault": "Default (system model chain)",
+      "models": "Chain models",
+      "textModel": "Text model",
+      "imageModel": "Image model",
+      "videoModel": "Video model",
+      "modelKeep": "Keep current",
+      "modelsHint": "One choice covers the whole chain: every feature slot used by story, screenplay, assets, storyboard and style points at it. Leave blank to keep the current settings.",
       "style": "Directing style",
       "duration": "Duration & episodes",
       "episodeCount": "Episodes",
@@ -8535,6 +8584,7 @@
       "baseUrlHint": "The CE runtime configures the LocalNewAPI URL automatically.",
       "effectiveBadge": "Active: {{channel}}",
       "guide": "Configuration guide",
+      "providerOfficialSite": "Open {{brand}} official site",
       "loading": "Loading…",
       "requestFailed": "Request failed, please retry.",
       "activateMode": "Set as active",

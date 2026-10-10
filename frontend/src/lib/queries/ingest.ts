@@ -178,6 +178,47 @@ export function useStartIngest(project: string) {
   });
 }
 
+// ── 导入后自动化：生成图谱 / 一键做到资产 [aipdd fork delta] ──────────────────
+
+/** 触发知识图谱生成任务。结构化项目导入后没有图谱，这里是唯一的建图入口。 */
+export function useBuildKnowledgeGraph(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      jsonWithBackendError<TaskResponse | ErrorResponse>(
+        api.post(p`api/v1/projects/${project}/ingest/graph/build`, {
+          throwHttpErrors: false,
+        }),
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.knowledgeGraph(project),
+      });
+    },
+  });
+}
+
+/** 一键自动化：角色 → 分集 → 场景 → 图谱，只做到资产为止，不出图。 */
+export function useStartIngestAuto(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params: { targetEpisodes?: number } = {}) =>
+      jsonWithBackendError<TaskResponse | ErrorResponse>(
+        api.post(p`api/v1/projects/${project}/ingest/auto`, {
+          json: { target_episodes: params.targetEpisodes ?? 10 },
+          throwHttpErrors: false,
+        }),
+      ),
+    onSuccess: () => {
+      // 任务结束时资产才会出现，先让页面知道旧结果已经不可信。
+      queryClient.invalidateQueries({ queryKey: queryKeys.chapters(project) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.knowledgeGraph(project),
+      });
+    },
+  });
+}
+
 // ── 场景头自动补全（消费默认文本 LLM）[aipdd fork delta] ──────────────────────
 
 export interface AutoSceneHeadersTaskResponse {

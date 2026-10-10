@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, Callable, Optional
 
+from novelvideo.i18n_message import MessageLike
 from novelvideo.model_gateway_runtime import model_gateway_scope_for_runner
 from novelvideo.novel_source import require_imported_novel
 from novelvideo.knowledge_pipeline import (
@@ -25,7 +26,7 @@ def _run_async(coro, envelope: dict[str, Any], task_type: str):
 
 
 def _progress(
-    ctx: ProjectContext, task_type: str, progress: float | None, task: str
+    ctx: ProjectContext, task_type: str, progress: float | None, task: MessageLike
 ) -> None:
     """进度/日志上报。
 
@@ -41,6 +42,22 @@ def _progress(
         current_task=task,
         logs=[task],
     )
+
+
+Reporter = Callable[[Optional[float], MessageLike], None]
+
+
+def _reporter(ctx: ProjectContext, task_type: str) -> Reporter:
+    """Bind progress reporting to one task type.
+
+    Callers that own several steps take this and wrap it, so a chained runner can
+    scale each step into a slice of one bar instead of driving it 0 → 100 per step.
+    """
+
+    def report(progress: Optional[float], task: MessageLike) -> None:
+        _progress(ctx, task_type, progress, task)
+
+    return report
 
 
 async def _load_store(ctx: ProjectContext):
@@ -76,25 +93,25 @@ def run_build_characters(
     return _run_async(_run_build_characters(ctx), envelope, "build_characters")
 
 
-async def _run_build_characters(ctx: ProjectContext) -> dict[str, Any]:
+async def _run_build_characters(
+    ctx: ProjectContext, *, report: Optional[Reporter] = None
+) -> dict[str, Any]:
     require_imported_novel(ctx.output_dir)
+    report = report or _reporter(ctx, "build_characters")
     store = await _load_store(ctx)
     try:
-        def on_progress(progress: float | None, task: str) -> None:
-            _progress(ctx, "build_characters", progress, task)
-
-        def on_log(message: str) -> None:
-            _progress(ctx, "build_characters", None, message)
+        def on_log(message: MessageLike) -> None:
+            report(None, message)
         if is_structured_pipeline(ctx.state_dir):
             from novelvideo.structured_builders import build_characters_structured
 
             added = await build_characters_structured(
-                store, on_progress=on_progress, on_log=on_log
+                store, on_progress=report, on_log=on_log
             )
             return {"characters": len(added), "added_characters": len(added)}
 
         characters = await store.build_characters_from_graph(
-            on_progress=on_progress,
+            on_progress=report,
             on_log=on_log,
         )
         return {"characters": len(characters), "added_characters": len(characters)}
@@ -108,7 +125,9 @@ def run_build_scenes(
     return _run_async(_run_build_scenes(ctx), envelope, "build_scenes")
 
 
-async def _run_build_scenes(ctx: ProjectContext) -> dict[str, Any]:
+async def _run_build_scenes(
+    ctx: ProjectContext, *, report: Optional[Reporter] = None
+) -> dict[str, Any]:
     require_imported_novel(ctx.output_dir)
     # The API rejects at enqueue; this is the final defence against state races
     # and producers that never went through HTTP. Only a *running* planner
@@ -123,22 +142,20 @@ async def _run_build_scenes(ctx: ProjectContext) -> dict[str, Any]:
 
     if running_scene_planner(get_task_manager().list_tasks_for_project(ctx)):
         raise ScenePlanningRunningError()
+    report = report or _reporter(ctx, "build_scenes")
     store = await _load_store(ctx)
     try:
-        def on_progress(progress: float | None, task: str) -> None:
-            _progress(ctx, "build_scenes", progress, task)
-
-        def on_log(message: str) -> None:
-            _progress(ctx, "build_scenes", None, message)
+        def on_log(message: MessageLike) -> None:
+            report(None, message)
         if is_structured_pipeline(ctx.state_dir):
             from novelvideo.structured_builders import build_scenes_structured
 
             return await build_scenes_structured(
-                store, on_progress=on_progress, on_log=on_log
+                store, on_progress=report, on_log=on_log
             )
 
         scenes = await store.build_scenes_from_graph(
-            on_progress=on_progress,
+            on_progress=report,
             on_log=on_log,
         )
         return {"scenes": len(scenes), "added_scenes": len(scenes)}
@@ -152,23 +169,23 @@ def run_build_props(
     return _run_async(_run_build_props(ctx), envelope, "build_props")
 
 
-async def _run_build_props(ctx: ProjectContext) -> dict[str, Any]:
+async def _run_build_props(
+    ctx: ProjectContext, *, report: Optional[Reporter] = None
+) -> dict[str, Any]:
+    report = report or _reporter(ctx, "build_props")
     store = await _load_store(ctx)
     try:
-        def on_progress(progress: float | None, task: str) -> None:
-            _progress(ctx, "build_props", progress, task)
-
-        def on_log(message: str) -> None:
-            _progress(ctx, "build_props", None, message)
+        def on_log(message: MessageLike) -> None:
+            report(None, message)
         if is_structured_pipeline(ctx.state_dir):
             from novelvideo.structured_builders import build_props_structured
 
             return await build_props_structured(
-                store, on_progress=on_progress, on_log=on_log
+                store, on_progress=report, on_log=on_log
             )
 
         props = await store.build_props_from_graph(
-            on_progress=on_progress,
+            on_progress=report,
             on_log=on_log,
         )
         return {"props": len(props)}
@@ -183,7 +200,10 @@ def run_build_episodes(
 
 
 async def _run_build_episodes(
-    envelope: dict[str, Any], ctx: ProjectContext
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+    *,
+    report: Optional[Reporter] = None,
 ) -> dict[str, Any]:
     from novelvideo.agents.episode_planner import EpisodePlannerAgent
 
@@ -203,9 +223,10 @@ async def _run_build_episodes(
         )
     store = await _load_store(ctx)
     try:
+        report = report or _reporter(ctx, "build_episodes")
 
-        def update(progress: float | None, task: str) -> None:
-            _progress(ctx, "build_episodes", progress, task)
+        def update(progress: float | None, task: MessageLike) -> None:
+            report(progress, task)
 
         if planning_mode == "chapters":
             episodes = await store.build_episodes_from_chapters(
@@ -246,7 +267,52 @@ async def _run_build_episodes(
         await store.close()
 
 
+def run_graph_preview(
+    envelope: dict[str, Any], ctx: ProjectContext
+) -> dict[str, Any] | None:
+    return _run_async(_run_graph_preview(ctx), envelope, "graph_preview")
+
+
+async def _run_graph_preview(
+    ctx: ProjectContext, *, report: Optional[Reporter] = None
+) -> dict[str, Any]:
+    """Materialize the graph preview sidecar the ingest page renders.
+
+    The two tracks get the preview from opposite directions: legacy reads it out
+    of the embedded graph it already built, structured has no graph to read and
+    must extract one from the source text.
+    """
+    require_imported_novel(ctx.output_dir)
+    report = report or _reporter(ctx, "graph_preview")
+    store = await _load_store(ctx)
+    try:
+        def on_log(message: MessageLike) -> None:
+            report(None, message)
+
+        if is_structured_pipeline(ctx.state_dir):
+            from novelvideo.structured_graph import build_graph_structured
+
+            snapshot = await build_graph_structured(
+                store, on_progress=report, on_log=on_log
+            )
+            return {
+                "nodes": len(snapshot.get("nodes") or []),
+                "edges": len(snapshot.get("edges") or []),
+                "published": bool(snapshot.get("published")),
+            }
+
+        snapshot = await store.materialize_graph_preview()
+        return {
+            "nodes": len(snapshot.get("nodes") or []),
+            "edges": len(snapshot.get("edges") or []),
+            "published": True,
+        }
+    finally:
+        await store.close()
+
+
 register_project_task_runner("build_characters", run_build_characters)
 register_project_task_runner("build_scenes", run_build_scenes)
 register_project_task_runner("build_props", run_build_props)
 register_project_task_runner("build_episodes", run_build_episodes)
+register_project_task_runner("graph_preview", run_graph_preview)

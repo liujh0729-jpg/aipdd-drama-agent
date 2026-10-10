@@ -22,13 +22,15 @@ from novelvideo.api.deps import resolve_project_scope
 from novelvideo.api.schemas import (
     AutoSceneHeadersApply,
     AutoSceneHeadersStart,
+    IngestAutoStart,
     IngestStart,
 )
-from novelvideo.knowledge_pipeline import is_structured_pipeline
+from novelvideo.i18n_message import LocalizableMessage, lmsg, message_text
 from novelvideo.graph_preview import (
     empty_graph_preview,
     load_graph_preview,
 )
+from novelvideo.novel_source import has_imported_novel, novel_import_required_response
 from novelvideo.project_config import (
     default_aspect_ratio_for_spine_template,
     load_project_config_file_from_state_dir,
@@ -106,10 +108,10 @@ async def get_ingest_knowledge_graph(
     if not (ctx.output_dir / "novel.txt").is_file():
         return {"ok": True, "data": empty_graph_preview()}
 
-    # structured_v1 projects never build a graph, so there is never a sidecar
-    # to read and the client renders nothing for an empty preview.
-    if is_structured_pipeline(ctx.state_dir):
-        return {"ok": True, "data": empty_graph_preview()}
+    # structured_v1 used to short-circuit here with an empty preview, because it
+    # never built a Cognee graph.  It now has a graph of its own — extracted from
+    # the source text on demand — and that lands in the same sidecar, so both
+    # tracks are served by reading the file.
 
     # Written during import, before novel.txt — which is the public "import
     # succeeded" marker — so a project that imported successfully has one.
@@ -131,6 +133,111 @@ async def get_ingest_knowledge_graph(
     if snapshot is not None:
         return {"ok": True, "data": snapshot}
     return {"ok": True, "data": empty_graph_preview()}
+
+
+async def _enqueue_ingest_followup_task(
+    *,
+    project: str,
+    user: dict,
+    task_type: str,
+    config: dict[str, Any],
+    queued_message: LocalizableMessage,
+) -> dict:
+    """Queue a post-import step against an imported script.
+
+    Shared by 「生成图谱」 and 「一键自动化」 so both answer the same two questions
+    before any work is queued — is there text to analyse, and may this caller
+    edit the project — and answer them in the same response shape.
+    """
+
+    resolved = await resolve_project_scope(project, user, required_role="editor")
+    ctx = resolved.ctx
+    if ctx is None:
+        return {
+            "ok": False,
+            "error": "该操作需要 project context",
+        }
+    if not has_imported_novel(resolved.project_dir):
+        return novel_import_required_response()
+
+    queued = await get_task_backend().enqueue_project_task(
+        ctx,
+        product_surface="mainline",
+        task_type=task_type,
+        queue_kind="default",
+        episode=0,
+        payload={
+            "config": config,
+            "output_dir": resolved.output_dir,
+            "state_dir": resolved.state_dir,
+        },
+    )
+    return {
+        "ok": True,
+        "task_type": task_type,
+        "task_id": queued.task_state.task_id,
+        "task_key": project_task_state_key(task_type, ctx.project_id, 0),
+        "backend": queued.backend,
+        "queue": queued.queue,
+        # The ingest page's budget for hardcoded Chinese is already spent, and a
+        # queued toast is exactly what ``taskResponseToastMessage`` localizes: ship
+        # the code alongside the Chinese fallback.
+        "message": message_text(queued_message),
+        "message_code": queued_message.code,
+        "message_params": dict(queued_message.params or {}),
+    }
+
+
+@router.post("/projects/{project}/ingest/graph/build")
+async def build_ingest_knowledge_graph(
+    project: str,
+    user: dict = Depends(get_api_user),
+):
+    """Extract the knowledge graph from the imported text on demand.
+
+    Import deliberately stops at splitting the text, so a structured project had
+    nothing to draw until this is clicked.  The worker reuses the chunk results
+    the cast build already paid for, so a second click is nearly free.
+    """
+
+    logger.info("[%s] build_ingest_knowledge_graph", project)
+    return await _enqueue_ingest_followup_task(
+        project=project,
+        user=user,
+        task_type="graph_preview",
+        config={},
+        queued_message=lmsg("ingest.graph.buildQueued", "图谱生成任务已进入队列"),
+    )
+
+
+@router.post("/projects/{project}/ingest/auto")
+async def start_ingest_auto(
+    project: str,
+    body: IngestAutoStart,
+    user: dict = Depends(get_api_user),
+):
+    """Run cast → episodes → scenes → graph as one task.
+
+    Stops at assets: nothing here generates an image, so a user who wants to look
+    at the cast before spending on renders still can.
+    """
+
+    logger.info(
+        "[%s] start_ingest_auto: target=%d",
+        project,
+        body.target_episodes,
+    )
+    return await _enqueue_ingest_followup_task(
+        project=project,
+        user=user,
+        task_type="script_auto",
+        config={"target_episodes": body.target_episodes},
+        queued_message=lmsg(
+            "ingest.auto.queued",
+            f"自动化任务已进入队列 (目标 {body.target_episodes} 集)",
+            targetEpisodes=body.target_episodes,
+        ),
+    )
 
 
 def _unsupported_format_response(filename: str) -> dict:

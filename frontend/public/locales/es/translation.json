@@ -1875,7 +1875,7 @@
         "gateway": "模型网关",
         "comfyui": "ComfyUI",
         "mediakit": "火山 AI MediaKit",
-        "env-override": "环境变量"
+        "model-slot": "模型功能位"
       },
       "capability": {
         "text": "文本",
@@ -1917,10 +1917,9 @@
         "disabled": "渠道已停用",
         "unconfigured": "未配置嵌入模型",
         "backendForcedFfmpeg": "后端已强制走 ffmpeg，MediaKit 不参与",
-        "envSet": "环境变量已显式设置",
-        "perEnv": "由项目级环境变量覆盖",
-        "globalFallback": "由全局兜底模型接管",
-        "defaultAlias": "走官方默认别名"
+        "defaultAlias": "已绑定该功能位",
+        "unbound": "该功能位还没绑定模型",
+        "autoFallback": "未绑定 · 自动跟随同类已绑的模型"
       },
       "example": {
         "curl": "curl",
@@ -3476,6 +3475,19 @@
       "failed": "导入失败"
     },
     "previewHeading": "剧本结构预览",
+    "graph": {
+      "build": "生成图谱",
+      "running": "正在生成知识图谱…",
+      "emptyTitle": "尚未生成知识图谱",
+      "emptyHint": "导入只完成文本切分；点击后调用模型抽取人物与关系，图谱才会出现。",
+      "buildQueued": "图谱生成任务已进入队列"
+    },
+    "auto": {
+      "start": "一键自动化",
+      "hint": "导入后自动完成角色、分集、场景与图谱，只到资产为止，不生成图片。",
+      "running": "自动化进行中…",
+      "queued": "自动化任务已进入队列 (目标 {{targetEpisodes}} 集)"
+    },
     "knowledgeGraph": {
       "title": "知识图谱",
       "stats": "{{nodes}} 个节点 · {{edges}} 条关系",
@@ -3745,6 +3757,8 @@
     "allProjects": "所有项目 (+{{count}})",
     "currentOnly": "仅本项目 (其他 {{count}})",
     "types": {
+      "graph_preview": "生成图谱",
+      "script_auto": "剧本自动化",
       "build_characters": "构建角色",
       "ingest_fast": "快速导入",
       "build_episodes": "规划剧集",
@@ -3845,6 +3859,22 @@
       "withEpisode": "{{label}}（第 {{episode}} 集）"
     },
     "progress": {
+      "graph": {
+        "chunking": "切分原文...",
+        "extracting": "逐片段抽取人物与关系...",
+        "publishing": "写入图谱预览...",
+        "done": "知识图谱生成完成",
+        "noResults": "图谱抽取无结果",
+        "nothingToAnalyze": "无可分析内容"
+      },
+      "auto": {
+        "characters": "第 1 步 · 提取角色...",
+        "episodes": "第 2 步 · 规划分集...",
+        "scenes": "第 3 步 · 提取场景...",
+        "props": "第 4 步 · 道具...",
+        "graph": "第 5 步 · 生成知识图谱...",
+        "done": "自动化完成"
+      },
       "ingest": {
         "reading": "读取并校验原文...",
         "validated": "原文校验完成",
@@ -3912,6 +3942,20 @@
       }
     },
     "log": {
+      "graph": {
+        "chunked": "确定性切分: {{chunkCount}} 个片段（{{sectionType}}）",
+        "reusingChunks": "复用 {{cachedCount}} 个已完成片段，仅重算 {{pendingCount}} 个",
+        "chunksDone": "片段图谱抽取完成: {{succeeded}}/{{total}} 成功",
+        "chunkFailed": "⚠️ 片段 {{sectionLabel}} 图谱抽取失败，已跳过: {{error}}",
+        "emptyChunks": "⚠️ 原文切分结果为空，未生成图谱",
+        "noEvidence": "⚠️ 未抽取到有原文依据的实体，保留现有图谱预览",
+        "published": "图谱已生成: {{nodeCount}} 个节点 / {{edgeCount}} 条关系"
+      },
+      "auto": {
+        "charactersDone": "角色完成：新增 {{addedCount}} 个",
+        "scenesFailed": "⚠️ 场景提取未完成，可稍后单独重试：{{error}}",
+        "graphFailed": "⚠️ 知识图谱未生成，可点击「生成图谱」单独重试：{{error}}"
+      },
       "comfyui": {
         "adaptationBound": "参数按「AI分析并自动配置」的节点绑定注入（工作流：{{workflow}}）"
       },
@@ -4249,6 +4293,7 @@
     "approvalCancel": "取消",
     "needStory": "请先在上方导入或粘贴故事内容，项目还没有故事",
     "busy": "上一个任务还在运行，请等它完成后再运行整链",
+    "provisionProjectionFailed": "模型已配齐，但同步到网关渠道失败：请到「设置 › 模型」重新同步渠道。",
     "settings": {
       "button": "运行前设置",
       "title": "运行前设置",
@@ -4257,8 +4302,12 @@
       "aspect": "画幅",
       "aspectPortrait": "竖屏",
       "aspectLandscape": "横屏",
-      "model": "生成模型",
-      "modelDefault": "默认（系统模型链）",
+      "models": "整链模型",
+      "textModel": "文本模型",
+      "imageModel": "图片模型",
+      "videoModel": "视频模型",
+      "modelKeep": "沿用当前",
+      "modelsHint": "选一次就铺满整链：故事、剧本、资产、分镜、风格用到的每个功能位都会指到它；留空则沿用现有设置。",
       "style": "导演风格",
       "duration": "时长与集数",
       "episodeCount": "集数",
@@ -8516,6 +8565,7 @@
       "baseUrlHint": "LocalNewAPI 地址由 CE 运行环境自动配置。",
       "effectiveBadge": "当前生效：{{channel}}",
       "guide": "配置手册",
+      "providerOfficialSite": "打开 {{brand}} 官网",
       "loading": "加载中…",
       "requestFailed": "请求失败，请重试。",
       "activateMode": "设为当前配置",

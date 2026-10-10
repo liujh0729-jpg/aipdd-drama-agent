@@ -16,6 +16,9 @@ export const TASK_TYPES = {
   BUILD_SCENES: "build_scenes",
   INGEST_FAST: "ingest_fast",
   BUILD_EPISODES: "build_episodes",
+  // Post-import automation (project-level, episode 0).
+  GRAPH_PREVIEW: "graph_preview",
+  SCRIPT_AUTO: "script_auto",
   CHARACTER_PORTRAIT: "character_portrait",
   IDENTITY_IMAGE: "identity_image",
   IDENTITY_PORTRAIT: "identity_portrait",

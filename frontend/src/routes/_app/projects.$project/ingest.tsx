@@ -17,10 +17,12 @@ import {
   FishSymbol,
   Info,
   Loader2,
+  Network,
   Pencil,
   Play,
   RefreshCw,
   Save,
+  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -30,10 +32,12 @@ import {
   useAutoSceneHeaders,
   useAutoSceneHeadersResult,
   useApplyAutoSceneHeaders,
+  useBuildKnowledgeGraph,
   useChapters,
   useKnowledgeGraph,
   useSaveChapter,
   useStartIngest,
+  useStartIngestAuto,
   useUploadNovel,
   type FormatCheck,
   type UploadResult,
@@ -53,8 +57,13 @@ import { IngestElapsedTime } from "@/components/ingest/IngestElapsedTime";
 import { useStyles } from "@/lib/queries/styles";
 import { useCancelTask, useTasks } from "@/lib/queries/tasks";
 import { useTaskStream } from "@/hooks/use-task-stream";
+import { useTaskActivity } from "@/task-center/use-task-activity";
 import { queryKeys } from "@/lib/query-keys";
-import { backendErrorToastMessage } from "@/lib/api-errors";
+import {
+  backendErrorResponseToastMessage,
+  backendErrorToastMessage,
+  taskResponseToastMessage,
+} from "@/lib/api-errors";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -1014,6 +1023,14 @@ export function IngestPageContent({ project }: { project: string }) {
   // [aipdd fork delta] 场景头自动补全 hooks（默认消费面板设定的默认文本 LLM）。
   const autoSceneHeadersMutation = useAutoSceneHeaders(project);
   const applyAutoSceneHeadersMutation = useApplyAutoSceneHeaders(project);
+  // [aipdd fork delta] 导入后的两步：单独生成图谱，或一键自动化到资产为止。
+  // 结构化管线（is_structured_pipeline）导入只切分落盘、不建图，图谱必须用户点一下
+  // 才调模型生成，否则后续角色/场景/道具都看不到图谱那一层。
+  const buildGraphMutation = useBuildKnowledgeGraph(project);
+  const startAutoMutation = useStartIngestAuto(project);
+  // loading 绑任务中心而不是本地 state：刷新后还在跑的建图/自动化仍能认出来。
+  const graphActivity = useTaskActivity("graph_preview", { episode: 0 });
+  const autoActivity = useTaskActivity("script_auto", { episode: 0 });
 
   useEffect(() => {
     setHideImportedPreview(readHiddenImportedPreview(project));
@@ -1098,6 +1115,79 @@ export function IngestPageContent({ project }: { project: string }) {
       });
     },
   });
+
+  // [aipdd fork delta] 图谱与自动化只在任务中心判定活跃时才连 SSE：细粒度进度
+  // 走流，「还在不在跑」以任务中心为准，刷新后仍接得上。
+  const graphStream = useTaskStream({
+    taskType: "graph_preview",
+    project,
+    episode: 0,
+    enabled: graphActivity.isActive,
+    showCompleteToast: false,
+    invalidateKeys: [queryKeys.knowledgeGraph(project)],
+  });
+  const autoStream = useTaskStream({
+    taskType: "script_auto",
+    project,
+    episode: 0,
+    enabled: autoActivity.isActive,
+    showCompleteToast: false,
+    invalidateKeys: [
+      queryKeys.characters(project),
+      queryKeys.chapters(project),
+      queryKeys.scenes(project),
+      queryKeys.props(project),
+      queryKeys.knowledgeGraph(project),
+    ],
+  });
+  // 流还没吐第一帧时退回任务中心记录的进度，避免刷新后进度条从 0 重来。
+  const graphProgress =
+    graphStream.status === "idle" ? graphActivity.progress : graphStream.progress;
+  const graphLabel = graphStream.currentTask || graphActivity.currentTask;
+  const autoProgress =
+    autoStream.status === "idle" ? autoActivity.progress : autoStream.progress;
+  const autoLabel = autoStream.currentTask || autoActivity.currentTask;
+
+  const handleBuildGraph = async () => {
+    try {
+      const res = await buildGraphMutation.mutateAsync();
+      if (res.ok === false) {
+        toast.error(backendErrorResponseToastMessage(res, t));
+        return;
+      }
+      toast.success(taskResponseToastMessage(res, t));
+      graphActivity.markStarted({ taskId: res.task_id });
+    } catch (error) {
+      toast.error(backendErrorToastMessage(error, t));
+    }
+  };
+
+  const handleStartAuto = async () => {
+    try {
+      const res = await startAutoMutation.mutateAsync({});
+      if (res.ok === false) {
+        toast.error(backendErrorResponseToastMessage(res, t));
+        return;
+      }
+      toast.success(taskResponseToastMessage(res, t));
+      autoActivity.markStarted({ taskId: res.task_id });
+    } catch (error) {
+      toast.error(backendErrorToastMessage(error, t));
+    }
+  };
+
+  // 补水完成前 isActive 还不可信，按钮先禁用，避免硬刷新后重复入队。
+  // 两个入口互斥：一键自动化本身带建图，同时跑会争同一份侧车。
+  const graphBuildDisabled =
+    buildGraphMutation.isPending ||
+    graphActivity.isActive ||
+    graphActivity.isRestoring ||
+    autoActivity.isActive;
+  const autoStartDisabled =
+    startAutoMutation.isPending ||
+    autoActivity.isActive ||
+    autoActivity.isRestoring ||
+    graphActivity.isActive;
 
   // Mount reconcile：导入实际在服务端(celery)跑。用户导入中切走再回来，本地
   // 的 ingestStarted/ingestSubmitted 全部重置、SSE 也不重连，而此时章节尚未
@@ -2192,6 +2282,58 @@ export function IngestPageContent({ project }: { project: string }) {
               {/* Preview — populated */}
               {chaptersData && chapterCount > 0 && (
                 <div className="space-y-4">
+                  {/* [aipdd fork delta] 导入后的自动化操作条：一键做到资产 / 单独生成图谱。 */}
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleStartAuto}
+                      disabled={autoStartDisabled}
+                    >
+                      {autoActivity.isActive || autoActivity.isRestoring ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="size-3.5" />
+                      )}
+                      {t("ingest.auto.start")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleBuildGraph}
+                      disabled={graphBuildDisabled}
+                    >
+                      {graphActivity.isActive || graphActivity.isRestoring ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Network className="size-3.5" />
+                      )}
+                      {t("ingest.graph.build")}
+                    </Button>
+                    <p className="ml-auto text-xs text-muted-foreground">
+                      {t("ingest.auto.hint")}
+                    </p>
+                  </div>
+
+                  {autoActivity.isActive && (
+                    <div className="rounded-xl border border-violet-300/10 bg-violet-500/[0.04] p-3">
+                      <p className="text-xs font-medium text-foreground">
+                        {autoLabel || t("ingest.auto.running")}
+                      </p>
+                      <Progress value={autoProgress * 100} className="mt-2" />
+                    </div>
+                  )}
+
+                  {graphActivity.isActive && (
+                    <div className="rounded-xl border border-violet-300/10 bg-violet-500/[0.04] p-3">
+                      <p className="text-xs font-medium text-foreground">
+                        {graphLabel || t("ingest.graph.running")}
+                      </p>
+                      <Progress value={graphProgress * 100} className="mt-2" />
+                    </div>
+                  )}
+
                   {knowledgeGraph.isLoading && (
                     <div className="h-[520px] overflow-hidden rounded-2xl border border-violet-300/10 bg-[#05050a] p-5">
                       <div className="flex items-center gap-3">
@@ -2207,6 +2349,34 @@ export function IngestPageContent({ project }: { project: string }) {
 
                   {knowledgeGraph.data?.data.nodes.length ? (
                     <KnowledgeGraphVisualization graph={knowledgeGraph.data.data} />
+                  ) : knowledgeGraph.isFetched && !graphActivity.isActive ? (
+                    <div className="flex min-h-28 flex-wrap items-center justify-between gap-4 rounded-xl border border-dashed border-white/[0.08] bg-white/[0.025] p-4">
+                      <div className="flex items-start gap-3">
+                        <Network className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {t("ingest.graph.emptyTitle")}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t("ingest.graph.emptyHint")}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleBuildGraph}
+                        disabled={graphBuildDisabled}
+                      >
+                        {graphActivity.isActive || graphActivity.isRestoring ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="size-3.5" />
+                        )}
+                        {t("ingest.graph.build")}
+                      </Button>
+                    </div>
                   ) : null}
 
                   {knowledgeGraph.isError && (
