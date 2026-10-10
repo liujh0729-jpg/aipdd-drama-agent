@@ -354,6 +354,116 @@ async def test_terminal_message_names_every_missing_derived_step(
     assert _last_progress_code(manager) == "tasks.progress.auto.doneGapsBoth"
 
 
+class _CastStore:
+    """Only what ``_cast_is_empty`` touches: the cast rows and a clean close."""
+
+    def __init__(self, names: list[str]) -> None:
+        self._names = names
+        self.closed = 0
+
+    async def list_characters(self):
+        return [{"name": name} for name in self._names]
+
+    async def close(self) -> None:
+        self.closed += 1
+
+
+async def _zero_cast(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, manager: _RecordingTaskManager
+) -> None:
+    monkeypatch.setattr(script_auto, "require_imported_novel", lambda _dir: None)
+    await _success_steps(monkeypatch)
+
+    async def no_characters(_ctx, *, report=None):
+        report(1.0, "角色 100%")
+        return {"characters": 0, "added_characters": 0}
+
+    monkeypatch.setattr(script_auto, "_run_build_characters", no_characters)
+    _patch_reporting(monkeypatch, manager)
+
+
+async def test_terminal_message_names_an_empty_cast(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """模型没答出角色、角色页还是空的，终态就不能只写「自动化完成」。
+
+    这是用户报的第一现场：导入文本后没有角色，因此后面什么都没有了。
+    """
+    manager = _RecordingTaskManager()
+    await _zero_cast(tmp_path, monkeypatch, manager)
+    store = _CastStore([])
+
+    async def fake_load_store(_ctx):
+        return store
+
+    monkeypatch.setattr(script_auto, "_load_store", fake_load_store)
+
+    await script_auto._run_script_auto(_envelope(), _ctx(tmp_path))
+
+    assert _last_progress_code(manager) == "tasks.progress.auto.doneGapCast"
+    assert store.closed == 1
+
+
+async def test_a_rebuild_that_adds_nobody_is_not_reported_as_a_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """已有完整角色班底时「本轮新增 0 个」是正常结果，不许报警。
+
+    误报一次，用户以后就不会再看终态那行字了。
+    """
+    manager = _RecordingTaskManager()
+    await _zero_cast(tmp_path, monkeypatch, manager)
+
+    async def fake_load_store(_ctx):
+        return _CastStore(["叶辰"])
+
+    monkeypatch.setattr(script_auto, "_load_store", fake_load_store)
+
+    await script_auto._run_script_auto(_envelope(), _ctx(tmp_path))
+
+    assert _last_progress_code(manager) == "tasks.progress.auto.done"
+
+
+async def test_an_unconfirmable_cast_count_stays_quiet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """确认不了就不开口：读不到库不代表角色是空的。"""
+    manager = _RecordingTaskManager()
+    await _zero_cast(tmp_path, monkeypatch, manager)
+
+    async def broken_load(_ctx):
+        raise RuntimeError("库读不了")
+
+    monkeypatch.setattr(script_auto, "_load_store", broken_load)
+
+    await script_auto._run_script_auto(_envelope(), _ctx(tmp_path))
+
+    assert _last_progress_code(manager) == "tasks.progress.auto.done"
+
+
+async def test_the_verdict_is_handed_to_the_completion_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """终态那句判断必须同时进 result，否则 complete 会把它盖成「完成」。
+
+    进度上报只写当前行文案，收尾的 ``complete_task_for_project`` 紧接着用「完成」
+    覆盖行首；判断就只剩日志 Tab 里一行了。
+    """
+    manager = _RecordingTaskManager()
+    await _zero_cast(tmp_path, monkeypatch, manager)
+
+    async def fake_load_store(_ctx):
+        return _CastStore([])
+
+    monkeypatch.setattr(script_auto, "_load_store", fake_load_store)
+
+    results = await script_auto._run_script_auto(_envelope(), _ctx(tmp_path))
+
+    entry = results["completion_message"]
+    assert entry["code"] == "tasks.progress.auto.doneGapCast"
+    assert "未提取到角色" in entry["text"]
+
+
 async def test_full_chain_still_reports_a_plain_done(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

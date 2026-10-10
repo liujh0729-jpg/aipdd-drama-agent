@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Optional
 
-from novelvideo.i18n_message import MessageLike
+from novelvideo.i18n_message import LocalizableMessage, MessageLike, log_entry_payload
 from novelvideo.model_gateway_runtime import model_gateway_scope_for_runner
 from novelvideo.novel_source import require_imported_novel
 from novelvideo.knowledge_pipeline import (
@@ -270,7 +270,32 @@ async def _run_build_episodes(
 def run_graph_preview(
     envelope: dict[str, Any], ctx: ProjectContext
 ) -> dict[str, Any] | None:
-    return _run_async(_run_graph_preview(ctx), envelope, "graph_preview")
+    return _run_async(_run_graph_preview_standalone(ctx), envelope, "graph_preview")
+
+
+async def _run_graph_preview_standalone(ctx: ProjectContext) -> dict[str, Any]:
+    """「生成图谱」按钮单独跑时，收尾那行字要留在终态上。
+
+    这个按钮正是一键自动化说「图谱未生成」之后用户会点的那个。抽取无结果时
+    builder 已经把进度打到 100% 并写了「图谱抽取无结果」，但 core 收尾统一盖成
+    「完成」，用户看到的仍是一个成功的空结果。把最后一行 100% 的文案交给 core，
+    终态就说了真话；legacy 轨没有 100% 的上报，照旧回落「完成」。
+    """
+    verdict: dict[str, MessageLike] = {}
+    inner = _reporter(ctx, "graph_preview")
+
+    def report(progress: Optional[float], task: MessageLike) -> None:
+        if progress is not None and float(progress) >= 1.0:
+            verdict["line"] = task
+        inner(progress, task)
+
+    result = await _run_graph_preview(ctx, report=report)
+    line = verdict.get("line")
+    if isinstance(line, LocalizableMessage):
+        from novelvideo.task_backend.run_core import COMPLETION_MESSAGE_KEY
+
+        result[COMPLETION_MESSAGE_KEY] = log_entry_payload(line)
+    return result
 
 
 async def _run_graph_preview(

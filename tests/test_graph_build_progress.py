@@ -122,3 +122,50 @@ def test_update_progress_with_none_keeps_stored_progress(tmp_path: Path) -> None
     assert task is not None
     assert task.progress == 0.8
     assert task.current_task == "跳过 3 条重复记录"
+
+
+async def test_standalone_graph_keeps_its_closing_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """「生成图谱」抽不出东西时，终态那行字必须留得下来。
+
+    builder 把进度打到 100% 并写了「图谱抽取无结果」，core 收尾却统一盖「完成」，
+    于是空结果长得和成功一模一样。这里把最后一行 100% 的文案交给 core。
+    """
+    from novelvideo.i18n_message import lmsg
+    from novelvideo.task_backend.runners import graph_build
+
+    manager = _RecordingTaskManager()
+    monkeypatch.setattr(graph_build, "get_task_manager", lambda: manager)
+
+    async def no_results(_ctx, *, report=None):
+        report(1.0, lmsg("tasks.progress.graph.noResults", "图谱抽取无结果"))
+        return {"nodes": 0, "edges": 0, "published": False}
+
+    monkeypatch.setattr(graph_build, "_run_graph_preview", no_results)
+
+    result = await graph_build._run_graph_preview_standalone(_ctx(tmp_path))
+
+    entry = result["completion_message"]
+    assert entry["code"] == "tasks.progress.graph.noResults"
+    assert entry["text"] == "图谱抽取无结果"
+
+
+async def test_a_graph_run_without_a_closing_line_stays_silent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """legacy 轨压根不打 100% 的收尾行，就不许凭空造出一句终态。"""
+    from novelvideo.task_backend.runners import graph_build
+
+    manager = _RecordingTaskManager()
+    monkeypatch.setattr(graph_build, "get_task_manager", lambda: manager)
+
+    async def legacy(_ctx, *, report=None):
+        report(0.6, "读取图谱")
+        return {"nodes": 12, "edges": 30, "published": True}
+
+    monkeypatch.setattr(graph_build, "_run_graph_preview", legacy)
+
+    result = await graph_build._run_graph_preview_standalone(_ctx(tmp_path))
+
+    assert "completion_message" not in result

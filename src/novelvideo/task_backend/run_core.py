@@ -13,6 +13,7 @@ from novelvideo.egress_context import (
     TrustedEgressContext,
     TrustedRunnerEnvelope,
 )
+from novelvideo.i18n_message import LocalizableMessage
 from novelvideo.model_gateway_runtime import model_gateway_scope_for_runner
 from novelvideo.ports import get_usage_meter
 from novelvideo.ports.authz import AdmissionContext
@@ -44,6 +45,10 @@ from novelvideo.task_state import project_task_run_context
 
 logger = logging.getLogger(__name__)
 
+
+#: Result key a runner may use to hand the task center its closing line. See
+#: ``_take_completion_message``.
+COMPLETION_MESSAGE_KEY = "completion_message"
 
 _PROJECT_TASK_RESOURCE_KINDS = {
     "ingest_fast": "ingest",
@@ -98,6 +103,36 @@ _PROJECT_TASK_RESOURCE_KINDS = {
 
 def _resource_kind_for_task(task_type: str) -> str:
     return _PROJECT_TASK_RESOURCE_KINDS.get(task_type, "")
+
+
+def _take_completion_message(result: Any) -> LocalizableMessage | None:
+    """Pull a runner's own closing line off its result, if it published one.
+
+    The completed row used to always read 「完成」, which threw away the graded
+    verdict a chained runner just reported: a one-click automation that ended with
+    an empty cast left 「完成」 as the last thing the user saw, indistinguishable
+    from a run that produced everything. Opt-in by design - a runner that does not
+    set ``completion_message`` keeps the old copy, and the word 「完成」 stays in the
+    row as the fallback for every caller that still greps for it.
+
+    The key is removed rather than read, so it never reaches ``result_json``.
+    """
+    if not isinstance(result, dict):
+        return None
+    entry = result.pop(COMPLETION_MESSAGE_KEY, None)
+    if isinstance(entry, LocalizableMessage):
+        return entry
+    if not isinstance(entry, dict):
+        return None
+    code = str(entry.get("code") or "").strip()
+    if not code:
+        return None
+    params = entry.get("params")
+    return LocalizableMessage(
+        code=code,
+        text=str(entry.get("text") or ""),
+        params=params if isinstance(params, dict) and params else None,
+    )
 
 
 def _metrics_user_id_for_project_context(ctx: Any) -> str:
@@ -753,6 +788,7 @@ def run_project_task_core_sync(
 
             completion_error: BaseException | None = None
             try:
+                completion_message = _take_completion_message(result)
                 manager.complete_task_for_project(
                     ctx,
                     task_type,
@@ -760,8 +796,10 @@ def run_project_task_core_sync(
                     beat_num=beat_num,
                     scope=scope,
                     result=result or {"ok": True},
-                    current_task="完成",
-                    logs=["完成"],
+                    # A runner that ends on a graded verdict gets to keep it on the
+                    # completed row instead of being flattened to 「完成」.
+                    current_task=completion_message or "完成",
+                    logs=[completion_message or "完成"],
                     metadata=_completion_metadata_with_provider_task_id(
                         run_metadata, result
                     ),

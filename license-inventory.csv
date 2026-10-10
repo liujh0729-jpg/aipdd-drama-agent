@@ -2881,6 +2881,7 @@ tests/test_task_backend_queues.py,Elastic-2.0,2026 SuperTale contributors,REUSE.
 tests/test_task_backend_registry.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 tests/test_task_beat_attribution.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 tests/test_task_cancel_keys.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
+tests/test_task_completion_message.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 tests/test_task_credit_errors.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 tests/test_task_delivery_semantics.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 tests/test_task_envelope.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation

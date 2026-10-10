@@ -22,12 +22,13 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from novelvideo.i18n_message import MessageLike, lmsg
+from novelvideo.i18n_message import MessageLike, log_entry_payload, lmsg
 from novelvideo.novel_source import require_imported_novel
 from novelvideo.project_context import ProjectContext
 from novelvideo.task_backend.registry import register_project_task_runner
 from novelvideo.task_backend.runners.graph_build import (
     Reporter,
+    _load_store,
     _reporter,
     _run_async,
     _run_build_characters,
@@ -57,6 +58,30 @@ _STEP_TITLES: dict[str, MessageLike] = {
     "props": lmsg("tasks.progress.auto.props", "第 4 步 · 道具..."),
     "graph": lmsg("tasks.progress.auto.graph", "第 5 步 · 生成知识图谱..."),
 }
+
+
+async def _cast_is_empty(ctx: ProjectContext) -> bool:
+    """Whether the project really has no cast, as opposed to gaining none this round.
+
+    A build that returns zero characters is either a model that answered with nothing
+    or a re-run over a cast that is already complete, and only the first is worth a
+    warning line. The store is opened on the zero path alone, so a normal run pays
+    nothing for the check; anything that goes wrong while confirming counts as
+    "cannot prove a gap", which stays quiet rather than crying wolf.
+    """
+    try:
+        store = await _load_store(ctx)
+    except Exception:  # noqa: BLE001 - unconfirmed is not a gap
+        return False
+    try:
+        return not await store.list_characters()
+    except Exception:  # noqa: BLE001
+        return False
+    finally:
+        try:
+            await store.close()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def _step_reporter(report: Reporter, step: str) -> Reporter:
@@ -104,6 +129,8 @@ async def _run_script_auto(
     report(_STEP_WINDOWS["characters"][0], _STEP_TITLES["characters"])
     added = await _run_build_characters(ctx, report=_step_reporter(report, "characters"))
     results["characters"] = added
+    # Zero new characters only means the cast page is empty if nothing was there before.
+    cast_gap = int(added.get("characters") or 0) == 0 and await _cast_is_empty(ctx)
     report(
         None,
         lmsg(
@@ -169,7 +196,7 @@ async def _run_script_auto(
     # 派生步骤失败时整链仍然是 completed（前面发布的资产不该被推翻），但终态不能
     # 谎报成一句「自动化完成」：现场见过整轮跑完、进度条 100%、图谱却是空的，用户
     # 只会认为按钮没生效。缺哪一段就写在最后一行上，任务中心不用展开日志也能看懂。
-    # 措辞按组合分档，不把已本地化的标签拼进另一条本地化消息里。
+    # 分档按「越靠前越根本」取一条，不把已本地化的标签拼进另一条本地化消息里。
     scenes_gap = isinstance(results.get("scenes"), dict) and bool(
         results["scenes"].get("error")
     )
@@ -177,32 +204,35 @@ async def _run_script_auto(
     graph_gap = isinstance(graph, dict) and bool(
         graph.get("error") or graph.get("published") is False
     )
-    if scenes_gap and graph_gap:
-        report(
-            1.0,
-            lmsg(
-                "tasks.progress.auto.doneGapsBoth",
-                "自动化完成，但场景与知识图谱未生成，可在对应页面单独重试",
-            ),
+    if cast_gap:
+        # The cast is the step every other page hangs off; when it comes back empty the
+        # gap is the model answer, not the scene or graph rows underneath it.
+        terminal = lmsg(
+            "tasks.progress.auto.doneGapCast",
+            "自动化完成，但未提取到角色，请检查「设置 › 模型」的文本模型后在剧本页重试",
+        )
+    elif scenes_gap and graph_gap:
+        terminal = lmsg(
+            "tasks.progress.auto.doneGapsBoth",
+            "自动化完成，但场景与知识图谱未生成，可在对应页面单独重试",
         )
     elif graph_gap:
-        report(
-            1.0,
-            lmsg(
-                "tasks.progress.auto.doneGapGraph",
-                "自动化完成，但知识图谱未生成，可在剧本页点击「生成图谱」单独重试",
-            ),
+        terminal = lmsg(
+            "tasks.progress.auto.doneGapGraph",
+            "自动化完成，但知识图谱未生成，可在剧本页点击「生成图谱」单独重试",
         )
     elif scenes_gap:
-        report(
-            1.0,
-            lmsg(
-                "tasks.progress.auto.doneGapScenes",
-                "自动化完成，但场景未生成，可在场景页单独重试",
-            ),
+        terminal = lmsg(
+            "tasks.progress.auto.doneGapScenes",
+            "自动化完成，但场景未生成，可在场景页单独重试",
         )
     else:
-        report(1.0, lmsg("tasks.progress.auto.done", "自动化完成"))
+        terminal = lmsg("tasks.progress.auto.done", "自动化完成")
+    report(1.0, terminal)
+    # The completion write would otherwise overwrite the row's headline with 「完成」
+    # and this verdict would only survive inside the log tab. Hand it to the runner
+    # core instead, which keeps it as the closing line on the completed row.
+    results["completion_message"] = log_entry_payload(terminal)
     return results
 
 
