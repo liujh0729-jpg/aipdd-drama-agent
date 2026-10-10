@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import mimetypes
 import os
 from pathlib import Path
@@ -19,12 +20,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 from novelvideo.config import (
     HUIMENG_IMAGE_MODEL,
-    NEWAPI_IMAGE_MODEL,
     OPENAI_IMAGE_MODEL,
     OPENROUTER_GPT_IMAGE2_MODEL,
     OUTPUT_DIR,
-    SCENE_360_HUIMENG_MODEL,
-    SCENE_360_IMAGE_MODEL,
     SCENE_360_IMAGE_PROVIDER,
     SCENE_360_PROVIDER,
     get_style_preset,
@@ -57,6 +55,92 @@ SCENE_360_MASTER_THUMB_MAX_SIDE = 768
 SCENE_360_MASTER_THUMB_JPEG_QUALITY = 70
 SPATIAL_CONTRACT_SCHEMA_VERSION = "scene_spatial_contract_v8_topology_only_locks"
 SAFE_SEAM_SPHERE_YAW_DEG = -90.0
+
+logger = logging.getLogger(__name__)
+
+# 每张参考图在请求里的身份。渠道按张数拒单时，靠这个身份决定谁先被扔下。
+SCENE_360_REF_MASTER = "master"
+SCENE_360_REF_REVERSE = "reverse"
+SCENE_360_REF_DIRECTION_GUIDE = "direction_guide"
+SCENE_360_REF_TOPOLOGY_STRIP = "topology_strip"
+SCENE_360_REF_SPATIAL_LAYOUT = "spatial_layout"
+# 保留优先级（高 → 低）：master 是视觉圣经、spatial_layout 是几何事实，这两个不可再生；
+# reverse 是另一半半球的画面；direction_guide / topology_strip 都是按 master+reverse 现算
+# 出来的辅助图，丢了对模型的伤害最小。master 永远不丢。
+SCENE_360_REF_KEEP_PRIORITY: tuple[str, ...] = (
+    SCENE_360_REF_MASTER,
+    SCENE_360_REF_SPATIAL_LAYOUT,
+    SCENE_360_REF_REVERSE,
+    SCENE_360_REF_DIRECTION_GUIDE,
+    SCENE_360_REF_TOPOLOGY_STRIP,
+)
+# 角色 → ``build_prompt`` 的开关名，用来按「这次真发出去哪几张」重算提示词里的图序。
+SCENE_360_REF_PROMPT_FLAGS: dict[str, str] = {
+    SCENE_360_REF_MASTER: "has_master",
+    SCENE_360_REF_REVERSE: "has_reverse",
+    SCENE_360_REF_DIRECTION_GUIDE: "has_direction_guide",
+    SCENE_360_REF_TOPOLOGY_STRIP: "has_topology_strip",
+    SCENE_360_REF_SPATIAL_LAYOUT: "has_spatial_layout",
+}
+
+# [aipdd fork delta] 渠道拒绝「一次递太多参考图」的文案两种语言都不统一，只能按语义
+# 特征认：得同时出现「参考图/输入图」这类主语和「减少/超出/too many」这类理由，
+# 单命中一个词不算，免得把鉴权、限额之类的错也当成降级的信号。
+_SCENE_360_REF_COUNT_SUBJECTS: tuple[str, ...] = (
+    "参考图",
+    "参考图像",
+    "输入图",
+    "图片数量",
+    "图像数量",
+    "reference image",
+    "input image",
+    "image count",
+    "images",
+)
+_SCENE_360_REF_COUNT_REASONS: tuple[str, ...] = (
+    "减少",
+    "无法处理",
+    "超过",
+    "超出",
+    "最多",
+    "至多",
+    "上限",
+    "不支持",
+    "数量",
+    "too many",
+    "reduce",
+    "exceed",
+    "at most",
+    "no more than",
+    "maximum",
+    "max ",
+    "limit",
+    "only support",
+    "can only",
+)
+
+
+def is_reference_count_rejection(error: str) -> bool:
+    """Whether an upstream error says the reference-image count is too high."""
+    text = str(error or "").strip().lower()
+    if not text:
+        return False
+    if not any(hint in text for hint in _SCENE_360_REF_COUNT_SUBJECTS):
+        return False
+    return any(hint in text for hint in _SCENE_360_REF_COUNT_REASONS)
+
+
+def next_reference_to_drop(kept: list[str]) -> str | None:
+    """Return the lowest-priority reference that may still be dropped.
+
+    ``master`` is never returned: it is the visual bible, and a panorama without
+    it is a different scene rather than a degraded one.
+    """
+
+    for role in reversed(SCENE_360_REF_KEEP_PRIORITY):
+        if role in kept and role != SCENE_360_REF_MASTER:
+            return role
+    return None
 
 
 def load_env() -> None:
@@ -826,12 +910,13 @@ async def run(args: argparse.Namespace) -> int:
 
     master_refs: list[tuple[str, Path]] = []
     reference_images: list[tuple[str, bytes, str]] = []
+    # 与 ``reference_images`` 同序的角色标签：渠道按张数拒单时要靠它挑该扔哪一张。
+    reference_roles: list[str] = []
     has_master_ref = False
     has_reverse_ref = False
     has_direction_guide_ref = False
     has_topology_strip_ref = False
     has_overlap_guide_ref = False
-    has_spatial_layout_ref = False
     master_path_for_overlap: Path | None = None
     reverse_path_for_overlap: Path | None = None
     master_ref_path: Path | None = None
@@ -863,6 +948,7 @@ async def run(args: argparse.Namespace) -> int:
         )
         master_refs.append(("REF 1 thumbnail copy (debug only)", master_thumb))
         reference_images.append(image_tuple(master_ref))
+        reference_roles.append(SCENE_360_REF_MASTER)
         has_master_ref = True
 
         reverse_master_arg = getattr(args, "reverse_master", "") or ""
@@ -889,6 +975,7 @@ async def run(args: argparse.Namespace) -> int:
             )
             master_refs.append(("REF 2 reverse thumbnail copy (debug only)", reverse_thumb))
             reference_images.append(image_tuple(reverse_ref))
+            reference_roles.append(SCENE_360_REF_REVERSE)
             has_reverse_ref = True
 
     if has_master_ref and has_reverse_ref:
@@ -905,6 +992,7 @@ async def run(args: argparse.Namespace) -> int:
             )
             master_refs.append(("REF 3 direction-only guide (sent to model)", guide_ref))
             reference_images.append(image_tuple(guide_ref))
+            reference_roles.append(SCENE_360_REF_DIRECTION_GUIDE)
             has_direction_guide_ref = True
             topology_ref = make_topology_strip_2to1(
                 master_ref_path,
@@ -913,6 +1001,7 @@ async def run(args: argparse.Namespace) -> int:
             )
             master_refs.append(("REF 4 topology-only strip (sent to model)", topology_ref))
             reference_images.append(image_tuple(topology_ref))
+            reference_roles.append(SCENE_360_REF_TOPOLOGY_STRIP)
             has_topology_strip_ref = True
         overlap_analysis_path, overlap_guide_path, overlap_prompt_insert = (
             load_overlap_continuation_analysis(
@@ -962,130 +1051,172 @@ async def run(args: argparse.Namespace) -> int:
             )
         )
         reference_images.append(image_tuple(layout_copy))
-        has_spatial_layout_ref = True
-
-    if not reference_images:
-        reference_images = None  # type: ignore[assignment]
+        reference_roles.append(SCENE_360_REF_SPATIAL_LAYOUT)
 
     provider_trace: dict[str, str] = {}
-    prompt = build_prompt(
-        scene_name=args.scene_name,
-        scene_description=args.scene_description,
-        style=args.style,
-        has_master=has_master_ref,
-        has_reverse=has_reverse_ref,
-        has_direction_guide=has_direction_guide_ref,
-        has_topology_strip=has_topology_strip_ref,
-        has_overlap_guide=has_overlap_guide_ref,
-        has_spatial_layout=has_spatial_layout_ref,
-        spatial_contract_prompt_insert=spatial_contract_prompt_insert,
-        overlap_prompt_insert=overlap_prompt_insert,
-        layer_mode=args.layer_mode,
-    )
     prompt_path = output_dir / "scene_360.prompt.txt"
     result_path = output_dir / "scene_panorama_2to1.png"
     manifest_path = output_dir / "scene_360_manifest.json"
-    prompt_path.write_text(prompt, encoding="utf-8")
 
+    ref_by_role = dict(zip(reference_roles, reference_images))
+    kept_roles = list(reference_roles)
+
+    def prompt_for(roles: list[str]) -> str:
+        """Build the prompt for exactly the references this attempt will send.
+
+        提示词里的图序必须和实际递出去的张数一致：图床一旦降级，留着
+        「Reference image 4 = 拓扑图」而请求里只有两张图，模型会把方位当真去自由发挥。
+        """
+        flags = {flag: (role in roles) for role, flag in SCENE_360_REF_PROMPT_FLAGS.items()}
+        both_hemispheres = flags["has_master"] and flags["has_reverse"]
+        return build_prompt(
+            scene_name=args.scene_name,
+            scene_description=args.scene_description,
+            style=args.style,
+            has_master=flags["has_master"],
+            has_reverse=flags["has_reverse"],
+            has_direction_guide=flags["has_direction_guide"],
+            has_topology_strip=flags["has_topology_strip"],
+            has_overlap_guide=has_overlap_guide_ref,
+            has_spatial_layout=flags["has_spatial_layout"],
+            spatial_contract_prompt_insert=(
+                spatial_contract_prompt_insert if both_hemispheres else ""
+            ),
+            overlap_prompt_insert=overlap_prompt_insert if both_hemispheres else "",
+            layer_mode=args.layer_mode,
+        )
+
+    # 凭证与模型名先解一次：降级重试只改参考图，不该重复读设置。
+    image_delivery_state: dict[str, bool | str] = {}
+    provider_base_url: str | None = None
     if provider in {"huimeng", "huimengi"}:
-        api_key = os.environ.get("HUIMENGI_API_KEY")
-        if not api_key:
+        provider_api_key = os.environ.get("HUIMENGI_API_KEY") or ""
+        if not provider_api_key:
             raise RuntimeError("HUIMENGI_API_KEY is missing")
-        model = (
-            args.model
-            or os.environ.get("SCENE_360_HUIMENG_MODEL")
-            or os.environ.get("HUIMENG_IMAGE_MODEL")
-            or SCENE_360_HUIMENG_MODEL
-            or HUIMENG_IMAGE_MODEL
-            or "image-2"
-        )
-        image_bytes, _text, error = await _call_huimeng_image_api(
-            api_key=api_key,
-            model=model,
-            prompt=prompt,
-            reference_images=[item[1] for item in reference_images] if reference_images else None,
-            image_config={
-                "aspect_ratio": "2:1",
-                "image_size": args.image_size,
-                "quality": args.quality,
-                "huimeng_image_quality": args.quality,
-                "output_format": "png",
-            },
-        )
+        # [aipdd fork delta wave2] 不再拿 ``SCENE_360_HUIMENG_MODEL`` env 按用途抢位：
+        # 调用点显式传的那张优先，否则用 huimeng 适配层自己的模型名。
+        model = args.model or HUIMENG_IMAGE_MODEL
     elif provider == "openai":
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
+        provider_api_key = os.environ.get("OPENAI_API_KEY") or ""
+        if not provider_api_key:
             raise RuntimeError("OPENAI_API_KEY is missing")
-        model = args.model or os.environ.get("OPENAI_IMAGE_MODEL") or OPENAI_IMAGE_MODEL
-        image_bytes, _text, error = await _call_openai_image_api(
-            api_key=api_key,
-            model=model,
-            prompt=prompt,
-            reference_images=reference_images,
-            image_config={
-                "aspect_ratio": "2:1",
-                "image_size": args.image_size,
-                "quality": args.quality,
-                "output_format": "png",
-            },
-        )
+        model = args.model or OPENAI_IMAGE_MODEL
     elif provider == "newapi":
-        api_key, base_url = _resolve_newapi_credentials()
-        if not api_key:
+        provider_api_key, provider_base_url = _resolve_newapi_credentials()
+        if not provider_api_key:
             raise RuntimeError("NEWAPI_API_KEY is missing")
-        # [aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：未专配 SCENE_360
-        # 模型时，默认走「默认生成模型」面板配置的 image（DB→env→常量）。
+        # [aipdd fork delta wave2] ``SCENE_360_IMAGE_MODEL`` env 已退出解析链：未显式传图时，
+        # 模型名只由「设置 › 模型」的默认图位决定（拿不到就是空串，由调用点拦住）。
         from novelvideo.model_gateway_settings import (
             get_effective_default_image_model,
         )
 
-        model = (
-            args.model
-            or os.environ.get("SCENE_360_IMAGE_MODEL")
-            or SCENE_360_IMAGE_MODEL
-            or get_effective_default_image_model()
-            or NEWAPI_IMAGE_MODEL
-        )
-        image_bytes, _text, error = await _call_newapi_image_api(
-            api_key=api_key,
-            model=model,
-            prompt=prompt,
-            reference_images=reference_images,
-            image_config={
-                "aspect_ratio": "2:1",
-                "image_size": args.image_size,
-                "quality": args.quality,
-                "output_format": "png",
-            },
-            base_url=base_url,
-            trace=provider_trace,
-            delivery_path=result_path,
-            delivery_state=(image_delivery_state := {}),
-            read_copied_bytes=False,
-        )
+        model = args.model or get_effective_default_image_model()
     elif provider == "openrouter":
-        api_key = os.environ.get("OPENROUTER_API_KEY")
-        if not api_key:
+        provider_api_key = os.environ.get("OPENROUTER_API_KEY") or ""
+        if not provider_api_key:
             raise RuntimeError("OPENROUTER_API_KEY is missing")
-        model = (
-            args.model
-            or os.environ.get("SCENE_360_OPENROUTER_MODEL")
-            or os.environ.get("OPENROUTER_GPT_IMAGE2_MODEL")
-            or OPENROUTER_GPT_IMAGE2_MODEL
-        )
-        image_bytes, _text, error = await _call_openrouter_image_api(
-            api_key=api_key,
-            model=model,
-            prompt=prompt,
-            reference_images=[item[1] for item in reference_images] if reference_images else None,
-            image_config={
-                "aspect_ratio": "2:1",
-                "image_size": args.image_size,
-                "quality": args.quality,
-            },
-        )
+        # [aipdd fork delta wave2] 同样不再拿 ``SCENE_360_OPENROUTER_MODEL`` env 抢位。
+        model = args.model or OPENROUTER_GPT_IMAGE2_MODEL
     else:
         raise ValueError(f"Unsupported scene 360 provider: {provider}")
+
+    async def generate_once(
+        refs: list[tuple[str, bytes, str]] | None, request_prompt: str
+    ) -> tuple[bytes | None, str, str]:
+        """Send one scene-360 image request with exactly ``refs`` attached."""
+        if provider in {"huimeng", "huimengi"}:
+            return await _call_huimeng_image_api(
+                api_key=provider_api_key,
+                model=model,
+                prompt=request_prompt,
+                reference_images=[item[1] for item in refs] if refs else None,
+                image_config={
+                    "aspect_ratio": "2:1",
+                    "image_size": args.image_size,
+                    "quality": args.quality,
+                    "huimeng_image_quality": args.quality,
+                    "output_format": "png",
+                },
+            )
+        if provider == "openai":
+            return await _call_openai_image_api(
+                api_key=provider_api_key,
+                model=model,
+                prompt=request_prompt,
+                reference_images=refs,
+                image_config={
+                    "aspect_ratio": "2:1",
+                    "image_size": args.image_size,
+                    "quality": args.quality,
+                    "output_format": "png",
+                },
+            )
+        if provider == "newapi":
+            return await _call_newapi_image_api(
+                api_key=provider_api_key,
+                model=model,
+                prompt=request_prompt,
+                reference_images=refs,
+                image_config={
+                    "aspect_ratio": "2:1",
+                    "image_size": args.image_size,
+                    "quality": args.quality,
+                    "output_format": "png",
+                },
+                base_url=provider_base_url,
+                trace=provider_trace,
+                delivery_path=result_path,
+                delivery_state=image_delivery_state,
+                read_copied_bytes=False,
+            )
+        return await _call_openrouter_image_api(
+            api_key=provider_api_key,
+            model=model,
+            prompt=request_prompt,
+            reference_images=[item[1] for item in refs] if refs else None,
+            image_config={
+                "aspect_ratio": "2:1",
+                "image_size": args.image_size,
+                "quality": args.quality,
+            },
+        )
+
+    # [aipdd fork delta] 图模型目录不申报单请求的参考图上限（maxImageInputs/
+    # maxInputImages 目前只有视频模型有），所以拿不到「这张模型收几张」的结论，只能
+    # 让渠道先把单拒了再按优先级逐张降级重试。渠道拒单不扣费，多试一次的成本就是
+    # 一趟被拒的请求。
+    image_bytes: bytes | None = None
+    error = ""
+    attempts: list[dict[str, object]] = []
+    prompt = ""
+    while True:
+        prompt = prompt_for(kept_roles)
+        prompt_path.write_text(prompt, encoding="utf-8")
+        refs = [ref_by_role[role] for role in kept_roles]
+        image_bytes, _text, error = await generate_once(refs or None, prompt)
+        delivered = bool(image_bytes) or bool(image_delivery_state.get("copied"))
+        attempts.append(
+            {
+                "reference_image_count": len(kept_roles),
+                "references": list(kept_roles),
+                "error": "" if delivered else str(error or ""),
+            }
+        )
+        if delivered or not is_reference_count_rejection(error):
+            break
+        victim = next_reference_to_drop(kept_roles)
+        if not victim or len(kept_roles) <= 1:
+            break
+        kept_roles.remove(victim)
+        logger.warning(
+            "scene 360 references rejected by provider (sent %d, model=%s); dropping %s and "
+            "retrying: %s",
+            len(kept_roles) + 1,
+            model or "-",
+            victim,
+            error,
+        )
 
     manifest_path.write_text(
         json.dumps(
@@ -1112,6 +1243,14 @@ async def run(args: argparse.Namespace) -> int:
                 "image_size": args.image_size,
                 "style": args.style,
                 "layer_mode": args.layer_mode,
+                # [aipdd fork delta] 降级重试的现场：事后翻 manifest 要能看出这张全景是
+                # 递了几张参考图出来的，而不是只盯最终成品图猜。
+                "reference_images_built": list(reference_roles),
+                "reference_images_sent": list(kept_roles),
+                "reference_images_dropped": [
+                    role for role in reference_roles if role not in kept_roles
+                ],
+                "reference_attempts": attempts,
                 "request_id": provider_trace.get("request_id", ""),
                 "response_id": provider_trace.get("response_id", ""),
                 "result": str(result_path),
@@ -1131,6 +1270,13 @@ async def run(args: argparse.Namespace) -> int:
         result_path.write_bytes(image_bytes)
 
     make_contact_sheet(output_dir, master_refs, result_path)
+
+    if len(kept_roles) < len(reference_roles):
+        print(
+            "reference_images_degraded="
+            f"{len(kept_roles)}/{len(reference_roles)}"
+            f" dropped={','.join(r for r in reference_roles if r not in kept_roles)}"
+        )
 
     print(f"output_dir={output_dir}")
     print(f"panorama={result_path}")
