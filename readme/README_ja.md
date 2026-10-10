@@ -344,7 +344,12 @@ DramaClaw はモデル中立 —— すべてのテキスト / 画像 / 動画 /
 
 - **Official（推奨）** — DC キーを貼る（<https://susciyuan.com> で取得）、保存、完了。公式ゲートウェイには DramaClaw の必要な全モデルマッピングが用意済み；設定は一切不要。
 - **Custom** — ワンクリックで LocalNewAPI を初期化、その後管理 UI で自分のプロバイダチャネル（API キー、モデル ID）を追加。DramaClaw が呼ぶ全モデルがあなたのチャネルを経由。
-- **LocalNewAPI + Official Hybrid** — メインパイプラインは公式モデルを維持し、LocalNewAPI 経由で追加チャネル（例：ローカル ComfyUI 動画ワークフロー）を追加。
+- **LocalNewAPI + Official Hybrid** — メインパイプラインは公式モデルを維持し、LocalNewAPI 経由で追加チャネル（例：ローカル ComfyUI 動画ワークフロー）を追加 。
+
+> 🧠 **計算資源を自分で選ぶ — コスト削減、制御も維持。** ゲートウェイは、各生成をどこで実行するか *あなた自身* が選べるよう設計されています：
+> - **AIPDD の遊休計算資源（コスト削減）。** **AIPDD** チャネルに接続すると、生成をプラットフォームの**遊休計算資源プール**上で実行でき、負荷の大きい短編ドラマの一括処理をオンデマンド価格の数分の一でこなせます —— 制作コストを下げる最大のレバーです。<https://www.aipdd.work> で登録して AIPDD API Key を取得し、**設定 → モデル設定**でチャネルとして追加してください。
+> - **NewAPI、自由に組み合わせ。** 内蔵の **NewAPI** ゲートウェイなら、多数のプロバイダをチャネル登録し、**思い通りに組み合わせ**られます —— 公式、AIPDD、自前のサーバー、任意の OpenAI 互換エンドポイント —— モデル別・工程別に。NewAPI チャネルは**自らプロバイダを探して価格比較**するのがおすすめ。選別済みの参考リストはこちら：<https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf?from=from_copylink>。
+> - **ComfyUI、自分の GPU 上で。** ファーストクラスの **ComfyUI** アダプタは、画像／動画生成を**あなたのマシン**で動くワークフローへルーティングします。ハードウェアが描画し、コール単位のクラウド枠を消費しません。**Custom** または **Hybrid** モードでローカルの ComfyUI エンドポイントをチャネル登録してください。
 
 完全な手順は [Configuring Models](../docs/en/getting-started/configuring-models.md)。
 

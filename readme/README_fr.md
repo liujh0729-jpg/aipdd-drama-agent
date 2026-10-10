@@ -346,6 +346,11 @@ DramaClaw reste neutre en modèles — tous les modèles texte / image / vidéo 
 - **Custom** — un clic initialise LocalNewAPI, puis ajoutez vos propres canaux fournisseurs (clés API, IDs de modèles) dans son UI d'admin. Chaque modèle appelé par DramaClaw passe par vos canaux.
 - **LocalNewAPI + Official Hybrid** — gardez les modèles officiels pour le pipeline principal et ajoutez des canaux (par exemple un workflow vidéo ComfyUI local) via LocalNewAPI.
 
+> 🧠 **Apportez votre propre calcul — moins cher, mieux maîtrisé.** La passerelle est conçue pour que *vous* choisissiez où s'exécute chaque génération :
+> - **Calcul inactif d'AIPDD (réduction des coûts).** Connecter le canal **AIPDD** permet à la génération de tourner sur le **pool de calcul inactif** de la plateforme ; les tâches lourdes de séries par lot ne coûtent qu'une fraction du prix à la demande — le levier le plus efficace pour baisser le coût de production. Inscrivez-vous sur <https://www.aipdd.work> pour obtenir une clé API AIPDD, puis ajoutez-la comme canal dans **Paramètres → Configurer les modèles**.
+> - **NewAPI, combinez librement.** La passerelle **NewAPI** intégrée vous laisse enregistrer plusieurs fournisseurs comme canaux et **les combiner comme vous voulez** — officiels, AIPDD, une machine auto-hébergée, ou tout endpoint compatible OpenAI — par modèle, par étape. Pour les canaux NewAPI, nous recommandons de **chercher vos propres fournisseurs et de comparer les prix** ; une liste de référence sélectionnée est ici : <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf?from=from_copylink>.
+> - **ComfyUI, sur votre propre GPU.** Un adaptateur **ComfyUI** de premier plan route la génération image / vidéo vers un workflow tournant sur **votre machine** : c'est votre matériel qui rend, sans quota cloud par appel. Enregistrez votre endpoint ComfyUI local comme canal en mode **Custom** ou **Hybrid**.
+
 Parcours complet dans [Configurer les modèles](../docs/en/getting-started/configuring-models.md).
 
 ### LocalNewAPI : dramaclaw-gateway

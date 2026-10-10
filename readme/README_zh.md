@@ -396,6 +396,11 @@ DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音�
 - **自定义** —— 一键初始化 LocalNewAPI，然后在它的管理页里添加你自己的供应商渠道（API key、模型 ID）。DramaClaw 调用的每一个模型都走你的渠道。
 - **LocalNewAPI + 官方混合** —— 主链路继续用官方模型，额外渠道（比如本地 ComfyUI 视频工作流）走 LocalNewAPI。
 
+> 🧠 **自带算力，任选其一 —— 更省钱，也更有掌控。** 网关的设计让**你自己**决定每次生成跑在哪里：
+> - **AIPDD 闲置算力（大幅降本）。** 接入 **AIPDD** 渠道后，生成可走平台的**闲置算力池**，批量重活短剧的成本只有按需价的一小部分 —— 这是压低成本最有效的一招。到 <https://www.aipdd.work> 注册获取 AIPDD API Key，再在**设置 → 模型配置**里把它加为一个渠道。
+> - **NewAPI，自由搭配。** 内置的 **NewAPI** 网关可以把多家供应商注册为渠道，并**按你的想法任意组合** —— 官方、AIPDD、自托管机器、或任意 OpenAI 兼容端点 —— 按模型、按环节分别选择。NewAPI 渠道建议**自行寻找供应商并比价**，这里有一份整理好的参考清单：<https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf?from=from_copylink>。
+> - **ComfyUI，用你自己的 GPU。** 一级 **ComfyUI** 适配器可把生图 / 生视频路由到**你本机**跑的工作流：由你的硬件出图，不占用按次云端额度。在**自定义**或**混合**模式里把本地 ComfyUI 端点注册为渠道即可。
+
 完整步骤见 [配置模型供应商](../docs/zh/getting-started/configuring-models.md)。
 
 ### LocalNewAPI：dramaclaw-gateway

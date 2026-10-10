@@ -357,6 +357,11 @@ DramaClaw เป็นกลางเรื่อง model — model ข้อ�
 - **Custom** — คลิกเดียวเพื่อเริ่มต้น `dramaclaw-gateway` ที่มาพร้อมกัน จากนั้นเพิ่ม channel ของผู้ให้บริการของคุณเอง (API key, model ID) ใน admin UI ของมัน ทุก model ที่ DramaClaw เรียกจะผ่าน channel ของคุณ
 - **LocalNewAPI + Official Hybrid** — ใช้ model official สำหรับสายการผลิตหลัก และเพิ่ม channel อื่น (เช่นเวิร์กโฟลว์วิดีโอ ComfyUI ในเครื่อง) ผ่าน gateway ที่มาพร้อมกัน
 
+> 🧠 **เลือกแหล่งกำลัง computation เอง — ถูกลงและคุมได้มากขึ้น.** gateway ถูกออกแบบให้ *คุณ* เป็นผู้ตัดสินใจว่าการสร้างแต่ละครั้งจะรันที่ไหน:
+> - **ทรัพยากร computation ที่ว่างของ AIPDD (ลดต้นทุน).** การต่อ channel **AIPDD** ทำให้การสร้างรันบน **pool ทรัพยากร computation ที่ว่าง** ของแพลตฟอร์ม งานสร้างซีรีส์แบบ batch ที่หนัก ๆ จึงเสียค่าใช้จ่ายเพียงเศษเสี้ยวของราคา on-demand — เป็นคานงัดที่ใหญ่ที่สุดในการลดต้นทุนการผลิต สมัครที่ <https://www.aipdd.work> เพื่อรับ AIPDD API key แล้วเพิ่มเป็น channel ใน **การตั้งค่า → ตั้งค่า Model**
+> - **NewAPI จับคู่อิสระ.** gateway **NewAPI** ที่ให้มาอนุญาตให้จด provider หลายรายเป็น channel และ **จับคู่ได้ตามใจ** — official, AIPDD, เครื่องที่คุณ host เอง หรือ endpoint ที่เข้ากันได้กับ OpenAI ใด ๆ — เลือกต่อ model ต่อขั้นตอน สำหรับ channel NewAPI เราแนะนำให้ **หา provider เองและเปรียบเทียบราคา**; รายการอ้างอิงที่คัดมาแล้วอยู่ที่นี่: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf?from=from_copylink>
+> - **ComfyUI บน GPU ของคุณ.** adapter **ComfyUI** ชั้นหนึ่งจะ route การสร้างภาพ / วิดีโอไปยังเวิร์กโฟลว์ที่รันบน **เครื่องของคุณ**: ฮาร์ดแวร์ของคุณเป็นผู้เรนเดอร์ ไม่กินโควตา cloud ต่อการเรียก จด endpoint ComfyUI ในเครื่องเป็น channel ในโหมด **Custom** หรือ **Hybrid**
+
 คำแนะนำฉบับเต็มอยู่ใน [การตั้งค่า Model](../docs/en/getting-started/configuring-models.md)
 
 ### gateway ที่มาพร้อมกัน: dramaclaw-gateway

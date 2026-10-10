@@ -346,6 +346,11 @@ DramaClaw se mantiene neutral en modelos — todos los modelos de texto / imagen
 - **Custom** — un clic inicializa LocalNewAPI, luego añade tus propios canales de proveedor (claves API, IDs de modelo) en su UI de admin. Cada modelo que DramaClaw llama pasa por tus canales.
 - **LocalNewAPI + Official Hybrid** — mantén los modelos oficiales para el pipeline principal y añade canales extra (por ejemplo un flujo de vídeo ComfyUI local) a través de LocalNewAPI.
 
+> 🧠 **Trae tu propio cómputo — menos coste, más control.** La pasarela está hecha para que *tú* elijas dónde corre cada generación:
+> - **Cómputo ocioso de AIPDD (reduce costes).** Conectar el canal **AIPDD** permite que la generación se ejecute en el **pool de cómputo ocioso** de la plataforma, así que el trabajo pesado de dramaturgia por lotes sale a una fracción del precio bajo demanda — la palanca más grande para bajar el coste de producción. Regístrate en <https://www.aipdd.work> para obtener una API key de AIPDD y añádela como canal en **Ajustes → Configurar modelos**.
+> - **NewAPI, combínalo libremente.** La pasarela **NewAPI** integrada te deja registrar muchos proveedores como canales y **combinarlos como quieras** — oficiales, AIPDD, una máquina auto-alojada, o cualquier endpoint compatible con OpenAI — por modelo y por etapa. Para los canales NewAPI recomendamos **buscar tus propios proveedores y comparar precios**; hay una lista de referencia seleccionada aquí: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf?from=from_copylink>.
+> - **ComfyUI, en tu propia GPU.** Un adaptador **ComfyUI** de primer nivel enruta la generación de imagen / vídeo a un flujo que corre en **tu máquina**: tu hardware renderiza, sin cuotas cloud por llamada. Registra tu endpoint ComfyUI local como canal en el modo **Custom** o **Hybrid**.
+
 Recorrido completo en [Configurar modelos](../docs/en/getting-started/configuring-models.md).
 
 ### LocalNewAPI: dramaclaw-gateway
