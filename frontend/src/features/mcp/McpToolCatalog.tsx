@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Elastic-2.0
 // Copyright (c) 2026 ClaymoreLab
 // [aipdd fork delta] 内置 AIPDD Drama 服务器的「工具」详情：与后端 aipdd_drama_tools.TOOLS
-// 同步的 98 个工具，按用途分组、可搜索，点击工具行展开调用字段与必填说明。
+// 同步的 101 个工具，按用途分组、可搜索，点击工具行展开调用字段与必填说明。
 // 嵌入在 MCP 服务器卡片的「工具」分页内渲染；用户自装服务器的工具经「测试连接」探测。
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -26,6 +26,7 @@ const TOOL_GROUPS: ReadonlyArray<{
       { name: "aipdd_drama_post", descKey: "post" },
       { name: "aipdd_drama_patch", descKey: "patch" },
       { name: "aipdd_drama_delete", descKey: "delete" },
+      { name: "aipdd_drama_env_setup", descKey: "envSetup" },
     ],
   },
   {

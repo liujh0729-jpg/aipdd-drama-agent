@@ -85,6 +85,7 @@ const CATALOG_NAMES = [
   "aipdd_drama_post",
   "aipdd_drama_patch",
   "aipdd_drama_delete",
+  "aipdd_drama_env_setup",
   "aipdd_drama_pipeline_status",
   "aipdd_drama_list_tasks",
   "aipdd_drama_get_task",

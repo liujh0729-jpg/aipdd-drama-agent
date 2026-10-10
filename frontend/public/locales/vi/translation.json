@@ -1722,6 +1722,7 @@
       "post": "Gọi API POST của dự án để gửi xử lý.",
       "patch": "Gọi API PATCH của dự án để cập nhật trường.",
       "delete": "Gọi API DELETE của dự án để xóa đối tượng.",
+      "envSetup": "Phát hiện môi trường triển khai và tự động cài đặt phần còn thiếu: danh sách việc cần làm cho dependencies / thế giới 3D / kênh mô hình, rồi cài từng mục.",
       "pipelineStatus": "Lấy tiến độ quy trình và bước tiếp theo của dự án.",
       "listTasks": "Liệt kê các tác vụ tạo và trạng thái của dự án.",
       "getTask": "Truy vấn chi tiết một tác vụ.",
@@ -8179,6 +8180,24 @@
       "autoRecord": "Tự động ghi: sau khi một lượt trích xuất chạy bằng Chrome dự phòng thành công, trạng thái đăng nhập Douyin sẽ được tự động ghi vào đây, về sau không cần mở trình duyệt nữa; cũng có thể bấm Trích từ Chrome để lấy ngay."
     },
     "envSetup": {
+      "plan": {
+        "title": "Môi trường sẵn sàng",
+        "description": "Một lần kiểm tra sẽ biến kết quả thăm dò thành danh sách việc cần làm: cài ngay những gì có thể cài ở đây, phần còn lại làm theo hướng dẫn.",
+        "loading": "Đang xây dựng kế hoạch sẵn sàng…",
+        "refresh": "Kiểm tra lại",
+        "summary": "{{ready}} sẵn sàng · {{installable}} có thể cài · {{missing}} cần bổ sung",
+        "allReady": "Mọi thứ đã sẵn sàng — cấu hình kênh mô hình và bắt đầu sáng tạo.",
+        "install": "Cài đặt",
+        "installing": "Đang cài đặt…",
+        "runHint": "Sau khi đặt khóa kênh mô hình, hãy chạy trực tiếp các tác vụ canvas / dự án.",
+        "items": {
+          "world": { "name": "Runtime thế giới 3D (3DGS / SHARP)" },
+          "modelChannel": {
+            "name": "Khóa kênh mô hình",
+            "fix": "Vào Cài đặt → Mô hình & Kênh và thêm khóa AIPDD / chính thức của bạn, sau đó có thể chạy."
+          }
+        }
+      },
       "title": "Cài đặt môi trường",
       "description": "Đây là các thành phần lúc chạy mà sản phẩm này phụ thuộc trong môi trường triển khai của bạn. Máy chủ đã thăm dò từng mục theo đúng tình trạng thực tế của container; mục còn thiếu sẽ kèm hướng dẫn bổ sung.",
       "loading": "Đang thăm dò môi trường triển khai…",

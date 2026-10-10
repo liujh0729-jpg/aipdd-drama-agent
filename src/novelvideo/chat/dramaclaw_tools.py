@@ -3958,6 +3958,27 @@ def _handle_commit_white_model_video(args: dict[str, Any], **_: Any) -> str:
         return tool_error(str(exc))
 
 
+def _handle_env_setup(args: dict[str, Any], **_: Any) -> str:
+    """[aipdd fork delta req-automcp] 自动化安装环境：探测→待办计划→逐项安装。
+
+    action='check'（默认）经 GET /admin/env-setup/plan 回环依赖/3D 世界/模型渠道的统一
+    待办清单（ready/installable/missing）；action='install' 经 POST /admin/env-setup/install
+    安装指定 item（当前为 'world'）。容器内装不了的系统级依赖只回指引，不谎称已装。
+    """
+    try:
+        action = str(args.get("action") or "check").strip().lower()
+        if action in ("check", "plan", "status"):
+            return tool_result(_request("GET", "/api/v1/admin/env-setup/plan"))
+        if action == "install":
+            item = str(args.get("item") or "").strip()
+            if not item:
+                raise ValueError("item is required when action='install' (e.g. 'world')")
+            return tool_result(_request("POST", "/api/v1/admin/env-setup/install", body={"item": item}))
+        raise ValueError("action must be one of: check, install")
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
 TOOLS = (
     (
         "aipdd_drama_get",
@@ -3978,6 +3999,32 @@ TOOLS = (
         "aipdd_drama_delete",
         _schema("aipdd_drama_delete", "Call an AIPDD DELETE API path without using curl.", {**_PATH_PROPS, "body": {"type": "object"}}, ["path"]),
         _handle_delete,
+    ),
+    (
+        "aipdd_drama_env_setup",
+        _schema(
+            "aipdd_drama_env_setup",
+            (
+                "Detect the deployment environment and auto-install what is missing. "
+                "action='check' (default) returns a to-do plan of runtime dependencies, the "
+                "3D world runtime, and the model channel (status: ready/installable/missing). "
+                "action='install' installs one plan item by id (currently 'world', installed "
+                "into a persistent venv); items that cannot be installed inside the running "
+                "container return guidance instead of a fake success."
+            ),
+            {
+                "action": {
+                    "type": "string",
+                    "enum": ["check", "install"],
+                    "description": "'check' builds the plan (default); 'install' runs a per-item install.",
+                },
+                "item": {
+                    "type": "string",
+                    "description": "Plan item id to install (e.g. 'world'). Required when action='install'.",
+                },
+            },
+        ),
+        _handle_env_setup,
     ),
     (
         "aipdd_drama_pipeline_status",

@@ -31,7 +31,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { WorldSection } from "@/components/settings/world-section";
 import { useAgentLocalTools } from "@/lib/queries/agent";
-import { useEnvStatus, type EnvDependency } from "@/lib/queries/env";
+import { useEnvStatus, useEnvPlan, useEnvInstall, type EnvDependency, type EnvPlanItem } from "@/lib/queries/env";
 import { cn } from "@/lib/utils";
 
 /** 各运行依赖的图标与文案键前缀（后端只回事实，名称/用途/修复指引在这里按 id 取）。 */
@@ -86,6 +86,9 @@ export function EnvSetupSection() {
 
   return (
     <div>
+      {/* [aipdd fork delta req-automcp] 环境补齐向导：探测 → 待办计划 → 逐项安装。 */}
+      <EnvPlanPanel />
+
       {/* 运行依赖：服务端容器的真实运行时清单。 */}
       <section className="px-5 py-5">
         <div className="flex items-center gap-2">
@@ -194,6 +197,136 @@ export function EnvSetupSection() {
         </p>
       </section>
     </div>
+  );
+}
+
+function EnvPlanPanel() {
+  const { t } = useTranslation();
+  const planQuery = useEnvPlan();
+  const install = useEnvInstall();
+  const plan = planQuery.data?.data;
+
+  const itemLabel = (id: string) =>
+    id === "world"
+      ? t("settings.envSetup.plan.items.world.name")
+      : id === "model_channel"
+        ? t("settings.envSetup.plan.items.modelChannel.name")
+        : t(`settings.envSetup.dependencies.${id}.name`);
+  const itemFix = (id: string) =>
+    id === "model_channel"
+      ? t("settings.envSetup.plan.items.modelChannel.fix")
+      : t(`settings.envSetup.dependencies.${id}.fix`);
+
+  if (planQuery.isLoading) {
+    return (
+      <section className="border-b border-border px-5 py-5">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          {t("settings.envSetup.plan.loading")}
+        </div>
+      </section>
+    );
+  }
+  if (!plan) return null;
+
+  const world = (plan.world ?? {}) as {
+    installing?: boolean;
+    message?: string;
+  };
+  const installable = plan.items.filter(
+    (it: EnvPlanItem) => it.status === "installable" && it.auto_installable,
+  );
+  const attention = plan.items.filter(
+    (it: EnvPlanItem) => it.status === "missing" && !it.optional,
+  );
+  const allReady = installable.length === 0 && attention.length === 0;
+  const rows = [...installable, ...attention];
+
+  return (
+    <section className="border-b border-border px-5 py-5">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-heading text-sm font-medium text-foreground">
+          {t("settings.envSetup.plan.title")}
+        </h3>
+        <button
+          type="button"
+          onClick={() => void planQuery.refetch()}
+          className={cn(
+            buttonVariants({ size: "xs", variant: "outline" }),
+            "h-6 shrink-0 px-2 text-[11px]",
+          )}
+        >
+          {t("settings.envSetup.plan.refresh")}
+        </button>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        {t("settings.envSetup.plan.description")}
+      </p>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        {t("settings.envSetup.plan.summary", {
+          ready: plan.summary.ready,
+          installable: installable.length,
+          missing: attention.length,
+        })}
+      </p>
+
+      {allReady ? (
+        <p className="mt-3 flex items-center gap-1.5 rounded-[8px] border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+          <Check className="size-3.5" aria-hidden />
+          {t("settings.envSetup.plan.allReady")}
+        </p>
+      ) : (
+        <div className="mt-3 overflow-hidden rounded-lg border border-border bg-white/[0.02]">
+          {rows.map((it, index) => {
+            const actionable = it.status === "installable" && it.auto_installable;
+            return (
+              <div
+                key={it.id}
+                className={cn(
+                  "flex items-start gap-3 px-3 py-2.5",
+                  index !== rows.length - 1 && "border-b border-white/[0.06]",
+                )}
+              >
+                {!actionable ? (
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-300" aria-hidden />
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <span className="text-sm font-medium text-foreground">{itemLabel(it.id)}</span>
+                  {it.id === "world" && world.installing ? (
+                    <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Loader2 className="size-3 animate-spin" aria-hidden />
+                      {world.message || t("settings.envSetup.plan.installing")}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      {itemFix(it.id)}
+                    </p>
+                  )}
+                </div>
+                {actionable ? (
+                  <button
+                    type="button"
+                    onClick={() => install.mutate(it.id)}
+                    disabled={install.isPending || Boolean(world.installing)}
+                    className={cn(buttonVariants({ size: "xs" }), "h-6 shrink-0 px-2 text-[11px]")}
+                  >
+                    {world.installing && it.id === "world"
+                      ? t("settings.envSetup.plan.installing")
+                      : t("settings.envSetup.plan.install")}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!allReady ? (
+        <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">
+          {t("settings.envSetup.plan.runHint")}
+        </p>
+      ) : null}
+    </section>
   );
 }
 

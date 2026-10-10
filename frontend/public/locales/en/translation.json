@@ -1722,6 +1722,7 @@
       "post": "Call a project POST API to submit processing.",
       "patch": "Call a project PATCH API to update fields.",
       "delete": "Call a project DELETE API to remove objects.",
+      "envSetup": "Detect the deployment environment and auto-install what is missing: a to-do plan of runtime dependencies / 3D world / model channel, then per-item install.",
       "pipelineStatus": "Get the current project pipeline status and next step.",
       "listTasks": "List the project's generation tasks and their status.",
       "getTask": "Query a single task's details.",
@@ -8179,6 +8180,24 @@
       "autoRecord": "Auto-record: after one extraction succeeds through the Chrome fallback, that Douyin login state is written here automatically, so no browser is needed afterwards. You can also click “Capture from Chrome” to do it right away."
     },
     "envSetup": {
+      "plan": {
+        "title": "Environment Readiness",
+        "description": "A one-time check that turns the probe into a to-do list: install what can be installed right here, and follow the guidance for the rest.",
+        "loading": "Building the readiness plan…",
+        "refresh": "Re-check",
+        "summary": "{{ready}} ready · {{installable}} to install · {{missing}} to fix",
+        "allReady": "Everything is ready — configure a model channel and start creating.",
+        "install": "Install",
+        "installing": "Installing…",
+        "runHint": "After the model channel key is set, run canvas / project tasks directly.",
+        "items": {
+          "world": { "name": "3D world runtime (3DGS / SHARP)" },
+          "modelChannel": {
+            "name": "Model channel key",
+            "fix": "Go to Settings → Model & Channels and add your AIPDD / official key, then you can run."
+          }
+        }
+      },
       "title": "Environment Setup",
       "description": "These are the runtime components this product depends on inside your deployment environment. The server probes each one against the actual container; missing items come with remediation guidance.",
       "loading": "Probing the deployment environment…",

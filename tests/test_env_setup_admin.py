@@ -16,7 +16,7 @@ import urllib.error
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from novelvideo import env_probe
+from novelvideo import env_probe, env_setup_install
 from novelvideo.api.auth import get_api_user
 from novelvideo.api.routes import env_setup as env_setup_routes
 
@@ -258,3 +258,166 @@ def test_status_rejects_agent_token():
         {"id": "u", "username": "admin", "role": "owner", "credential_kind": "agent_session"}
     )
     assert client.get("/api/v1/admin/env-setup/status").status_code == 403
+
+
+# -------------------------------------------------- 自动化安装环境（req-automcp）
+def _fake_probe(*items):
+    return lambda: {"items": list(items)}
+
+
+def test_build_plan_classifies_deps_world_and_channel(monkeypatch):
+    monkeypatch.setattr(
+        env_probe,
+        "probe",
+        _fake_probe(
+            {"id": "ffmpeg", "installed": True, "version": "6.1", "detail": "/usr/bin/ffmpeg"},
+            {"id": "node", "installed": False, "version": None, "detail": None},
+        ),
+    )
+    monkeypatch.setattr(
+        env_setup_install.world_install,
+        "status_snapshot",
+        lambda: {
+            "install_state": "not_installed",
+            "installed": False,
+            "can_install": True,
+            "installing": False,
+        },
+    )
+    monkeypatch.setenv("MODEL_API_KEY", "sk-secret")
+    plan = env_setup_install.build_plan()
+    by_id = {it["id"]: it for it in plan["items"]}
+
+    assert by_id["ffmpeg"]["status"] == "ready"
+    assert by_id["node"]["status"] == "missing"
+    assert by_id["node"]["auto_installable"] is False
+    assert by_id["node"]["guide"]  # 系统级依赖给补齐指引
+    assert by_id["world"]["status"] == "installable"
+    assert by_id["world"]["auto_installable"] is True
+    assert by_id["world"]["action"] == "install"
+    assert by_id["model_channel"]["status"] == "ready"
+    summary = plan["summary"]
+    assert summary["total"] == len(plan["items"])
+    assert summary["ready"] + summary["installable"] + summary["missing"] <= summary["total"]
+
+
+def test_build_plan_world_not_installable(monkeypatch):
+    monkeypatch.setattr(env_probe, "probe", _fake_probe())
+    monkeypatch.setattr(
+        env_setup_install.world_install,
+        "status_snapshot",
+        lambda: {"install_state": "not_installed", "installed": False, "can_install": False},
+    )
+    monkeypatch.delenv("MODEL_API_KEY", raising=False)
+    monkeypatch.delenv("AIPDD_API_KEY", raising=False)
+    monkeypatch.delenv("DC_API_KEY", raising=False)
+    plan = env_setup_install.build_plan()
+    by_id = {it["id"]: it for it in plan["items"]}
+    assert by_id["world"]["status"] == "missing"
+    assert by_id["world"]["auto_installable"] is False
+    assert by_id["world"]["action"] is None
+    # 未配密钥：model_channel 是指引型待办（非 optional 的 missing）。
+    assert by_id["model_channel"]["status"] == "missing"
+    assert by_id["model_channel"]["guide"]
+
+
+def test_install_item_world_starts(monkeypatch):
+    monkeypatch.setattr(
+        env_setup_install.world_install,
+        "status_snapshot",
+        lambda: {"installed": False, "can_install": True},
+    )
+    monkeypatch.setattr(
+        env_setup_install.world_install,
+        "start_install",
+        lambda: {"install_state": "installing", "installing": True},
+    )
+    result = env_setup_install.install_item("world")
+    assert result["ok"] is True
+    assert result["started"] is True
+    assert result["status"]["install_state"] == "installing"
+
+
+def test_install_item_world_cannot_install_is_manual(monkeypatch):
+    monkeypatch.setattr(
+        env_setup_install.world_install,
+        "status_snapshot",
+        lambda: {"installed": False, "can_install": False},
+    )
+
+    def _boom():  # pragma: no cover - 断言不应被调用
+        raise AssertionError("start_install must not run when can_install is False")
+
+    monkeypatch.setattr(env_setup_install.world_install, "start_install", _boom)
+    result = env_setup_install.install_item("world")
+    assert result["ok"] is True
+    assert result["manual"] is True
+    assert result.get("started") is None
+
+
+def test_install_item_manual_returns_guidance_without_touching_state(monkeypatch):
+    def _boom():  # pragma: no cover
+        raise AssertionError("install_item must not start world install for a system dep")
+
+    monkeypatch.setattr(env_setup_install.world_install, "start_install", _boom)
+    result = env_setup_install.install_item("ffmpeg")
+    assert result["ok"] is True
+    assert result["manual"] is True
+    assert result["guide"]
+
+
+# ------------------------------------------------------------------ plan/install 路由
+def _build_plan_client(user):
+    app = FastAPI()
+    app.include_router(env_setup_routes.router, prefix="/api/v1")
+    app.dependency_overrides[get_api_user] = lambda: dict(user)
+    return TestClient(app)
+
+
+def test_plan_route_returns_plan(monkeypatch):
+    monkeypatch.setattr(
+        env_setup_install,
+        "build_plan",
+        lambda: {
+            "items": [{"id": "world", "status": "installable", "auto_installable": True}],
+            "summary": {"total": 1, "ready": 0, "installable": 1, "missing": 0, "all_ready": False},
+            "world": {"installing": False},
+        },
+    )
+    client = _build_plan_client({"id": "u", "username": "admin", "role": "owner"})
+    resp = client.get("/api/v1/admin/env-setup/plan")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["data"]["items"][0]["id"] == "world"
+    assert body["data"]["summary"]["installable"] == 1
+
+
+def test_plan_route_allows_agent_credential(monkeypatch):
+    # req-automcp：MCP 的 st- 密钥（走 get_api_user）要能读计划，不再被 owner 闸门拒。
+    monkeypatch.setattr(
+        env_setup_install,
+        "build_plan",
+        lambda: {"items": [], "summary": {"total": 0}, "world": {}},
+    )
+    client = _build_plan_client(
+        {"id": "u", "username": "admin", "role": "owner", "credential_kind": "agent_session"}
+    )
+    assert client.get("/api/v1/admin/env-setup/plan").status_code == 200
+
+
+def test_install_route_posts_item(monkeypatch):
+    seen: list[str] = []
+
+    def _fake_install(item):
+        seen.append(item)
+        return {"ok": True, "started": True, "item": item, "status": {"install_state": "installing"}}
+
+    monkeypatch.setattr(env_setup_install, "install_item", _fake_install)
+    client = _build_plan_client({"id": "u", "username": "admin", "role": "owner"})
+    resp = client.post("/api/v1/admin/env-setup/install", json={"item": "world"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["data"]["started"] is True
+    assert seen == ["world"]

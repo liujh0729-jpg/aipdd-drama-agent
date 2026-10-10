@@ -8,7 +8,7 @@ AIPDD-Agent-Claw 内置一个 [MCP](https://modelcontextprotocol.io) 服务器�
 剪辑草稿，工具页的批量处理（视频复刻 / 混剪短视频 / 白板动画视频 / 科普讲解视频 / 一句话生成短视频 /
 人声复刻 / 对口型 / 换人 / 去水印 / 抖音文案提取），一键自动化（故事→分镜步进
 驱动器、按分镜区间批量生视频），以及画布（freezone）的生图 /
-图片编辑 / 生视频 / 音频 / 文本脚本 / 资源目录读 —— 共 100 个工具。
+图片编辑 / 生视频 / 音频 / 文本脚本 / 资源目录读，以及环境自动安装（`aipdd_drama_env_setup`：探测运行依赖 → 待办计划 → 逐项安装）—— 共 101 个工具。
 任何会说 MCP 的客户端（**Claude Code**、Codex 等）都能用它从头做完一部短剧。
 
 服务器（`src/novelvideo/chat/dramaclaw_mcp.py`）是 AIPDD-Agent-Claw REST API 之上的 薄
