@@ -95,17 +95,34 @@ def _world_status(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _configured_channel_providers() -> list[str]:
+    """settings.db 里已存 upstreamKey 的渠道 provider 名——CE 模型密钥的真源。
+
+    读配置失败一律按空处理：这只是环境指引探测，绝不能因配置读取异常而崩。
+    """
+    try:
+        from novelvideo.model_gateway_settings import get_newapi_provider_channels
+
+        return [
+            str(channel.get("provider") or "").strip()
+            for channel in get_newapi_provider_channels()
+            if str(channel.get("upstreamKey") or "").strip()
+        ]
+    except Exception:  # noqa: BLE001 - 指引探测降级，不把配置读取失败当用户错误
+        return []
+
+
 def _model_channel_status() -> dict[str, Any]:
     """模型渠道密钥：只作指引，不自动安装。
 
-    尽量给出「已配置」的正向信号（环境变量里有密钥即视为就绪），否则保持指引态，
-    绝不谎报缺失来惊吓用户——密钥既可在容器内配置，也可走网关。
+    真源是 settings.db（在「设置 → 模型与渠道」保存的渠道 key），所以先按渠道存档判定；
+    环境变量 ``MODEL_API_KEY`` 只作容器内直连的兼容兜底（旧口径，不进公开模板）。只要任一
+    渠道存了 key 或环境有密钥即视为就绪，绝不谎报缺失惊吓用户。
     """
-    configured = bool(
-        (os.environ.get("MODEL_API_KEY") or "").strip()
-        or (os.environ.get("AIPDD_API_KEY") or "").strip()
-        or (os.environ.get("DC_API_KEY") or "").strip()
-    )
+    keyed = sorted({provider for provider in _configured_channel_providers() if provider})
+    configured_by_db = bool(keyed)
+    configured = configured_by_db or bool((os.environ.get("MODEL_API_KEY") or "").strip())
+    detail = f"configured_channels={','.join(keyed)}" if configured_by_db else None
     return {
         "id": "model_channel",
         "status": "ready" if configured else "missing",
@@ -113,7 +130,7 @@ def _model_channel_status() -> dict[str, Any]:
         "auto_installable": False,
         "action": None,
         "version": None,
-        "detail": None,
+        "detail": detail,
         "guide": None if configured else _MANUAL_FIX_GUIDE["model_channel"],
         "optional": False,
     }

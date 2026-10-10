@@ -136,7 +136,7 @@ if [ ! -f "$root_dir/.env" ]; then
     warn "既没有 .env 也没有 .env.example：将只用编排文件里的默认值启动。"
   fi
 fi
-version="$(env_value DRAMACLAW_VERSION 2.0.99 "$root_dir/.env")"
+version="$(env_value DRAMACLAW_VERSION "$(compose_default_version "$root_dir/docker-compose.aipdd.yml")" "$root_dir/.env")"
 web_port="$(env_value ST_WEB_PORT 8080 "$root_dir/.env")"
 api_port="$(env_value ST_API_PORT 8780 "$root_dir/.env")"
 if [ -z "$(env_value ST_LOCAL_PASSWORD "" "$root_dir/.env")" ]; then

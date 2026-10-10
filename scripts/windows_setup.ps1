@@ -49,18 +49,26 @@ try {
 Write-Step '[2/7] 检查 WSL 2（Docker Desktop 的 Linux 引擎底座）'
 function Get-WslVersion {
     if (-not (Test-Command 'wsl')) { return $null }
-    # 非英文 Windows 上 wsl --version 的标签是本地化的，所以只从输出里抓版本号数字，
-    # 不去匹配「WSL version」这种英文字面。
-    $out = (& wsl --version 2>$null) -join ' '
-    if ($LASTEXITCODE -ne 0 -or -not $out) { return $null }
-    if ($out -match '(\d+\.\d+\.\d+)') { return $Matches[1] }
+    # 就绪不押在单一信号上：旧逻辑把「解析不到 wsl --version」直接等同「inbox 版/未就绪」，
+    # 结果用户机上 wsl --version 明明正常打印却被判死、卡在第 2 步。逐条拆掉脆弱点：
+    #   · 不再因为 $LASTEXITCODE 非 0 就单独判未就绪（部分 Windows 的 wsl 会带告警返回非 0，但版本已打印出来）；
+    #   · 非英文 Windows 标签本地化，只从输出抓版本号数字，正则放宽到两段及以上；
+    #   · 原生调用包 try，本地化/编码下写 stderr 也不至于把整步崩掉；
+    #   · --version 拿不到时，再用 wsl -l -v 是否存在 VERSION 2 的发行版兜底（Docker 的 wsl-2 后端要的就是它）。
+    try { $out = ((& wsl --version 2>$null) -join ' ') } catch { $out = '' }
+    if ($out -match '(\d+\.\d+(?:\.\d+){0,2})') { return $Matches[1] }
+    $rows = @()
+    try { $rows = @(& wsl -l -v 2>$null) } catch { $rows = @() }
+    foreach ($row in $rows) {
+        if (("$row").TrimEnd() -match '\s2$') { return 'WSL2' }
+    }
     return $null
 }
 $wslVersion = Get-WslVersion
 if ($wslVersion) {
     Write-Good "WSL 已就绪（版本 $wslVersion）"
 } else {
-    Write-Note '没探到可用的 WSL 2（inbox 版 wsl 不支持 --version，也算没就绪）。正在安装/更新，会弹一次管理员授权框。'
+    Write-Note '没探到可用的 WSL 2（wsl --version 与 wsl -l -v 都没给出可用信号）。正在安装/更新，会弹一次管理员授权框。'
     try {
         # 启用 WSL 系统组件必须提权，这一跳 UAC 在 Windows 上无法回避；后面全部走
         # per-user 安装，不再需要管理员。
@@ -169,7 +177,7 @@ if (-not (Test-Path $envFile)) {
         Write-Note '既没有 .env 也没有 .env.example：将只用编排文件里的默认值启动。'
     }
 }
-$version = Get-FileEnvValue -Key 'DRAMACLAW_VERSION' -Default '2.0.99'
+$version = Get-FileEnvValue -Key 'DRAMACLAW_VERSION' -Default (Get-ComposeDefaultVersion)
 $webPort = Get-FileEnvValue -Key 'ST_WEB_PORT' -Default '8080'
 $apiPort = Get-FileEnvValue -Key 'ST_API_PORT' -Default '8780'
 if (-not (Get-FileEnvValue -Key 'ST_LOCAL_PASSWORD')) {

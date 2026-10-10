@@ -284,7 +284,10 @@ def test_build_plan_classifies_deps_world_and_channel(monkeypatch):
             "installing": False,
         },
     )
-    monkeypatch.setenv("MODEL_API_KEY", "sk-secret")
+    monkeypatch.setattr(
+        env_setup_install, "_configured_channel_providers", lambda: ["aipdd", "volcengine"]
+    )
+    monkeypatch.delenv("MODEL_API_KEY", raising=False)
     plan = env_setup_install.build_plan()
     by_id = {it["id"]: it for it in plan["items"]}
 
@@ -296,6 +299,7 @@ def test_build_plan_classifies_deps_world_and_channel(monkeypatch):
     assert by_id["world"]["auto_installable"] is True
     assert by_id["world"]["action"] == "install"
     assert by_id["model_channel"]["status"] == "ready"
+    assert "aipdd" in (by_id["model_channel"]["detail"] or "")  # 真源是渠道存档
     summary = plan["summary"]
     assert summary["total"] == len(plan["items"])
     assert summary["ready"] + summary["installable"] + summary["missing"] <= summary["total"]
@@ -308,9 +312,8 @@ def test_build_plan_world_not_installable(monkeypatch):
         "status_snapshot",
         lambda: {"install_state": "not_installed", "installed": False, "can_install": False},
     )
+    monkeypatch.setattr(env_setup_install, "_configured_channel_providers", lambda: [])
     monkeypatch.delenv("MODEL_API_KEY", raising=False)
-    monkeypatch.delenv("AIPDD_API_KEY", raising=False)
-    monkeypatch.delenv("DC_API_KEY", raising=False)
     plan = env_setup_install.build_plan()
     by_id = {it["id"]: it for it in plan["items"]}
     assert by_id["world"]["status"] == "missing"
@@ -319,6 +322,23 @@ def test_build_plan_world_not_installable(monkeypatch):
     # 未配密钥：model_channel 是指引型待办（非 optional 的 missing）。
     assert by_id["model_channel"]["status"] == "missing"
     assert by_id["model_channel"]["guide"]
+
+
+def test_build_plan_model_channel_env_fallback(monkeypatch):
+    # 渠道存档为空但环境有 MODEL_API_KEY 时，仍判就绪（容器内直连的兼容兜底），且不谎报渠道清单。
+    monkeypatch.setattr(env_probe, "probe", _fake_probe())
+    monkeypatch.setattr(
+        env_setup_install.world_install,
+        "status_snapshot",
+        lambda: {"install_state": "ready", "installed": True, "can_install": True},
+    )
+    monkeypatch.setattr(env_setup_install, "_configured_channel_providers", lambda: [])
+    monkeypatch.delenv("MODEL_API_KEY", raising=False)
+    monkeypatch.setenv("MODEL_API_KEY", "sk-envonly")
+    plan = env_setup_install.build_plan()
+    by_id = {it["id"]: it for it in plan["items"]}
+    assert by_id["model_channel"]["status"] == "ready"
+    assert by_id["model_channel"]["detail"] is None
 
 
 def test_install_item_world_starts(monkeypatch):

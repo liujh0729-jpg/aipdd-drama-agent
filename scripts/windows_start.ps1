@@ -41,7 +41,7 @@ $composeHint = Get-ComposeHint
 if (-not (Test-Path (Join-Path $RepoRoot '.env'))) {
     Write-Note '仓库根没有 .env：会用编排文件的默认值起（安装环境那一步会自动生成一份）。'
 }
-$version = Get-FileEnvValue -Key 'DRAMACLAW_VERSION' -Default '2.0.99'
+$version = Get-FileEnvValue -Key 'DRAMACLAW_VERSION' -Default (Get-ComposeDefaultVersion)
 $webPort = [int](Get-FileEnvValue -Key 'ST_WEB_PORT' -Default '8080')
 $apiPort = [int](Get-FileEnvValue -Key 'ST_API_PORT' -Default '8780')
 $localPassword = Get-FileEnvValue -Key 'ST_LOCAL_PASSWORD'

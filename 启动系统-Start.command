@@ -48,7 +48,7 @@ else
   compose_cmd=(docker compose)   # 装了 Docker Desktop / compose 插件的机器走这条
 fi
 
-version="$(env_value DRAMACLAW_VERSION 2.0.99 "$root_dir/.env")"
+version="$(env_value DRAMACLAW_VERSION "$(compose_default_version "$root_dir/docker-compose.aipdd.yml")" "$root_dir/.env")"
 web_port="$(env_value ST_WEB_PORT 8080 "$root_dir/.env")"
 api_port="$(env_value ST_API_PORT 8780 "$root_dir/.env")"
 # 登录口令只报「去哪拿」，绝不回显到屏幕（记忆与安全纪律：密钥不上屏）。

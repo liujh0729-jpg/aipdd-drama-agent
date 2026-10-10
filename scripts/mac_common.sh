@@ -62,6 +62,17 @@ env_value() {
   if [ -n "$value" ]; then printf '%s' "$value"; else printf '%s' "$default"; fi
 }
 
+# 版本兜底的唯一真源是 compose 编排里 DRAMACLAW_VERSION 的 :- 默认值；两个 Mac 入口不再各
+# 写一份数字，改 compose 一处即可（与 Windows 入口同口径，避免多处默认值静默漂移）。取不到
+# （compose 里没有 :- 默认）时回空串，由调用方决定最后兜底，绝不在此另立版本常量。
+compose_default_version() { # $1=compose 文件
+  local f line
+  f="${1:-docker-compose.aipdd.yml}"
+  [ -f "$f" ] || return 0
+  line="$(sed -n 's/.*DRAMACLAW_VERSION:-\([^}]*\)}.*/\1/p' "$f" 2>/dev/null | head -1)"
+  printf '%s' "$line"
+}
+
 colima_running() { colima status >/dev/null 2>&1; }
 
 # 把 Colima 虚拟机拉起来（已运行则直接返回）。不在此改动 VM 配置：磁盘是预分配文件，

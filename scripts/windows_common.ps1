@@ -53,6 +53,17 @@ function Get-FileEnvValue {
     if ($value) { return $value } else { return $Default }
 }
 
+# 版本兜底的唯一真源是 compose 编排里 DRAMACLAW_VERSION 的 :- 默认值；两个 Windows 入口不再
+# 各写一份数字，改 compose 一处即可（与 Mac 入口同口径，避免多处默认值静默漂移）。取不到时回
+# 空串交给调用方兜底，这里绝不另立版本常量。沿用 Get-FileEnvValue 的 Select-String 范式。
+function Get-ComposeDefaultVersion {
+    $file = Join-Path $RepoRoot 'docker-compose.aipdd.yml'
+    if (-not (Test-Path $file)) { return '' }
+    $line = Select-String -Path $file -Encoding UTF8 -Pattern 'DRAMACLAW_VERSION:-([^}]+)' | Select-Object -First 1
+    if (-not $line) { return '' }
+    return $line.Matches[0].Groups[1].Value.Trim()
+}
+
 # 找到 docker.exe 所在目录并加进**当前进程**的 PATH。
 # 为什么必须做：per-user 安装把路径写进用户 PATH，但正在运行的这个窗口不会自动重读，
 # 症状是「装完了却说没有 docker」——与 Mac 双击时 PATH 不含 /opt/homebrew/bin 同一类坑。
