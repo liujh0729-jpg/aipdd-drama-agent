@@ -166,7 +166,43 @@ async def _run_script_auto(
             ),
         )
 
-    report(1.0, lmsg("tasks.progress.auto.done", "自动化完成"))
+    # 派生步骤失败时整链仍然是 completed（前面发布的资产不该被推翻），但终态不能
+    # 谎报成一句「自动化完成」：现场见过整轮跑完、进度条 100%、图谱却是空的，用户
+    # 只会认为按钮没生效。缺哪一段就写在最后一行上，任务中心不用展开日志也能看懂。
+    # 措辞按组合分档，不把已本地化的标签拼进另一条本地化消息里。
+    scenes_gap = isinstance(results.get("scenes"), dict) and bool(
+        results["scenes"].get("error")
+    )
+    graph = results.get("graph")
+    graph_gap = isinstance(graph, dict) and bool(
+        graph.get("error") or graph.get("published") is False
+    )
+    if scenes_gap and graph_gap:
+        report(
+            1.0,
+            lmsg(
+                "tasks.progress.auto.doneGapsBoth",
+                "自动化完成，但场景与知识图谱未生成，可在对应页面单独重试",
+            ),
+        )
+    elif graph_gap:
+        report(
+            1.0,
+            lmsg(
+                "tasks.progress.auto.doneGapGraph",
+                "自动化完成，但知识图谱未生成，可在剧本页点击「生成图谱」单独重试",
+            ),
+        )
+    elif scenes_gap:
+        report(
+            1.0,
+            lmsg(
+                "tasks.progress.auto.doneGapScenes",
+                "自动化完成，但场景未生成，可在场景页单独重试",
+            ),
+        )
+    else:
+        report(1.0, lmsg("tasks.progress.auto.done", "自动化完成"))
     return results
 
 

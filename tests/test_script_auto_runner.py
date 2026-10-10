@@ -299,3 +299,70 @@ async def test_graph_preview_runner_routes_by_pipeline(
 
     assert calls == ["legacy"]
     assert result["published"] is True
+
+
+def _last_progress_code(manager: _RecordingTaskManager) -> str:
+    rows = [u for u in manager.updates if u["progress"] == 1.0]
+    assert rows, "整链收尾必须把进度条打到 100%"
+    task = rows[-1].get("current_task")
+    return task.code if isinstance(task, LocalizableMessage) else ""
+
+
+async def test_terminal_message_names_a_graph_that_produced_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """图谱整轮抽不出东西时，终态不能只写「自动化完成」。
+
+    现场形状：进度条 100%、状态 completed、图谱却是空的，而派生步骤按设计不致命，
+    所以既没有失败状态也没有异常。用户看到的只有一个没生效的按钮。
+    """
+    manager = _RecordingTaskManager()
+    _patch_reporting(monkeypatch, manager)
+    monkeypatch.setattr(script_auto, "require_imported_novel", lambda _dir: None)
+    await _success_steps(monkeypatch)
+
+    async def empty_graph(_ctx, *, report=None):
+        report(1.0, "图谱 100%")
+        return {"nodes": 0, "edges": 0, "published": False}
+
+    monkeypatch.setattr(script_auto, "_run_graph_preview", empty_graph)
+
+    await script_auto._run_script_auto(_envelope(), _ctx(tmp_path))
+
+    assert _last_progress_code(manager) == "tasks.progress.auto.doneGapGraph"
+
+
+async def test_terminal_message_names_every_missing_derived_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manager = _RecordingTaskManager()
+    _patch_reporting(monkeypatch, manager)
+    monkeypatch.setattr(script_auto, "require_imported_novel", lambda _dir: None)
+    await _success_steps(monkeypatch)
+
+    async def scenes_boom(_ctx, *, report=None):
+        raise RuntimeError("场景规划不可用")
+
+    async def graph_boom(_ctx, *, report=None):
+        raise RuntimeError("模型未配置")
+
+    monkeypatch.setattr(script_auto, "_run_build_scenes", scenes_boom)
+    monkeypatch.setattr(script_auto, "_run_graph_preview", graph_boom)
+
+    await script_auto._run_script_auto(_envelope(), _ctx(tmp_path))
+
+    assert _last_progress_code(manager) == "tasks.progress.auto.doneGapsBoth"
+
+
+async def test_full_chain_still_reports_a_plain_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """五步都产出东西时不许冒出「未生成」——那会把成功的整链说成失败。"""
+    manager = _RecordingTaskManager()
+    _patch_reporting(monkeypatch, manager)
+    monkeypatch.setattr(script_auto, "require_imported_novel", lambda _dir: None)
+    await _success_steps(monkeypatch)
+
+    await script_auto._run_script_auto(_envelope(), _ctx(tmp_path))
+
+    assert _last_progress_code(manager) == "tasks.progress.auto.done"
