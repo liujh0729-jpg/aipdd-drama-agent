@@ -435,7 +435,10 @@ AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models
 > 🧠 **Bring your own compute — lower cost, stay in control.** The gateway is built so *you* choose where each generation runs:
 > - **AIPDD idle compute (cut costs).** Connecting the **AIPDD** channel lets generation ride the platform's **idle compute pool**, so heavy batch drama work runs at a fraction of on-demand pricing — the single biggest lever on production cost. Register at <https://www.aipdd.work> to get an AIPDD API key, then add it as a channel in **Settings → Model Config**.
 > - **NewAPI, freely mixed.** The built-in **NewAPI** gateway lets you register many providers as channels and **combine them however you like** — official, AIPDD, a self-hosted box, or any OpenAI-compatible endpoint — per model, per stage. For NewAPI channels we recommend **sourcing your own providers and comparing prices**; a curated reference list is here: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf?from=from_copylink>.
-> - **ComfyUI, on your own GPU.** A first-class **ComfyUI** adapter routes image / video generation to a workflow running on **your machine**: your hardware does the rendering, with no per-call cloud quota. Register your local ComfyUI endpoint as a channel in **Custom** or **Hybrid** mode.
+> - **ComfyUI, on your own GPU — the cheapest way to run canvas tasks.** A first-class **ComfyUI** adapter points canvas image / video generation at a workflow running on **your own machine**: your GPU does the rendering, so there's **no per-call cloud quota** — heavy generation costs you only electricity, far below any hosted model. Register your local ComfyUI endpoint as a channel in **Custom** or **Hybrid** mode.
+>   - **Fastest way to get ComfyUI up** — skip the manual install and just download our bundled **compute client (算力客户端)**, then run the installer — no Python or environment setup needed: <https://aiworkin.feishu.cn/wiki/ShoUwFDdBimuqCkz2Oqcofwdnm7?from=from_copylink>.
+>
+>   <img src="./assets/Weixin%20Image_20261010102709_97_221.png" width="520" alt="AIPDD compute client — install ComfyUI and run canvas tasks on local GPU"/>
 
 Full walkthrough in [Configuring Models](docs/en/getting-started/configuring-models.md).
 

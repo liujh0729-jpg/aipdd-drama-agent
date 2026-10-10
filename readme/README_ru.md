@@ -82,7 +82,7 @@ DramaClaw распространяется под <a href="../LICENSES/Elastic-2
 
 <div align="center">
 
-## 🎬 Сделано на DramaClaw
+## 🎬 Сделано на AIPDD-Agent-Claw
 
 <sub>Настоящие короткометражные дорамы, которые наша команда произвела на этом же конвейере — нажми на ссылку, чтобы посмотреть.</sub>
 
@@ -91,34 +91,22 @@ DramaClaw распространяется под <a href="../LICENSES/Elastic-2
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-cover.png?v=2" width="185" alt="归灵司"/><br/>
       <b>归灵司</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-ep01.mp4">▶ Серия 1</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-ep01.mp4">▶ 第 1 集</a>
     </td>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-cover.png?v=2" width="185" alt="鲁班"/><br/>
       <b>鲁班</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-ep01.mp4">▶ Серия 1</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-ep01.mp4">▶ 第 1 集</a>
     </td>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-cover.png?v=2" width="185" alt="师兄你怎么不舔了"/><br/>
       <b>师兄你怎么不舔了</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-ep01.mp4">▶ Серия 1</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-ep01.mp4">▶ 第 1 集</a>
     </td>
-  </tr>
-  <tr>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-cover.png?v=2" width="185" alt="天命不可欺"/><br/>
       <b>天命不可欺</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep02.mp4">▶ Серия 02</a> &nbsp;·&nbsp; <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep58.mp4">Серия 58</a>
-    </td>
-    <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-cover.png?v=2" width="185" alt="乌龙仙途"/><br/>
-      <b>乌龙仙途</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-ep01.mp4">▶ Серия 1</a>
-    </td>
-    <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu-cover.png?v=2" width="185" alt="非遗㑇舞"/><br/>
-      <b>非遗㑇舞</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu.mp4">▶ Смотреть</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep02.mp4">▶ 第 02 集</a> &nbsp;·&nbsp; <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep58.mp4">第 58 集</a>
     </td>
   </tr>
 </table>
@@ -131,7 +119,7 @@ DramaClaw распространяется под <a href="../LICENSES/Elastic-2
 
 <br/>
 
-## Что такое DramaClaw?
+## Что такое AIPDD-Agent-Claw?
 
 DramaClaw — это **source-available производственная линия для ИИ-дорам** — и всё больше для любой визуальной истории, которую ты хочешь рассказать генеративными моделями. У неё два лица, которые делят одну библиотеку ассетов и одного агента:
 
@@ -141,6 +129,40 @@ DramaClaw — это **source-available производственная лин�
 Встроенный агент **Xia Director** работает поверх обоих: он отвечает на вопросы о проекте, ведёт задачи конвейера и может строить и запускать графы узлов на холсте за тебя.
 
 Он создан для авторов, инди-студий и креативных инженеров — запусти всю «фабрику дорам» на своей машине, не склеивая дюжину несвязанных инструментов и не отдавая свой материал в непрозрачное облако. Хотя ядро — это дорамы, те же холст и конвейер переносятся на короткую рекламу, видео товаров для e-commerce и другие визуальные форматы.
+
+<br/>
+
+## <a name="what-we-added"></a>Что добавляет форк AIPDD
+
+Мы отправились от бесконечного холста DramaClaw и перестроили вокруг него весь стек. Поверх **самодостаточной мульти-лицензионной сборки из исходников** (ноль внешних образов, ноль исходящих вызовов по умолчанию) форк наращивает возможности, которые делают из него **фабрику дорам, которой управляет агент**:
+
+**1 · Встроенный агент — Director.** Он читает ваш проект, проверяет прогресс, двигает задачи сценария / кадра, аудитит полноту результатов, гоняет конвейерные джобы и раскладывает и выполняет графы узлов на холсте за вас — каждая команда холста сначала утверждается в браузере.
+
+**2 · Полный MCP-сервер — ~100 инструментов.** Один stdio-мост (`uv run`) открывает всю систему для **Claude Code, Codex** и любого MCP-клиента — инструменты `aipdd_drama_*` + `vectcut_*`, loopback CE-owner или API-ключ `st-`. [Руководство →](../docs/en/guides/mcp-claude-code.md). Разбивается на:
+
+- **Пакетные инструменты в один клик («страница инструментов»)** — клон видео, микс короткого видео, whiteboard-анимация, объясняющее моушен-видео, идея-в-видео (одна строка → готовый фильм), клон и синтез голоса, липсинк, замена человека, замена товара, удаление водяного знака с видео, удаление водяного знака с изображения, дубляж видео, и извлечение текста Douyin.
+- **Глаголы генерации холста** — *изображение*: сгенерировать / редактировать / перерисовать / расширить за края / пересветить / апскейл / мульти-вид / правка по шаблону / обратный промпт · *видео*: текст-в-видео / изображение-в-видео / омни-референс / апскейл / редактировать / продлить · *аудио*: разделение вокала и аккомпаемента / музыка · *текст*: сгенерировать / перевести / сюжетный сценарий / обратный сценарий видео / копирайт медиа.
+- **Автоматизация и оркестрация в один клик** — автоматический пошаговый драйвер раскадровки (стиль → сценарий → эпизоды → раскадровки → первые кадры), пакетные видео кадров / скетчей / видео-промптов по диапазону битов, и оркестратор `run_pipeline` с режимами `manual` / `checkpoint` / `auto` плюс статус / отмена / совет по конфигу.
+- **Правка черновиков Jianying / CapCut** — собирает раскадровки, закадровый голос и субтитры в настоящий монтажный черновик через сервис VectCut (13 инструментов `vectcut_*`).
+
+**3 · Тяжёлый реинжиниринг под self-hosting.** Гейтвей DramaClaw (AGPL-3.0), DA-2 (Apache-2.0) и ml-sharp (Apple) **вендорятся** под [`third_party/`](../third_party/README.md); весь стек собирается из исходников, а удалённые вызовы каталога / фида релизов теперь **включаются по желанию (opt-in)**, а не по умолчанию.
+
+Одной строкой: **AIPDD-Agent-Claw = холст DramaClaw + агент + поверхность MCP из ~100 инструментов + самодостаточная сборка** — система, которой можно управлять вручную, промптом или из другого ИИ-агента.
+<div align="center">
+
+**Director — встроенный агент**
+
+<img src="../assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="Агент Director AIPDD-Agent-Claw управляет проектом"/>
+
+**Страница инструментов в один клик**
+
+<img src="../assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="Страница инструментов в один клик AIPDD-Agent-Claw"/>
+
+**MCP — вся система как ~100 инструментов**
+
+<img src="../assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="MCP-сервер AIPDD-Agent-Claw, обнажающий ~100 инструментов"/>
+
+</div>
 
 <br/>
 
@@ -233,7 +255,7 @@ DramaClaw — это **source-available производственная лин�
 
 <br/>
 
-## Почему DramaClaw?
+## Почему AIPDD-Agent-Claw?
 
 **Холст, который понимает дорамы, и агент, который на нём работает.** Универсальные узловые холсты соединят что угодно, но не знают ничего о сериях, персонажах и планах; инструменты сериалов знают ремесло, но запирают тебя в мастер. XiaHua даёт свободный холст с узлами и скиллами, понимающими дорамы, а Xia Director строится, чтобы раскладывать, запускать и проверять эти графы за тебя. Именно это сочетание — то, куда движется DramaClaw.
 
@@ -245,7 +267,7 @@ DramaClaw — это **source-available производственная лин�
 
 **Самостоятельное размещение, модельная нейтральность.** Твоя рукопись, твои персонажи, твои модели, твои серверы. Используй закрытые передовые модели, когда нужен лучший результат; переходи на open-weight модели, когда нужен полный контроль. DramaClaw не привязывает тебя к одному вендору.
 
-### Как DramaClaw сравнивается
+### Как AIPDD-Agent-Claw сравнивается
 
 Преимущество не в «генерировать больше» — оно в том, чтобы организовать весь производственный цикл короткой дорамы (сценарий → ассеты → планы → холст → финальный монтаж) в нечто переиспользуемое, совместное и масштабируемое.
 
@@ -290,6 +312,23 @@ DramaClaw выполняет весь инференс через **OpenAI-со�
 
 ## <a name="быстрый-старт"></a>Быстрый старт
 
+### В один клик (macOS / Windows) — рекомендуется, если просто нужно запустить
+
+Никаких команд терминала. Получите код (клон или **Скачать ZIP**, затем распакуйте), затем **по порядку** дважды щёлкните два лоанчера в корне репозитория:
+
+| | macOS | Windows |
+|---|---|---|
+| **1 · Установить** | двойной щелчок по `安装环境-Setup.command` | двойной щелчок по `安装环境-Setup.bat` |
+| **2 · Запустить** | двойной щелчок по `启动系统-Start.command` | двойной щелчок по `启动系统-Start.bat` |
+
+- **Лоанчер Setup ставит всё**: Xcode Command Line Tools → Homebrew → Colima (Docker VM) → Docker CLI + compose на macOS, либо WSL2 → Docker Desktop на Windows; затем генерирует `.env` из `.env.example` и собирает первые образы `api` / `web` / гейтвей из исходников (гейтвей вендорится под `third_party/dramaclaw-gateway`, из реестра ничего не тянется). **Лоанчер Start** поднимает стек, ждёт, пока сайт действительно ответит, и открывает браузер на <http://localhost:8080>.
+- **Каждый шаг идемпотентен** — если что-то упало, исправьте причину и снова дважды щёлкните, чтобы продолжить. При успехе окно закрывается само; ошибка остаётся открытой, чтобы вы могли прочитать.
+- **Первый запуск на macOS**: Gatekeeper может заблокировать неподписанный `.command` — правый клик по файлу → **Открыть** (или разрешите в Системные настройки → Конфиденциальность и безопасность).
+- **Windows**: **не** «Запуск от имени администратора» — Docker Desktop ставится для пользователя, а приподнятое окно поместит его туда, где лоанчер не найдёт. (Настройка WSL показывает собственный одноразовый системный запрос — это ожидаемо.)
+- **Пересборка после правки кода**: `bash 启动系统-Start.command --rebuild` (macOS) / `启动系统-Start.bat --rebuild` (Windows). Двойной щелчок по умолчанию ничего не пересобирает, поэтому остаётся быстрым.
+
+> Этот путь использует `docker-compose.aipdd.yml`: `api`, `web` и гейтвей собираются из исходников (гейтвей из вендоренной `third_party/dramaclaw-gateway`), с SQLite + задачи в процессе, без Postgres/Redis/Celery и **без тяги внешних образов**. Первая сборка на медленном соединении может занять 40–90 минут (последующие запуски — секунды). Про вход и подключение моделей см. [Первый запуск](#first-run).
+
 ### Docker (рекомендуется)
 
 Каждый релиз на GitHub публикует мультиархитектурные образы (amd64/arm64) на Docker Hub.
@@ -327,6 +366,27 @@ docker compose -f docker-compose.release.yml up -d
 
 > Мигрируешь со старого чекаута? Для сборки из исходников сначала `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (теперь шлюз собирается из соседнего чекаута; без него сборка останавливается с `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` удалены — используй `docker-compose.yml` (сборка из исходников) / `docker-compose.release.yml` (образы). Имена сервисов и тома `ce-data` / `newapi-data` не изменились; существующие данные переиспользуются как есть. Порт LocalNewAPI теперь по умолчанию привязан только к `127.0.0.1`; задай `ST_NEWAPI_BIND=0.0.0.0` в `.env`, если нужен удалённый доступ к нему.
 
+### Облачный хост / VPS (Linux) — общий или публичный деплой
+
+На Linux-сервере (свой VPS или облачный инстанс) запускайте тот же стек из исходников через Docker Engine и плагин `docker compose` — поставьте их через пакетный менеджер вашего дистрибутива или официальную документацию Docker по Linux, затем:
+
+```bash
+# 1 · get the code and configure it
+git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
+cd aipdd-drama-agent
+cp .env.example .env
+#    Edit .env: set ST_LOCAL_PASSWORD, PROMPT_EXPORT_PASSWORD and your model
+#    keys / official DC key before you start.
+
+# 2 · build & bring the stack up (api / newapi gateway / web, all from source)
+docker compose -f docker-compose.aipdd.yml up -d --build
+```
+
+- **Порты.** `8080` веб-UI · `8780` REST API · `3000` админ LocalNewAPI (по умолчанию привязан к `127.0.0.1`). Поставьте перед `8080` **обратный прокси с TLS** (Caddy / Nginx / Traefik) и держите `8780` / `3000` внутренними; в фаерволе / группе безопасности открывайте только `80` / `443`.
+- **Первой сборке нужно место** — дайте хосту ≥ 8 ГБ RAM и ≥ 40 ГБ диска, иначе сборка фронтенда будет убита OOM.
+- **Вход** под учёткой одиночной машины `local` по `ST_LOCAL_PASSWORD` (либо одноразовый пароль, напечатанный в `docker compose -f docker-compose.aipdd.yml logs api` при первом запуске).
+- **Мультипользователь?** CE по задумке одно-владельческий. Чтобы обслуживать нескольких пользователей, включите `ST_CE_MULTI_USER` и поставьте спереди настоящую аутентификацию + HTTPS. Полные заметки по продакшену: [Руководство по self-hosting](../docs/en/guides/self-hosting.md).
+
 ### Локальная разработка (uv + Python 3.11+)
 
 ```bash
@@ -354,7 +414,28 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 <br/>
 
-## Поддерживаемые модели и провайдеры
+## <a name="first-run"></a>Первый запуск и как пользоваться
+
+Какой бы путь установки вы ни выбрали, приложение поднимается одинаково:
+
+1. **Откройте UI** на <http://localhost:8080> (лоанчеры в один клик откроют его за вас). REST API на <http://localhost:8780>; браузер общается только с `web`, который делает обратный прокси на `api`.
+2. **Войдите.** Конфиг `docker-compose.aipdd.yml` включает вход одиночной машины (учётка `local`).
+   - Если вы задали `ST_LOCAL_PASSWORD` в `.env`, используйте этот пароль.
+   - Иначе бэкенд генерирует **одноразовый пароль** при первом запуске и логирует его один раз. Достаньте его командой:
+     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`).
+3. **Подключите модели** — зайдите в **Настройки → Конфиг моделей** и выберите режим (подробности в [Поддерживаемые модели и провайдеры](#supported-models)):
+   - **Официальный** — вставьте DC-ключ с <https://susciyuan.com>; все модели уже смапплены, LocalNewAPI простаивает.
+   - **Пользовательский** — один клик инициализирует LocalNewAPI, затем добавьте свои апстрим-каналы (API-ключи + ID моделей) в его админ-UI.
+   - **Гибрид LocalNewAPI + Официальный** — официальные модели для основного конвейера, ваши доп. каналы рядом.
+4. **Начните создавать** — два пути в одну библиотеку ассетов:
+   - **Конвейер «Сериал»**: загрузите рукопись или сценарий (Fountain поддерживается), и пусть AIPDD-Agent-Claw планирует эпизоды, пишет сценарии, рисует раскадровки и первые кадры, синтезирует закадровый голос и монтирует финальный фильм. Каждый этап — независимая задача в **Центре задач** — прогоняйте последовательно, пропускайте или возобновляйте с любой контрольной точки.
+   - **Холст**: откройте бесконечный холст и бросайте / связывайте узлы (изображение, видео, аудио, сценарий, 3D-площадка…), свободно исследуя, а затем повышайте понравившиеся результаты в сериал.
+
+Будьте в актуальном состоянии: снова дважды щёлкните лоанчер **Start** для перезапуска; проверяйте стек командой `docker-compose -f docker-compose.aipdd.yml ps` и читайте логи через `... logs -f api`. Полный разбор — в [руководстве продукта](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) и [Быстром старте](../docs/en/getting-started/quickstart.md).
+
+<br/>
+
+## <a name="supported-models"></a>Поддерживаемые модели и провайдеры
 
 DramaClaw остаётся модельно-нейтральным — все текстовые / имиджевые / видео / аудиомодели подключаются через **OpenAI-совместимый шлюз**. Выбери режим в **Settings → Model Config**:
 
@@ -365,7 +446,10 @@ DramaClaw остаётся модельно-нейтральным — все т
 > 🧠 **Свой вычислительный ресурс — ниже цена, полный контроль.** Шлюз устроен так, что *ты сам* выбираешь, где выполняется каждая генерация:
 > - **Простаивающие мощности AIPDD (экономия).** Подключение канала **AIPDD** позволяет гонять генерацию на **пуле простаивающих мощностей** платформы, поэтому тяжёлая пакетная работа над дорамами обходится в доли цены по запросу — самый сильный рычаг снижения себестоимости. Зарегистрируйся на <https://www.aipdd.work>, чтобы получить API-ключ AIPDD, затем добавь его как канал в **Настройки → Модели**.
 > - **NewAPI — свободно комбинируй.** Встроенный шлюз **NewAPI** даёт регистрировать много провайдеров как каналы и **комбинировать их как угодно** — официальные, AIPDD, свой сервер или любой OpenAI-совместимый эндпоинт — по моделям и по этапам. Для каналов NewAPI советуем **подбирать провайдеров самостоятельно и сравнивать цены**; отобранный справочный список вот тут: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf?from=from_copylink>.
-> - **ComfyUI — на своём GPU.** Адаптер **ComfyUI** первого класса направляет генерацию изображений / видео на воркфлоу, работающий на **твоей машине**: рендерит твоё железо, без облачных квот за каждый вызов. Зарегистрируй локальный ComfyUI-эндпоинт как канал в режиме **Custom** или **Hybrid**.
+> - **ComfyUI — на своём GPU: самый дешёвый способ гонять генерацию на холсте.** Адаптер **ComfyUI** первого класса направляет генерацию изображений / видео на воркфлоу, работающий на **твоей машине**: рендерит твоё железо, **без облачных квот за вызов** — тяжёлые прогоны обходятся лишь в стоимость электричества, заметно дешевле любой хостинговой модели. Зарегистрируй локальный ComfyUI-эндпоинт как канал в режиме **Custom** или **Hybrid**.
+>   - **Как поставить ComfyUI быстрее всего** — без ручной установки и Python-окружения: скачай наш встроенный **вычислительный клиент (算力客户端)** и запусти установщик: <https://aiworkin.feishu.cn/wiki/ShoUwFDdBimuqCkz2Oqcofwdnm7?from=from_copylink>.
+>
+>   <img src="../assets/Weixin%20Image_20261010102709_97_221.png" width="520" alt="Вычислительный клиент AIPDD — установи ComfyUI и гоняй задачи холста на локальном GPU"/>
 
 Полный путь — в [Настройка моделей](../docs/en/getting-started/configuring-models.md).
 
@@ -409,60 +493,6 @@ DramaClaw остаётся модельно-нейтральным — все т
 - [Руководство по самостоятельному размещению](../docs/en/guides/self-hosting.md)
 - [Настройка провайдеров моделей](../docs/en/getting-started/configuring-models.md)
 - [Больше документации &rarr;](../docs/en/README.md)
-
-<br/>
-
-## Сообщество / Вклад
-
-- [Сообщить о баге](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=bug_report.yml)
-- [Запросить функцию](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=feature_request.yml)
-- [Присоединиться к обсуждению](https://github.com/liujh0729-jpg/aipdd-drama-agent/discussions)
-- [Руководство по вкладу](../CONTRIBUTING.md)
-- [Политика безопасности](../SECURITY.md)
-
-Мы постоянно курируем и маркируем [`good first issue`](https://github.com/liujh0729-jpg/aipdd-drama-agent/labels/good%20first%20issue) — отличное место для старта.
-
-<br/>
-
-## Участники
-
-Те, кто строит DramaClaw — спасибо. 💜
-
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/bopy-zou"><img src="https://github.com/bopy-zou.png?size=100" width="72" alt="bopy-zou"/><br/><sub>bopy-zou</sub></a></td>
-    <td align="center"><a href="https://github.com/Handanhhhy"><img src="https://github.com/Handanhhhy.png?size=100" width="72" alt="Handanhhhy"/><br/><sub>Handanhhhy</sub></a></td>
-    <td align="center"><a href="https://github.com/Hanlin-Gabriel"><img src="https://github.com/Hanlin-Gabriel.png?size=100" width="72" alt="Hanlin-Gabriel"/><br/><sub>Hanlin-Gabriel</sub></a></td>
-    <td align="center"><a href="https://github.com/ryanhuang-duat"><img src="https://github.com/ryanhuang-duat.png?size=100" width="72" alt="ryanhuang-duat"/><br/><sub>ryanhuang-duat</sub></a></td>
-    <td align="center"><a href="https://github.com/lywaterman"><img src="https://github.com/lywaterman.png?size=100" width="72" alt="lywaterman"/><br/><sub>lywaterman</sub></a></td>
-    <td align="center"><a href="https://github.com/n7s4"><img src="https://github.com/n7s4.png?size=100" width="72" alt="n7s4"/><br/><sub>n7s4</sub></a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/NewYuee"><img src="https://github.com/NewYuee.png?size=100" width="72" alt="NewYuee"/><br/><sub>NewYuee</sub></a></td>
-    <td align="center"><a href="https://github.com/SimonRen"><img src="https://github.com/SimonRen.png?size=100" width="72" alt="SimonRen"/><br/><sub>SimonRen</sub></a></td>
-    <td align="center"><a href="https://github.com/vkiki"><img src="https://github.com/vkiki.png?size=100" width="72" alt="vkiki"/><br/><sub>vkiki</sub></a></td>
-    <td align="center"><a href="https://github.com/wangwenqq"><img src="https://github.com/wangwenqq.png?size=100" width="72" alt="wangwenqq"/><br/><sub>wangwenqq</sub></a></td>
-    <td align="center"><a href="https://github.com/zhen2025109"><img src="https://github.com/zhen2025109.png?size=100" width="72" alt="zhen2025109"/><br/><sub>zhen2025109</sub></a></td>
-    <td align="center"><a href="https://github.com/revolutionarybukhari"><img src="https://github.com/revolutionarybukhari.png?size=100" width="72" alt="revolutionarybukhari"/><br/><sub>revolutionarybukhari</sub></a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/yhay81"><img src="https://github.com/yhay81.png?size=100" width="72" alt="yhay81"/><br/><sub>yhay81</sub></a></td>
-    <td align="center"><a href="https://github.com/hoanglongggggggggg"><img src="https://github.com/hoanglongggggggggg.png?size=100" width="72" alt="hoanglongggggggggg"/><br/><sub>hoanglongggggggggg</sub></a></td>
-  </tr>
-</table>
-
-<br/>
-
-## Produced By
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/partners/neoflying-lab-dark.png">
-    <img src="../assets/partners/neoflying-lab.png" alt="Neo Flying AI Laboratory" height="48">
-  </picture>
-</p>
-
-<p align="center"><sub>Логотип является товарным знаком соответствующего владельца, показан с разрешения.</sub></p>
 
 <br/>
 

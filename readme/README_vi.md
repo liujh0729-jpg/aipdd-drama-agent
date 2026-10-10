@@ -93,7 +93,7 @@ Lý do và các câu hỏi thường gặp: <a href="https://github.com/dramacla
 
 <div align="center">
 
-## 🎬 Làm bằng DramaClaw
+## 🎬 Làm bằng AIPDD-Agent-Claw
 
 <sub>Những bộ phim drama ngắn thật do đội ngũ chúng tôi sản xuất trên chính dây chuyền này &mdash; bấm vào link để xem.</sub>
 
@@ -102,34 +102,22 @@ Lý do và các câu hỏi thường gặp: <a href="https://github.com/dramacla
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-cover.png?v=2" width="185" alt="归灵司"/><br/>
       <b>归灵司</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-ep01.mp4">▶ Tập 1</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-ep01.mp4">▶ 第 1 集</a>
     </td>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-cover.png?v=2" width="185" alt="鲁班"/><br/>
       <b>鲁班</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-ep01.mp4">▶ Tập 1</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-ep01.mp4">▶ 第 1 集</a>
     </td>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-cover.png?v=2" width="185" alt="师兄你怎么不舔了"/><br/>
       <b>师兄你怎么不舔了</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-ep01.mp4">▶ Tập 1</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-ep01.mp4">▶ 第 1 集</a>
     </td>
-  </tr>
-  <tr>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-cover.png?v=2" width="185" alt="天命不可欺"/><br/>
       <b>天命不可欺</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep02.mp4">▶ Tập 02</a> &nbsp;·&nbsp; <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep58.mp4">Tập 58</a>
-    </td>
-    <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-cover.png?v=2" width="185" alt="乌龙仙途"/><br/>
-      <b>乌龙仙途</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-ep01.mp4">▶ Tập 1</a>
-    </td>
-    <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu-cover.png?v=2" width="185" alt="非遗㑇舞"/><br/>
-      <b>非遗㑇舞</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu.mp4">▶ Phát</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep02.mp4">▶ 第 02 集</a> &nbsp;·&nbsp; <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep58.mp4">第 58 集</a>
     </td>
   </tr>
 </table>
@@ -142,7 +130,7 @@ Lý do và các câu hỏi thường gặp: <a href="https://github.com/dramacla
 
 <br/>
 
-## DramaClaw là gì?
+## AIPDD-Agent-Claw là gì?
 
 DramaClaw là một **dây chuyền sản xuất phim drama AI với mã nguồn công khai (source available)** — và ngày càng mở rộng cho bất kỳ câu chuyện hình ảnh nào bạn muốn kể bằng các model sinh nội dung. Nó có hai gương mặt, dùng chung một thư viện tài sản và một agent:
 
@@ -152,6 +140,40 @@ DramaClaw là một **dây chuyền sản xuất phim drama AI với mã nguồn
 **Xia Director**, agent tích hợp sẵn, đứng giữa cả hai: trả lời câu hỏi về dự án của bạn, điều khiển các tác vụ pipeline, và có thể dựng rồi chạy các đồ thị node trên canvas thay bạn.
 
 Nó được xây cho người sáng tạo, studio độc lập và kỹ sư sáng tạo — chạy trọn "nhà máy phim drama" trên chính máy của bạn, không cần chắp vá hàng chục công cụ rời rạc hay giao tài liệu của mình cho một dịch vụ đám mây hộp đen. Dù được xây quanh phim drama, cùng một canvas và pipeline này vẫn áp dụng cho quảng cáo ngắn, video sản phẩm thương mại điện tử và các định dạng hình ảnh khác.
+
+<br/>
+
+## <a name="what-we-added"></a>Phân nhánh AIPDD bổ sung điều gì
+
+Chúng tôi khởi đầu từ canvas vô hạn của DramaClaw và dựng lại toàn bộ stack quanh nó. Trên nền một **bản build nguồn tự chứa, đa giấy phép** (không ảnh ngoài, không gọi ra mặc định), phân nhánh ghép thêm những năng lực biến nó thành một **nhà máy phim ngắn vận hành bằng agent**:
+
+**1 · Một agent tích hợp — Director.** Nó đọc dự án của bạn, kiểm tra tiến độ, thúc đẩy tác vụ kịch bản / cảnh, kiểm toán mức độ hoàn thiện của sản phẩm, chạy các việc của pipeline, và bố trí rồi chạy đồ thị nút trên canvas thay bạn — mọi lệnh canvas đều được duyệt trước trong trình duyệt.
+
+**2 · Một server MCP đầy đủ — ~100 công cụ.** Một cầu nối stdio (`uv run`) mở toàn bộ hệ thống cho **Claude Code, Codex** và mọi MCP client — công cụ `aipdd_drama_*` + `vectcut_*`, loopback CE-owner hoặc API key `st-`. [Hướng dẫn →](../docs/en/guides/mcp-claude-code.md). Bao gồm:
+
+- **Công cụ hàng loạt một chạm (trang công cụ)** — nhân bản video, mix video ngắn, hoạt hình bảng trắng, video động giải thích, ý-tới-video (một câu → phim hoàn chỉnh), nhân bản và tổng hợp giọng, khớp môi, thay người, thay sản phẩm, xóa watermark video, xóa watermark ảnh, lồng tiếng video, và trích nội dung Douyin.
+- **Động từ sinh trên canvas** — *ảnh*: sinh / sửa / vẽ lại / mở rộng / chiếu sáng lại / phóng to / đa góc / sửa theo mẫu / ngược prompt · *video*: text-to-video / image-to-video / tham chiếu omni / phóng to / sửa / nối dài · *audio*: tách giọng-nền / nhạc · *văn bản*: sinh / dịch / kịch bản truyện / ngược kịch bản video / copywrite media.
+- **Tự động hóa & điều phối một chạm** — một bộ driver storyboard tự động theo bước (phong cách → kịch bản → tập → storyboard → khung đầu), chạy loạt video cảnh / phác thảo / prompt video theo khoảng beat, và bộ điều phối `run_pipeline` với chế độ `manual` / `checkpoint` / `auto` cùng trạng thái chạy / hủy / gợi ý cấu hình.
+- **Sửa bản nháp Jianying / CapCut** — ghép storyboard, lồng tiếng và phụ đề thành một bản nháp dựng thật qua dịch vụ VectCut (13 công cụ `vectcut_*`).
+
+**3 · Tái kỹ thuật nặng cho tự lưu trữ.** Gateway DramaClaw (AGPL-3.0), DA-2 (Apache-2.0) và ml-sharp (Apple) được **gói sẵn (vendored)** dưới [`third_party/`](../third_party/README.md); toàn bộ stack build từ mã nguồn, và các gọi catalog / feed phát hành từ xa nay là **chọn tham gia (opt-in)** thay vì bật mặc định.
+
+Một câu: **AIPDD-Agent-Claw = canvas của DramaClaw + một agent + bề mặt MCP ~100 công cụ + một bản build tự chứa** — một hệ thống bạn có thể lái bằng tay, bằng prompt, hoặc từ một agent AI khác.
+<div align="center">
+
+**Director — agent tích hợp**
+
+<img src="../assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="Agent Director của AIPDD-Agent-Claw đang lái một dự án"/>
+
+**Trang công cụ một chạm**
+
+<img src="../assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="Trang công cụ một chạm của AIPDD-Agent-Claw"/>
+
+**MCP — toàn bộ hệ thống thành ~100 công cụ**
+
+<img src="../assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="Server MCP của AIPDD-Agent-Claw mở ~100 công cụ"/>
+
+</div>
 
 <br/>
 
@@ -244,7 +266,7 @@ Mỗi bước có giao diện riêng — chạy theo thứ tự, bỏ qua bướ
 
 <br/>
 
-## Tại sao chọn DramaClaw?
+## Tại sao chọn AIPDD-Agent-Claw?
 
 **Một canvas hiểu phim drama, và một agent làm việc trên đó.** Các canvas node đa dụng nối được mọi thứ nhưng chẳng biết gì về tập, nhân vật hay cảnh quay; các công cụ series hiểu nghề nhưng nhốt bạn trong một wizard. XiaHua cho bạn canvas tự do với các node và skill hiểu phim drama, còn Xia Director đang được xây để bố trí, chạy và review những đồ thị đó thay bạn. Sự kết hợp ấy chính là nơi DramaClaw đang hướng tới.
 
@@ -256,7 +278,7 @@ Mỗi bước có giao diện riêng — chạy theo thứ tự, bỏ qua bướ
 
 **Tự lưu trữ được, trung lập về model.** Bản thảo của bạn, nhân vật của bạn, model của bạn, máy chủ của bạn. Dùng các model tiên tiến đóng khi bạn muốn kết quả tốt nhất; chuyển sang các model open-weight khi bạn muốn toàn quyền kiểm soát. DramaClaw sẽ không trói bạn vào bất kỳ nhà cung cấp nào.
 
-### DramaClaw so với các sản phẩm khác
+### AIPDD-Agent-Claw so với các sản phẩm khác
 
 Lợi thế không phải là "sinh nội dung nhiều hơn" — mà là tổ chức toàn bộ vòng sản xuất phim drama ngắn (kịch bản → tài sản → cảnh quay → canvas → bản dựng cuối) thành thứ có thể tái sử dụng, cộng tác và mở rộng quy mô.
 
@@ -301,6 +323,23 @@ DramaClaw chạy toàn bộ suy luận qua một **gateway tương thích OpenAI
 
 ## <a name="quick-start"></a>Bắt đầu nhanh
 
+### Một chạm (macOS / Windows) — nên dùng nếu bạn chỉ muốn chạy được ngay
+
+Không cần lệnh terminal. Lấy mã (clone hoặc **Tải ZIP**, rồi giải nén), sau đó nhấp đúp hai launcher ở gốc repo **theo thứ tự**:
+
+| | macOS | Windows |
+|---|---|---|
+| **1 · Cài đặt** | nhấp đúp `安装环境-Setup.command` | nhấp đúp `安装环境-Setup.bat` |
+| **2 · Khởi động** | nhấp đúp `启动系统-Start.command` | nhấp đúp `启动系统-Start.bat` |
+
+- **Launcher Setup cài mọi thứ**: Xcode Command Line Tools → Homebrew → Colima (VM Docker) → Docker CLI + compose trên macOS, hoặc WSL2 → Docker Desktop trên Windows; rồi sinh `.env` từ `.env.example` và build lần đầu các ảnh `api` / `web` / gateway từ mã nguồn (gateway đã gói sẵn dưới `third_party/dramaclaw-gateway`, nên không tải gì từ registry). **Launcher Start** dựng stack, chờ tới khi site thực sự trả lời, rồi mở trình duyệt tại <http://localhost:8080>.
+- **Mỗi bước đều idempotent** — nếu lỗi, sửa nguyên nhân rồi nhấp đúp lại để tiếp tục. Khi thành công cửa sổ tự đóng; khi thất bại nó ở lại để bạn đọc.
+- **Khởi động đầu trên macOS**: Gatekeeper có thể chặn `.command` chưa ký — chuột phải vào tệp → **Mở** (hoặc cho phép trong System Settings → Quyền riêng tư & Bảo mật).
+- **Windows**: **đừng** “Chạy với quyền quản trị” — Docker Desktop cài theo người dùng và một cửa sổ nâng quyền sẽ đặt nó nơi launcher không tìm thấy. (Thiết lập WSL hỏi quyền hệ thống một lần — điều đó bình thường.)
+- **Build lại sau khi sửa mã**: `bash 启动系统-Start.command --rebuild` (macOS) / `启动系统-Start.bat --rebuild` (Windows). Nhấp đúp mặc định không build lại nên luôn nhanh.
+
+> Lối này dùng `docker-compose.aipdd.yml`: `api`, `web` và gateway đều build từ mã nguồn (gateway từ bản gói sẵn `third_party/dramaclaw-gateway`), dùng SQLite + tác vụ trong tiến trình, không Postgres/Redis/Celery và **không tải ảnh ngoài**. Build đầu có thể mất 40–90 phút với kết nối chậm (các lần khởi động sau chỉ vài giây). Xem [Chạy lần đầu](#first-run) để đăng nhập và kết nối model.
+
 ### Docker (khuyến nghị)
 
 Mỗi GitHub Release đều phát hành image đa kiến trúc (amd64/arm64) lên Docker Hub.
@@ -338,6 +377,27 @@ Ghim phiên bản hoặc đổi registry trong `.env` (`DRAMACLAW_VERSION`, `DRA
 
 > Di chuyển từ một checkout cũ? Với build từ mã nguồn, trước tiên `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (gateway giờ được build từ checkout kế bên đó; thiếu nó, build sẽ dừng với `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` đã bị gỡ — dùng `docker-compose.yml` (build từ mã nguồn) / `docker-compose.release.yml` (image). Tên dịch vụ và các volume `ce-data` / `newapi-data` không đổi; dữ liệu hiện có được dùng lại nguyên trạng. Cổng của gateway đi kèm giờ mặc định chỉ bind vào `127.0.0.1`; đặt `ST_NEWAPI_BIND=0.0.0.0` trong `.env` nếu bạn cần truy cập từ xa.
 
+### Máy chủ đám mây / VPS (Linux) — triển khai dùng chung hoặc công khai
+
+Trên một máy chủ Linux (VPS hoặc instance đám mây của bạn), chạy cùng stack build-từ-nguồn với Docker Engine và plugin `docker compose` — cài chúng qua trình quản lý gói của distro hoặc tài liệu Linux chính thức của Docker, rồi:
+
+```bash
+# 1 · get the code and configure it
+git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
+cd aipdd-drama-agent
+cp .env.example .env
+#    Edit .env: set ST_LOCAL_PASSWORD, PROMPT_EXPORT_PASSWORD and your model
+#    keys / official DC key before you start.
+
+# 2 · build & bring the stack up (api / newapi gateway / web, all from source)
+docker compose -f docker-compose.aipdd.yml up -d --build
+```
+
+- **Cổng.** `8080` UI web · `8780` REST API · `3000` admin LocalNewAPI (mặc định chỉ bind `127.0.0.1`). Đặt một **reverse proxy kèm TLS** (Caddy / Nginx / Traefik) trước `8080` và giữ `8780` / `3000` nội bộ; chỉ mở `80` / `443` trên firewall / nhóm bảo mật.
+- **Build đầu cần chỗ** — cấp cho host ≥ 8 GB RAM và ≥ 40 GB đĩa, nếu không build frontend sẽ bị OOM giết.
+- **Đăng nhập** bằng tài khoản máy đơn `local` với `ST_LOCAL_PASSWORD` (hoặc mật khẩu một lần in ra trong `docker compose -f docker-compose.aipdd.yml logs api` ở lần khởi động đầu).
+- **Nhiều người dùng?** CE thiết kế một chủ sở hữu. Để phục vụ nhiều người, bật `ST_CE_MULTI_USER` và đặt xác thức thật + HTTPS phía trước. Ghi chú production đầy đủ: [Hướng dẫn tự lưu trữ](../docs/en/guides/self-hosting.md).
+
 ### Phát triển cục bộ (uv + Python 3.11+)
 
 ```bash
@@ -365,7 +425,28 @@ hoặc chạy gateway từ mã nguồn trong checkout kế bên (`make dev-api` 
 
 <br/>
 
-## Model & nhà cung cấp được hỗ trợ
+## <a name="first-run"></a>Chạy lần đầu & cách dùng
+
+Dù bạn chọn lối cài nào, ứng dụng đều khởi lên như nhau:
+
+1. **Mở UI** tại <http://localhost:8080> (các launcher một chạm mở giúp bạn). REST API tại <http://localhost:8780>; trình duyệt chỉ nói chuyện với `web`, cái làm reverse-proxy tới `api`.
+2. **Đăng nhập.** Cấu hình `docker-compose.aipdd.yml` bật đăng nhập máy đơn (tài khoản `local`).
+   - Nếu bạn đặt `ST_LOCAL_PASSWORD` trong `.env`, dùng mật khẩu đó.
+   - Ngược lại backend sinh một **mật khẩu một lần** ở lần khởi động đầu và ghi log đúng một lần. Lấy nó bằng:
+     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`).
+3. **Kết nối model** — vào **Cài đặt → Cấu hình model** và chọn một chế độ (chi tiết ở [Model & nhà cung cấp được hỗ trợ](#supported-models)):
+   - **Chính thức** — dán một DC key từ <https://susciyuan.com>; mọi model đã được map, LocalNewAPI nghỉ.
+   - **Tùy chỉnh** — một chạm khởi tạo LocalNewAPI, rồi thêm kênh upstream của bạn (API key + model ID) trong UI admin của nó.
+   - **Hỗn hợp LocalNewAPI + Chính thức** — chính thức cho pipeline chính, LocalNewAPI cho các kênh bổ sung.
+4. **Bắt đầu sáng tạo** — hai lối vào cùng một thư viện asset:
+   - **Pipeline Series**: nạp một bản thảo hoặc kịch bản (hỗ trợ Fountain), để AIPDD-Agent-Claw lên kế hoạch tập, viết kịch bản, vẽ storyboard và khung đầu, tổng hợp lồng tiếng và dựng thành phim hoàn chỉnh. Mỗi giai đoạn là một tác vụ độc lập trong **Trung tâm tác vụ** — chạy tuần tự, bỏ qua, hoặc tiếp tục từ bất kỳ checkpoint nào.
+   - **Canvas**: mở canvas vô hạn và thả / nối các nút (ảnh, video, audio, kịch bản, trường quay 3D…) để khám phá tự do, rồi nâng kết quả bạn thích trở lại thành series.
+
+Luôn cập nhật: nhấp đúp lại launcher **Start** để khởi động lại; kiểm tra stack đang chạy bằng `docker-compose -f docker-compose.aipdd.yml ps` và theo dõi log bằng `... logs -f api`. Xem toàn bộ walkthrough ở [sách hướng dẫn sản phẩm](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) và [Bắt đầu nhanh](../docs/en/getting-started/quickstart.md).
+
+<br/>
+
+## <a name="supported-models"></a>Model & nhà cung cấp được hỗ trợ
 
 DramaClaw giữ trung lập về model — mọi model text / ảnh / video / âm thanh đều kết nối qua một **gateway tương thích OpenAI**. Chọn chế độ trong **Settings → Model Config**:
 
@@ -376,7 +457,10 @@ DramaClaw giữ trung lập về model — mọi model text / ảnh / video / â
 > 🧠 **Tự chọn nơi tính toán — rẻ hơn, chủ động hơn.** Gateway được thiết kế để *chính bạn* quyết định mỗi lượt sinh chạy ở đâu:
 > - **Năng lực tính toán nhàn rỗi của AIPDD (giảm chi phí).** Kết nối kênh **AIPDD** cho phép việc sinh chạy trên **bể tính toán nhàn rỗi** của nền tảng, nên các công đoạn short-drama nặng chỉ tốn một phần nhỏ so với giá theo yêu cầu — đòn bẩy lớn nhất để hạ chi phí sản xuất. Đăng ký tại <https://www.aipdd.work> để lấy API key AIPDD, rồi thêm nó làm một kênh trong **Cài đặt → Cấu hình model**.
 > - **NewAPI, tự do phối hợp.** Gateway **NewAPI** đi kèm cho phép đăng ký nhiều nhà cung cấp làm kênh và **kết hợp chúng tùy ý** — official, AIPDD, máy tự vận hành, hoặc bất kỳ endpoint tương thích OpenAI nào — theo từng model, từng công đoạn. Với kênh NewAPI, chúng tôi khuyên **tự tìm nhà cung cấp và so giá**; danh sách tham khảo đã chọn lọc ở đây: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf?from=from_copylink>.
-> - **ComfyUI, trên GPU của bạn.** Adapter **ComfyUI** hạng nhất định tuyến việc sinh ảnh / video sang một workflow chạy trên **máy của bạn**: phần cứng của bạn render, không tiêu hạn mức cloud theo mỗi lần gọi. Đăng ký endpoint ComfyUI cục bộ làm kênh trong chế độ **Custom** hoặc **Hybrid**.
+> - **ComfyUI, trên GPU của bạn — cách rẻ nhất để chạy sinh trên canvas.** Adapter **ComfyUI** hạng nhất định hướng việc sinh ảnh / video sang một workflow chạy trên **máy của bạn**: GPU của bạn render, **không tiêu hạn mức cloud theo mỗi lần gọi** — việc nặng chỉ tốn tiền điện, rẻ hơn hẳn mọi model hosted. Đăng ký endpoint ComfyUI cục bộ làm kênh trong chế độ **Custom** hoặc **Hybrid**.
+>   - **Cách cài ComfyUI nhanh nhất** — không cần cài thủ công hay môi trường Python: chỉ cần tải **trình khách tính toán (算力客户端)** đi kèm của chúng tôi rồi chạy trình cài đặt: <https://aiworkin.feishu.cn/wiki/ShoUwFDdBimuqCkz2Oqcofwdnm7?from=from_copylink>.
+>
+>   <img src="../assets/Weixin%20Image_20261010102709_97_221.png" width="520" alt="Trình khách tính toán AIPDD — cài ComfyUI và chạy tác vụ canvas trên GPU cục bộ"/>
 
 Hướng dẫn đầy đủ trong [Cấu hình model](../docs/en/getting-started/configuring-models.md).
 
@@ -420,60 +504,6 @@ Những tính năng này đang được xây dựng công khai và chưa có tro
 - [Hướng dẫn tự lưu trữ](../docs/en/guides/self-hosting.md)
 - [Cấu hình nhà cung cấp model](../docs/en/getting-started/configuring-models.md)
 - [Thêm tài liệu &rarr;](../docs/en/README.md)
-
-<br/>
-
-## Tham gia cộng đồng / Đóng góp
-
-- [Báo lỗi](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=bug_report.yml)
-- [Đề xuất tính năng](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=feature_request.yml)
-- [Tham gia thảo luận](https://github.com/liujh0729-jpg/aipdd-drama-agent/discussions)
-- [Hướng dẫn đóng góp](../CONTRIBUTING.md)
-- [Chính sách bảo mật](../SECURITY.md)
-
-Chúng tôi liên tục chọn lọc và gắn nhãn [`good first issue`](https://github.com/liujh0729-jpg/aipdd-drama-agent/labels/good%20first%20issue) — một nơi tuyệt vời để bắt đầu.
-
-<br/>
-
-## Người đóng góp
-
-Những người đang xây dựng DramaClaw — cảm ơn các bạn. 💜
-
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/bopy-zou"><img src="https://github.com/bopy-zou.png?size=100" width="72" alt="bopy-zou"/><br/><sub>bopy-zou</sub></a></td>
-    <td align="center"><a href="https://github.com/Handanhhhy"><img src="https://github.com/Handanhhhy.png?size=100" width="72" alt="Handanhhhy"/><br/><sub>Handanhhhy</sub></a></td>
-    <td align="center"><a href="https://github.com/Hanlin-Gabriel"><img src="https://github.com/Hanlin-Gabriel.png?size=100" width="72" alt="Hanlin-Gabriel"/><br/><sub>Hanlin-Gabriel</sub></a></td>
-    <td align="center"><a href="https://github.com/ryanhuang-duat"><img src="https://github.com/ryanhuang-duat.png?size=100" width="72" alt="ryanhuang-duat"/><br/><sub>ryanhuang-duat</sub></a></td>
-    <td align="center"><a href="https://github.com/lywaterman"><img src="https://github.com/lywaterman.png?size=100" width="72" alt="lywaterman"/><br/><sub>lywaterman</sub></a></td>
-    <td align="center"><a href="https://github.com/n7s4"><img src="https://github.com/n7s4.png?size=100" width="72" alt="n7s4"/><br/><sub>n7s4</sub></a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/NewYuee"><img src="https://github.com/NewYuee.png?size=100" width="72" alt="NewYuee"/><br/><sub>NewYuee</sub></a></td>
-    <td align="center"><a href="https://github.com/SimonRen"><img src="https://github.com/SimonRen.png?size=100" width="72" alt="SimonRen"/><br/><sub>SimonRen</sub></a></td>
-    <td align="center"><a href="https://github.com/vkiki"><img src="https://github.com/vkiki.png?size=100" width="72" alt="vkiki"/><br/><sub>vkiki</sub></a></td>
-    <td align="center"><a href="https://github.com/wangwenqq"><img src="https://github.com/wangwenqq.png?size=100" width="72" alt="wangwenqq"/><br/><sub>wangwenqq</sub></a></td>
-    <td align="center"><a href="https://github.com/zhen2025109"><img src="https://github.com/zhen2025109.png?size=100" width="72" alt="zhen2025109"/><br/><sub>zhen2025109</sub></a></td>
-    <td align="center"><a href="https://github.com/revolutionarybukhari"><img src="https://github.com/revolutionarybukhari.png?size=100" width="72" alt="revolutionarybukhari"/><br/><sub>revolutionarybukhari</sub></a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/yhay81"><img src="https://github.com/yhay81.png?size=100" width="72" alt="yhay81"/><br/><sub>yhay81</sub></a></td>
-    <td align="center"><a href="https://github.com/hoanglongggggggggg"><img src="https://github.com/hoanglongggggggggg.png?size=100" width="72" alt="hoanglongggggggggg"/><br/><sub>hoanglongggggggggg</sub></a></td>
-  </tr>
-</table>
-
-<br/>
-
-## Sản xuất bởi
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/partners/neoflying-lab-dark.png">
-    <img src="../assets/partners/neoflying-lab.png" alt="Neo Flying AI Laboratory" height="48">
-  </picture>
-</p>
-
-<p align="center"><sub>Logo là thương hiệu của chủ sở hữu tương ứng, được hiển thị với sự cho phép.</sub></p>
 
 <br/>
 

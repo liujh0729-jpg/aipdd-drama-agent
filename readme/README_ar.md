@@ -93,7 +93,7 @@ DramaClaw مرخّص بـ <a href="../LICENSES/Elastic-2.0.txt">رخصة Elastic
 
 <div align="center">
 
-## 🎬 أعمال أُنتجت بـ DramaClaw
+## 🎬 أعمال أُنتجت بـ AIPDD-Agent-Claw
 
 <sub dir="rtl">مسلسلات قصيرة حقيقية أنتجها فريقنا على خط الإنتاج هذا نفسه — انقر الرابط للمشاهدة.</sub>
 
@@ -102,34 +102,22 @@ DramaClaw مرخّص بـ <a href="../LICENSES/Elastic-2.0.txt">رخصة Elastic
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-cover.png?v=2" width="185" alt="归灵司"/><br/>
       <b>归灵司</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-ep01.mp4">▶ الحلقة 1</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-ep01.mp4">▶ 第 1 集</a>
     </td>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-cover.png?v=2" width="185" alt="鲁班"/><br/>
       <b>鲁班</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-ep01.mp4">▶ الحلقة 1</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-ep01.mp4">▶ 第 1 集</a>
     </td>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-cover.png?v=2" width="185" alt="师兄你怎么不舔了"/><br/>
       <b>师兄你怎么不舔了</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-ep01.mp4">▶ الحلقة 1</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-ep01.mp4">▶ 第 1 集</a>
     </td>
-  </tr>
-  <tr>
     <td align="center" width="205" valign="top">
       <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-cover.png?v=2" width="185" alt="天命不可欺"/><br/>
       <b>天命不可欺</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep02.mp4">▶ الحلقة 02</a> &nbsp;·&nbsp; <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep58.mp4">الحلقة 58</a>
-    </td>
-    <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-cover.png?v=2" width="185" alt="乌龙仙途"/><br/>
-      <b>乌龙仙途</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/wulongxiantu/wulongxiantu-ep01.mp4">▶ الحلقة 1</a>
-    </td>
-    <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu-cover.png?v=2" width="185" alt="非遗㑇舞"/><br/>
-      <b>非遗㑇舞</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/feiyi-zhouwu/feiyi-zhouwu.mp4">▶ تشغيل</a>
+      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep02.mp4">▶ 第 02 集</a> &nbsp;·&nbsp; <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep58.mp4">第 58 集</a>
     </td>
   </tr>
 </table>
@@ -142,7 +130,7 @@ DramaClaw مرخّص بـ <a href="../LICENSES/Elastic-2.0.txt">رخصة Elastic
 
 <br/>
 
-## ما هو DramaClaw؟
+## ما هو AIPDD-Agent-Claw؟
 
 <div dir="rtl">
 
@@ -154,6 +142,40 @@ DramaClaw هو **خط إنتاج مفتوح المصدر للدراما بالذ
 **Xia Director**، الوكيل الذكي المدمج، يطلّ على الوجهين معاً: يجيب عن أسئلتك حول مشروعك، ويحرّك مهام خط الإنتاج، ويمكنه أن يبني ويشغّل مخططات العقد على اللوحة نيابةً عنك.
 
 صُمّم للمبدعين والاستوديوهات المستقلة ومهندسي الإبداع — شغّل «مصنع الدراما» كاملاً على جهازك، دون أن تُفتّل أدواتٍ منفصلة لا رابط بينها أو تسلّم موادّك لخدمة سحابية صندوقٍ أسود معتِم. ورغم أنه مبنيّ حول الدراما، فإن اللوحة وخط الإنتاج نفسهما ينقلان إلى الإعلانات القصيرة ومقاطع المنتجات التجارية والصيغ البصرية الأخرى.
+
+</div>
+
+<br/>
+
+## <a name="what-we-added"></a>ما يضيفه تفرّع AIPDD
+
+بدأنا من لوحة DramaClaw اللانهائية وأعدنا بناء كامل المكدّس حولها. فوق **بناء من المصدر مكتفٍ ذاتيًا برخص متعددة** (لا صور خارجية، لا نداءات صادرة افتراضيًا) يُضيف التفرّع القدرات التي تجعله **مصنع دراما يعمل بالوكيل**:
+
+**١ · وكيل مدمج — Xia Director.** يقرأ مشروعك ويتفقّد التقدّم ويدفع مهام النص / اللقطة ويدقّق اكتمال المخرجات ويشغّل أعمال المسار ويرتّب ويشغّل عُقد اللوحة نيابةً عنك — كل أمر على اللوحة يُراجع أولًا في المتصفح.
+
+**٢ · خادم MCP كامل — نحو ١٠٠ أداة.** جسر stdio واحد (`uv run`) يفتح النظام بأكمله أمام **Claude Code وCodex** وأي عميل MCP — أدوات `aipdd_drama_*` + `vectcut_*`، وCE-owner عبر loopback أو مفتاح API بصيغة `st-`. [دليل ←](../docs/en/guides/mcp-claude-code.md) ويتفرّع إلى:
+
+- **أدفعة بنقرة واحدة (صفحة الأدوات)** — استنساخ الفيديو، مزج الفيديو القصير، أنيميشن السبورة، فيديو الشرح المتحرك، فكرة-إلى-فيديو (سطر واحد → فيلم جاهز)، استنساخ الصوت وتركيبه، مزامنة الشفاه، استبدال الشخص، استبدال المنتج، إزالة علامة الماء من الفيديو، إزالتها من الصورة، دبلجة الفيديو، واستخراج نص دوينين.
+- **أفعال التوليد على اللوحة** — *صورة*: توليد / تعديل / إعادة رسم / توسيع الأطراف / إعادة إضاءة / تكبير / زوايا متعددة / تعديل بقالب / استخراج الموجّه · *فيديو*: نص-إلى-فيديو / صورة-إلى-فيديو / مرجع شامل / تكبير / تعديل / تمديد · *صوت*: فصل الغناء عن المصاحبة / موسيقى · *نص*: توليد / ترجمة / نص قصصي / استخراج نص من فيديو / كتابة تسويقية.
+- **أتمتة وتنسيق بنقرة واحدة** — قائد تلقائي لمرحل storyboard (أسلوب → سيناريو → حلقات → لوحات → إطار أول)، وتوليد دفعي لفيديوهات اللقطات / الرسوم / موجّهات الفيديو حسب مدى الإيقاعات، ومنسّق `run_pipeline` بأوضاع `manual` / `checkpoint` / `auto` مع حالة التشغيل / إلغاء / اقتراح الإعداد.
+- **تحرير مسودة Jianying / CapCut** — يجمع اللوحات والتعليق الصوتي والترجمات في مسودة مونتاج حقيقية عبر خدمة VectCut (١٣ أداة `vectcut_*`).
+
+**٣ · هندسة ثقيلة للاستضافة الذاتية.** بوابة DramaClaw (AGPL-3.0) وDA-2 (Apache-2.0) وml-sharp (Apple) **مضمّنة (vendored)** تحت [`third_party/`](../third_party/README.md)؛ يُبنى المكدّس بالكامل من المصدر، ونداءات الكتالوج / موجز الإصدارات البعيدة أصبحت الآن **باختيارك (opt-in)** بدل التشغيل الافتراضي.
+
+باختصار: **AIPDD-Agent-Claw = لوحة DramaClaw + وكيل + سطح MCP بنحو ١٠٠ أداة + بناء مكتفٍ ذاتيًا** — نظام يمكنك قيادته يدويًا أو بالموجّهات أو من وكيل ذكاء اصطناعي آخر.
+<div align="center">
+
+**Xia Director — الوكيل المدمج**
+
+<img src="../assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="وكيل Xia Director في AIPDD-Agent-Claw يقود مشروعًا"/>
+
+**صفحة الأدوات بنقرة واحدة**
+
+<img src="../assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="صفحة الأدوات بنقرة واحدة في AIPDD-Agent-Claw"/>
+
+**MCP — النظام كله كـ نحو ١٠٠ أداة**
+
+<img src="../assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="خادم MCP في AIPDD-Agent-Claw يكشف نحو ١٠٠ أداة"/>
 
 </div>
 
@@ -260,7 +282,7 @@ DramaClaw هو **خط إنتاج مفتوح المصدر للدراما بالذ
 
 <br/>
 
-## لماذا DramaClaw؟
+## لماذا AIPDD-Agent-Claw؟
 
 <div dir="rtl">
 
@@ -276,7 +298,7 @@ DramaClaw هو **خط إنتاج مفتوح المصدر للدراما بالذ
 
 </div>
 
-### كيف يقارَن DramaClaw
+### كيف يقارَن AIPDD-Agent-Claw
 
 <div dir="rtl">
 
@@ -331,6 +353,23 @@ DramaClaw هو **خط إنتاج مفتوح المصدر للدراما بالذ
 
 <div dir="rtl">
 
+### نقرة واحدة (macOS / Windows) — مستحسن إن أردت تشغيله فحسب
+
+لا حاجة لأوامر الطرفية. احصل على الشيفرة (استنساخ أو **تنزيل ZIP** ثم فكّه)، ثم انقر نقرًا مزدوجًا فوق مشغّلين في جذر المستودع **بالترتيب**:
+
+| | macOS | Windows |
+|---|---|---|
+| **١ · تثبيت** | نقر مزدوج على `安装环境-Setup.command` | نقر مزدوج على `安装环境-Setup.bat` |
+| **٢ · تشغيل** | نقر مزدوج على `启动系统-Start.command` | نقر مزدوج على `启动系统-Start.bat` |
+
+- **مشغّل التثبيت يثبّت كل شيء**: أدوات Xcode للسطر الأوامر ← Homebrew ← Colima (آلة Docker) ← Docker CLI + compose على macOS، أو WSL2 ← Docker Desktop على Windows؛ ثم يولّد `.env` من `.env.example` ويبني صور `api` / `web` / البوابة لأول مرة من المصدر (البوابة مضمّنة تحت `third_party/dramaclaw-gateway` فلا يُسحب شيء من مستودع صور). **مشغّل التشغيل** يرفع المكدّس وينتظر حتى يستجيب الموقع فعلًا ثم يفتح متصفحك على <http://localhost:8080>.
+- **كل خطوة idempotent** — إذا فشل شيء، أصلح السبب وانقر مجددًا لتُكمل. عند النجاح تُغلق النافذة ذاتها؛ وعند الفشل تبقى مفتوحة لتقرأها.
+- **أول تشغيل على macOS**: قد يحجب Gatekeeper ملف `.command` غير موقّع — انقر بزر الماوس الأيمن على الملف → **فتح** (أو اسمح به في إعدادات النظام → الخصوصية والأمان).
+- **Windows**: **لا** تشغّله «كمسؤول» — Docker Desktop يُثبَّت لكل مستخدم ونافذة بصلاحية مرتفعة ستضعه حيث لا يجده المشغّل. (إعداد WSL يطلب موافقة نظام لمرة واحدة — وهذا متوقع.)
+- **إعادة البناء بعد تعديل الشيفرة**: `bash 启动系统-Start.command --rebuild` (macOS) / `启动系统-Start.bat --rebuild` (Windows). النقر المزدوج الافتراضي لا يعيد البناء فيبقى سريعًا.
+
+> هذا المسار يستخدم `docker-compose.aipdd.yml`: `api` و`web` والبوابة كلها تُبنى من المصدر (البوابة من النسخة المضمّنة `third_party/dramaclaw-gateway`)، مع SQLite ومهام داخل العملية، بلا Postgres/Redis/Celery و**بلا سحب أي صورة خارجية**. قد يستغرق أول بناء 40–90 دقيقة على اتصال بطيء (عمليات التشغيل اللاحقة بالثواني). للدخول وربط النماذج راجع [أول تشغيل](#first-run).
+
 ### Docker (مُوصى به)
 
 كل إصدار على GitHub ينشر صوراً متعددة المعمارية (amd64/arm64) إلى Docker Hub.
@@ -380,6 +419,27 @@ docker compose -f docker-compose.release.yml up -d
 
 <div dir="rtl">
 
+### استضافة سحابية / VPS (Linux) — نشر مشترك أو عام
+
+على خادم Linux (VPS خاص بك أو نسخة سحابية)، شغّل نفس مكدّس البناء من المصدر مع Docker Engine وإضافة `docker compose` — ثبّتهما عبر مدير الحزم في توزيعتك أو وثائق Docker الرسمية لنظام Linux، ثم:
+
+```bash
+# 1 · get the code and configure it
+git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
+cd aipdd-drama-agent
+cp .env.example .env
+#    Edit .env: set ST_LOCAL_PASSWORD, PROMPT_EXPORT_PASSWORD and your model
+#    keys / official DC key before you start.
+
+# 2 · build & bring the stack up (api / newapi gateway / web, all from source)
+docker compose -f docker-compose.aipdd.yml up -d --build
+```
+
+- **المنافذ.** `8080` واجهة الويب · `8780` واجهة REST API · `3000` إدارة LocalNewAPI (مرتبط بـ `127.0.0.1` افتراضيًا). ضع **وكيلًا عكسيًا مع TLS** (Caddy / Nginx / Traefik) أمام `8080` وأبقِ `8780` / `3000` داخليين؛ افتح `80` / `443` فقط في الجدار الناري / مجموعة الأمان.
+- **أول البناء يحتاج متّسعًا** — خصّص للمضيف ≥ 8 GB ذاكرة و≥ 40 GB قرصًا، وإلا قُتل بناء الواجهة الأمامية بنفاد الذاكرة.
+- **الدخول** بحساب الآلة الواحدة `local` باستخدام `ST_LOCAL_PASSWORD` (أو كلمة المرور لمرة واحدة المطبوعة في `docker compose -f docker-compose.aipdd.yml logs api` عند أول تشغيل).
+- **متعدد المستخدمين؟** نسخة المجتمع مصمّمة لمالك واحد. لخدمة عدة مستخدمين فعّل `ST_CE_MULTI_USER` وضع مصادقة حقيقية + HTTPS في المقدّمة. ملاحظات الإنتاج الكاملة: [دليل الاستضافة الذاتية](../docs/en/guides/self-hosting.md).
+
 ### التطوير المحلي (uv + Python 3.11+)
 
 </div>
@@ -417,7 +477,28 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 <br/>
 
-## النماذج والمورّدون المدعومون
+## <a name="first-run"></a>أول تشغيل وكيفية الاستخدام
+
+أيًا كان مسار التثبيت الذي اخترته، يقلع التطبيق بنفس الطريقة:
+
+1. **افتح الواجهة** على <http://localhost:8080> (مشغّلات النقرة الواحدة تفتحها لك). واجهة REST API على <http://localhost:8780>؛ المتصفح يخاطب `web` فقط، وهو يوجّه عكسيًا إلى `api`.
+2. **سجّل الدخول.** إعداد `docker-compose.aipdd.yml` يفعّل دخول الآلة الواحدة (الحساب `local`).
+   - إذا ضبطت `ST_LOCAL_PASSWORD` في `.env` فاستخدم تلك كلمة المرور.
+   - وإلا يولّد الخادم **كلمة مرور لمرة واحدة** عند أول تشغيل ويسجّلها مرة واحدة. استعدها بـ:
+     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`).
+3. **اربط نماذجك** — اذهب إلى **الإعدادات ← إعداد النموذج** واختر وضعًا (التفاصيل في [النماذج والموردون المدعومون](#supported-models)):
+   - **رسمي** — الصق مفتاح DC من <https://susciyuan.com>؛ كل النماذج معيّنة مسبقًا ويبقى LocalNewAPI خاملًا.
+   - **مخصّص** — نقرة واحدة تهيّئ LocalNewAPI ثم أضف قنواتك العلوية الخاصة (مفاتيح API ومعرّفات النماذج) في واجهة إدارته.
+   - **Hybrid LocalNewAPI + الرسمي** — الرسمي للمسار الرئيسي وLocalNewAPI لقنوات إضافية.
+4. **ابدأ الإبداع** — بابهان إلى مكتبة الأصول نفسها:
+   - **مسار المسلسل**: أدخل مخطوطة أو سيناريو (Fountain مدعوم) ودع AIPDD-Agent-Claw يخطّط الحلقات ويكتب النصوص ويرسم اللوحات والإطارات الأولى ويركّب التعليق الصوتي ويقصّ الفيلم النهائي. كل مرحلة مهمة مستقلة في **مركز المهام** — شغّلها بالترتيب أو تخطّاها أو استأنف من أي نقطة تحكّم.
+   - **اللوحة**: افتح اللوحة اللانهائية وألقِ / اربط عُقدًا (صورة، فيديو، صوت، نص، مشهد ثلاثي الأبعاد…) للاستكشاف بحرية، ثم ارفع ما يعجبك إلى مسلسل.
+
+ابقَ محدّثًا: انقر مجددًا فوق مشغّل **التشغيل** لإعادة الإقلاع؛ تحقّق من المكدّس العامل بـ `docker-compose -f docker-compose.aipdd.yml ps` وتابع السجلّات بـ `... logs -f api`. للجولة الكاملة راجع [دليل المنتج](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) و[البدء السريع](../docs/en/getting-started/quickstart.md).
+
+<br/>
+
+## <a name="supported-models"></a>النماذج والمورّدون المدعومون
 
 <div dir="rtl">
 
@@ -430,7 +511,10 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 > 🧠 **اختر مصدر الحوسبة بنفسك — تكلفة أقل وتحكم أكبر.** صُمّمت البوابة لتختار *أنت* أين تعمل كل عملية توليد:
 > - **طاقة AIPDD الخاملة (خفض التكلفة).** ربط قناة **AIPDD** يسمح للتوليد بالعمل على **مجموعة الحوسبة الخاملة** في المنصّة، فتُنفَّذ مهام المسلسلات الثقيلة بدُفعات بجزء يسير من التسعير عند الطلب — أكبر رافعة لخفض تكلفة الإنتاج. سجّل في <https://www.aipdd.work> للحصول على مفتاح AIPDD API، ثم أضِفَه كقناة في **الإعدادات → ضبط النماذج**.
 > - **NewAPI، ادمج بحرية.** تتيح لك بوابة **NewAPI** المدمجة تسجيل مزوّدين عديدين كقنوات و**دمجها كما تشاء** — الرسمي، AIPDD، خادم تستضيفه بنفسك، أو أي نقطة نهاية متوافقة مع OpenAI — لكل نموذج ولكل مرحلة. لقنوات NewAPI نوصي **بالبحث عن مزوّديك بنفسك ومقارنة الأسعار**؛ قائمة مرجعية منتقاة هنا: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf?from=from_copylink>.
-> - **ComfyUI، على معالج رسوماتك.** موجِّه **ComfyUI** من الدرجة الأولى يحوّل توليد الصور/الفيديو إلى سير عمل يعمل على **أجهزتك**: عتادك يقوم بالتصيير دون استهلاك حصة سحابية لكل استدعاء. سجّل نقطة نهاية ComfyUI المحلية كقناة في وضع **Custom** أو **Hybrid**.
+> - **ComfyUI على معالج رسوماتك — أرخص طريقة لتشغيل التوليد على اللوحة.** موجِّه **ComfyUI** من الدرجة الأولى يحوّل توليد الصور/الفيديو إلى سير عمل يعمل على **أجهزتك**: معالجك يقوم بالتصيير **دون استهلاك حصة سحابية لكل استدعاء** — الأعمال الثقيلة لا تكلّفك سوى الكهرباء، أقل بكثير من أي نموذج مُستضاف. سجّل نقطة نهاية ComfyUI المحلية كقناة في وضع **Custom** أو **Hybrid**.
+>   - **أسهل طريقة لتثبيت ComfyUI** — بلا تثبيت يدوي ولا بيئة Python: نزّل **عميل الحوسبة (算力客户端)** المضمّن لدينا ثم شغّل المثبّت: <https://aiworkin.feishu.cn/wiki/ShoUwFDdBimuqCkz2Oqcofwdnm7?from=from_copylink>.
+>
+>   <img src="../assets/Weixin%20Image_20261010102709_97_221.png" width="520" alt="عميل الحوسبة من AIPDD — ثبّت ComfyUI وشغّل مهام اللوحة على GPU محلي"/>
 
 الشرح الكامل في [ضبط النماذج](../docs/en/getting-started/configuring-models.md).
 
@@ -492,68 +576,6 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 - [المزيد من الوثائق &rarr;](../docs/en/README.md)
 
 </div>
-
-<br/>
-
-## انضم إلى المجتمع / ساهم
-
-<div dir="rtl">
-
-- [أبلغ عن خطأ](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=bug_report.yml)
-- [اطلب ميزة](https://github.com/liujh0729-jpg/aipdd-drama-agent/issues/new?template=feature_request.yml)
-- [انضم إلى النقاش](https://github.com/liujh0729-jpg/aipdd-drama-agent/discussions)
-- [دليل المساهمة](../CONTRIBUTING.md)
-- [سياسة الأمان](../SECURITY.md)
-
-نُنقّح ونصنّف باستمرار [`good first issue`](https://github.com/liujh0729-jpg/aipdd-drama-agent/labels/good%20first%20issue) — نقطة انطلاق رائعة.
-
-</div>
-
-<br/>
-
-## المساهمون
-
-<div dir="rtl">
-
-الأشخاص الذين يبنون DramaClaw — شكراً لكم. 💜
-
-</div>
-
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/bopy-zou"><img src="https://github.com/bopy-zou.png?size=100" width="72" alt="bopy-zou"/><br/><sub>bopy-zou</sub></a></td>
-    <td align="center"><a href="https://github.com/Handanhhhy"><img src="https://github.com/Handanhhhy.png?size=100" width="72" alt="Handanhhhy"/><br/><sub>Handanhhhy</sub></a></td>
-    <td align="center"><a href="https://github.com/Hanlin-Gabriel"><img src="https://github.com/Hanlin-Gabriel.png?size=100" width="72" alt="Hanlin-Gabriel"/><br/><sub>Hanlin-Gabriel</sub></a></td>
-    <td align="center"><a href="https://github.com/ryanhuang-duat"><img src="https://github.com/ryanhuang-duat.png?size=100" width="72" alt="ryanhuang-duat"/><br/><sub>ryanhuang-duat</sub></a></td>
-    <td align="center"><a href="https://github.com/lywaterman"><img src="https://github.com/lywaterman.png?size=100" width="72" alt="lywaterman"/><br/><sub>lywaterman</sub></a></td>
-    <td align="center"><a href="https://github.com/n7s4"><img src="https://github.com/n7s4.png?size=100" width="72" alt="n7s4"/><br/><sub>n7s4</sub></a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/NewYuee"><img src="https://github.com/NewYuee.png?size=100" width="72" alt="NewYuee"/><br/><sub>NewYuee</sub></a></td>
-    <td align="center"><a href="https://github.com/SimonRen"><img src="https://github.com/SimonRen.png?size=100" width="72" alt="SimonRen"/><br/><sub>SimonRen</sub></a></td>
-    <td align="center"><a href="https://github.com/vkiki"><img src="https://github.com/vkiki.png?size=100" width="72" alt="vkiki"/><br/><sub>vkiki</sub></a></td>
-    <td align="center"><a href="https://github.com/wangwenqq"><img src="https://github.com/wangwenqq.png?size=100" width="72" alt="wangwenqq"/><br/><sub>wangwenqq</sub></a></td>
-    <td align="center"><a href="https://github.com/zhen2025109"><img src="https://github.com/zhen2025109.png?size=100" width="72" alt="zhen2025109"/><br/><sub>zhen2025109</sub></a></td>
-    <td align="center"><a href="https://github.com/revolutionarybukhari"><img src="https://github.com/revolutionarybukhari.png?size=100" width="72" alt="revolutionarybukhari"/><br/><sub>revolutionarybukhari</sub></a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/yhay81"><img src="https://github.com/yhay81.png?size=100" width="72" alt="yhay81"/><br/><sub>yhay81</sub></a></td>
-    <td align="center"><a href="https://github.com/hoanglongggggggggg"><img src="https://github.com/hoanglongggggggggg.png?size=100" width="72" alt="hoanglongggggggggg"/><br/><sub>hoanglongggggggggg</sub></a></td>
-  </tr>
-</table>
-
-<br/>
-
-## إنتاج
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/partners/neoflying-lab-dark.png">
-    <img src="../assets/partners/neoflying-lab.png" alt="Neo Flying AI Laboratory" height="48">
-  </picture>
-</p>
-
-<p align="center"><sub dir="rtl">الشعار علامة تجارية لصاحبها، معروض بإذن.</sub></p>
 
 <br/>
 
