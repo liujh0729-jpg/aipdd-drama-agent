@@ -415,7 +415,7 @@ AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models
 - **LocalNewAPI + Official Hybrid** — keep the official models for the main pipeline and add extra channels (for example a local ComfyUI video workflow) through LocalNewAPI.
 
 > 🧠 **Bring your own compute — lower cost, stay in control.** The gateway is built so *you* choose where each generation runs:
-> - **AIPDD idle compute (cut costs).** Connecting the **AIPDD** channel lets generation ride the platform's **idle compute pool**, so heavy batch drama work runs at a fraction of on-demand pricing — the single biggest lever on production cost.
+> - **AIPDD idle compute (cut costs).** Connecting the **AIPDD** channel lets generation ride the platform's **idle compute pool**, so heavy batch drama work runs at a fraction of on-demand pricing — the single biggest lever on production cost. Register at <https://www.aipdd.work> to get an AIPDD API key, then add it as a channel in **Settings → Model Config**.
 > - **NewAPI, freely mixed.** The built-in **NewAPI** gateway lets you register many providers as channels and **combine them however you like** — official, AIPDD, a self-hosted box, or any OpenAI-compatible endpoint — per model, per stage.
 > - **ComfyUI, on your own GPU.** A first-class **ComfyUI** adapter routes image / video generation to a workflow running on **your machine**: your hardware does the rendering, with no per-call cloud quota. Register your local ComfyUI endpoint as a channel in **Custom** or **Hybrid** mode.
 
