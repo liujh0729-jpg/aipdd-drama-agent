@@ -12,8 +12,27 @@ ENV GO111MODULE=on CGO_ENABLED=0 GOWORK=off
 
 ARG TARGETOS
 ARG TARGETARCH
-ENV GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64}
-ENV GOEXPERIMENT=greenteagc
+# [aipdd fork delta] Two build-time switches that upstream hard-codes, both of which bit
+# this deployment locally.
+#
+# 1) GOARCH must fall back to the *build machine*, not to amd64. Upstream writes
+#    ${TARGETARCH:-amd64}, which is right under buildx (where TARGETARCH is always set) and
+#    wrong here: compose falls back to the classic builder when buildx is unavailable, the
+#    classic builder leaves TARGETARCH empty, and so an arm64 host produced an amd64 binary
+#    inside an arm64 image. The gateway then ran emulated and faulted 4x in ~40min of
+#    ordinary task traffic, each crash in a different place with a mangled pointer - gorm
+#    reading an eface whose type word held response text, compress/flate slicing past its
+#    64KiB window, crypto/x509 growing a slice from a corrupt header. Every stack was on the
+#    amd64 runtime path (memmove_amd64.s, asm_amd64.s) while `uname -m` inside the same
+#    container said aarch64. An empty value lets the toolchain pick its own native default,
+#    and buildx still overrides it when it supplies a target.
+# 2) Green Tea GC stays off. It is still an experimental collector (Go 1.26.1 does not
+#    default to it), this service is on the hot path for every generation the app makes, and
+#    an experimental heap scanner on top of an emulated binary buys nothing but risk. Pinning
+#    `no` rather than deleting the line means a base-image bump that flips it on cannot
+#    silently reintroduce it.
+ENV GOOS=${TARGETOS:-} GOARCH=${TARGETARCH:-}
+ENV GOEXPERIMENT=nogreenteagc
 
 WORKDIR /build
 
