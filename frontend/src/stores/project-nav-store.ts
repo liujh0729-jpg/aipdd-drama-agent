@@ -10,7 +10,7 @@ import type { ProjectSection } from "@/components/layout/project-navigation-rout
  * 记住每个项目的导航位置：
  * - lastSectionByProject：项目内最后停留的区块（画布 freezone 或剧集各子页），
  *   进入项目时恢复到这里，而不是固定落到画布。
- * - lastXiajiSectionByProject：最后停留的剧集子页（故事/剧本/资产/分镜/虾导/风格），
+ * - lastXiajiSectionByProject：最后停留的剧集子页（故事/剧本/资产/分镜/导演/风格），
  *   顶部切到「剧集」时恢复到这里，而不是固定落到故事。
  */
 

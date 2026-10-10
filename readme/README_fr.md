@@ -126,7 +126,7 @@ DramaClaw est une **chaîne de production open-source pour le drame IA** — et,
 - **XiaHua — le canvas infini.** Un atelier à base de nœuds où vous générez, éditez et reliez librement images, vidéo, audio, décors 3D et scripts, puis remontez ce qui vous plaît dans la série. C'est là qu'aujourd'hui se fait l'essentiel de notre travail créatif, et c'est là que va DramaClaw.
 - **Series (XiaJi) — le pipeline.** Déposez un manuscrit ou un scénario et DramaClaw prend en charge le gros du travail : structurer l'histoire, planifier les épisodes, écrire les scripts, dessiner les storyboards et les premières images, synthétiser la voix off, et monter le film final.
 
-**Xia Director**, l'agent intégré, opère sur les deux : il répond aux questions sur votre projet, pilote les tâches du pipeline, et peut construire et exécuter des graphes de nœuds sur le canvas à votre place.
+**Director**, l'agent intégré, opère sur les deux : il répond aux questions sur votre projet, pilote les tâches du pipeline, et peut construire et exécuter des graphes de nœuds sur le canvas à votre place.
 
 Conçu pour les créateurs, les studios indépendants et les ingénieurs créatifs — faites tourner toute l'« usine à drames » sur votre propre machine, sans assembler une douzaine d'outils déconnectés ni confier votre matériel à un service cloud opaque. Bien qu'il soit centré sur le drame, le même canvas et le même pipeline s'étendent aux publicités courtes, aux vidéos produits e-commerce et à d'autres formats visuels.
 
@@ -171,9 +171,9 @@ En un mot : **AIPDD-Agent-Claw = le canvas de DramaClaw + un agent + une surface
 ### XiaHua — canvas infini
 
 <p align="center">
-  <img src="../assets/xiahua-canvas.jpg" width="900" alt="XiaHua canvas: a 17-node short-film workflow that Xia Director laid out and ran from one prompt"/>
+  <img src="../assets/xiahua-canvas.jpg" width="900" alt="XiaHua canvas: a 17-node short-film workflow that Director laid out and ran from one prompt"/>
 </p>
-<p align="center"><sub>Une seule consigne à Xia Director (à droite) est devenue ce workflow de 17 nœuds et 32 arêtes sur le canvas (à gauche) : brief → direction narrative → références personnages et décors → premières images de cinq plans → vidéos des cinq plans → voix off et musique → montage final.</sub></p>
+<p align="center"><sub>Une seule consigne à Director (à droite) est devenue ce workflow de 17 nœuds et 32 arêtes sur le canvas (à gauche) : brief → direction narrative → références personnages et décors → premières images de cinq plans → vidéos des cinq plans → voix off et musique → montage final.</sub></p>
 
 - **18 types de nœuds sur un seul canvas** — upload, génération / édition d'image, génération de storyboard, script, contexte de beat, vidéo, composition vidéo, récit vidéo, audio, style, skill, groupe, annotation texte, visualiseur panoramique 360°, monde 3D, export, etc. Reliez-les librement ; chaque nœud conserve son propre historique de génération.
 - **Outils image** — générer, éditer, redessiner, étendre (outpaint), rééclairer, agrandir (upscale), multi-vues, édition par modèle, prompt inversé, détection de marques ; un **mur de styles de 45 looks de mini-séries** pour l'image-à-image
@@ -221,7 +221,7 @@ Chaque étape a sa propre interface — enchaînez-les, sautez-en, reprenez depu
 </p>
 <p align="center"><sub>Illustration de fonction par capture d'écran ; les détails d'interface peuvent différer de la version actuelle.</sub></p>
 
-### Xia Director — l'agent
+### Director — l'agent
 
 <div align="center">
 
@@ -240,7 +240,7 @@ Chaque étape a sa propre interface — enchaînez-les, sautez-en, reprenez depu
 </div>
 
 <p align="center">
-  <img src="../assets/readme/xia-director.jpg" width="900" alt="Xia Director — project context and reviewed actions"/>
+  <img src="../assets/readme/xia-director.jpg" width="900" alt="Director — project context and reviewed actions"/>
 </p>
 <p align="center"><sub>Illustration de fonction par capture d'écran ; les détails d'interface peuvent différer de la version actuelle.</sub></p>
 
@@ -251,13 +251,13 @@ Chaque étape a sa propre interface — enchaînez-les, sautez-en, reprenez depu
 
 **À venir**
 
-- **Travaille sur le canvas** — la capture ci-dessus montre où l'on va : décrivez le film, et Xia Director crée et relie les nœuds, les dispose, les exécute et révise les résultats, chaque commande canvas étant d'abord approuvée dans votre navigateur. Canvas + agent est le cœur de DramaClaw désormais ; voir [En développement](#in-development).
+- **Travaille sur le canvas** — la capture ci-dessus montre où l'on va : décrivez le film, et Director crée et relie les nœuds, les dispose, les exécute et révise les résultats, chaque commande canvas étant d'abord approuvée dans votre navigateur. Canvas + agent est le cœur de DramaClaw désormais ; voir [En développement](#in-development).
 
 <br/>
 
 ## Pourquoi AIPDD-Agent-Claw ?
 
-**Un canvas qui comprend le drame, et un agent qui y travaille.** Les canvais à nœuds génériques câblent tout mais ne savent rien des épisodes, personnages ou plans ; les outils de série connaissent le métier mais vous enferment dans un assistant. XiaHua vous donne le canvas libre avec des nœuds et skills conscients du drame, et Xia Director est construit pour disposer, exécuter et réviser ces graphes à votre place. Cette combinaison est la direction de DramaClaw.
+**Un canvas qui comprend le drame, et un agent qui y travaille.** Les canvais à nœuds génériques câblent tout mais ne savent rien des épisodes, personnages ou plans ; les outils de série connaissent le métier mais vous enferment dans un assistant. XiaHua vous donne le canvas libre avec des nœuds et skills conscients du drame, et Director est construit pour disposer, exécuter et réviser ces graphes à votre place. Cette combinaison est la direction de DramaClaw.
 
 **Pensé du roman à la mini-série.** Les outils de workflow génériques peuvent câbler des nœuds, mais ils ne savent pas ce qu'est un « beat d'épisode », ne comprennent pas pourquoi la cohérence d'identité d'un personnage à travers les scènes compte, et ne protègent pas l'arc émotionnel d'un chapitre à travers image + voix + montage. DramaClaw intègre tout ce jugement dans l'outil.
 
@@ -475,7 +475,7 @@ Adaptateurs fournisseurs livrés aujourd'hui dans la passerelle (voir la [matric
 
 Ces éléments sont construits au grand jour et ne sont pas encore dans une release. Surveillez les branches, ou venez aider.
 
-- **Xia Director sur le canvas** — l'agent crée et relie les nœuds, met à jour les données, dispose et groupe les nœuds, exécute les actions et construit des graphes de workflow entiers, chaque commande canvas étant d'abord approuvée dans le navigateur ouvert.
+- **Director sur le canvas** — l'agent crée et relie les nœuds, met à jour les données, dispose et groupe les nœuds, exécute les actions et construit des graphes de workflow entiers, chaque commande canvas étant d'abord approuvée dans le navigateur ouvert.
 - **Catalogue de workflows & skills communautaires** — un catalogue de 11 skills de workflow et 60 recettes (drame, pubs e-commerce, pubs personnage IP, campagnes sociales, styles animé / Pixar / LEGO / kung-fu…) qui posent des graphes de génération complets ; skills et recettes sous forme de bundles installables, exportables, partageables
 - **agent-kit** — un package portable qui apporte les mêmes workflows DramaClaw à Hermes, OpenClaw, WorkBuddy, Claude Code et Codex
 - **Scène Previz** — une scène de blocage 3D dans le navigateur en tant que nœud canvas : timeline multi-pistes, rigs et chemins de personnages, modèle caméra objectif / capteur réel, suivi gros plan, puis capture du plan cadré directement dans le nœud suivant. Branche : `feat/previz-canvas-node`

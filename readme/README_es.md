@@ -126,7 +126,7 @@ DramaClaw es una **línea de producción de código fuente abierto para drama co
 - **XiaHua — el lienzo infinito.** Un taller basado en nodos donde generas, editas y conectas libremente imágenes, vídeo, audio, sets 3D y guiones, y luego promueves lo que te gusta de vuelta a la serie. Aquí es donde hoy ocurre la mayor parte de nuestro trabajo creativo, y hacia donde va DramaClaw.
 - **Series (XiaJi) — el pipeline.** Suelta un manuscrito o un guion y DramaClaw asume el trabajo pesado: estructurar la historia, planificar episodios, escribir guiones, dibujar storyboards y primeros fotogramas, sintetizar la voz en off, y montar la película final.
 
-**Xia Director**, el agente integrado, opera en ambas: responde preguntas sobre tu proyecto, ejecuta tareas del pipeline, y puede construir y ejecutar grafos de nodos en el lienzo por ti.
+**Director**, el agente integrado, opera en ambas: responde preguntas sobre tu proyecto, ejecuta tareas del pipeline, y puede construir y ejecutar grafos de nodos en el lienzo por ti.
 
 Está hecho para creadores, estudios independientes e ingenieros creativos — ejecuta toda la «fábrica de drama» en tu propia máquina, sin unir una docena de herramientas desconectadas ni entregar tu material a un servicio cloud de caja negra. Aunque está construido alrededor del drama, el mismo lienzo y pipeline se extienden a anuncios cortos, vídeos de producto para e-commerce y otros formatos visuales.
 
@@ -171,9 +171,9 @@ En una línea: **AIPDD-Agent-Claw = el lienzo de DramaClaw + un agente + una sup
 ### XiaHua — lienzo infinito
 
 <p align="center">
-  <img src="../assets/xiahua-canvas.jpg" width="900" alt="XiaHua canvas: a 17-node short-film workflow that Xia Director laid out and ran from one prompt"/>
+  <img src="../assets/xiahua-canvas.jpg" width="900" alt="XiaHua canvas: a 17-node short-film workflow that Director laid out and ran from one prompt"/>
 </p>
-<p align="center"><sub>Un solo prompt a Xia Director (a la derecha) se convirtió en este flujo de 17 nodos y 32 aristas en el lienzo (a la izquierda): brief → dirección de la historia → referencias de personajes y sets → primeros fotogramas de cinco planos → vídeos de cinco planos → voz en off y música → corte final.</sub></p>
+<p align="center"><sub>Un solo prompt a Director (a la derecha) se convirtió en este flujo de 17 nodos y 32 aristas en el lienzo (a la izquierda): brief → dirección de la historia → referencias de personajes y sets → primeros fotogramas de cinco planos → vídeos de cinco planos → voz en off y música → corte final.</sub></p>
 
 - **18 tipos de nodo en un solo lienzo** — subida, generación / edición de imagen, generación de storyboard, guion, contexto de beat, vídeo, composición de vídeo, relato de vídeo, audio, estilo, skill, grupo, anotación de texto, visor panorámico 360°, mundo 3D, exportación y más. Conéctalos libremente; cada nodo conserva su propio historial de generación.
 - **Herramientas de imagen** — generar, editar, redibujar, extender (outpaint), reiluminar, escalar (upscale), multivista, edición por plantilla, prompt inverso, detección de marcas; un **muro de estilos de 45 looks de miniserie** para imagen-a-imagen
@@ -221,7 +221,7 @@ Cada paso tiene su propia interfaz — ejecútalos en orden, salta pasos, retoma
 </p>
 <p align="center"><sub>Ilustración de función por captura de pantalla; los detalles de la interfaz pueden diferir de la versión actual.</sub></p>
 
-### Xia Director — el agente
+### Director — el agente
 
 <div align="center">
 
@@ -240,7 +240,7 @@ Cada paso tiene su propia interfaz — ejecútalos en orden, salta pasos, retoma
 </div>
 
 <p align="center">
-  <img src="../assets/readme/xia-director.jpg" width="900" alt="Xia Director — project context and reviewed actions"/>
+  <img src="../assets/readme/xia-director.jpg" width="900" alt="Director — project context and reviewed actions"/>
 </p>
 <p align="center"><sub>Ilustración de función por captura de pantalla; los detalles de la interfaz pueden diferir de la versión actual.</sub></p>
 
@@ -251,13 +251,13 @@ Cada paso tiene su propia interfaz — ejecútalos en orden, salta pasos, retoma
 
 **Próximamente**
 
-- **Trabaja sobre el lienzo** — la captura de arriba muestra hacia dónde vamos: describe la película, y Xia Director crea y conecta los nodos, los dispone, los ejecuta y revisa los resultados, con cada comando del lienzo aprobado primero en tu navegador. Lienzo + agente es el núcleo de DramaClaw de aquí en adelante; consulta [En desarrollo](#in-development).
+- **Trabaja sobre el lienzo** — la captura de arriba muestra hacia dónde vamos: describe la película, y Director crea y conecta los nodos, los dispone, los ejecuta y revisa los resultados, con cada comando del lienzo aprobado primero en tu navegador. Lienzo + agente es el núcleo de DramaClaw de aquí en adelante; consulta [En desarrollo](#in-development).
 
 <br/>
 
 ## ¿Por qué AIPDD-Agent-Claw?
 
-**Un lienzo que entiende de drama, y un agente que trabaja sobre él.** Los lienzos genéricos de nodos cablean cualquier cosa pero no saben nada de episodios, personajes o planos; las herramientas de serie conocen el oficio pero te encierran en un asistente. XiaHua te da el lienzo libre con nodos y skills conscientes del drama, y Xia Director se está construyendo para disponer, ejecutar y revisar esos grafos por ti. Esa combinación es hacia donde va DramaClaw.
+**Un lienzo que entiende de drama, y un agente que trabaja sobre él.** Los lienzos genéricos de nodos cablean cualquier cosa pero no saben nada de episodios, personajes o planos; las herramientas de serie conocen el oficio pero te encierran en un asistente. XiaHua te da el lienzo libre con nodos y skills conscientes del drama, y Director se está construyendo para disponer, ejecutar y revisar esos grafos por ti. Esa combinación es hacia donde va DramaClaw.
 
 **Hecho de la novela a la miniserie.** Las herramientas de flujo genéricas pueden cablear nodos, pero no saben qué es un «beat de episodio», no entienden por qué importa la coherencia de identidad de un personaje entre escenas, y no protegen el arco emocional de un capítulo a través de imagen + voz + edición. DramaClaw incorpora todo ese juicio en la herramienta.
 
@@ -475,7 +475,7 @@ Adaptadores de proveedor incluidos hoy en la pasarela (mira la [matriz de soport
 
 Estos se están construyendo en abierto y aún no están en un release. Observa las ramas, o ven a ayudar.
 
-- **Xia Director sobre el lienzo** — el agente crea y conecta nodos, actualiza datos de nodos, dispone y agrupa nodos, ejecuta acciones y construye grafos de flujo completos, con cada comando del lienzo aprobado primero en el navegador abierto.
+- **Director sobre el lienzo** — el agente crea y conecta nodos, actualiza datos de nodos, dispone y agrupa nodos, ejecuta acciones y construye grafos de flujo completos, con cada comando del lienzo aprobado primero en el navegador abierto.
 - **Catálogo de flujos y skills comunitarias** — un catálogo de 11 skills de flujo y 60 recetas (drama, anuncios e-commerce, ads de personaje IP, campañas sociales, estilos animé / Pixar / LEGO / kung-fu…) que disponen grafos de generación completos; skills y recetas como bundles instalables, exportables y compartibles
 - **agent-kit** — un paquete portable que lleva los mismos flujos de DramaClaw a Hermes, OpenClaw, WorkBuddy, Claude Code y Codex
 - **Escenario Previz** — un escenario de blocking 3D en el navegador como nodo del lienzo: línea de tiempo multi-pista, rigs y trayectorias de personajes, modelo de cámara de lente / sensor reales, seguimiento de primer plano, y luego captura el plano encuadrado directo al siguiente nodo. Rama: `feat/previz-canvas-node`

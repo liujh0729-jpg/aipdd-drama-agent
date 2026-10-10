@@ -1151,7 +1151,7 @@ function FreezoneChatDock({
 }
 
 /**
- * 虾导入口的位置（相对容器右下角的 right/bottom 偏移，px）。
+ * 导演入口的位置（相对容器右下角的 right/bottom 偏移，px）。
  * 注意 key 不用 `supertale-` 前缀——那个前缀会被 reset-region-state 的
  * localStorage 清扫误删；这只是个 UI 位置偏好，跨区域保留没问题。
  */

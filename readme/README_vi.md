@@ -137,7 +137,7 @@ DramaClaw là một **dây chuyền sản xuất phim drama AI với mã nguồn
 - **XiaHua — bảng vẽ vô hạn (infinite canvas).** Một bàn làm việc dạng node, nơi bạn tự do tạo, chỉnh sửa và kết nối hình ảnh, video, âm thanh, bối cảnh 3D và kịch bản, rồi đưa những gì ưng ý trở lại series. Đây là nơi phần lớn công việc sáng tạo của chính chúng tôi diễn ra hôm nay, và cũng là hướng DramaClaw đang tiến tới.
 - **Series (XiaJi) — pipeline.** Thả vào một bản thảo hoặc kịch bản, DramaClaw sẽ gánh phần việc nặng: cấu trúc hóa câu chuyện, lên kế hoạch từng tập, viết kịch bản, vẽ storyboard và khung hình đầu, tổng hợp lồng tiếng, và dựng thành phim hoàn chỉnh.
 
-**Xia Director**, agent tích hợp sẵn, đứng giữa cả hai: trả lời câu hỏi về dự án của bạn, điều khiển các tác vụ pipeline, và có thể dựng rồi chạy các đồ thị node trên canvas thay bạn.
+**Director**, agent tích hợp sẵn, đứng giữa cả hai: trả lời câu hỏi về dự án của bạn, điều khiển các tác vụ pipeline, và có thể dựng rồi chạy các đồ thị node trên canvas thay bạn.
 
 Nó được xây cho người sáng tạo, studio độc lập và kỹ sư sáng tạo — chạy trọn "nhà máy phim drama" trên chính máy của bạn, không cần chắp vá hàng chục công cụ rời rạc hay giao tài liệu của mình cho một dịch vụ đám mây hộp đen. Dù được xây quanh phim drama, cùng một canvas và pipeline này vẫn áp dụng cho quảng cáo ngắn, video sản phẩm thương mại điện tử và các định dạng hình ảnh khác.
 
@@ -182,9 +182,9 @@ Một câu: **AIPDD-Agent-Claw = canvas của DramaClaw + một agent + bề m�
 ### XiaHua — bảng vẽ vô hạn
 
 <p align="center">
-  <img src="../assets/xiahua-canvas.jpg" width="900" alt="Canvas XiaHua: quy trình phim ngắn 17 node mà Xia Director đã bố trí và chạy chỉ từ một prompt"/>
+  <img src="../assets/xiahua-canvas.jpg" width="900" alt="Canvas XiaHua: quy trình phim ngắn 17 node mà Director đã bố trí và chạy chỉ từ một prompt"/>
 </p>
-<p align="center"><sub>Một prompt gửi cho Xia Director (bên phải) đã trở thành quy trình 17 node, 32 cạnh này trên canvas (bên trái): brief → định hướng câu chuyện → tham chiếu nhân vật và bối cảnh → khung hình đầu của năm cảnh quay → video năm cảnh quay → lồng tiếng và nhạc nền → bản dựng cuối.</sub></p>
+<p align="center"><sub>Một prompt gửi cho Director (bên phải) đã trở thành quy trình 17 node, 32 cạnh này trên canvas (bên trái): brief → định hướng câu chuyện → tham chiếu nhân vật và bối cảnh → khung hình đầu của năm cảnh quay → video năm cảnh quay → lồng tiếng và nhạc nền → bản dựng cuối.</sub></p>
 
 - **18 loại node trên một canvas** &mdash; upload, tạo / chỉnh sửa ảnh, tạo storyboard, kịch bản, ngữ cảnh beat, video, ghép video, video kể chuyện, âm thanh, phong cách, skill, nhóm, chú thích văn bản, trình xem toàn cảnh 360°, thế giới 3D, xuất và nhiều hơn nữa. Kết nối tự do; mỗi node giữ lịch sử sinh nội dung riêng.
 - **Công cụ ảnh** &mdash; tạo, chỉnh sửa, vẽ lại, mở rộng khung (outpaint), chiếu sáng lại, upscale, đa góc nhìn, chỉnh sửa theo mẫu, suy ngược prompt, phát hiện đánh dấu; một **bức tường phong cách với 45 look phim drama ngắn** cho image-to-image
@@ -232,7 +232,7 @@ Mỗi bước có giao diện riêng — chạy theo thứ tự, bỏ qua bướ
 </p>
 <p align="center"><sub>Minh họa tính năng dựa trên ảnh chụp có sẵn; giao diện có thể khác phiên bản hiện tại.</sub></p>
 
-### Xia Director — agent
+### Director — agent
 
 <div align="center">
 
@@ -251,7 +251,7 @@ Mỗi bước có giao diện riêng — chạy theo thứ tự, bỏ qua bướ
 </div>
 
 <p align="center">
-  <img src="../assets/readme/xia-director.jpg" width="900" alt="Xia Director — project context and reviewed actions"/>
+  <img src="../assets/readme/xia-director.jpg" width="900" alt="Director — project context and reviewed actions"/>
 </p>
 <p align="center"><sub>Minh họa tính năng dựa trên ảnh chụp có sẵn; giao diện có thể khác phiên bản hiện tại.</sub></p>
 
@@ -262,13 +262,13 @@ Mỗi bước có giao diện riêng — chạy theo thứ tự, bỏ qua bướ
 
 **Tiếp theo**
 
-- **Làm việc trên canvas** &mdash; ảnh chụp màn hình phía trên là hướng đi: bạn mô tả bộ phim, Xia Director tạo và kết nối các node, bố trí chúng, chạy chúng và review kết quả, với mọi lệnh canvas đều được duyệt trong trình duyệt của bạn trước. Canvas + agent là cốt lõi của DramaClaw từ đây trở đi; xem [Đang phát triển](#in-development).
+- **Làm việc trên canvas** &mdash; ảnh chụp màn hình phía trên là hướng đi: bạn mô tả bộ phim, Director tạo và kết nối các node, bố trí chúng, chạy chúng và review kết quả, với mọi lệnh canvas đều được duyệt trong trình duyệt của bạn trước. Canvas + agent là cốt lõi của DramaClaw từ đây trở đi; xem [Đang phát triển](#in-development).
 
 <br/>
 
 ## Tại sao chọn AIPDD-Agent-Claw?
 
-**Một canvas hiểu phim drama, và một agent làm việc trên đó.** Các canvas node đa dụng nối được mọi thứ nhưng chẳng biết gì về tập, nhân vật hay cảnh quay; các công cụ series hiểu nghề nhưng nhốt bạn trong một wizard. XiaHua cho bạn canvas tự do với các node và skill hiểu phim drama, còn Xia Director đang được xây để bố trí, chạy và review những đồ thị đó thay bạn. Sự kết hợp ấy chính là nơi DramaClaw đang hướng tới.
+**Một canvas hiểu phim drama, và một agent làm việc trên đó.** Các canvas node đa dụng nối được mọi thứ nhưng chẳng biết gì về tập, nhân vật hay cảnh quay; các công cụ series hiểu nghề nhưng nhốt bạn trong một wizard. XiaHua cho bạn canvas tự do với các node và skill hiểu phim drama, còn Director đang được xây để bố trí, chạy và review những đồ thị đó thay bạn. Sự kết hợp ấy chính là nơi DramaClaw đang hướng tới.
 
 **Xây cho việc chuyển tiểu thuyết thành phim drama ngắn.** Các công cụ workflow chung có thể nối node với nhau, nhưng chúng không biết "beat của tập" là gì, không hiểu vì sao sự nhất quán danh tính nhân vật xuyên cảnh lại quan trọng, và sẽ không bảo vệ cung cảm xúc của một chương xuyên suốt ảnh + giọng nói + dựng phim. DramaClaw đưa toàn bộ những phán đoán đó vào công cụ.
 
@@ -486,7 +486,7 @@ Các adapter nhà cung cấp có sẵn trong gateway hiện nay (xem [ma trận 
 
 Những tính năng này đang được xây dựng công khai và chưa có trong bản phát hành nào. Hãy theo dõi các nhánh, hoặc đến góp sức.
 
-- **Xia Director trên canvas** &mdash; agent tạo và kết nối node, cập nhật dữ liệu node, bố trí và nhóm node, chạy các hành động node và dựng cả đồ thị workflow, với mọi lệnh canvas đều được duyệt trong trình duyệt đang mở trước.
+- **Director trên canvas** &mdash; agent tạo và kết nối node, cập nhật dữ liệu node, bố trí và nhóm node, chạy các hành động node và dựng cả đồ thị workflow, với mọi lệnh canvas đều được duyệt trong trình duyệt đang mở trước.
 - **Danh mục workflow và skill cộng đồng** &mdash; một danh mục gồm 11 workflow skill và 60 recipe (phim drama ngắn, quảng cáo thương mại điện tử, quảng cáo nhân vật IP, chiến dịch mạng xã hội, phong cách anime / Pixar / LEGO / kung-fu…) tự bố trí trọn đồ thị sinh nội dung; skill và recipe dưới dạng bundle cài đặt, xuất và chia sẻ được
 - **agent-kit** &mdash; một gói di động mang cùng các workflow DramaClaw tới Hermes, OpenClaw, WorkBuddy, Claude Code và Codex
 - **Sân khấu previz** &mdash; một sân khấu dàn cảnh 3D ngay trong trình duyệt dưới dạng node canvas: timeline đa track, rig và đường di chuyển nhân vật, mô hình camera với ống kính / cảm biến thật, theo dõi cận cảnh, rồi chụp cảnh quay đã lấy khung thẳng vào node tiếp theo. Nhánh: `feat/previz-canvas-node`
