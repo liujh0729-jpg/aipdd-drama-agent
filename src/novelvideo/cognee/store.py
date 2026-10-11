@@ -17,7 +17,10 @@ from uuid import UUID
 # 重要：必须先导入 config，在 cognee 被导入之前设置环境变量
 from .config import init_cognee  # noqa: F401
 from novelvideo.i18n_message import MessageLike, lmsg
-from novelvideo.config import get_newapi_structured_output_litellm_kwargs
+from novelvideo.config import (
+    get_newapi_litellm_call_kwargs,
+    get_newapi_structured_output_litellm_kwargs,
+)
 from .concurrency import cognee_pipeline_concurrency
 from .ladybug_access import cognee_project_context, ladybug_graph_access
 
@@ -40,7 +43,6 @@ from novelvideo.knowledge_pipeline import (
     KnowledgePipelineUnsupported,
     is_structured_pipeline,
 )
-from novelvideo.model_slots import resolve_slot
 from novelvideo.novel_source import require_imported_novel
 from novelvideo.project_config import ensure_cognee_embedding_binding_in_state_dir
 from novelvideo.sqlite_store import SQLiteStore
@@ -1309,9 +1311,9 @@ class CogneeStore:
         try:
             log("调用 LLM 分配事件...")
             response = await litellm.acompletion(
-                # 模型只认「设置 › 模型」：os.environ["LLM_MODEL"] 是 cognee 配置层写给
-                # 库自己消费的缓存，拿它当首选等于让 env 悄悄盖过设置。
-                model=resolve_slot("COGNEE_LLM_MODEL"),
+                # 模型名与凭据都只认「设置 › 模型」+ 网关设置，env 不再是任何一环；
+                # OpenAI-compatible 的 provider 前缀由这个共享入口统一负责。
+                **get_newapi_litellm_call_kwargs("COGNEE_LLM_MODEL"),
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
                 response_format={"type": "json_object"},

@@ -102,6 +102,7 @@ RESOLVER_FUNCTIONS = frozenset(
         "resolve_slot",
         "resolve_media_slot",
         "get_newapi_text_model_name",
+        "get_newapi_litellm_call_kwargs",
         "get_newapi_text_pydantic_model",
         "get_newapi_chat_model",
     }
@@ -706,3 +707,94 @@ def test_direct_vendor_allowlist_shape_is_sane() -> None:
         assert tokens, f"{rel} 的白名单没有模型名，删掉这条"
         assert rel.endswith(".py"), rel
         assert (SRC_ROOT / rel).exists(), f"白名单指向的文件不存在：{rel}"
+
+
+# ---------------------------------------------------------------------------
+# 规则 6：直连 litellm 的调用点必须从共享入口拿路由参数，不许手搓 model / 凭据。
+# ---------------------------------------------------------------------------
+
+# litellm 按第一个 ``/`` 判 provider，网关调用名里没有这一撇；只把名字换成设置解析
+# 的结果而不补前缀，每次都是稳定 400「LLM Provider NOT provided」，再被调用点的
+# ``except`` 咽成默认值 —— 表现成「任务没报错但角色 / 图谱出不来」。所以模型名、
+# ``api_base``、``api_key`` 三样必须一起由 ``get_newapi_litellm_call_kwargs`` 给出。
+LITELLM_ROUTED_FUNCTIONS = frozenset(
+    {"acompletion", "completion", "aembedding", "embedding"}
+)
+LITELLM_ROUTING_HELPER = "get_newapi_litellm_call_kwargs"
+
+# 例外：文件 → 原因。这些点位只是包装 / 搬运 transport，请求仍由被包住的调用点发出。
+LITELLM_TRANSPORT_WRAPPERS: dict[str, str] = {
+    "cognee/config.py": "org 网关的 litellm.acompletion 补丁：它转发参数，自己不发请求",
+}
+
+
+def _litellm_refs(tree: ast.Module) -> list[int]:
+    """凡是对 ``litellm.<调用名>`` 的引用都算，含只取函数引用的 transport 包装。"""
+
+    lines: list[int] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Attribute) or node.attr not in LITELLM_ROUTED_FUNCTIONS:
+            continue
+        holder = node.value
+        holder_name = getattr(holder, "id", None) or getattr(holder, "attr", None)
+        if holder_name == "litellm":
+            lines.append(node.lineno)
+    return lines
+
+
+def _litellm_direct_calls(tree: ast.Module) -> list[ast.Call]:
+    calls: list[ast.Call] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr not in LITELLM_ROUTED_FUNCTIONS:
+            continue
+        holder = node.func.value
+        holder_name = getattr(holder, "id", None) or getattr(holder, "attr", None)
+        if holder_name == "litellm":
+            calls.append(node)
+    return calls
+
+
+def _takes_routing_kwargs_from_helper(call: ast.Call) -> bool:
+    """``**get_newapi_litellm_call_kwargs(...)``：``ast`` 里就是 arg 为 None 的关键字。"""
+
+    for keyword in call.keywords:
+        value = keyword.value
+        if keyword.arg is not None or not isinstance(value, ast.Call):
+            continue
+        name = getattr(value.func, "attr", None) or getattr(value.func, "id", None)
+        if name == LITELLM_ROUTING_HELPER:
+            return True
+    return False
+
+
+def test_direct_litellm_calls_take_routing_from_the_shared_entry() -> None:
+    offenders: list[str] = []
+    total = 0
+    for path in _iter_module_files():
+        rel = _module_rel(path)
+        if rel in LITELLM_TRANSPORT_WRAPPERS:
+            continue
+        for call in _litellm_direct_calls(_parse(path)):
+            total += 1
+            if not _takes_routing_kwargs_from_helper(call):
+                offenders.append(f"{rel}:{call.lineno}")
+    assert total >= 2, (
+        f"只找到 {total} 处直连 litellm 调用，守卫可能已经对着空气生效"
+    )
+    assert not offenders, (
+        f"这些 litellm 直调点没有从 {LITELLM_ROUTING_HELPER} 拿 model / api_base / api_key："
+        "模型名与凭据必须同源、而且要带 OpenAI-compatible 的 provider 前缀，"
+        "否则 400 会被调用点的 except 咽成静默降级：\n" + "\n".join(offenders)
+    )
+
+
+def test_litellm_transport_wrapper_allowlist_is_not_stale() -> None:
+    for rel, reason in LITELLM_TRANSPORT_WRAPPERS.items():
+        assert reason.strip(), f"{rel} 的例外必须写原因"
+        path = SRC_ROOT / rel
+        assert path.exists(), f"例外指向的文件不存在：{rel}"
+        assert _litellm_refs(_parse(path)), (
+            f"{rel} 已经没有 litellm 调用形态的引用了，删掉这条例外"
+        )

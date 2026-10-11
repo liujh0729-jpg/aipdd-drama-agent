@@ -40,7 +40,6 @@ from novelvideo.novel_source import (
     load_imported_novel_content,
     require_imported_novel,
 )
-from novelvideo.model_slots import resolve_slot
 from novelvideo.sqlite_pragmas import configure_sqlite_connection_async
 from novelvideo.sqlite_schema import ensure_sqlite_schema
 from novelvideo.utils.asset_names import (
@@ -1949,6 +1948,7 @@ class SQLiteStore:
             import litellm
 
             from novelvideo.config import (
+                get_newapi_litellm_call_kwargs,
                 get_newapi_structured_output_litellm_kwargs,
             )
 
@@ -1972,9 +1972,9 @@ class SQLiteStore:
 只返回 JSON，不要有其他内容。"""
 
             response = await litellm.acompletion(
-                # 模型只认「设置 › 模型」：os.environ["LLM_MODEL"] 是 cognee 配置层写给
-                # 库自己消费的缓存，拿它当首选等于让 env 悄悄盖过设置。
-                model=resolve_slot("COGNEE_LLM_MODEL"),
+                # 模型名与凭据都只认「设置 › 模型」+ 网关设置，env 不再是任何一环；
+                # OpenAI-compatible 的 provider 前缀由这个共享入口统一负责。
+                **get_newapi_litellm_call_kwargs("COGNEE_LLM_MODEL"),
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
                 response_format={"type": "json_object"},

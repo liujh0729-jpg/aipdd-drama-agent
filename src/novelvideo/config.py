@@ -386,6 +386,33 @@ def get_newapi_structured_output_litellm_kwargs() -> dict:
     }
 
 
+def get_newapi_litellm_call_kwargs(
+    model_slot: str,
+    default_model: str = "",
+) -> dict[str, str]:
+    """组装 litellm 直连网关必须自带的三样路由参数：``model`` / ``api_base`` / ``api_key``。
+
+    [aipdd fork delta] 以前每个直调点自己拼，踩过的坑是「只把模型名换成设置解析的
+    结果，却把它裸喂 litellm」：litellm 拿第一个 ``/`` 判 provider，而网关调用名
+    （``volcengine::…`` / ``DC-…``）里没有这一撇，于是每次都是稳定的 400
+    ``LLM Provider NOT provided``，再被调用点的 ``except`` 咽成默认值，表现出来
+    就是「任务没报错但角色 / 图谱出不来」。这里统一补上 ``openai/`` 前缀 —— 它只是
+    OpenAI-compatible 的路由标记，不是模型名；真名仍由「设置 › 模型」的槽位解析，
+    凭据只取网关设置，进程环境不再是任何一环。
+    """
+
+    api_key, base_url = get_newapi_runtime_credentials(
+        env_api_key="MODEL_API_KEY",
+        env_base_url="MODEL_BASE_URL",
+    )
+    call_name = str(
+        get_newapi_text_model_name(model_slot, default_model) or ""
+    ).strip()
+    if not call_name.startswith(("openai/", "custom/")):
+        call_name = f"openai/{call_name}"
+    return {"model": call_name, "api_base": base_url, "api_key": api_key}
+
+
 def get_superpower_pydantic_model(
     *,
     feature_provider_env: str | None = None,

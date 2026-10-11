@@ -272,3 +272,65 @@ def test_cognee_litellm_structured_output_disables_reasoning(monkeypatch, tmp_pa
     assert len(calls) == 1
     assert calls[0]["reasoning_effort"] == "none"
     assert calls[0]["allowed_openai_params"] == ["reasoning_effort"]
+
+
+def test_the_two_litellm_call_sites_ask_settings_not_the_environment(
+    monkeypatch, tmp_path
+):
+    """模型名与凭据只来自「设置 › 模型」+ 网关设置。
+
+    这两个调用点原本是 ``os.environ.get("LLM_MODEL") or resolve_slot(...)``：
+    ``LLM_MODEL`` 是 cognee 配置层写给库自己消费的**输出缓存**，把它当首选等于让
+    env 盖过面板——运维设过同名 env 的机器会一直跑旧模型。这里同时钉住调用形态：
+    litellm 需要 ``openai/<网关名>`` 的 provider 前缀与显式凭据，缺一个都会撞
+    400「LLM Provider NOT provided」，然后被 except 吞成默认值。
+    """
+    import asyncio
+    from types import SimpleNamespace
+
+    import litellm
+
+    from novelvideo.cognee.store import CogneeStore
+    from novelvideo.config import get_newapi_runtime_credentials
+    from novelvideo.model_slots import resolve_slot
+    from novelvideo.sqlite_store import SQLiteStore
+
+    monkeypatch.setenv("LLM_MODEL", "env-outranks-settings")
+    calls: list[dict] = []
+
+    async def fake_completion(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content='{"assignments":{},"title":"标题"}')
+                )
+            ]
+        )
+
+    monkeypatch.setattr(litellm, "acompletion", fake_completion)
+    api_key, base_url = get_newapi_runtime_credentials(
+        env_api_key="MODEL_API_KEY",
+        env_base_url="MODEL_BASE_URL",
+    )
+    expected_model = f"openai/{resolve_slot('COGNEE_LLM_MODEL')}"
+    assert "env-outranks-settings" not in expected_model
+
+    store = CogneeStore(
+        "env-not-source-test",
+        output_dir=str(tmp_path / "output"),
+        state_dir=str(tmp_path / "state"),
+    )
+    asyncio.run(store._assign_events_to_episodes([], 1))
+
+    sqlite_store = SQLiteStore(
+        "env-not-source-test",
+        output_dir=str(tmp_path / "output"),
+        state_dir=str(tmp_path / "state"),
+    )
+    metadata = asyncio.run(sqlite_store._generate_episode_metadata(1, "正文"))
+
+    assert [call["model"] for call in calls] == [expected_model, expected_model]
+    assert all(call["api_base"] == base_url for call in calls)
+    assert all(call["api_key"] == api_key for call in calls)
+    assert metadata["title"] == "标题"
