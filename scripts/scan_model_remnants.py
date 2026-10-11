@@ -13,11 +13,11 @@ data.db 的历史任务里还带着它 —— 于是下一次调用又撞回
 用法：
 
     # 本机（默认按 config.STATE_DIR 找 settings / 网关库）
-    uv run python scripts/scan_model_remnants.py LingShan-NB-2
+    uv run python scripts/scan_model_remnants.py Acme-IMG-2
 
     # 容器里（部署环境的真源都在 /data）
     docker exec aipdd-drama-api /app/.venv/bin/python /app/scripts/scan_model_remnants.py \
-        LingShan-NB-2 --state-dir /data/state
+        Acme-IMG-2 --state-dir /data/state
 
     # 多个名字、额外指定网关库
     uv run python scripts/scan_model_remnants.py ap-old-llm DC-old-slot \
@@ -55,21 +55,21 @@ SETTINGS_TABLE_SQL = "select key, value from runtime_settings"
 
 # 各位置对应的清理动作：告诉用户去哪儿点，而不是让他去写 SQL。
 CLEAN_HINTS: dict[str, str] = {
-    "gateway.channels": "「设置 → 模型网关」里对应渠道：把该名字从渠道模型清单删掉，"
+    "gateway.channels": "「设置 → 模型与渠道」里对应渠道：把该名字从渠道模型清单删掉，"
     "或直接把渠道删掉重配（渠道的 models / model_mapping 由系统按目录 + 绑定重新投影）",
     "gateway.abilities": "改完渠道后重启网关（ abilities 是渠道投影出来的路由表，"
     "手工删会被下一次同步重建）",
-    "gateway.models": "「设置 → 模型网关」的自定义模型 / 供应商元数据里删掉该名字",
+    "gateway.models": "「设置 → 模型与渠道」的自定义模型 / 供应商元数据里删掉该名字",
     "gateway.prefill_groups": "网关的分组预填里删掉该名字",
     "gateway.tokens": "令牌（API Key）的模型白名单里删掉该名字",
     "gateway.tasks": "排队 / 进行中的异步任务里还带着它：取消对应任务后重提",
     "gateway.logs": "历史调用日志（只影响你翻旧账看到它，不影响调用）：可按需清理日志",
-    "settings.alias": "「设置 → 模型」里把绑到这个模型的功能位改选别的（别名表 target）",
-    "settings.media": "「设置 → 模型」的默认图片 / 视频 / 向量模型里换掉它",
-    "settings.channels": "「设置 → 模型网关」的渠道存档里删掉该名字，然后重新同步清单",
-    "settings.catalog": "「设置 → 模型网关」对应渠道点「同步模型清单」覆盖快照",
-    "settings.probe": "「设置 → 模型」的工具页实测缓存：重新探测一次即可覆盖",
-    "settings.other": "「设置 → 模型」里核对这个键，改选或删除",
+    "settings.alias": "「设置 → 模型与渠道」里把绑到这个模型的功能位改选别的（别名表 target）",
+    "settings.media": "「设置 → 模型与渠道」的默认图片 / 视频 / 向量模型里换掉它",
+    "settings.channels": "「设置 → 模型与渠道」的渠道存档里删掉该名字，然后重新同步清单",
+    "settings.catalog": "「设置 → 模型与渠道」对应渠道点「同步模型清单」覆盖快照",
+    "settings.probe": "「设置 → 模型与渠道」的工具页实测缓存：重新探测一次即可覆盖",
+    "settings.other": "「设置 → 模型与渠道」里核对这个键，改选或删除",
     "project.config": "该项目 project_config.json 里记录了它：在项目设置里改选模型",
     "project.db": "项目历史任务 / 产物里带着它（只影响重放旧任务）：重新生成即可，"
     "无需改库",

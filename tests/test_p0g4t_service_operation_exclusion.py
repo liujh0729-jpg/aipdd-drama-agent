@@ -150,7 +150,7 @@ NEWAPI_MUTATION_CASES = (
         "/model-gateway/custom/newapi/media-models",
         {
             "models": {
-                "LingShan-G2": {
+                "Acme-IMG-1": {
                     "provider": "ali",
                     "upstreamModel": "media-model-canary",
                 }

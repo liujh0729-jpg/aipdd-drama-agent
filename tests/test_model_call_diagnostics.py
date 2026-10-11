@@ -67,14 +67,14 @@ def test_gateway_model_not_found_points_at_channel_binding() -> None:
     detail = describe_model_call_failure(exc)
     assert "HTTP 503" in detail
     assert "model_not_found" in detail
-    assert "设置 → 模型网关" in detail
+    assert "设置 → 模型与渠道" in detail
 
 
 def test_gateway_unbound_on_internal_slot_points_at_feature_binding() -> None:
     """[aipdd fork delta] ``DC-*`` 同一个 503 但动作完全不同：绑功能位，不是开通模型。
 
     回归场景：导演剧本功能位没绑模型时，用户拿到的是「No available channel for model
-    DC-director-screenwriter-LLM」，而旧文案让他去「设置 → 模型网关」为渠道开通这个
+    DC-director-screenwriter-LLM」，而旧文案让他去「设置 → 模型与渠道」为渠道开通这个
     「模型」—— 渠道目录里根本没这一项，于是一条死路。它不是模型名，而是只从功能位
     绑定投影的路由键。
     """
@@ -98,7 +98,7 @@ def test_gateway_unbound_on_internal_slot_points_at_feature_binding() -> None:
     assert "DC-director-screenwriter-LLM" in detail
     assert "内部功能位" in detail
     assert "还没绑定可用模型" in detail
-    assert "设置 → 模型" in detail
+    assert "设置 → 模型与渠道" in detail
     assert "自动投影" in detail
     # 不能再让用户去网关侧「为渠道开通」一个不存在的模型。
     assert "为对应渠道开通该模型" not in detail
@@ -152,3 +152,107 @@ async def test_newapi_text_model_translates_http_failure(monkeypatch) -> None:
     assert "secret-key-must-not-leak" not in detail
     # 因果链不能断：运维还要能看到原始的 ModelHTTPError。
     assert isinstance(raised.value.__cause__, ModelHTTPError)
+
+
+def _gateway_unbound_error(model_name: str) -> ModelHTTPError:
+    """本地网关（new-api distributor）的「没有可用渠道」原话。"""
+
+    return ModelHTTPError(
+        503,
+        model_name,
+        {
+            "error": {
+                "message": (
+                    f"No available channel for model {model_name} under group "
+                    "default (distributor)"
+                ),
+                "type": "new_api_error",
+                "code": "model_not_found",
+            }
+        },
+    )
+
+
+def test_gateway_unbound_on_declared_model_names_the_owning_channel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[aipdd fork delta] 「测试问题发现」第 7 条：目录里有、渠道不接客 → 说清是哪条渠道。
+
+    旧文案让用户「为对应渠道开通该模型」，但网关的路由表是从设置里的渠道投影出来的，
+    渠道目录里没有「逐个模型开通」这个开关 —— 那句话是一条死路。能做的只有三件事：
+    看渠道状态、重投影（同步清单）、改选候选。
+    """
+
+    from novelvideo import model_gateway_settings
+
+    monkeypatch.setattr(
+        model_gateway_settings, "model_owner_providers", lambda model: ["volcengine"]
+    )
+
+    detail = describe_model_call_failure(_gateway_unbound_error("acme-image-9"), model_name="acme-image-9")
+
+    assert "HTTP 503" in detail
+    # 指名道姓：是哪条渠道声明了它，用户才知道去看谁的开关。
+    assert "火山方舟" in detail
+    assert "被停用" in detail and "分组" in detail
+    assert "同步模型清单" in detail
+    assert "设置 → 模型与渠道" in detail
+    # 不再把用户支使去「为渠道开通一个模型」。
+    assert "为对应渠道开通该模型" not in detail
+
+
+def test_gateway_unbound_on_unknown_name_says_the_catalog_has_no_such_entry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """目录里根本没这个名字：先把清单刷回来，而不是让用户去开一个不存在的渠道。"""
+
+    from novelvideo import model_gateway_settings
+
+    monkeypatch.setattr(model_gateway_settings, "model_owner_providers", lambda model: [])
+
+    detail = describe_model_call_failure(
+        _gateway_unbound_error("acme-never-listed-9"), model_name="acme-never-listed-9"
+    )
+
+    assert "不在任何已同步的渠道目录里" in detail
+    assert "同步模型清单" in detail
+    assert "改选" in detail
+    assert "为对应渠道开通该模型" not in detail
+
+
+def test_gateway_unbound_lookup_never_raises_on_a_broken_settings_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """归属查询出错不能变成第二次故障：退成「目录里没有」那条通用可执行文案。"""
+
+    from novelvideo import model_gateway_settings
+
+    def _boom(model: str) -> list[str]:
+        raise RuntimeError("settings.db is unreadable")
+
+    monkeypatch.setattr(model_gateway_settings, "model_owner_providers", _boom)
+
+    detail = describe_model_call_failure(_gateway_unbound_error("acme-image-9"), model_name="acme-image-9")
+
+    assert "不在任何已同步的渠道目录里" in detail
+    assert "RuntimeError" not in detail
+
+
+def test_provider_hint_names_use_the_label_the_settings_page_shows() -> None:
+    """报错里说的渠道名得和设置页卡片上的名字对得上。
+
+    渠道展示名有两张表（模型广场的 `_FORK_PROVIDER_LABELS`、诊断文案的
+    `_PROVIDER_HINT_NAMES`）：后者可以多一个中文厂商名，但不能少掉界面上那个
+    品牌字——否则用户照着报错去找渠道，看到的却是一个没听过的名字。
+    """
+
+    from novelvideo.model_call_diagnostics import _PROVIDER_HINT_NAMES, provider_display_name
+    from novelvideo.model_plaza import _FORK_PROVIDER_LABELS
+
+    shared = sorted(set(_FORK_PROVIDER_LABELS) & set(_PROVIDER_HINT_NAMES))
+    assert shared, "两张渠道名表已无交集，这条守卫要重新想口径"
+    for provider in shared:
+        label = _FORK_PROVIDER_LABELS[provider]
+        assert label in provider_display_name(provider), (
+            f"{provider}：设置页叫「{label}」，报错里却是「{provider_display_name(provider)}」"
+        )

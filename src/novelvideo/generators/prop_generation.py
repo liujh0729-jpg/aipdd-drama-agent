@@ -43,7 +43,7 @@ PROP_REF_IMAGE_SIZE = "0.5K"
 
 
 def _default_image_model() -> str:
-    """[aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：prop 参考图默认只走「默认
+    """[aipdd fork delta] 拆解上游一体化图像模型：prop 参考图默认只走「默认
     生成模型」面板配置的 image（``NEWAPI_IMAGE_MODEL`` env 已退出解析链）。读不到就回
     空串 —— 未绑定由调用点拒绝，不再拿一个设置页看不见的名字去撞网关。"""
     try:

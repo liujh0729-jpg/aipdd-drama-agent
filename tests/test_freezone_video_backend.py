@@ -566,7 +566,7 @@ def _seed_video_media_models(
     *,
     extra: dict[str, dict] | None = None,
 ) -> None:
-    """[aipdd fork delta req40] CE 下视频候选只来自「设置 › 模型」里勾选的媒体模型
+    """[aipdd fork delta req40] CE 下视频候选只来自「设置 → 模型与渠道」里勾选的媒体模型
     （= 从渠道目录里挑出来的那批），随包写死的 seedance 清单不再参与。测试因此显式
     给这份绑定，而不是去改 ``NEWAPI_VIDEO_MODELS``。
     """

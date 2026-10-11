@@ -1106,7 +1106,7 @@ async def run(args: argparse.Namespace) -> int:
         if not provider_api_key:
             raise RuntimeError("NEWAPI_API_KEY is missing")
         # [aipdd fork delta wave2] ``SCENE_360_IMAGE_MODEL`` env 已退出解析链：未显式传图时，
-        # 模型名只由「设置 › 模型」的默认图位决定（拿不到就是空串，由调用点拦住）。
+        # 模型名只由「设置 → 模型与渠道」的默认图位决定（拿不到就是空串，由调用点拦住）。
         from novelvideo.model_gateway_settings import (
             get_effective_default_image_model,
         )

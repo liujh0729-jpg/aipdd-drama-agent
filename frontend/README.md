@@ -131,7 +131,7 @@ To exercise the `multi-region` cluster mode end-to-end locally:
 2. **Stand up a local edge dispatcher.** Simplest is Caddy:
 
    ```caddy
-   tale.lingshan.localhost {
+   tale.localhost {
      @cn1 header Cookie *server-region=cn-1*
      @us1 header Cookie *server-region=us-1*
      handle @cn1 { reverse_proxy localhost:8780 }
@@ -156,7 +156,7 @@ To exercise the `multi-region` cluster mode end-to-end locally:
    VITE_CLUSTER_REGIONS_URL=/cluster-config.json
    ```
 
-4. `pnpm dev` (or `npm run dev`) and visit `http://tale.lingshan.localhost`. You should see the region picker on `/login`.
+4. `pnpm dev` (or `npm run dev`) and visit `http://tale.localhost`. You should see the region picker on `/login`.
 
 ### Smoke-test checklist
 

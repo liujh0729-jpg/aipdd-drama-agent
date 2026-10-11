@@ -2189,7 +2189,7 @@ def get_newapi_media_model_mappings() -> dict[str, dict[str, Any]]:
     )
 
 
-# [aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：默认出图模型由「默认生成
+# [aipdd fork delta] 拆解上游一体化图像模型：默认出图模型由「默认生成
 # 模型」面板写入的 media model mappings 决定（同类型里 enabled、sortOrder 最小者为
 # 默认）。scene_360 / prop / scene_ref / sketch / stage / image config 等消费点统一
 # 走这里，不再各自硬编码模型名，也不再读 ``NEWAPI_*_MODEL`` env：面板里的顺序就
@@ -2243,7 +2243,7 @@ def get_effective_default_video_model() -> str:
     """Resolve the default video model from the settings media mappings only.
 
     [aipdd fork delta] ``NEWAPI_VIDEO_MODEL`` / ``DEFAULT_VIDEO_MODEL`` env 也退出了这
-    条链：默认视频模型只认「设置 › 模型」里拖出来的那一条（同类型 enabled、
+    条链：默认视频模型只认「设置 → 模型与渠道」里拖出来的那一条（同类型 enabled、
     sortOrder 最小）。
     """
 
@@ -2739,7 +2739,7 @@ def get_effective_mediakit_config(
     env_base_url: str | None = None,
     env_backend: str | None = None,
 ) -> EffectiveMediaKitConfig:
-    """[aipdd fork delta] CE 模式 MediaKit 凭证只认设置数据库（设置页 → 模型配置）。
+    """[aipdd fork delta] CE 模式 MediaKit 凭证只认设置数据库（设置页 → 模型与渠道）。
 
     CE 下 API Key / Base URL 不再回退 ``MEDIAKIT_API_KEY`` / ``MEDIAKIT_BASE_URL``
     环境变量（避免密钥 env/DB 双真源）；Base URL 未配置时落到内置默认端点。

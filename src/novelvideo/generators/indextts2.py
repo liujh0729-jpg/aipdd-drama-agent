@@ -168,7 +168,7 @@ def _resolve_audio_direct_channel(model: str) -> tuple[str, str] | None:
 def _resolve_audio_route(model: str) -> tuple[str, tuple[str, str] | None]:
     """[aipdd fork delta req40] 解析 ``(请求模型名, 直连渠道)``。
 
-    调用名在构造阶段就已经定死：要么调用方显式传，要么从「设置 › 模型」的默认音频位
+    调用名在构造阶段就已经定死：要么调用方显式传，要么从「设置 → 模型与渠道」的默认音频位
     解析出来（那一位的名字必然来自渠道目录）。这里只判断它有没有自带 base+key 的
     provider 渠道 —— 命中就逐组件直连，没命中沿用生效网关。旧的「内置默认名 → 面板
     默认条目」二次回退随硬编码名一起删除：代码里已经没有默认名可比了。
@@ -246,7 +246,7 @@ class IndexTTS2Client:
         clean_model = str(model or "").strip()
         if not clean_model:
             # [aipdd fork delta req40] 代码里不再有内置音频模型名：没显式指定就必须
-            # 从「设置 › 模型」的默认音频位解析出来（渠道目录内）。解析不到时构造阶段
+            # 从「设置 → 模型与渠道」的默认音频位解析出来（渠道目录内）。解析不到时构造阶段
             # 直接抛 ModelSlotNotConfigured —— 提交前拒绝，不会带着空模型名打到网关。
             from novelvideo.model_slots import resolve_media_slot
 

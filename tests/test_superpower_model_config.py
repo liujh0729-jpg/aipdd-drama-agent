@@ -82,7 +82,7 @@ def test_superpower_prompt_agents_use_default_model_provider_unless_overridden(
     # [aipdd fork delta] 带图的 SuperPower 构建仍与纯文本位隔离，但隔离不再由
     # ``VISION_MODEL_FALLBACK`` 这个 env 完成：调用点点名视觉槽位别名
     # （``DC-video-prompt-optimizer-LLM``，登记表 capability=vision），模型名只来自
-    # 「设置 › 模型」+ 渠道目录。env 只剩「选哪个厂商预设」这一件事。
+    # 「设置 → 模型与渠道」+ 渠道目录。env 只剩「选哪个厂商预设」这一件事。
     from novelvideo.official_defaults import DEFAULT_VIDEO_PROMPT_OPTIMIZER_MODEL
 
     assert calls == [

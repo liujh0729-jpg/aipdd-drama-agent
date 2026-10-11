@@ -209,7 +209,7 @@ async def _run_script_auto(
         # gap is the model answer, not the scene or graph rows underneath it.
         terminal = lmsg(
             "tasks.progress.auto.doneGapCast",
-            "自动化完成，但未提取到角色，请检查「设置 › 模型」的文本模型后在剧本页重试",
+            "自动化完成，但未提取到角色，请检查「设置 → 模型与渠道」的文本模型后在剧本页重试",
         )
     elif scenes_gap and graph_gap:
         terminal = lmsg(

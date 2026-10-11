@@ -869,7 +869,7 @@ def _newapi_transcription_endpoint(base_url: str | None = None, *, model: str = 
     clean = str(resolved_base_url or "").strip().rstrip("/")
     if not clean:
         raise GatewayAsrUnavailable(
-            "未配置模型网关地址，无法走网关 ASR：请到「设置 › 模型」连接网关，"
+            "未配置模型网关地址，无法走网关 ASR：请到「设置 → 模型与渠道」连接网关，"
             "或在 .env 设 NEWAPI_BASE_URL=<网关地址>。"
         )
     endpoint = clean
@@ -929,8 +929,8 @@ def _gateway_transcription_detail(exc: BaseException) -> str:
     low = f"{message} {err_code}".lower()
     if "model_not_found" in low or "no available channel" in low:
         detail += (
-            "（网关侧没有该 ASR 模型的可用渠道：请在「设置 → 模型网关」为对应渠道开通该模型，"
-            "或改选已就绪的其它 ASR 候选）"
+            "（网关侧没有该 ASR 模型的可用渠道：多半是声明它的渠道被停用或分组没覆盖 —— "
+            "请到「设置 → 模型与渠道」看渠道状态并点「同步模型清单」，或改选已就绪的其它 ASR 候选）"
         )
     return detail
 

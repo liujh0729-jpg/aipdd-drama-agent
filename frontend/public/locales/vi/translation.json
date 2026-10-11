@@ -1456,7 +1456,7 @@
       "model": {
         "followDefault": "Mặc định hệ thống",
         "noDefault": "Chưa đặt mô hình mặc định",
-        "followDefaultHint": "Theo mặc định hệ thống: không gắn cố định ở đây, mặc định trong Cài đặt → Mô hình đổi thì theo. Mục cùng tên là gắn tường minh, mặc định đổi cũng không theo.",
+        "followDefaultHint": "Theo mặc định hệ thống: không gắn cố định ở đây, mặc định trong Cài đặt → Model & Kênh đổi thì theo. Mục cùng tên là gắn tường minh, mặc định đổi cũng không theo.",
         "textModelLabel": "Mô hình văn bản",
         "textNeeded": "Lượt tạo ảnh/video cũng cần mô hình văn bản: nó hiểu yêu cầu và khởi động việc tạo. Hãy chọn ngay ở đây, không cần vào Cài đặt."
       },
@@ -1649,7 +1649,7 @@
     "intro": {
       "body": "Dự án này tích hợp sẵn máy chủ Model Context Protocol (MCP) tên là aipdd-drama. Nó đóng gói API dự án AIPDD thành một bộ công cụ, để ứng dụng AI (Claude Desktop, Cursor, Codex, v.v.) đọc tiến độ, kịch bản, nhân vật và tác vụ bằng ngôn ngữ tự nhiên, rồi vận hành quy trình.",
       "note": "Để kết nối cần cài đặt phụ thuộc của dự án (uv) trên máy chủ hoặc trong container, cùng một API key hợp lệ. Địa chỉ và mã dự án bên dưới đã điền sẵn cho dự án hiện tại — sao chép nguyên trạng và chỉnh sửa nếu cần.",
-      "apiKeyHint": "Tạo API key trong Cài đặt → API key (bắt đầu bằng st-). Cùng một khóa dùng cho cả MCP và gọi model ở Quảng trường model — chỉ cần thay <your-api-key> trong đoạn mã."
+      "apiKeyHint": "Tạo API key trong Cài đặt → Khóa API (bắt đầu bằng st-). Cùng một khóa dùng cho cả MCP và gọi model ở Quảng trường model — chỉ cần thay <your-api-key> trong đoạn mã."
     },
     "step": {
       "configTitle": "Cấu hình kết nối",
@@ -1664,7 +1664,7 @@
       "colValue": "Giá trị",
       "colDesc": "Mô tả",
       "apiUrl": "Địa chỉ backend AIPDD (API Base URL).",
-      "agentToken": "API key thống nhất (st-…) dùng cho cả MCP và gọi model ở Quảng trường model; tạo trong Cài đặt → API key.",
+      "agentToken": "API key thống nhất (st-…) dùng cho cả MCP và gọi model ở Quảng trường model; tạo trong Cài đặt → Khóa API.",
       "projectId": "Mã dự án hiện tại; MCP mặc định đọc và ghi trong dự án này."
     },
     "toolGroups": {
@@ -1837,7 +1837,7 @@
       "notUsed": "Chưa được tính năng nào sử dụng",
       "inUseByCount": "Được {{n}} tính năng sử dụng",
       "sourceNote": "Nguồn thật là bảng cài đặt của dự án, gateway chỉ là bản chiếu; hãy quản lý kênh và ánh xạ bí danh trong Cài đặt → Model & Kênh.",
-      "callKeyNote": "Thay <API_KEY> trong ví dụ bằng API key thống nhất tạo trong Cài đặt → API key (bắt đầu bằng st-). Cùng khóa này cũng dùng cho MCP; khóa gateway ở trên do máy chủ chèn, không cần tự điền.",
+      "callKeyNote": "Thay <API_KEY> trong ví dụ bằng API key thống nhất tạo trong Cài đặt → Khóa API (bắt đầu bằng st-). Cùng khóa này cũng dùng cho MCP; khóa gateway ở trên do máy chủ chèn, không cần tự điền.",
       "search": {
         "placeholder": "Tìm mô hình / mô hình nguồn / kênh"
       },
@@ -2178,7 +2178,7 @@
     "videoDubbing": {
       "title": "Lồng tiếng video",
       "desc": "Tải video gốc + âm thanh tham chiếu: trích lời thoại gốc (không dịch), dùng giọng tham chiếu nói lại bằng ngôn ngữ gốc, rồi thay toàn bộ kênh âm thanh để xuất video đã lồng tiếng.",
-      "modelHint": "Chọn mô hình giọng nói đã cấu hình ở backend (ví dụ doubao-seed-audio / IndexTTS2); mặc định là mô hình âm thanh trong Cài đặt → Mô hình tạo mặc định.",
+      "modelHint": "Chọn mô hình giọng nói đã cấu hình ở backend (ví dụ doubao-seed-audio / IndexTTS2); mặc định là mô hình âm thanh trong Cài đặt → Model tạo mặc định.",
       "source": "Video gốc",
       "sourceHint": "Lời thoại cần lồng được trích từ đây, đồng thời giữ làm hình ảnh cho video xuất; kênh âm thanh sẽ được tách ở máy trước.",
       "reference": "Âm thanh tham chiếu (giọng mục tiêu)",
@@ -2192,7 +2192,7 @@
       "title": "Sáng tác nhạc",
       "desc": "Năm cách với MiniMax Music 3.0: một câu mô tả, theo lời bài hát, hòa tấu, hát lại và ngân khúc thành bài; kết quả tự lưu vào thư viện tài sản.",
       "modelLabel": "Mô hình nhạc",
-      "modelHint": "Danh sách lấy từ Cài đặt → Mô hình → Mô hình tạo mặc định → Nhạc. Chế độ hát lại / ngân khúc cần mô hình hỗ trợ cover (tên chứa cover); các chế độ khác dùng mô hình sinh nhạc từ văn bản.",
+      "modelHint": "Danh sách lấy từ Cài đặt → Model & Kênh → Mô hình tạo mặc định → Nhạc. Chế độ hát lại / ngân khúc cần mô hình hỗ trợ cover (tên chứa cover); các chế độ khác dùng mô hình sinh nhạc từ văn bản.",
       "modeLabel": "Chế độ",
       "mode": {
         "one_sentence": "Một câu mô tả",
@@ -2363,8 +2363,8 @@
       "needVideoFile": "Hãy tải tệp video lên trước",
       "needAudioFile": "Hãy tải tệp âm thanh lên trước",
       "needModel": "Hãy chọn mô hình ASR trước: không có mô hình mặc định, cần chỉ định rõ ràng.",
-      "notConfiguredDoubao": "Chưa cấu hình thông tin đăng nhập Doubao Speech (VolcEngine ASR): API key của nó KHÔNG dùng chung với API key của gateway; hãy điền API key vào phần nhận dạng giọng nói trên thẻ VolcEngine ở Cài đặt → Cấu hình mô hình trước khi gửi.",
-      "notConfiguredFunasr": "Kênh FunASR chưa sẵn sàng: hãy bổ sung Base URL / API key của kênh AIPDD trong Cài đặt → Cấu hình mô hình, hoặc chọn mô hình ASR qua gateway."
+      "notConfiguredDoubao": "Chưa cấu hình thông tin đăng nhập Doubao Speech (VolcEngine ASR): API key của nó KHÔNG dùng chung với API key của gateway; hãy điền API key vào phần nhận dạng giọng nói trên thẻ VolcEngine ở Cài đặt → Model & Kênh trước khi gửi.",
+      "notConfiguredFunasr": "Kênh FunASR chưa sẵn sàng: hãy bổ sung Base URL / API key của kênh AIPDD trong Cài đặt → Model & Kênh, hoặc chọn mô hình ASR qua gateway."
     },
     "videoReverseScript": {
       "title": "Tách kịch bản từ video",
@@ -2721,7 +2721,7 @@
   "auth": {
     "setup": {
       "title": "Khởi tạo tài khoản quản trị",
-      "description": "Đây là lần khởi chạy đầu tiên của hệ thống. Tên đăng nhập và mật khẩu đặt ở đây sẽ là tài khoản siêu quản trị; thêm thành viên sau trong Cài đặt → Quản lý người dùng.",
+      "description": "Đây là lần khởi chạy đầu tiên của hệ thống. Tên đăng nhập và mật khẩu đặt ở đây sẽ là tài khoản siêu quản trị; thêm thành viên sau trong Cài đặt → Người dùng.",
       "username": "Tên đăng nhập quản trị",
       "usernamePlaceholder": "2-32 ký tự chữ, số, -, _ hoặc tiếng Trung",
       "password": "Mật khẩu",
@@ -2911,7 +2911,6 @@
     "name": "Tên dự án",
     "namePlaceholder": "Nhập tên dự án của bạn",
     "clearName": "Xoá tên dự án",
-    "nameNoChinese": "Tên dự án không được chứa ký tự tiếng Trung.",
     "nameTooLong": "Tên dự án dài tối đa 64 ký tự.",
     "nameInvalid": "Tên dự án có thể chứa chữ Hán, chữ cái, chữ số và dấu gạch dưới.",
     "nameExistsActive": "Đã có dự án trùng tên này. Hãy chọn tên khác.",
@@ -3580,7 +3579,7 @@
       "redetect": "Nhận diện lại",
       "confirm": "Xác nhận nhập",
       "cancel": "Hủy",
-      "failed": "Tự động bổ sung tiêu đề phân cảnh thất bại: có thể chưa cấu hình hoặc mô hình văn bản mặc định không khả dụng. Hãy cấu hình một mô hình văn bản mặc định khả dụng trong Cài đặt → Mô hình tạo mặc định → Văn bản rồi thử lại, hoặc thêm tiêu đề phân cảnh thủ công."
+      "failed": "Tự động bổ sung tiêu đề phân cảnh thất bại: có thể chưa cấu hình hoặc mô hình văn bản mặc định không khả dụng. Hãy cấu hình một mô hình văn bản mặc định khả dụng trong Cài đặt → Model tạo mặc định → Văn bản rồi thử lại, hoặc thêm tiêu đề phân cảnh thủ công."
     },
     "chapterDetails": {
       "open": "Xem nội dung của {{chapter}}",
@@ -3875,7 +3874,7 @@
         "props": "Bước 4 · Đạo cụ...",
         "graph": "Bước 5 · Tạo đồ thị tri thức...",
         "done": "Tự động hóa hoàn tất",
-        "doneGapCast": "Tự động hóa hoàn tất nhưng chưa trích xuất được nhân vật nào. Kiểm tra mô hình văn bản trong Cài đặt → Mô hình rồi thử lại ở trang Kịch bản.",
+        "doneGapCast": "Tự động hóa hoàn tất nhưng chưa trích xuất được nhân vật nào. Kiểm tra mô hình văn bản trong Cài đặt → Model & Kênh rồi thử lại ở trang Kịch bản.",
         "doneGapScenes": "Tự động hóa hoàn tất nhưng chưa tạo bối cảnh. Có thể thử lại ở trang Bối cảnh.",
         "doneGapGraph": "Tự động hóa hoàn tất nhưng chưa tạo đồ thị tri thức. Bấm \"Tạo đồ thị tri thức\" ở trang Kịch bản để thử lại.",
         "doneGapsBoth": "Tự động hóa hoàn tất nhưng chưa tạo bối cảnh và đồ thị tri thức. Có thể thử lại từng phần ở trang tương ứng."
@@ -5697,7 +5696,7 @@
       "projectNotReady": "Dự án chưa sẵn sàng",
       "deleteEntryTitle": "Xoá asset",
       "deleteEntryDescription": "Xoá “{{name}}”? Không hoàn tác được.",
-      "styleCoverReadOnly": "Ảnh bìa phong cách được quản lý trong Cài đặt → Thư viện phong cách. Hãy thay thế hoặc xoá tại đó.",
+      "styleCoverReadOnly": "Ảnh bìa phong cách được quản lý trong Cài đặt → Quản lý phong cách. Hãy thay thế hoặc xoá tại đó.",
       "delete": "Xoá",
       "downloadFailed": "Tải về thất bại: {{detail}}",
       "bulkDeleteTitle": "Xoá hàng loạt",
@@ -8247,7 +8246,7 @@
           "world": { "name": "Runtime thế giới 3D (3DGS / SHARP)" },
           "modelChannel": {
             "name": "Khóa kênh mô hình",
-            "fix": "Vào Cài đặt → Mô hình & Kênh và thêm khóa AIPDD / chính thức của bạn, sau đó có thể chạy."
+            "fix": "Vào Cài đặt → Model & Kênh và thêm khóa AIPDD / chính thức của bạn, sau đó có thể chạy."
           }
         }
       },
@@ -9305,7 +9304,7 @@
       },
       "form": {
         "title": "Đăng ký tư liệu",
-        "description": "Chỉ nhận URL trực tiếp công khai (tư liệu cục bộ cần qua trung chuyển ở Cài đặt → Lưu trữ phương tiện). Tư liệu được kiểm duyệt bất đồng bộ — chỉ khi ở trạng thái Sẵn sàng mới dùng để tạo video.",
+        "description": "Chỉ nhận URL trực tiếp công khai (tư liệu cục bộ cần qua trung chuyển ở Cài đặt → Lưu trữ media). Tư liệu được kiểm duyệt bất đồng bộ — chỉ khi ở trạng thái Sẵn sàng mới dùng để tạo video.",
         "urlPlaceholder": "https://…/reference.png",
         "typeLabel": "Loại",
         "namePlaceholder": "Tên tư liệu (tuỳ chọn, tối đa 64 ký tự)",

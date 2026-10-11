@@ -525,9 +525,9 @@ def test_story_script_agent_cached_per_model_id(
 def test_default_image_selection_key_resolves_before_the_catalog_gate(monkeypatch):
     """「默认图」选择键进门禁前先换成真名，不要拿一个键去比目录 id。
 
-    [aipdd fork delta wave2] 官方目录下线 LingShan 一族后，再也没人拿 aliases 兜住这个
+    [aipdd fork delta wave2] 官方目录下线 Acme 一族后，再也没人拿 aliases 兜住这个
     键：用户什么都没改，路由却回 409「该媒体模型未对当前组织开放、已停用或不存在」。
-    现在先问「设置 › 模型」的主/副位，面板空着就退到目录自己的第一条。
+    现在先问「设置 → 模型与渠道」的主/副位，面板空着就退到目录自己的第一条。
     """
     import novelvideo.model_gateway_settings as mgs
     from novelvideo.api.routes.freezone.catalog import (

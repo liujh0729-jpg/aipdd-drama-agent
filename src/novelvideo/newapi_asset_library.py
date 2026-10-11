@@ -220,7 +220,7 @@ def resolve_asset_library_target(
     resolved = _first_credential_source()
     if resolved is None:
         raise AssetLibraryNotConfigured(
-            "Seedance 素材库未就绪：素材库只随 NewAPI 网关提供，请先在「设置 · 模型网关」"
+            "Seedance 素材库未就绪：素材库只随 NewAPI 网关提供，请先在「设置 → 模型与渠道」"
             "填好 NewAPI 地址与 Key（或连接一条 NewAPI 渠道）。"
         )
     resolved_origin, resolved_key, source = resolved

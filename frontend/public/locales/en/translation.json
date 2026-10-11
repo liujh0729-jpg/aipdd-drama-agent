@@ -1456,7 +1456,7 @@
       "model": {
         "followDefault": "System default",
         "noDefault": "No default model set",
-        "followDefaultHint": "Follows the system default: nothing is bound here, so it changes when the default in Settings → Models changes. The identically named entry is an explicit binding and stays put when the default changes.",
+        "followDefaultHint": "Follows the system default: nothing is bound here, so it changes when the default in Settings → Models & Channels changes. The identically named entry is an explicit binding and stays put when the default changes.",
         "textModelLabel": "Text model",
         "textNeeded": "Image and video turns need a text model too: it understands the request and kicks off generation. Pick one right here instead of going to Settings."
       },
@@ -1649,7 +1649,7 @@
     "intro": {
       "body": "This project bundles a Model Context Protocol (MCP) server named aipdd-drama. It wraps the AIPDD project API into a set of tools, so an AI client (Claude Desktop, Cursor, Codex, etc.) can read project progress, scripts, characters and tasks in natural language, then drive the pipeline.",
       "note": "Connecting requires the project dependencies (uv) installed on the host or inside a container, plus a valid API key. The URL and project id below are prefilled for the current project — copy as-is and adjust if needed.",
-      "apiKeyHint": "Generate the API key under Settings → API keys (st- prefix). The same key serves both MCP access and Model Plaza model calls — just replace <your-api-key> in the snippets."
+      "apiKeyHint": "Generate the API key under Settings → API Keys (st- prefix). The same key serves both MCP access and Model Plaza model calls — just replace <your-api-key> in the snippets."
     },
     "step": {
       "configTitle": "Access config",
@@ -1664,7 +1664,7 @@
       "colValue": "Value",
       "colDesc": "Description",
       "apiUrl": "AIPDD backend address (API Base URL).",
-      "agentToken": "Unified API key (st-…) used for both MCP access and Model Plaza model calls; generate it under Settings → API keys.",
+      "agentToken": "Unified API key (st-…) used for both MCP access and Model Plaza model calls; generate it under Settings → API Keys.",
       "projectId": "Current project id; MCP reads and writes within this project by default."
     },
     "toolGroups": {
@@ -1837,7 +1837,7 @@
       "notUsed": "Not used by any feature slot",
       "inUseByCount": "Used by {{n}} features",
       "sourceNote": "This project's settings store is the source of truth and the gateway is a projection; manage channels and alias mappings under Settings → Models & Channels.",
-      "callKeyNote": "Replace <API_KEY> in the examples with the unified key generated under Settings → API keys (st- prefix). The same key also serves MCP access; the gateway key above is injected server-side and never entered by hand.",
+      "callKeyNote": "Replace <API_KEY> in the examples with the unified key generated under Settings → API Keys (st- prefix). The same key also serves MCP access; the gateway key above is injected server-side and never entered by hand.",
       "search": {
         "placeholder": "Search model / upstream model / channel"
       },
@@ -2192,7 +2192,7 @@
       "title": "Music Studio",
       "desc": "Five ways with MiniMax Music 3.0: one-sentence prompt, your own lyrics, instrumental, cover and humming-to-song. Outputs are archived to the library automatically.",
       "modelLabel": "Music model",
-      "modelHint": "Candidates come from Settings → Models → Default generation models → Music. Cover and humming need a cover-capable model in the catalog (name contains cover); the other modes use a text-to-music model.",
+      "modelHint": "Candidates come from Settings → Models & Channels → Default generation models → Music. Cover and humming need a cover-capable model in the catalog (name contains cover); the other modes use a text-to-music model.",
       "modeLabel": "Mode",
       "mode": {
         "one_sentence": "One sentence",
@@ -2363,8 +2363,8 @@
       "needVideoFile": "Upload a video file first",
       "needAudioFile": "Upload an audio file first",
       "needModel": "Select an ASR model first: no default model is set, choose explicitly.",
-      "notConfiguredDoubao": "Doubao Speech (VolcEngine ASR) credential is not configured: its API Key is NOT interchangeable with the gateway API key. Fill the API Key in the speech-recognition section of Settings → Model config → VolcEngine card before submitting.",
-      "notConfiguredFunasr": "The FunASR channel is not ready: complete the AIPDD channel Base URL / API key in Settings → Model config, or pick a gateway ASR model instead."
+      "notConfiguredDoubao": "Doubao Speech (VolcEngine ASR) credential is not configured: its API Key is NOT interchangeable with the gateway API key. Fill the API Key in the speech-recognition section of Settings → Models & Channels → VolcEngine card before submitting.",
+      "notConfiguredFunasr": "The FunASR channel is not ready: complete the AIPDD channel Base URL / API key in Settings → Models & Channels, or pick a gateway ASR model instead."
     },
     "videoReverseScript": {
       "title": "Video to Script",
@@ -2721,7 +2721,7 @@
   "auth": {
     "setup": {
       "title": "Initialize the administrator account",
-      "description": "This is the system's first launch. The username and password set here become the super administrator; add teammates later under Settings → User Management.",
+      "description": "This is the system's first launch. The username and password set here become the super administrator; add teammates later under Settings → Users.",
       "username": "Administrator username",
       "usernamePlaceholder": "2-32 letters, digits, -, _ or Chinese",
       "password": "Password",
@@ -2911,7 +2911,6 @@
     "name": "Project Name",
     "namePlaceholder": "Enter your project name",
     "clearName": "Clear project name",
-    "nameNoChinese": "Project name cannot contain Chinese characters.",
     "nameTooLong": "Project name must be at most 64 characters long.",
     "nameInvalid": "Project name can contain Chinese characters, letters, numbers, and underscores.",
     "nameExistsActive": "A project with this name already exists. Choose another name.",
@@ -3580,7 +3579,7 @@
       "redetect": "Detect again",
       "confirm": "Confirm import",
       "cancel": "Cancel",
-      "failed": "Scene header auto-completion failed: the default text LLM may be unset or unavailable. Configure a working default text model under Settings → Default Generation Models → Text and retry, or add scene headers manually."
+      "failed": "Scene header auto-completion failed: the default text LLM may be unset or unavailable. Configure a working default text model under Settings → Default generation models → Text and retry, or add scene headers manually."
     },
     "chapterDetails": {
       "open": "View the text of {{chapter}}",
@@ -3875,7 +3874,7 @@
         "props": "Step 4 · Props…",
         "graph": "Step 5 · Generating the knowledge graph…",
         "done": "Automation complete",
-        "doneGapCast": "Automation complete, but no characters were extracted. Check the text model under Settings → Models, then retry on the Script page.",
+        "doneGapCast": "Automation complete, but no characters were extracted. Check the text model under Settings → Models & Channels, then retry on the Script page.",
         "doneGapScenes": "Automation complete, but scenes were not generated. Retry them on the Scenes page.",
         "doneGapGraph": "Automation complete, but the knowledge graph was not generated. Tap \"Generate graph\" on the Script page to retry.",
         "doneGapsBoth": "Automation complete, but scenes and the knowledge graph were not generated. Retry each on its own page."
@@ -4321,7 +4320,7 @@
       "durationHint": "Set the episode count; or set total + per-episode duration and the system derives episodes and shot counts.",
       "includeStoryVersion": "Also generate storyboards",
       "includeStoryVersionHint": "After each episode's storyboard script completes, generate one storyboard image from its summary and add it to the asset library.",
-      "storyVersionMissing": "Requires the storyboard system prompt configured under Settings → Prompt library.",
+      "storyVersionMissing": "Requires the storyboard system prompt configured under Settings → Prompt Library.",
       "close": "Done"
     }
   },
@@ -8247,7 +8246,7 @@
           "world": { "name": "3D world runtime (3DGS / SHARP)" },
           "modelChannel": {
             "name": "Model channel key",
-            "fix": "Go to Settings → Model & Channels and add your AIPDD / official key, then you can run."
+            "fix": "Go to Settings → Models & Channels and add your AIPDD / official key, then you can run."
           }
         }
       },

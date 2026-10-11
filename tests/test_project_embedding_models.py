@@ -174,7 +174,7 @@ def test_ce_custom_without_any_dimension_source_is_refused(monkeypatch, tmp_path
     assert caught.value.display_name == "向量模型"
     assert "未绑定可用模型" in caught.value.message
     assert "向量模型 · COGNEE_EMBEDDING_MODEL" in caught.value.message
-    assert "设置 › 模型" in caught.value.message
+    assert "设置 → 模型与渠道" in caught.value.message
 
 
 def test_legacy_project_binding_is_backfilled_once(monkeypatch, tmp_path):

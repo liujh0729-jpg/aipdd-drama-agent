@@ -107,7 +107,7 @@ def _run(task_type: str, runner) -> dict:
 def test_a_runner_verdict_survives_the_completion_write(harness) -> None:
     verdict = lmsg(
         "tasks.progress.auto.doneGapCast",
-        "自动化完成，但未提取到角色，请检查「设置 › 模型」的文本模型后在剧本页重试",
+        "自动化完成，但未提取到角色，请检查「设置 → 模型与渠道」的文本模型后在剧本页重试",
     )
 
     def runner(_envelope, _ctx):

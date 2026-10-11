@@ -193,7 +193,7 @@ def test_newapi_cognee_env_maps_to_openai_compatible_gateway(monkeypatch):
     assert provider == "custom"
     # [aipdd fork delta] ``COGNEE_EMBEDDING_MODEL`` 已退出解析链：本用例断言的是
     # 「网关地址 / 密钥仍按 env 映射，模型名不再来自 env」。未绑定嵌入模型时回内部槽位
-    # 别名，真名只由「设置 › 模型 › 向量模型」+ 渠道目录决定。
+    # 别名，真名只由「设置 → 模型与渠道」的向量化区块 + 渠道目录决定。
     assert model == "openai/DC-cognee-embedding"
     assert model != "openai/gemini-embedding-001"
     assert dimensions == "3072"
@@ -277,7 +277,7 @@ def test_cognee_litellm_structured_output_disables_reasoning(monkeypatch, tmp_pa
 def test_the_two_litellm_call_sites_ask_settings_not_the_environment(
     monkeypatch, tmp_path
 ):
-    """模型名与凭据只来自「设置 › 模型」+ 网关设置。
+    """模型名与凭据只来自「设置 → 模型与渠道」+ 网关设置。
 
     这两个调用点原本是 ``os.environ.get("LLM_MODEL") or resolve_slot(...)``：
     ``LLM_MODEL`` 是 cognee 配置层写给库自己消费的**输出缓存**，把它当首选等于让

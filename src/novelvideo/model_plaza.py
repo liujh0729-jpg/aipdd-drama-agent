@@ -225,7 +225,7 @@ def _effective_feature_routes() -> dict[str, tuple[str, str]]:
     绑定（defaultAlias）** → **自动兜底（autoFallback：同类已绑位 / 渠道目录首项）**
     → 两个都拿不到就是 **unbound**。原先的 per-env 覆盖与全局兜底（TEXT/VISION_MODEL_
     FALLBACK）两层已随「解析链不再读 env」删掉 —— 广场显示的就是实际会走的路由，
-    而路由只由「设置 › 模型」+ 渠道目录决定。
+    而路由只由「设置 → 模型与渠道」+ 渠道目录决定。
 
     [aipdd fork delta req40] 功能位清单直接读 ``model_slots`` 登记表（旧
     ``DEFAULT_TEXT_MODEL_BY_ENV`` 表已并入）。解析不出「目录里真实存在且已绑定」的模

@@ -4,7 +4,7 @@ Final runtime contract:
 1. Browser UI uses the HttpOnly ``st_session`` cookie backed by PG sessions.
 2. Agents use short-lived ``Authorization: Bearer`` agent session tokens.
 3. [aipdd fork delta] External callers use unified API keys generated in
-   Settings → API keys (``st-…``). One key serves both the external MCP
+   Settings → API Keys (``st-…``). One key serves both the external MCP
    server and the OpenAI-compatible model entry (``/api/v1/openai/*``).
 
 Upstream long-lived external agent keys are still not accepted here: they are

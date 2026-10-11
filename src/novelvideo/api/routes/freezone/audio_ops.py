@@ -1364,7 +1364,7 @@ async def _resolve_music_model_selection(
     if not wanted:
         raise HTTPException(
             400,
-            "还没有可用的音乐模型：请到设置 › 模型 › 默认生成模型 › 音乐添加音乐模型"
+            "还没有可用的音乐模型：请到设置 → 模型与渠道 › 默认生成模型 › 音乐添加音乐模型"
             "（翻唱 / 哼唱需要名字含 cover 的翻唱模型），没配渠道时先在设置里添加"
             " MiniMax 渠道；也可以在本工具的选择器里直接选一个",
         )

@@ -337,7 +337,7 @@ describe("PipelineControlBar", () => {
     runPipelineDriven.mockResolvedValue({ kind: "completed", stage: "done", message: "" });
     // 后端在名字不在渠道清单时回 400 中文 —— 这是唯一该拦住一次运行的理由。
     provisionMutateAsync.mockRejectedValueOnce(
-      new Error("LingShan-NB-2 不在渠道 aipdd 的模型清单里（已从渠道下架或尚未开通）"),
+      new Error("Acme-IMG-2 不在渠道 aipdd 的模型清单里（已从渠道下架或尚未开通）"),
     );
     render(<PipelineControlBar project="proj-a" storyCharCount={50} />);
     fireEvent.click(screen.getByRole("button", { name: /pipeline.settings.button/ }));
@@ -358,7 +358,7 @@ describe("PipelineControlBar", () => {
     runPipelineDriven.mockResolvedValue({ kind: "completed", stage: "done", message: "" });
     // 挑不到的那几位（典型是向量位要人填维度）：只提醒，不拦这次运行。
     provisionMutateAsync.mockResolvedValueOnce({
-      hints: ["向量模型还没绑定，请到「设置 › 模型」补绑定向量模型。"],
+      hints: ["向量模型还没绑定，请到「设置 → 模型与渠道」补绑定向量模型。"],
       touched: [],
     });
     render(<PipelineControlBar project="proj-a" storyCharCount={50} />);
@@ -370,7 +370,7 @@ describe("PipelineControlBar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /pipeline.runAll/ }));
     await waitFor(() => expect(toastWarning).toHaveBeenCalledWith(
-      "向量模型还没绑定，请到「设置 › 模型」补绑定向量模型。",
+      "向量模型还没绑定，请到「设置 → 模型与渠道」补绑定向量模型。",
     ));
     await waitFor(() => expect(runPipelineDriven).toHaveBeenCalledTimes(1));
   });

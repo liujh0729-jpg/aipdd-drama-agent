@@ -34,14 +34,14 @@ docker compose ps   # api, newapi, and web should all be running
 ## Enter your DC key (one-time, required)
 
 1. Open **`http://localhost:8080`** in your browser — this is the AIPDD-Agent-Claw UI.
-2. Go to Settings → **Model Configuration → Official Channel**. The gateway address is already prefilled as `https://susciyuan.com/v1`.
+2. Go to Settings → **Models & Channels → Official**. The gateway address is already prefilled as `https://susciyuan.com/v1`.
 3. **Paste your DC key** and click "Save and Enable". It works immediately, with **no model mapping required** (the official gateway has everything configured on the backend).
 
 > CE defaults to no-login, single local user (`ST_EDITION=ce`, enforced by compose). The REST API lives at `http://localhost:8780` (the browser only talks to `web`, which reverse-proxies to `api`).
 
 ## Want to use your own model channels?
 
-LocalNewAPI starts together with `docker compose up -d`. Initialize it and configure upstream keys and model mappings under Settings → Model Configuration → Custom. Its address and runtime token are stored in local `settings.db`, not `.env`. See [Configuring Model Providers](configuring-models.md).
+LocalNewAPI starts together with `docker compose up -d`. Initialize it and configure upstream keys and model mappings under Settings → Models & Channels → Custom. Its address and runtime token are stored in local `settings.db`, not `.env`. See [Configuring Model Providers](configuring-models.md).
 
 ## Next steps
 

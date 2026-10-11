@@ -53,8 +53,8 @@ Groups (each item is commented inline in `.env.example`): LocalNewAPI provisione
 
 Recommended and alternative options (see [Configuring Model Providers](../getting-started/configuring-models.md) for details):
 
-- **A. DC official key (recommended)**: the default compose already uses the official gateway. After bringing the stack up, open `http://localhost:8080` → Settings → Model Configuration → Official Channel → paste your DC key and save to start using it, **no model mapping required**. Get a key at <https://susciyuan.com>.
-- **B. LocalNewAPI**: LocalNewAPI is already running; open Settings → Model Configuration → Custom, click Initialize, then configure upstream channels and model mappings from the LocalNewAPI page.
+- **A. DC official key (recommended)**: the default compose already uses the official gateway. After bringing the stack up, open `http://localhost:8080` → Settings → Models & Channels → Official → paste your DC key and save to start using it, **no model mapping required**. Get a key at <https://susciyuan.com>.
+- **B. LocalNewAPI**: LocalNewAPI is already running; open Settings → Models & Channels → Custom, click Initialize, then configure upstream channels and model mappings from the LocalNewAPI page.
 
 LocalNewAPI must map DramaClaw's logical models to real upstream models. The reference-image feature needs `OSS_RELAY_AK/SK` (you can skip it for a text-only workflow).
 

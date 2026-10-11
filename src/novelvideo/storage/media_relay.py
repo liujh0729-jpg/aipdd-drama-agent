@@ -490,7 +490,7 @@ class AipddCloudRelay:
         if not origin or not api_key:
             raise MediaRelayConfigError(
                 "AIPDD 参考媒体中转未就绪：请在「设置 · 图床/媒体存储」填写 AIPDD "
-                "API Key（或在「模型网关 · 渠道」连接一条 AIPDD 渠道，它的 Key 就是"
+                "API Key（或在「设置 → 模型与渠道」连接一条 AIPDD 渠道，它的 Key 就是"
                 "上传凭据）；也可用 AIPDD_CLOUD_BASE_URL / AIPDD_CLOUD_API_KEY 引导。"
             )
         # 调用方可能直接拿渠道地址（带 /v1）传进来：上传口只认站点根，这里统一洗一遍。
@@ -696,7 +696,7 @@ class LocalImageRelay:
                 raise MediaRelayConfigError(
                     f"本地存储档下{kind}无法内联下发：实测上游受理带 data URL 的请求"
                     "但不去拉素材，产出的内容与源素材无关。请在「设置 · 图床/媒体存储」"
-                    "填写 AIPDD API Key（或在「模型网关 · 渠道」连接一条 AIPDD 渠道，"
+                    "填写 AIPDD API Key（或在「设置 → 模型与渠道」连接一条 AIPDD 渠道，"
                     "它的 Key 就是上传凭据），由数字资产云转出公网直链；也可改用"
                     "阿里云 OSS / Cloudinary 档。"
                 )

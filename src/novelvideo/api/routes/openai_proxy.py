@@ -154,7 +154,7 @@ async def relay_openai(path: str, request: Request, user: dict = Depends(get_api
     base = normalize_relay_base_url(base_url)
     if not api_key or not base:
         return _gateway_error(
-            503, "gateway_not_configured", "模型网关尚未配置（设置 → 渠道管理）"
+            503, "gateway_not_configured", "网关尚未配置（请到「设置 → 模型与渠道」连接渠道）"
         )
     target = f"{base}/{path.lstrip('/')}"
     if request.url.query:

@@ -96,7 +96,7 @@ async def enable_official_gateway() -> dict[str, Any]:
             status_code=400,
             detail=(
                 "官方 NewAPI 网关还没配地址：请在环境变量 OFFICIAL_NEWAPI_BASE_URL "
-                "填网关的 OpenAI 兼容地址，或在「设置 › 模型」里连接自定义网关。"
+                "填网关的 OpenAI 兼容地址，或在「设置 → 模型与渠道」里连接自定义网关。"
             ),
         )
     set_model_gateway_mode(MODE_OFFICIAL)

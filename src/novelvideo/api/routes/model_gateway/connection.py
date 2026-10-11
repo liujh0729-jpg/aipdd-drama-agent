@@ -795,7 +795,7 @@ async def save_media_relay_settings(body: MediaRelayConfigBody) -> dict[str, Any
                 status_code=400,
                 detail=(
                     "AIPDD 参考媒体中转未就绪：请填写 AIPDD API Key（站点地址可留空，"
-                    "留空时取已连接 AIPDD 渠道的 baseUrl），或先在「模型网关 · 渠道」"
+                    "留空时取已连接 AIPDD 渠道的 baseUrl），或先在「设置 → 模型与渠道」"
                     "连接一条 AIPDD 渠道（它的 Key 就是上传凭据）；也可用 "
                     "AIPDD_CLOUD_BASE_URL / AIPDD_CLOUD_API_KEY 引导。"
                 ),

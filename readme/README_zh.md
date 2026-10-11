@@ -383,7 +383,7 @@ docker compose up -d --build   # 构建并起三个服务：api / newapi（Local
 docker compose -f docker-compose.release.yml up -d
 ```
 
-浏览器打开 <http://localhost:8080>；REST API 在 <http://localhost:8780>。到**设置 → 模型配置**三选一：
+浏览器打开 <http://localhost:8080>；REST API 在 <http://localhost:8780>。到**设置 → 模型与渠道**三选一：
 
 - **官方** —— 粘贴 DC key（到 <https://susciyuan.com> 获取），无需映射模型，LocalNewAPI 闲置待命。
 - **自定义** —— 一键初始化 LocalNewAPI，再自行配上游渠道。
@@ -452,7 +452,7 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - 若你在 `.env` 设了 `ST_LOCAL_PASSWORD`，就用那个密码。
    - 否则后端在首次启动时生成一个**一次性口令**并只记录一次。用以下命令取回：
      `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令`（Windows：`... | findstr ST_LOCAL_PASSWORD`）。
-3. **连接你的模型** —— 进入 **设置 → 模型配置**，选一种模式（细节见 [支持的模型与供应商](#supported-models)）：
+3. **连接你的模型** —— 进入 **设置 → 模型与渠道**，选一种模式（细节见 [支持的模型与供应商](#supported-models)）：
    - **官方** —— 粘贴一个来自 <https://susciyuan.com> 的 DC key；所有模型都已映射好，LocalNewAPI 保持空闲。
    - **自定义** —— 一键初始化 LocalNewAPI，然后在其管理界面里加上你自己的上游渠道（API key + 模型 ID）。
    - **LocalNewAPI + 官方混合** —— 主流水线用官方模型，额外渠道走 LocalNewAPI。
@@ -473,7 +473,7 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - 若你在 `.env` 里设了 `ST_LOCAL_PASSWORD`，就用那个口令。
    - 否则后端首次启动会**随机生成一次性口令**并只打印一次，用这条取回：
      `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令`（Windows：`... | findstr ST_LOCAL_PASSWORD`）。
-3. **配置模型** —— 进**设置 → 模型配置**三选一（细节见[支持的模型与服务商](#supported-models)）：
+3. **配置模型** —— 进**设置 → 模型与渠道**三选一（细节见[支持的模型与服务商](#supported-models)）：
    - **官方** —— 粘贴在 <https://susciyuan.com> 获取的 DC key，模型已全部映射好，LocalNewAPI 闲置待命。
    - **自定义** —— 一键初始化 LocalNewAPI，再在它的管理页添加你自己的供应商渠道（API key、模型 ID）。
    - **LocalNewAPI + 官方混合** —— 主链路用官方模型，你的额外渠道并存。
@@ -487,14 +487,14 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 ## <a name="supported-models"></a>支持的模型与服务商
 
-DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音频模型都经一个 **OpenAI 兼容网关**接入。到**设置 → 模型配置**三选一：
+DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音频模型都经一个 **OpenAI 兼容网关**接入。到**设置 → 模型与渠道**三选一：
 
 - **官方（推荐）** —— 粘贴 DC key（到 <https://susciyuan.com> 获取）保存即用。官方网关已经配好 DramaClaw 需要的全部模型映射，什么都不用调。
 - **自定义** —— 一键初始化 LocalNewAPI，然后在它的管理页里添加你自己的供应商渠道（API key、模型 ID）。DramaClaw 调用的每一个模型都走你的渠道。
 - **LocalNewAPI + 官方混合** —— 主链路继续用官方模型，额外渠道（比如本地 ComfyUI 视频工作流）走 LocalNewAPI。
 
 > 🧠 **自带算力，任选其一 —— 更省钱，也更有掌控。** 网关的设计让**你自己**决定每次生成跑在哪里：
-> - **AIPDD 闲置算力（大幅降本）。** 接入 **AIPDD** 渠道后，生成可走平台的**闲置算力池**，批量重活短剧的成本只有按需价的一小部分 —— 这是压低成本最有效的一招。到 <https://www.aipdd.work> 注册获取 AIPDD API Key，再在**设置 → 模型配置**里把它加为一个渠道。
+> - **AIPDD 闲置算力（大幅降本）。** 接入 **AIPDD** 渠道后，生成可走平台的**闲置算力池**，批量重活短剧的成本只有按需价的一小部分 —— 这是压低成本最有效的一招。到 <https://www.aipdd.work> 注册获取 AIPDD API Key，再在**设置 → 模型与渠道**里把它加为一个渠道。
 > - **NewAPI，自由搭配。** 内置的 **NewAPI** 网关可以把多家供应商注册为渠道，并**按你的想法任意组合** —— 官方、AIPDD、自托管机器、或任意 OpenAI 兼容端点 —— 按模型、按环节分别选择。NewAPI 渠道建议**自行寻找供应商并比价**，这里有一份整理好的参考清单：<https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjfk>。
 > - **ComfyUI，用你自己的 GPU —— 跑画布任务最省钱的一条路。** 一级 **ComfyUI** 适配器把生图 / 生视频路由到**你本机**跑的工作流：由你的 GPU 出图，**不占用按次云端额度** —— 重活只花电费，远低于任何托管模型。在**自定义**或**混合**模式里把本地 ComfyUI 端点注册为渠道即可。
 >   - **最省事的 ComfyUI 安装方式** —— 无需手动装、也不用配 Python 环境，直接下载我们打包好的**算力客户端**，装上就能用：<https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>。

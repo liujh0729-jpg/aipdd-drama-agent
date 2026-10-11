@@ -276,7 +276,7 @@ def _build_embedding_model_channel_spec(
     )
 
 
-# [aipdd fork delta] 拆解 LingShan-G2 一体化模型的「内置向量检索」：配置 VolcEngine
+# [aipdd fork delta] 拆解上游一体化图像模型的「内置向量检索」：配置 VolcEngine
 # 渠道后自动拉取上游模型清单，命中 doubao-embedding 则自动写入并设为默认 Embedding。
 #
 # [aipdd fork delta] WP-B: 端点解析与上游清单拉取收拢到 newapi_provisioner（带 TTL

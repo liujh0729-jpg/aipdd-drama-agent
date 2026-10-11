@@ -224,7 +224,7 @@ describe("ToolsPage", () => {
     expect(screen.getByLabelText("模型生成音")).toBeChecked();
     // frames 模式按 all_reference 过滤目录：视频目录为空时提示去配置。
     expect(
-      screen.getByText("没有可用模型，请先到「设置 → 模型网关」配置该类型模型。"),
+      screen.getByText("没有可用模型，请先到「设置 → 模型与渠道」配置该类型模型。"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -581,7 +581,7 @@ describe("ToolsPage", () => {
     ).toHaveTextContent("跟随系统默认");
     // 线稿与配音两条目录为空时各自提示去网关配置（不阻断面板其余项）。
     expect(
-      await screen.findAllByText("没有可用模型，请先到「设置 → 模型网关」配置该类型模型。"),
+      await screen.findAllByText("没有可用模型，请先到「设置 → 模型与渠道」配置该类型模型。"),
     ).toHaveLength(2);
     // 逐笔揭示的笔尖光标默认开、字幕默认不烧录（未勾选时不显示字号）。
     expect(screen.getByLabelText("显示笔尖光标")).toBeChecked();
@@ -671,7 +671,7 @@ describe("ToolsPage", () => {
     ).toHaveTextContent("跟随系统默认");
     // 画面逐帧本地绘制，只有配音需要模型目录；目录为空时提示去网关配置。
     expect(
-      await screen.findByText("没有可用模型，请先到「设置 → 模型网关」配置该类型模型。"),
+      await screen.findByText("没有可用模型，请先到「设置 → 模型与渠道」配置该类型模型。"),
     ).toBeInTheDocument();
     // 默认 180 秒 / 点阵波幕底 / 720p 横屏；未填参考资料时提交不可用。
     expect(screen.getByLabelText("目标时长（秒）")).toHaveValue(180);
@@ -743,7 +743,7 @@ describe("ToolsPage", () => {
     ).toBeInTheDocument();
     // 双模型目录（图片=肖像与帧、视频=逐镜）：目录为空时两处都提示去网关配置。
     expect(
-      await screen.findAllByText("没有可用模型，请先到「设置 → 模型网关」配置该类型模型。"),
+      await screen.findAllByText("没有可用模型，请先到「设置 → 模型与渠道」配置该类型模型。"),
     ).toHaveLength(2);
     // LLM 文本模型默认「跟随系统默认」（空值走后端默认链，不静默改行为）。
     expect(
@@ -840,7 +840,7 @@ describe("ToolsPage", () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: "替换视频人物" }));
     expect(
-      await screen.findByText("没有可用模型，请先到「设置 → 模型网关」配置该类型模型。"),
+      await screen.findByText("没有可用模型，请先到「设置 → 模型与渠道」配置该类型模型。"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -855,7 +855,7 @@ describe("ToolsPage", () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: "替换视频产品" }));
     expect(
-      await screen.findByText("没有可用模型，请先到「设置 → 模型网关」配置该类型模型。"),
+      await screen.findByText("没有可用模型，请先到「设置 → 模型与渠道」配置该类型模型。"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -1138,7 +1138,7 @@ describe("ToolsPage", () => {
     await userEvent.click(screen.getByRole("option", { name: /火山 AI-MediaKit/ }));
     expect(
       screen.getByText(
-        "未配置 MediaKit API Key，提交后将自动回退本地擦除；可在「设置 → 模型网关」配置。",
+        "未配置 MediaKit API Key，提交后将自动回退本地擦除；可在「设置 → 模型与渠道」配置。",
       ),
     ).toBeInTheDocument();
 
@@ -1466,7 +1466,7 @@ describe("ToolsPage", () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: "图片去水印" }));
     expect(
-      await screen.findByText("没有可用模型，请先到「设置 → 模型网关」配置该类型模型。"),
+      await screen.findByText("没有可用模型，请先到「设置 → 模型与渠道」配置该类型模型。"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(

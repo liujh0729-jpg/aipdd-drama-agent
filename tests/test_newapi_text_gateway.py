@@ -462,7 +462,7 @@ def test_global_video_optimizer_ignores_legacy_global_video_model_env(monkeypatc
     global_video_optimizer.create_global_video_optimizer_agent()
 
     # default_model 位置只可能是空串：``GLOBAL_VIDEO_MODEL`` 已退出解析链，那个名字
-    # 不会再作为兜底递给网关（由「设置 › 模型」的绑定与渠道目录决定取谁）。
+    # 不会再作为兜底递给网关（由「设置 → 模型与渠道」的绑定与渠道目录决定取谁）。
     assert model_calls == [("GLOBAL_VIDEO_OPTIMIZER_MODEL", "")]
 
 

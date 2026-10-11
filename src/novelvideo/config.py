@@ -122,7 +122,7 @@ def get_pydantic_model(
     # 槽位兜底链 —— 网关里没有该旧模型名时整条 superpower / verification / 审阅链路都
     # 会 400「endpoint closed」。未显式指定时交给 resolve_slot：槽位绑定 → 同类已绑位
     # → 渠道目录首项。
-    # [aipdd fork delta] ``MODEL_NAME`` env 已退出解析链：模型名的真源是「设置 › 模型」。
+    # [aipdd fork delta] ``MODEL_NAME`` env 已退出解析链：模型名的真源是「设置 → 模型与渠道」。
     model_name = str(model_name_override or "").strip()
 
     if (
@@ -163,7 +163,7 @@ def get_newapi_text_model_name(
 ) -> str:
     """[aipdd fork delta req40] 功能位 → 调用名；**没有任何硬编码兜底模型名**。
 
-    合法来源只剩两层：用户在「设置 › 模型」里给该槽位绑定、且绑定目标**仍在渠道目录
+    合法来源只剩两层：用户在「设置 → 模型与渠道」里给该槽位绑定、且绑定目标**仍在渠道目录
     里**的内部别名；这一位自己不可用时按能力档自动兜底（同类已绑位 → 渠道目录首项）。
     [aipdd fork delta] per-feature env 与 ``TEXT_MODEL_FALLBACK`` /
     ``VISION_MODEL_FALLBACK`` 都已退出解析链 —— 模型名的真源是设置 + 渠道目录，不是
@@ -397,7 +397,7 @@ def get_newapi_litellm_call_kwargs(
     （``volcengine::…`` / ``DC-…``）里没有这一撇，于是每次都是稳定的 400
     ``LLM Provider NOT provided``，再被调用点的 ``except`` 咽成默认值，表现出来
     就是「任务没报错但角色 / 图谱出不来」。这里统一补上 ``openai/`` 前缀 —— 它只是
-    OpenAI-compatible 的路由标记，不是模型名；真名仍由「设置 › 模型」的槽位解析，
+    OpenAI-compatible 的路由标记，不是模型名；真名仍由「设置 → 模型与渠道」的槽位解析，
     凭据只取网关设置，进程环境不再是任何一环。
     """
 
@@ -593,10 +593,10 @@ def get_newapi_runtime_credentials(
     return api_key, base_url
 
 
-# [aipdd fork delta req40] 不再预设模型名：语音合成模型由「设置 › 模型」的音频默认
+# [aipdd fork delta req40] 不再预设模型名：语音合成模型由「设置 → 模型与渠道」的音频默认
 # 位决定（渠道目录里 kind==audio 的模型），这一项只是运维显式钉死的 env 覆盖。留空 =
 # 未配置，调用前直接报「未绑定可用模型」，不会拿一个网关注册表里不存在的名字去撞 404。
-# [aipdd fork delta] env 不再提供音频模型名：默认音频位由「设置 › 模型」决定。
+# [aipdd fork delta] env 不再提供音频模型名：默认音频位由「设置 → 模型与渠道」决定。
 INDEXTTS2_NEWAPI_MODEL = ""
 INDEXTTS2_RECORD_PROVIDER = "newapi"
 
@@ -605,7 +605,7 @@ def get_indextts2_record_model(invoked_model: str = "") -> str:
     """[aipdd fork delta req40] 语音调用**记账**用的模型名（不影响调用本身）。
 
     以前是一张写死的常量表：默认名从代码里来。现在按「实际调用名 →
-    「设置 › 模型」的默认音频槽位」的
+    「设置 → 模型与渠道」的默认音频槽位」的
     顺序解析，全落空就记空串 —— 记账标签绝不打挂已经在跑的任务。
     """
 
@@ -618,15 +618,15 @@ def get_indextts2_record_model(invoked_model: str = "") -> str:
         return resolve_media_slot("audio")
     except Exception:  # noqa: BLE001 - 解析不到只影响账单可读性
         return ""
-# [aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：不再内置具体厂商模型名作为
+# [aipdd fork delta] 拆解上游一体化图像模型：不再内置具体厂商模型名作为
 # 默认值；未显式配置 env 时，运行时由 model_gateway_settings.
 # get_effective_default_image_model() 从「默认生成模型」面板写入的 media mappings 解析。
-# [aipdd fork delta] 这两个 env 已退出解析链：默认图模型只由「设置 › 模型」的媒体
+# [aipdd fork delta] 这两个 env 已退出解析链：默认图模型只由「设置 → 模型与渠道」的媒体
 # 映射决定（get_effective_default_image_model）。常量留空是为了让旧的选项表继续可导入。
 NEWAPI_IMAGE_MODEL = ""
 NEWAPI_NANOBANANA2_MODEL = ""
 # [aipdd fork delta wave2] 「按用途钉图」的这一批 env 也退出解析链。以前设了
-# ``SCENE_MASTER_IMAGE_MODEL`` / ``PROP_REF_IMAGE_MODEL`` 就会**压过**「设置 › 模型」里配的
+# ``SCENE_MASTER_IMAGE_MODEL`` / ``PROP_REF_IMAGE_MODEL`` 就会**压过**「设置 → 模型与渠道」里配的
 # 默认图：那个值在设置页上看不见，渠道下架时也不会自动取消绑定 —— ``No available
 # channel for model …`` 就是这么来的。现在用途只决定取主位还是副位（两张都来自面板的
 # 媒体映射），模型名一律只从设置来。下面四个常量留空只为兼容旧导入与旧选项表。
@@ -667,7 +667,7 @@ IMAGE_DEFAULT_WIDTH = int(os.environ.get("IMAGE_DEFAULT_WIDTH", "1440"))
 IMAGE_DEFAULT_HEIGHT = int(os.environ.get("IMAGE_DEFAULT_HEIGHT", "2560"))
 IMAGE_DEFAULT_STYLE = os.environ.get("IMAGE_DEFAULT_STYLE", "chinese_period_drama")
 
-# 角色参考图生成模型选择：**env 已退出解析链**。以前设了它会**压过**「设置 › 模型」的
+# 角色参考图生成模型选择：**env 已退出解析链**。以前设了它会**压过**「设置 → 模型与渠道」的
 # 默认图位（而且它装的是生成器家族名 nanobanana / seedream，不是模型名）。现在只认
 # get_character_image_selection()（项目/画布显式选的那张 > 面板默认图）。常量留空只为兼容旧导入。
 CHARACTER_IMAGE_MODEL = ""
@@ -906,14 +906,14 @@ def _csv_env(name: str, default: str) -> list[str]:
 
 # newAPI 视频网关。VIDEO_BACKEND 使用 newapi_<model> 时会通过 NEWAPI_BASE_URL 调用。
 # [aipdd fork delta req40] CE（自有渠道）下这份随包清单**不再参与候选**：可选视频模型
-# = 渠道目录（kind==video）+「设置 › 模型」里勾上的视频媒体模型（见
+# = 渠道目录（kind==video）+「设置 → 模型与渠道」里勾上的视频媒体模型（见
 # newapi_video_backend_options）。这里只保留 EE 官方网关的随包清单与 env 覆盖能力。
 NEWAPI_VIDEO_MODELS = _csv_env(
     "NEWAPI_VIDEO_MODELS",
     "seedance-1.0-pro-fast,seedance-1.5-pro,seedance-2.0,seedance-2.0-fast,seedance-2.0-value,seedance-2.0-fast-value,seedance-2.0-mini,seedance-2.5",
 )
 # [aipdd fork delta] ``DEFAULT_VIDEO_MODEL`` / ``NEWAPI_VIDEO_MODEL`` env 已退出解析链：
-# 默认视频模型只认「设置 › 模型」的视频媒体映射（见
+# 默认视频模型只认「设置 → 模型与渠道」的视频媒体映射（见
 # model_gateway_settings.get_effective_default_video_model）。两个常量留空只为让旧引用
 # 继续可导入，真正的解析走 get_newapi_video_model()。
 DEFAULT_VIDEO_MODEL = ""
@@ -950,7 +950,7 @@ NEWAPI_VIDEO_DURATION_BOUNDS = os.environ.get(
 
 # 视频生成后端: newapi_<模型>（模型名来自渠道目录）、comfyui、seedance_fast、
 # seedance_pro、seedance_pro_silent、grok_720。没配默认视频模型时留 "newapi"，
-# 由生成器按「设置 › 模型」的默认视频位解析具体模型（解析不到 = 提交前拒绝）。
+# 由生成器按「设置 → 模型与渠道」的默认视频位解析具体模型（解析不到 = 提交前拒绝）。
 # [aipdd fork delta] 不再从 ``DEFAULT_VIDEO_MODEL`` env 反推后端名：env 不参与模型名选定。
 VIDEO_BACKEND = os.environ.get("VIDEO_BACKEND", "newapi").strip()
 
@@ -1065,7 +1065,7 @@ HUIMENG_IMAGE_OFFICIAL_MODEL = os.environ.get(
 HUIMENG_NANOBANANA2_MODEL = os.environ.get("HUIMENG_NANOBANANA2_MODEL", "nb-2")
 SCENE_360_PROVIDER = os.environ.get("SCENE_360_PROVIDER") or NANOBANANA_PROVIDER
 # [aipdd fork delta wave2] 这两个只是「360 图 / 场景资产图」用途上的 env 抢位：设了就会
-# 盖过「设置 › 模型」。现在它们退回成各自厂商适配层的别名（走直连时才用得到），网关
+# 盖过「设置 → 模型与渠道」。现在它们退回成各自厂商适配层的别名（走直连时才用得到），网关
 # 路径的模型名一律只从面板的媒体映射来。
 SCENE_360_HUIMENG_MODEL = HUIMENG_IMAGE_MODEL
 SCENE_ASSET_PROVIDER = os.environ.get("SCENE_ASSET_PROVIDER") or NANOBANANA_PROVIDER

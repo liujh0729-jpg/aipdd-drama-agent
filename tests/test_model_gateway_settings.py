@@ -362,7 +362,7 @@ async def test_custom_catalog_disabled_mapping_removes_official_model(
     _isolate_settings_db(monkeypatch, tmp_path)
     save_newapi_media_model_mappings(
         {
-            "LingShan-G2": {
+            "Acme-IMG-1": {
                 "provider": "openrouter",
                 "mediaType": "image",
                 "enabled": False,
@@ -374,7 +374,7 @@ async def test_custom_catalog_disabled_mapping_removes_official_model(
     catalog = await freezone_routes._ee_media_model_catalog("image")
 
     assert catalog is not None
-    assert all(item.get("id") != "LingShan-G2" for item in catalog)
+    assert all(item.get("id") != "Acme-IMG-1" for item in catalog)
 
 
 def test_provider_channel_partial_save_preserves_unmentioned_channels(
@@ -2708,7 +2708,7 @@ def test_custom_newapi_channel_types_route_patches_volcengine_vision_and_image(
 def test_volcengine_image_mapping_surfaces_in_ce_image_catalog(monkeypatch, tmp_path):
     """[aipdd fork delta] 火山方舟生图进画布：配了就一定在目录里。
 
-    能力位补上 image 后，用户能在「设置 › 模型 › 图片」把 Seedream 配成映射；这条
+    能力位补上 image 后，用户能在「设置 → 模型与渠道 › 图片」把 Seedream 配成映射；这条
     钉住配好之后画布目录（与设置页同源）一定拿得到它：执行身份仍是 newapi（图片
     协议由生效网关做 Ark 转换、不绕过到 Ark base），channel 才是实际所属渠道；同时
     Ark 快照本身不声明任何档位（mediaMetadata 为空），目录这一侧必须补出默认能力，
@@ -3926,11 +3926,14 @@ def test_official_media_model_catalog_uses_ce_export_shape():
     images = get_official_media_model_catalog("image")
     videos = get_official_media_model_catalog("video")
 
-    # [aipdd fork delta wave2] 官方目录不再携带 LingShan 一族的图片模型：它们在上游
+    # [aipdd fork delta wave2] 官方目录不再携带上游私有别名那一族图片模型：它们在上游
     # 已不在渠道清单里，绑着只会撞回 ``No available channel``。catalogVersion 同步升到
-    # 2026.10.10.1。
-    assert len(images) == 3
-    assert not [entry for entry in images if "LingShan" in entry["id"]]
+    # 2026.10.10.1，目录只剩 seedream 三档 —— 用白名单断言钉住，别名回不来。
+    assert [entry["id"] for entry in images] == [
+        "seedream-4.5",
+        "seedream-5.0-lite",
+        "seedream-5.0-pro",
+    ]
     assert len(videos) == 11
     assert [entry["id"] for entry in videos[:2]] == [
         "wan3.0-video-prime",

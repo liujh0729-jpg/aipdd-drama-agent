@@ -3,7 +3,7 @@
 // [aipdd fork delta] WP-E: 模型广场。只读目录 + 探活 + 调用示例，按六个 connector
 // 分区收录本项目里所有「可配置、能被调用」的模型（含 comfyui 本地工作流、火山
 // MediaKit、语音合成位）。页面不含任何计费 / 价格 / 充值元素，也不做模型增删改
-// —— 渠道与别名映射仍由「设置 → 模型网关」负责。
+// —— 渠道与别名映射仍由「设置 → 模型与渠道」负责。
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {

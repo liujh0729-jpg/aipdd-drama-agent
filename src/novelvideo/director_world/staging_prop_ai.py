@@ -233,7 +233,7 @@ def resolve_model_config(
     from novelvideo.config import get_newapi_runtime_credentials
 
     # [aipdd fork delta] env ``STAGING_PROP_MODEL`` 已退出解析链：这一位的模型名只认
-    # 「设置 › 模型」的绑定（外加同类已绑位 / 渠道目录首项两档自动兜底）。请求里显式
+    # 「设置 → 模型与渠道」的绑定（外加同类已绑位 / 渠道目录首项两档自动兜底）。请求里显式
     # 带了 model 仍然优先——那是调用方指定的目标，不是环境里飘着的旧名字。
     model = str(request.get("model") or "").strip()
     if not model:
@@ -623,7 +623,7 @@ def generate_ai_staging_prop(
         raise RuntimeError("missing AI api key: set NEWAPI_API_KEY")
     if not base_url:
         raise RuntimeError(
-            "未配置模型网关地址，无法生成道具：请到「设置 › 模型」连接网关，"
+            "未配置模型网关地址，无法生成道具：请到「设置 → 模型与渠道」连接网关，"
             "或在 .env 设 NEWAPI_BASE_URL=<网关地址>。"
         )
 

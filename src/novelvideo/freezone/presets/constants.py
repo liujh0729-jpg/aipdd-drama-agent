@@ -7,7 +7,7 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 VIDEO_EXTS = {".mp4", ".mov", ".webm"}
 AUDIO_EXTS = {".mp3", ".m4a", ".wav", ".aac", ".flac", ".ogg"}
 TEXT_EXTS = {".json", ".txt", ".md"}
-# [aipdd fork delta req40] 预设不再钉死某个图源键：留空 = 跟随「设置 › 模型」里的默认
+# [aipdd fork delta req40] 预设不再钉死某个图源键：留空 = 跟随「设置 → 模型与渠道」里的默认
 # 图模型（渠道目录内），用户也可以在节点上改选目录里的其它图像模型。
 FREEZONE_PRESET_DEFAULT_IMAGE_MODEL = ""
 FREEZONE_PRESET_IMAGE_ASPECT_RATIOS = (

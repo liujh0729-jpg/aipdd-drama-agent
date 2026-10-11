@@ -34,14 +34,14 @@ docker compose ps   # api, newapi, web 应该都在运行
 ## 填入 DC key(必做一次)
 
 1. 浏览器打开 **`http://localhost:8080`** —— 这就是 AIPDD-Agent-Claw 的界面。
-2. 进入设置 → **模型配置 → 官方渠道**。网关地址已预填 `https://susciyuan.com/v1`。
+2. 进入设置 → **模型与渠道 → 官方**。网关地址已预填 `https://susciyuan.com/v1`。
 3. **粘贴你的 DC key**,点「保存并启用」。立即可用,**无需映射任何模型**(官方网关后台已配齐)。
 
 > CE 默认免登录、单本地用户(`ST_EDITION=ce`,compose 已强制)。REST API 在 `http://localhost:8780`(浏览器只与 `web` 通信,它再反代到 `api`)。
 
 ## 想使用自己的模型渠道？
 
-LocalNewAPI 随 `docker compose up -d` 一起启动。在「设置 → 模型配置 → 自定义」中初始化并填写上游 key、保存模型映射。地址和 runtime token 会写入本机 `settings.db`，不写入 `.env`。详见[配置模型供应商](configuring-models.md)。
+LocalNewAPI 随 `docker compose up -d` 一起启动。在「设置 → 模型与渠道 → 自定义」中初始化并填写上游 key、保存模型映射。地址和 runtime token 会写入本机 `settings.db`，不写入 `.env`。详见[配置模型供应商](configuring-models.md)。
 
 ## 下一步
 

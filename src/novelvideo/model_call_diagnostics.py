@@ -169,15 +169,19 @@ def _not_granted_signal(
 
 
 def _gateway_unbound_guidance(call_name: str) -> str:
-    """网关说「没有可用渠道」时的指引 —— 按调用名是不是内部功能位分叉。
+    """网关说「没有可用渠道」时的指引 —— 先看这个名字归谁、在不在目录里。
 
-    [aipdd fork delta] 两类同一个状态码，但动作完全不同：
+    [aipdd fork delta] 同一个状态码，动作完全不同，所以分三条：
 
-    - 真模型名（``{provider}::{model}`` / 裸名）：渠道里确实没注册这个名字，去网关侧
-      为渠道开通 / 改选候选；
     - ``DC-*`` 内部功能位：它**不是模型名**，而是网关 model_mapping 的路由键，而这个
-      键只从「设置 → 模型」的功能位绑定投影出来。叫用户去「为渠道开通该模型」是一条
+      键只从「设置 → 模型与渠道」的功能位绑定投影出来。叫用户去「为渠道开通该模型」是一条
       死路 —— 渠道目录里找不到这个选项，只能给功能位绑一个真模型。
+    - 目录里有、渠道却没接：路由表是渠道投影出来的，用户没有「逐个模型开通」的开关。
+      能做的只有查渠道状态（停用 / 分组没覆盖 / 探活失败）与重新同步清单。
+    - 目录里根本没有：名字已从渠道下架或清单没同步过，先把目录刷回来再谈选它。
+
+    归属查询走设置库，读失败一律降级成「目录里没有」那条通用可执行文案 —— 一条错误
+    指引不该因为诊断本身出错而变成第二次故障。
     """
 
     from novelvideo.model_slots import is_internal_alias_name
@@ -186,13 +190,51 @@ def _gateway_unbound_guidance(call_name: str) -> str:
         return (
             f"「{call_name}」是系统内部功能位名（不是渠道里的模型），报错来自本地网关而"
             "不是上游：这个功能位还没绑定可用模型，所以网关里没有任何渠道会接这笔调用。"
-            "请到「设置 → 模型」给该功能位从渠道目录里选一个模型（渠道还没同步过清单时"
+            "请到「设置 → 模型与渠道」给该功能位从渠道目录里选一个模型（渠道还没同步过清单时"
             "先点「同步模型清单」）—— 网关侧的路由会随绑定自动投影，不需要手动开通。"
         )
+
+    bare_name, owners = _gateway_unbound_lookup(call_name)
+    if owners:
+        names = "、".join(provider_display_name(owner) for owner in owners)
+        return (
+            f"本地网关没有能接这笔调用的可用渠道（报错来自网关，不是上游）：模型"
+            f"「{bare_name}」在渠道「{names}」的目录里，但那条渠道当前不接客 —— 通常是渠道"
+            "被停用、令牌的分组没覆盖它，或上游探活失败。请到「设置 → 模型与渠道」看这条"
+            "渠道的状态并点「同步模型清单」重投影路由；渠道确实不接就改选别的候选。"
+        )
     return (
-        "本地网关没有把该模型绑到可用渠道（报错来自网关，不是上游）：请在「设置"
-        " → 模型网关」为对应渠道开通该模型，或改选已就绪的其它候选。"
+        f"本地网关没有能接这笔调用的可用渠道（报错来自网关，不是上游）：模型"
+        f"「{bare_name}」不在任何已同步的渠道目录里 —— 多半是它已从渠道下架，或渠道清单"
+        "还没同步过。请到「设置 → 模型与渠道」点「同步模型清单」，或在模型下拉里改选"
+        "目录里还在的名字。"
     )
+
+
+def _gateway_unbound_lookup(call_name: str) -> tuple[str, list[str]]:
+    """``(裸模型名, 声明它的渠道)``；任何一步拿不到就返回 ``(名字, [])``，不抛。"""
+
+    name = str(call_name or "").strip()
+    if not name:
+        return "", []
+    try:
+        from novelvideo.model_gateway_settings import (
+            model_owner_providers,
+            split_provider_spot_model,
+        )
+
+        provider, model = split_provider_spot_model(name)
+        bare = model or name
+        owners = [
+            str(item or "").strip()
+            for item in (model_owner_providers(bare) or [])
+            if str(item or "").strip()
+        ]
+        if provider:
+            owners = [provider, *[item for item in owners if item != provider]]
+        return bare, owners
+    except Exception:  # noqa: BLE001 - 归属查不到最多让指引退成通用那条
+        return name, []
 
 
 def _guidance(
@@ -235,7 +277,7 @@ def _guidance(
 
     if status in (401, 403):
         return (
-            "鉴权失败：请检查「设置 → 模型网关」里该渠道的 API Key 是否有效、"
+            "鉴权失败：请检查「设置 → 模型与渠道」里该渠道的 API Key 是否有效、"
             "是否有调用该模型的权限。"
         )
 
@@ -249,7 +291,7 @@ def _guidance(
         or "多模态" in message
     ):
         return (
-            "该模型不具备请求所需的图片 / 视觉理解能力：请在「设置 → 模型网关」把"
+            "该模型不具备请求所需的图片 / 视觉理解能力：请在「设置 → 模型与渠道」把"
             "视觉兜底（VISION_MODEL_FALLBACK）指到真正支持视觉的模型，或改选带视觉"
             "能力的候选。"
         )

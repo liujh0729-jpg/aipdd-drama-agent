@@ -516,7 +516,7 @@ def create_app() -> FastAPI:
     # 上游账户配额不足由 task_backend.run_core 转成 UPSTREAM_QUOTA_EXCEEDED 任务失败。
 
     # [aipdd fork delta req40] 模型槽位解析不到（没同步过目录 / 功能位没绑 / 绑的名字
-    # 已从渠道下架）属于**配置缺口**，不是故障：必须 400 中文并指到「设置 › 模型」，
+    # 已从渠道下架）属于**配置缺口**，不是故障：必须 400 中文并指到「设置 → 模型与渠道」，
     # 既不能 500 把成因糊掉，也不能让任务带着空模型名打到网关再撞 404（req39 那次跑到
     # 55% 才死就是这条路）。它继承 RuntimeError，所以既有的兜底分支依旧接得住。
     @application.exception_handler(ModelSlotNotConfigured)

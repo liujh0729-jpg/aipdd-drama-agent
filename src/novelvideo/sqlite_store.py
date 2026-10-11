@@ -1972,7 +1972,7 @@ class SQLiteStore:
 只返回 JSON，不要有其他内容。"""
 
             response = await litellm.acompletion(
-                # 模型名与凭据都只认「设置 › 模型」+ 网关设置，env 不再是任何一环；
+                # 模型名与凭据都只认「设置 → 模型与渠道」+ 网关设置，env 不再是任何一环；
                 # OpenAI-compatible 的 provider 前缀由这个共享入口统一负责。
                 **get_newapi_litellm_call_kwargs("COGNEE_LLM_MODEL"),
                 messages=[{"role": "user", "content": prompt}],

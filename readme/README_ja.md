@@ -354,7 +354,7 @@ docker compose up -d --build   # 3 サービスをビルドして起動: api / n
 docker compose -f docker-compose.release.yml up -d
 ```
 
-<http://localhost:8080> でアプリを開き、REST API は <http://localhost:8780>。 **Settings → Model Config** で次から 1 つ選択：
+<http://localhost:8080> でアプリを開き、REST API は <http://localhost:8780>。 **Settings → Models & Channels** で次から 1 つ選択：
 
 - **Official** — DC キーを貼るだけ（<https://susciyuan.com> で取得）；モデルマッピング不要。LocalNewAPI は待機したまま。
 - **Custom** — ワンクリックで LocalNewAPI を初期化；その後自分のアップストリームチャネルを追加。
@@ -423,7 +423,7 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - `.env` で `ST_LOCAL_PASSWORD` を設定していれば、そのパスワードを使います。
    - そうでなければ、バックエンドが初回起動時に**使い捨てパスワード**を生成して一度だけログに出します。次のコマンドで取得できます：
      `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令`（Windows：`... | findstr ST_LOCAL_PASSWORD`）。
-3. **モデルを接続** —— **設定 → モデル設定** でいずれか 1 モードを選びます（詳細は [サポートするモデルとプロバイダ](#supported-models)）：
+3. **モデルを接続** —— **Settings → Models & Channels** でいずれか 1 モードを選びます（詳細は [サポートするモデルとプロバイダ](#supported-models)）：
    - **公式** —— <https://susciyuan.com> の DC key を貼り付け。全モデルがすでにマッピング済みで、LocalNewAPI は待機のまま。
    - **カスタム** —— ワンクリックで LocalNewAPI を初期化し、その管理 UI にご自分のアップストリームチャネル（API key + モデル ID）を追加。
    - **LocalNewAPI + 公式ハイブリッド** —— 主パイプラインは公式、追加チャネルは LocalNewAPI。
@@ -437,14 +437,14 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 ## <a name="supported-models"></a>サポートするモデルとプロバイダ
 
-DramaClaw はモデル中立 —— すべてのテキスト / 画像 / 動画 / 音声モデルは **OpenAI 互換ゲートウェイ** 経由で接続。**Settings → Model Config** でモードを選択：
+DramaClaw はモデル中立 —— すべてのテキスト / 画像 / 動画 / 音声モデルは **OpenAI 互換ゲートウェイ** 経由で接続。**Settings → Models & Channels** でモードを選択：
 
 - **Official（推奨）** — DC キーを貼る（<https://susciyuan.com> で取得）、保存、完了。公式ゲートウェイには DramaClaw の必要な全モデルマッピングが用意済み；設定は一切不要。
 - **Custom** — ワンクリックで LocalNewAPI を初期化、その後管理 UI で自分のプロバイダチャネル（API キー、モデル ID）を追加。DramaClaw が呼ぶ全モデルがあなたのチャネルを経由。
 - **LocalNewAPI + Official Hybrid** — メインパイプラインは公式モデルを維持し、LocalNewAPI 経由で追加チャネル（例：ローカル ComfyUI 動画ワークフロー）を追加 。
 
 > 🧠 **計算資源を自分で選ぶ — コスト削減、制御も維持。** ゲートウェイは、各生成をどこで実行するか *あなた自身* が選べるよう設計されています：
-> - **AIPDD の遊休計算資源（コスト削減）。** **AIPDD** チャネルに接続すると、生成をプラットフォームの**遊休計算資源プール**上で実行でき、負荷の大きい短編ドラマの一括処理をオンデマンド価格の数分の一でこなせます —— 制作コストを下げる最大のレバーです。<https://www.aipdd.work> で登録して AIPDD API Key を取得し、**設定 → モデル設定**でチャネルとして追加してください。
+> - **AIPDD の遊休計算資源（コスト削減）。** **AIPDD** チャネルに接続すると、生成をプラットフォームの**遊休計算資源プール**上で実行でき、負荷の大きい短編ドラマの一括処理をオンデマンド価格の数分の一でこなせます —— 制作コストを下げる最大のレバーです。<https://www.aipdd.work> で登録して AIPDD API Key を取得し、**Settings → Models & Channels**でチャネルとして追加してください。
 > - **NewAPI、自由に組み合わせ。** 内蔵の **NewAPI** ゲートウェイなら、多数のプロバイダをチャネル登録し、**思い通りに組み合わせ**られます —— 公式、AIPDD、自前のサーバー、任意の OpenAI 互換エンドポイント —— モデル別・工程別に。NewAPI チャネルは**自らプロバイダを探して価格比較**するのがおすすめ。選別済みの参考リストはこちら：<https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjfk>。
 > - **ComfyUI、自分の GPU 上で —— キャンバス生成を最も安く回す方法。** ファーストクラスの **ComfyUI** アダプタは、画像／動画生成を**あなたのマシン**で動くワークフローへ向けます。GPU が描画するので**コール単位のクラウド枠を消費せず**、重い生成は実質電気代だけで、あらゆるホスト型モデルより割安です。**Custom** または **Hybrid** モードでローカルの ComfyUI エンドポイントをチャネル登録してください。
 >   - **ComfyUI を最速で入れる方法** —— 手動インストールも Python 環境も不要。当社が同梱する**コンピュートクライアント（算力客户端）**をダウンロードしてインストーラを実行するだけです：<https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>。

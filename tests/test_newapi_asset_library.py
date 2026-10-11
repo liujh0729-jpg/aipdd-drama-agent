@@ -236,7 +236,8 @@ def test_target_raises_when_nothing_configured(monkeypatch) -> None:
     with pytest.raises(AssetLibraryNotConfigured) as exc:
         al.resolve_asset_library_target()
     assert exc.value.kind == "unconfigured"
-    assert "模型网关" in str(exc.value)
+    # 指路必须指到真实栏目：菜单叫「模型与渠道」，不叫「模型网关」。
+    assert "设置 → 模型与渠道" in str(exc.value)
 
 
 def test_half_filled_manual_input_reuses_resolved_counterpart(monkeypatch) -> None:

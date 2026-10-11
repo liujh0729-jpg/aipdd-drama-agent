@@ -84,7 +84,7 @@ async def run_freezone_video_dubbing(
     if candidate is None:
         raise RuntimeError(
             "没有可用的 ASR 通道：本地音频需要一个能接收上传的候选（网关 ASR 或豆包语音）。"
-            "请在「设置 → 模型网关」开通 ASR 模型渠道，或配置火山语音（豆包 ASR）凭证后重试"
+            "请在「设置 → 模型与渠道」开通 ASR 模型渠道，或配置火山语音（豆包 ASR）凭证后重试"
         )
     text, source_label = await _transcribe(
         candidate,

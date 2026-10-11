@@ -878,7 +878,7 @@ def test_history_record_ignores_non_image_payload_strings(tmp_path, monkeypatch)
         tmp_path,
         _record(
             {
-                "model": "LingShan G2",
+                "model": "Acme IMG 1",
                 "revised_prompt": "a photo of a cat. really.",
                 "video_url": "/static/projects/p/freezone/_outputs/a.mp4",
                 "seed": 1234,

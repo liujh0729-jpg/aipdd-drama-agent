@@ -745,7 +745,7 @@ def build_minimax_t2a_payload(
     if not is_minimax_speech_model(clean_model):
         raise ValueError(
             f"{clean_model or '未选择'} 不是 MiniMax 语音合成模型（上游只有 speech 族认 "
-            "t2a_v2）：请在「设置 › 模型与渠道」选该渠道目录里发现的 speech 模型"
+            "t2a_v2）：请在「设置 → 模型与渠道」选该渠道目录里发现的 speech 模型"
         )
     clean_text = str(text or "")
     if not clean_text.strip():
@@ -758,7 +758,7 @@ def build_minimax_t2a_payload(
     clean_voice = str(voice_id or "").strip()
     if not clean_voice:
         raise minimax_api.MiniMaxChannelUnavailable(
-            "MiniMax 直连合成没有可用音色：请在「设置 › 模型与渠道」的 MiniMax 渠道卡里"
+            "MiniMax 直连合成没有可用音色：请在「设置 → 模型与渠道」的 MiniMax 渠道卡里"
             "填「Speech 默认音色」（系统音色 ID，例如 Chinese (Mandarin)_Lyrical_Voice，"
             "完整清单见上游 System Voice ID List）。本期只支持系统音色，克隆音色走后续需求"
         )
@@ -1066,7 +1066,7 @@ def _newapi_audio_endpoint(base_url: str | None = None, *, model: str = "") -> s
     clean = str(resolved_base_url or "").strip().rstrip("/")
     if not clean:
         raise GatewayAudioUnavailable(
-            "未配置模型网关地址，无法走网关 TTS：请到「设置 › 模型」连接网关，"
+            "未配置模型网关地址，无法走网关 TTS：请到「设置 → 模型与渠道」连接网关，"
             "或在 .env 设 NEWAPI_BASE_URL=<网关地址>。"
         )
     endpoint = clean
@@ -1306,9 +1306,9 @@ async def generate_freezone_audio_eleven_music(
         or "mp3_44100_128",
     }
 
-    # [aipdd fork delta] 音乐模型不再内置厂商名：留空就走「设置 › 模型」的默认音频位
+    # [aipdd fork delta] 音乐模型不再内置厂商名：留空就走「设置 → 模型与渠道」的默认音频位
     # （与 IndexTTS2 同一口径），没配就提交前拒（中文成因），而不是带着一个渠道
-    # 不认的名字去打 503 —— 上一个内置名 LingShan-MU-11 / LingShan-NB-2 正是这样在网关上撞回 503 的。
+    # 不认的名字去打 503 —— 上一个内置名（发行方私有别名）正是这样在网关上撞回 503 的。
     from novelvideo.model_slots import resolve_media_slot
 
     model_name = str(model or "").strip() or resolve_media_slot("audio")

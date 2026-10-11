@@ -589,14 +589,14 @@ def _scene_image_model(
 
     [aipdd fork delta wave2] 以前这里有四个 env 抢位（``SCENE_MASTER_IMAGE_MODEL`` /
     ``SCENE_REVERSE_MASTER_IMAGE_MODEL`` / ``SCENE_ASSET_MODEL`` / ``SCENE_ASSET_*_MODEL``）：
-    设了它们就盖过「设置 › 模型」，而那个值在设置页上看不见。现在只剩两级：调用点显式
+    设了它们就盖过「设置 → 模型与渠道」，而那个值在设置页上看不见。现在只剩两级：调用点显式
     传进来的那张（项目/画布选的），和面板的主/副位。网关路径上拿不到名字就是空串，
     由调用点按「未绑定可用模型」拦住。
     """
     if model:
         return model
     if provider == "newapi":
-        # [aipdd fork delta] 拆解 LingShan-G2/NB-2 一体化模型：默认改走面板配置的
+        # [aipdd fork delta] 拆解上游一体化图像模型：默认改走面板配置的
         # 默认 image / 副位 nanobanana（两者都只由面板的媒体映射决定）。
         from novelvideo.model_gateway_settings import (
             get_effective_default_image_model,
@@ -632,7 +632,7 @@ def _scene_image_config(model: str) -> dict[str, str]:
         "image_size": "1K",
         "output_format": "png",
     }
-    # [aipdd fork delta wave2] 这里的名单不再携带发行方私有别名（旧的 LingShan-G2 已删）：
+    # [aipdd fork delta wave2] 这里的名单不再携带发行方私有别名（那一族旧别名已删）：
     # 官方目录已经不携带它，渠道清单里也没这个名字；留着只会让一个不存在的名字拿到画质档位。
     if str(model or "").strip().lower() in {
         "gpt-image-2",

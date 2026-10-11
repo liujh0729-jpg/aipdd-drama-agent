@@ -1456,7 +1456,7 @@
       "model": {
         "followDefault": "系统默认",
         "noDefault": "未设置默认模型",
-        "followDefaultHint": "跟随系统默认：不单独绑定，「设置 › 模型」里的默认值换了它就跟着换。同名那一项是显式绑定，默认值变了也不会跟着变。",
+        "followDefaultHint": "跟随系统默认：不单独绑定，「设置 → 模型与渠道」里的默认值换了它就跟着换。同名那一项是显式绑定，默认值变了也不会跟着变。",
         "textModelLabel": "文本模型",
         "textNeeded": "图片/视频回合同样需要文本模型：它负责理解需求并发起生成。在这里直接选一个即可，不必去设置页。"
       },
@@ -2191,7 +2191,7 @@
       "title": "音乐创作",
       "desc": "MiniMax Music 3.0 的五种做法：一句话生成、按歌词生成、纯音乐、翻唱、哼唱成歌；产物自动存入资产库「待分类资产」。",
       "modelLabel": "音乐模型",
-      "modelHint": "候选来自「设置 → 模型 → 默认生成模型 → 音乐」。翻唱与哼唱需要目录里支持翻唱的模型（名字含 cover），其余模式用文本生成音乐的模型。",
+      "modelHint": "候选来自「设置 → 模型与渠道 → 默认生成模型 → 音乐」。翻唱与哼唱需要目录里支持翻唱的模型（名字含 cover），其余模式用文本生成音乐的模型。",
       "modeLabel": "创作模式",
       "mode": {
         "one_sentence": "一句话生成",
@@ -2362,8 +2362,8 @@
       "needVideoFile": "请先上传视频文件",
       "needAudioFile": "请先上传音频文件",
       "needModel": "请先选择 ASR 模型：不设默认模型，需要显式指定。",
-      "notConfiguredDoubao": "豆包语音（VolcEngine ASR）凭证未配置：它的 API Key 与网关 API Key 不通用，请到 设置 → 模型配置 → VolcEngine 卡的语音识别区填写 API Key 后再提交。",
-      "notConfiguredFunasr": "FunASR 通道尚未就绪：请在 设置 → 模型配置 补全 AIPDD 渠道的 Base URL / API Key，或改选网关 ASR 模型。"
+      "notConfiguredDoubao": "豆包语音（VolcEngine ASR）凭证未配置：它的 API Key 与网关 API Key 不通用，请到 设置 → 模型与渠道 → VolcEngine 卡的语音识别区填写 API Key 后再提交。",
+      "notConfiguredFunasr": "FunASR 通道尚未就绪：请在 设置 → 模型与渠道 补全 AIPDD 渠道的 Base URL / API Key，或改选网关 ASR 模型。"
     },
     "videoReverseScript": {
       "title": "视频反推剧本",
@@ -2910,7 +2910,6 @@
     "name": "项目名称",
     "namePlaceholder": "请输入你的项目名称",
     "clearName": "清空项目名称",
-    "nameNoChinese": "项目名称不能包含中文字符",
     "nameTooLong": "项目名称最多 64 个字符",
     "nameInvalid": "项目名称可包含中文、英文字母、数字和下划线",
     "nameExistsActive": "已存在同名项目，请更换名称",
@@ -3874,7 +3873,7 @@
         "props": "第 4 步 · 道具...",
         "graph": "第 5 步 · 生成知识图谱...",
         "done": "自动化完成",
-        "doneGapCast": "自动化完成，但未提取到角色，请检查「设置 › 模型」的文本模型后在剧本页重试",
+        "doneGapCast": "自动化完成，但未提取到角色，请检查「设置 → 模型与渠道」的文本模型后在剧本页重试",
         "doneGapScenes": "自动化完成，但场景未生成，可在场景页单独重试",
         "doneGapGraph": "自动化完成，但知识图谱未生成，可在剧本页点击「生成图谱」单独重试",
         "doneGapsBoth": "自动化完成，但场景与知识图谱未生成，可在对应页面单独重试"
@@ -4297,7 +4296,7 @@
     "approvalCancel": "取消",
     "needStory": "请先在上方导入或粘贴故事内容，项目还没有故事",
     "busy": "上一个任务还在运行，请等它完成后再运行整链",
-    "provisionProjectionFailed": "模型已配齐，但同步到网关渠道失败：请到「设置 › 模型」重新同步渠道。",
+    "provisionProjectionFailed": "模型已配齐，但同步到网关渠道失败：请到「设置 → 模型与渠道」重新同步渠道。",
     "settings": {
       "button": "运行前设置",
       "title": "运行前设置",
@@ -9055,7 +9054,7 @@
       "saveAipddCloud": "保存数字资产云配置",
       "aipddCloudSaveSuccess": "AIPDD 数字资产云配置已保存",
       "aipddRelayHint": "参考媒体先上传到 AIPDD 数字资产云，换取永久公网直链后再交给上游模型抓取。上传凭据就是 AIPDD API Key（与渠道密钥同一把）；留空表示沿用已保存的值，或已连接的 AIPDD 渠道自身的 Key。",
-      "aipddRelayMissing": "还没解析到 AIPDD API Key：本地存储档的参考视频/音频、以及数字资产云档的全部参考媒体都发不出去。请填写下面的 AIPDD API Key，或先在「模型网关 · 渠道」连接一条 AIPDD 渠道。",
+      "aipddRelayMissing": "还没解析到 AIPDD API Key：本地存储档的参考视频/音频、以及数字资产云档的全部参考媒体都发不出去。请填写下面的 AIPDD API Key，或先在「设置 → 模型与渠道」连接一条 AIPDD 渠道。",
       "aipddBaseUrlPlaceholder": "留空则取已连接 AIPDD 渠道的地址",
       "aipddRelayFieldsHint": "保存后写入 CE 本地配置库；后端不会回传完整 AIPDD API Key。留空保持已保存值，只填写需要替换的字段即可。",
       "aipddRelayMissingImpact": "未配置 AIPDD 参考媒体中转。纯文本、文生图与本地参考图（图生图、图生视频）通常不受影响；但需要把本地参考视频或参考音频交给上游的功能会失败，例如「替换视频人物 / 替换视频产品」「对口型」——实测上游会受理内联 data URL 却不去拉素材，产出的内容与源素材无关。请填写 AIPDD API Key，或改用阿里云 OSS / Cloudinary。",

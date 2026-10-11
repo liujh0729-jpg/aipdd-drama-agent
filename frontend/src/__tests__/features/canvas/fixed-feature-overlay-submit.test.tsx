@@ -39,10 +39,10 @@ const CATALOG_MODEL = {
 
 const SCENE_360_MODEL = {
   catalogId: "cat-g2",
-  id: "lingshan-g2",
+  id: "acme-img-1",
   providerId: "newapi" as const,
-  apiModel: "LingShan-G2",
-  label: "LingShan-G2",
+  apiModel: "Acme-IMG-1",
+  label: "Acme-IMG-1",
   resolutionOptions: ["1K", "2K", "4K"],
   qualityOptions: ["low", "medium", "high"],
 };

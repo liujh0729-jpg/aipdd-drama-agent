@@ -249,7 +249,7 @@ def test_fresh_config_ignores_env_model_name_but_keeps_newapi_transport(
     """[aipdd fork delta] ``.env`` 里的 ``HERMES_MODEL`` 不再决定模型名，transport 参数照旧。
 
     工作区 ``.env`` 里写着一个渠道目录里可能根本不存在的真名，而设置页看不见它、渠道下架也
-    不会自动取消 —— 导演聊天就会稳定撞网关 503。现在这一位只读「设置 › 模型」的
+    不会自动取消 —— 导演聊天就会稳定撞网关 503。现在这一位只读「设置 → 模型与渠道」的
     ``HERMES_MODEL`` 功能位：没绑定时回内部槽位别名，由解析链按能力档兜底 / 前置拒绝。
     传输参数（api_mode / context_length）是部署数据，不是模型名，仍按 ``.env`` 生效。
     """

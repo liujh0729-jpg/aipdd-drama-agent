@@ -96,7 +96,7 @@ def _seed_image_mappings(*names: str) -> None:
 def _pin_default_image_models(
     monkeypatch, *, primary: str = "", secondary: str = ""
 ) -> None:
-    """把「设置 › 模型」的默认图主/副位钉成给定名字。
+    """把「设置 → 模型与渠道」的默认图主/副位钉成给定名字。
 
     [aipdd fork delta wave2] 本模块钉在控制面模式下（autouse fixture 设了
     ``ST_CONTROL_PLANE_DSN``，媒体映射恒为空），守的是底层适配器；用途位现在**只**从
@@ -109,14 +109,14 @@ def _pin_default_image_models(
 
 
 def test_dc_image_2_selection_maps_to_newapi_gpt_image2(monkeypatch, tmp_path):
-    """默认图主位的名字只来自「设置 › 模型」，同名 env 完全不进配置。
+    """默认图主位的名字只来自「设置 → 模型与渠道」，同名 env 完全不进配置。
 
-    [aipdd fork delta] 旧断言写的是 ``NEWAPI_IMAGE_MODEL=LingShan-G2``：一个设置页看不见、
+    [aipdd fork delta] 旧断言写的是 ``NEWAPI_IMAGE_MODEL=Acme-IMG-1``：一个设置页看不见、
     渠道下架也不会自动取消的名字排在面板前面。现在同名 env 照设，但它不再参与解析。
     """
     _isolate_settings_db(monkeypatch, tmp_path)
     _as_ce_local(monkeypatch)
-    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "LingShan-G2")
+    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "Acme-IMG-1")
     monkeypatch.setenv("DEFAULT_CHARACTER_IMAGE_SELECTION", "newapi_gpt_image2")
 
     import novelvideo.config as config
@@ -142,7 +142,7 @@ def test_dc_image_2_selection_maps_to_newapi_gpt_image2(monkeypatch, tmp_path):
     }
     image_config = config.get_grid_generation_config(selection_override="newapi_gpt_image2")
     assert image_config["model"] == "ap-gpt-image-2"
-    assert image_config["model"] != "LingShan-G2"
+    assert image_config["model"] != "Acme-IMG-1"
 
 
 def test_dc_banana_2_selection_maps_to_newapi_nanobanana2(monkeypatch, tmp_path):
@@ -154,7 +154,7 @@ def test_dc_banana_2_selection_maps_to_newapi_nanobanana2(monkeypatch, tmp_path)
     _isolate_settings_db(monkeypatch, tmp_path)
     _as_ce_local(monkeypatch)
     _seed_image_mappings("ap-gpt-image-2", "ap-nanobanana-2")
-    monkeypatch.setenv("NEWAPI_NANOBANANA2_MODEL", "LingShan-NB-2")
+    monkeypatch.setenv("NEWAPI_NANOBANANA2_MODEL", "Acme-IMG-2")
     monkeypatch.setenv("DEFAULT_CHARACTER_IMAGE_SELECTION", "newapi_nanobanana2")
 
     import novelvideo.config as config
@@ -166,7 +166,7 @@ def test_dc_banana_2_selection_maps_to_newapi_nanobanana2(monkeypatch, tmp_path)
     image_config = config.get_grid_generation_config(selection_override="newapi_nanobanana2")
     assert image_config["provider"] == "newapi"
     assert image_config["model"] == "ap-nanobanana-2"
-    assert image_config["model"] != "LingShan-NB-2"
+    assert image_config["model"] != "Acme-IMG-2"
     # 主位仍然是第一张：两个选项的差别只在面板顺序上。
     primary = config.get_grid_generation_config(selection_override="newapi_gpt_image2")
     assert primary["model"] == "ap-gpt-image-2"
@@ -186,7 +186,7 @@ def test_fixed_asset_image_providers_default_to_newapi_when_env_is_empty(monkeyp
     ):
         monkeypatch.setenv(key, "")
     _as_ce_local(monkeypatch)
-    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "LingShan-G2")
+    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "Acme-IMG-1")
 
     import novelvideo.config as config
 
@@ -212,12 +212,12 @@ def test_fixed_asset_image_providers_default_to_newapi_when_env_is_empty(monkeyp
 
 
 def test_purpose_image_envs_are_inert_and_settings_decide(monkeypatch, tmp_path):
-    """按用途钉图的那批 env 整批退出解析链：名字只由「设置 › 模型」的主/副位决定。
+    """按用途钉图的那批 env 整批退出解析链：名字只由「设置 → 模型与渠道」的主/副位决定。
 
     [aipdd fork delta wave2] ``SCENE_MASTER_IMAGE_MODEL`` / ``SCENE_REVERSE_MASTER_IMAGE_MODEL``
     / ``SCENE_360_IMAGE_MODEL`` / ``SCENE_ASSET_MODEL`` / ``PROP_REF_IMAGE_MODEL`` /
     ``CHARACTER_IMAGE_MODEL`` 以前各自钉住一条生成链：它们在设置页上看不见，渠道下架时也
-    不会自动取消绑定 —— 生产上的 ``No available channel for model LingShan-NB-2`` 就是这么
+    不会自动取消绑定 —— 生产上的 ``No available channel for model Acme-IMG-2`` 就是这么
     来的。现在用途只决定取面板的主位还是副位，模型名一律只从设置来。
     """
     _isolate_settings_db(monkeypatch, tmp_path)
@@ -241,7 +241,7 @@ def test_purpose_image_envs_are_inert_and_settings_decide(monkeypatch, tmp_path)
         "PROP_REF_IMAGE_MODEL",
         "CHARACTER_IMAGE_MODEL",
     ):
-        monkeypatch.setenv(key, "LingShan-NB-2")
+        monkeypatch.setenv(key, "Acme-IMG-2")
     for key in (
         "CHARACTER_IMAGE_SELECTION",
         "DEFAULT_CHARACTER_IMAGE_SELECTION",
@@ -325,7 +325,7 @@ def test_newapi_sketch_config_defaults_to_dc_image2_low_quality(monkeypatch, tmp
     _isolate_settings_db(monkeypatch, tmp_path)
     _as_ce_local(monkeypatch)
     _seed_image_mappings("ap-gpt-image-2")
-    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "LingShan-G2")
+    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "Acme-IMG-1")
     monkeypatch.setenv("DEFAULT_SKETCH_IMAGE_SELECTION", "newapi_gpt_image2")
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
@@ -401,7 +401,7 @@ def test_newapi_sketch_config_can_use_dc_banana2_without_quality(monkeypatch, tm
     _isolate_settings_db(monkeypatch, tmp_path)
     _as_ce_local(monkeypatch)
     _seed_image_mappings("ap-gpt-image-2", "ap-nanobanana-2")
-    monkeypatch.setenv("NEWAPI_NANOBANANA2_MODEL", "LingShan-NB-2")
+    monkeypatch.setenv("NEWAPI_NANOBANANA2_MODEL", "Acme-IMG-2")
     monkeypatch.setenv("DEFAULT_SKETCH_IMAGE_SELECTION", "newapi_nanobanana2")
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
@@ -544,7 +544,7 @@ class _CaptureImagePostClient:
         ("ap-image-2.0", {"includeQuality": True}, True),
         # 目录命中但没配画质档位的模型不能吃 quality —— 哪怕名字落在旧白名单里。
         ("gpt-image-2", {}, False),
-        ("lingshan-g2", {"parameters": []}, False),
+        ("acme-img-1", {"parameters": []}, False),
         # 完全没走目录的旧链路（主线渲染等配置驱动路径）才保留按名字兜底。
         ("gpt-image-2", None, True),
         ("ap-image-2.0", None, False),
@@ -756,7 +756,7 @@ def test_newapi_image_call_sends_gpt_image2_params(monkeypatch):
     image_bytes, _text, error = run_async(
         grid_generation._call_newapi_image_api(
             api_key="newapi-token",
-            # [aipdd fork delta wave2] 以前这里写的是 LingShan-G2（一个目录与渠道都不再携带
+            # [aipdd fork delta wave2] 以前这里写的是 上游私有别名（一个目录与渠道都不再携带
             # 的名字）。用例守的是 gpt-image 家族的历史画质兜底，名字就用它的本名。
             model="gpt-image-2",
             prompt="portrait prompt",
@@ -813,7 +813,7 @@ def test_newapi_image_auto_ratio_keeps_resolution_with_default_dimensions(monkey
     image_bytes, _text, error = run_async(
         grid_generation._call_newapi_image_api(
             api_key="newapi-token",
-            model="LingShan-G2",
+            model="Acme-IMG-1",
             prompt="follow the reference geometry",
             image_config={"aspect_ratio": "auto", "image_size": "2K"},
             base_url="http://newapi.test/v1",
@@ -851,7 +851,7 @@ def test_newapi_image_call_reports_transport_exception_type(monkeypatch):
     image_bytes, _text, error = run_async(
         grid_generation._call_newapi_image_api(
             api_key="newapi-token",
-            model="LingShan-G2",
+            model="Acme-IMG-1",
             prompt="portrait prompt",
             image_config={"aspect_ratio": "16:9", "image_size": "1K"},
             base_url="http://newapi.test/v1",
@@ -861,7 +861,7 @@ def test_newapi_image_call_reports_transport_exception_type(monkeypatch):
     assert image_bytes is None
     assert "请求异常: ReadTimeout" in error
     assert "endpoint=http://newapi.test/v1" in error
-    assert "model=LingShan-G2" in error
+    assert "model=Acme-IMG-1" in error
 
 
 class _Transient400Response:
@@ -1022,7 +1022,7 @@ def test_newapi_image_call_reraises_upstream_quota_error(monkeypatch):
         run_async(
             grid_generation._call_newapi_image_api(
                 api_key="newapi-token",
-                model="LingShan-G2",
+                model="Acme-IMG-1",
                 prompt="portrait prompt",
                 base_url="http://newapi.test/v1",
             )
@@ -1049,7 +1049,7 @@ def test_newapi_sketch_grid_reraises_upstream_quota_error(
             "provider": "newapi",
             "api_key": "newapi-token",
             "base_url": "http://newapi.test/v1",
-            "model": "LingShan-G2",
+            "model": "Acme-IMG-1",
             "rows": 1,
             "cols": 1,
             "batch_size": 1,
@@ -1114,7 +1114,7 @@ def test_newapi_image_call_omits_quality_for_nanobanana2(monkeypatch):
     image_bytes, _text, error = run_async(
         grid_generation._call_newapi_image_api(
             api_key="newapi-token",
-            model="LingShan-NB-2",
+            model="Acme-IMG-2",
             prompt="portrait prompt",
             image_config={
                 "aspect_ratio": "3:4",
@@ -1127,7 +1127,7 @@ def test_newapi_image_call_omits_quality_for_nanobanana2(monkeypatch):
 
     assert image_bytes == b"image-bytes"
     assert error == ""
-    assert posted["json"]["model"] == "LingShan-NB-2"
+    assert posted["json"]["model"] == "Acme-IMG-2"
     assert "quality" not in posted["json"]
     assert (posted["json"]["width"], posted["json"]["height"]) == (768, 1024)
     assert posted["json"]["metadata"] == {"ratio": "3:4", "resolution": "1k"}
@@ -1173,7 +1173,7 @@ def test_newapi_image_call_relays_reference_images(monkeypatch):
     image_bytes, _text, error = run_async(
         grid_generation._call_newapi_image_api(
             api_key="newapi-token",
-            model="LingShan-G2",
+            model="Acme-IMG-1",
             prompt="identity prompt",
             reference_images=[b"ref-a", b"ref-b"],
             image_config={
@@ -1250,7 +1250,7 @@ def test_newapi_image_call_preserves_reference_image_extensions(monkeypatch):
     image_bytes, _text, error = run_async(
         grid_generation._call_newapi_image_api(
             api_key="newapi-token",
-            model="LingShan-G2",
+            model="Acme-IMG-1",
             prompt="identity prompt",
             reference_images=[
                 ("face.jpg", b"jpg-bytes", "image/jpeg"),
@@ -1328,7 +1328,7 @@ def test_newapi_image_http_error_logs_redacted_request_context(monkeypatch, capl
     image_bytes, _text, error = run_async(
         grid_generation._call_newapi_image_api(
             api_key="newapi-token",
-            model="LingShan-G2",
+            model="Acme-IMG-1",
             prompt="sensitive prompt body",
             reference_images=[b"ref-a"],
             image_config={"aspect_ratio": "2:1", "image_size": "2K", "quality": "medium"},
@@ -1341,7 +1341,7 @@ def test_newapi_image_http_error_logs_redacted_request_context(monkeypatch, capl
     assert image_bytes is None
     assert "request_id=req-123" in error
     assert "cf-ray-456" in error
-    assert "model=LingShan-G2" in error
+    assert "model=Acme-IMG-1" in error
     assert "width=2048" in error
     assert "height=1024" in error
     assert "geometry_metadata={'ratio': '2:1', 'resolution': '2k'}" in error
@@ -1399,7 +1399,7 @@ def test_newapi_image_http_5xx_does_not_retry_in_app(monkeypatch):
     image_bytes, _text, error = run_async(
         grid_generation._call_newapi_image_api(
             api_key="newapi-token",
-            model="LingShan-G2",
+            model="Acme-IMG-1",
             prompt="retry prompt",
             image_config={"aspect_ratio": "2:1", "image_size": "2K", "quality": "medium"},
             base_url="http://newapi.test/v1",
@@ -1434,7 +1434,7 @@ def test_newapi_identity_image_sends_portrait_then_costume_references(
         config={
             "provider": "newapi",
             "api_key": "newapi-token",
-            "model": "LingShan-NB-2",
+            "model": "Acme-IMG-2",
             "base_url": "http://newapi.test/v1",
         }
     )
@@ -1457,7 +1457,7 @@ def test_newapi_identity_image_sends_portrait_then_costume_references(
 
     assert image_bytes == b"identity-image"
     assert output_path.read_bytes() == b"identity-image"
-    assert captured["model"] == "LingShan-NB-2"
+    assert captured["model"] == "Acme-IMG-2"
     assert captured["base_url"] == "http://newapi.test/v1"
     assert captured["image_config"] == {
         "aspect_ratio": "16:9",
@@ -1488,7 +1488,7 @@ def test_newapi_character_portrait_reraises_upstream_quota_error(
         config={
             "provider": "newapi",
             "api_key": "newapi-token",
-            "model": "LingShan-G2",
+            "model": "Acme-IMG-1",
             "base_url": "http://newapi.test/v1",
         }
     )
@@ -1512,7 +1512,7 @@ def test_newapi_character_portrait_raise_on_error_preserves_provider_detail(monk
 
     monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
     monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
-    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "LingShan-G2")
+    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "Acme-IMG-1")
     monkeypatch.setenv("DEFAULT_CHARACTER_IMAGE_SELECTION", "newapi_gpt_image2")
     _reload_isolated(monkeypatch, config)
     monkeypatch.setattr(
@@ -1548,7 +1548,7 @@ def test_newapi_scene_master_uses_text_only_nanobanana2(monkeypatch, tmp_path):
     monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
     monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("SCENE_MASTER_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setenv("SCENE_MASTER_IMAGE_MODEL", "LingShan-NB-2")
+    monkeypatch.setenv("SCENE_MASTER_IMAGE_MODEL", "Acme-IMG-2")
     _patch_scene_newapi_gateway(monkeypatch)
     monkeypatch.setattr(
         scene_reference_images,
@@ -1866,7 +1866,7 @@ def test_newapi_prop_reference_gpt_image2_sends_quality_medium(monkeypatch, tmp_
     monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
     # [aipdd fork delta wave2] ``PROP_REF_IMAGE_MODEL`` 已退出解析链，只认设置的主位。
-    monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "LingShan-G2")
+    monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "Acme-IMG-1")
     _pin_default_image_models(monkeypatch, primary="gpt-image-2")
     _reload_isolated(monkeypatch, config)
     prop_generation = _reload_isolated(monkeypatch, prop_generation)
@@ -1929,7 +1929,7 @@ def test_newapi_prop_reference_nanobanana2_omits_quality(monkeypatch, tmp_path):
     monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
     # [aipdd fork delta wave2] 同名 env 照设，已不再进解析链：模型名只从设置来。
-    monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "LingShan-NB-2")
+    monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "Acme-IMG-2")
     _pin_default_image_models(monkeypatch, primary="ap-nanobanana-2")
     _reload_isolated(monkeypatch, config)
     prop_generation = _reload_isolated(monkeypatch, prop_generation)
@@ -1969,7 +1969,7 @@ def test_newapi_prop_reference_reraises_upstream_quota_error(
     monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
     monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "LingShan-G2")
+    monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "Acme-IMG-1")
     _reload_isolated(monkeypatch, config)
     prop_generation = _reload_isolated(monkeypatch, prop_generation)
     monkeypatch.setattr(prop_generation, "_call_newapi_image_api", fake_call_newapi_image_api)
@@ -2012,7 +2012,7 @@ def test_freezone_single_image_generation_routes_newapi(monkeypatch, tmp_path):
             config={
                 "provider": "newapi",
                 "api_key": "newapi-token",
-                "model": "LingShan-G2",
+                "model": "Acme-IMG-1",
                 "base_url": "http://newapi.test/v1",
                 "openai_image_quality": "medium",
                 "openai_sketch_image_quality": "low",
@@ -2028,7 +2028,7 @@ def test_freezone_single_image_generation_routes_newapi(monkeypatch, tmp_path):
     assert image_path == output_path
     assert output_path.read_bytes() == b"freezone-image"
     assert captured["api_key"] == "newapi-token"
-    assert captured["model"] == "LingShan-G2"
+    assert captured["model"] == "Acme-IMG-1"
     assert captured["prompt"] == "freezone prompt"
     assert captured["reference_images"] is None
     assert captured["base_url"] == "http://newapi.test/v1"

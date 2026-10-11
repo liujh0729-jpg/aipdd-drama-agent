@@ -24,7 +24,7 @@ describe("scene 360 api", () => {
     await submitFreezoneScene360("project-a", {
       referenceUrl: "/static/master.png?v=1",
       imageSize: "2K",
-      model: "LingShan-G2",
+      model: "Acme-IMG-1",
       catalogId: "cat-g2",
       quality: "medium",
     });
@@ -37,7 +37,7 @@ describe("scene 360 api", () => {
           reference_url: "/static/master.png",
           image_size: "2K",
           mode: "candidate",
-          model: "LingShan-G2",
+          model: "Acme-IMG-1",
           catalog_id: "cat-g2",
           quality: "medium",
         },

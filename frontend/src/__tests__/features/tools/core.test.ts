@@ -20,13 +20,15 @@ import {
 } from "@/features/tools/core";
 
 describe("tools core TOOLS", () => {
-  it("exposes the fourteen batch tools with video-clone first and the explainer class last", () => {
+  it("exposes the fifteen batch tools with video-clone first and the explainer class last", () => {
     expect(TOOLS.map((t) => t.kind)).toEqual([
       "video-clone",
       "video-mix",
       "video-idea",
       "voice-clone",
-      // [aipdd fork delta req46] 音乐创作属音频族，紧跟人声复刻之后。
+      // [aipdd fork delta] 视频配音同属音频族，紧跟人声复刻之后。
+      "video-dubbing",
+      // [aipdd fork delta req46] 音乐创作属音频族，排在配音之后。
       "music-create",
       "lip-sync",
       "replace-person",
@@ -47,7 +49,9 @@ describe("tools core TOOLS", () => {
       "video-mix",
       "video-idea",
       "voice-clone",
-      // [aipdd fork delta req46] 音乐创作属音频族，紧跟人声复刻之后。
+      // [aipdd fork delta] 视频配音同属音频族，紧跟人声复刻之后。
+      "video-dubbing",
+      // [aipdd fork delta req46] 音乐创作属音频族，排在配音之后。
       "music-create",
       "lip-sync",
       "replace-person",
@@ -102,6 +106,12 @@ describe("tools core TOOLS", () => {
     expect(toolByKind("music-create").accept).toBeNull();
     expect(toolByKind("music-create").taskTypes).toEqual(["freezone_music_generate"]);
     expect(toolByKind("music-create").titleKey).toBe("tools.musicCreate.title");
+    // [aipdd fork delta] 视频配音：与 voice-clone 同口径读 audio 目录，源视频/参考
+    // 音频在面板内自管 → 不占批量素材入口，任务类型独立。
+    expect(toolByKind("video-dubbing").modelKind).toBe("audio");
+    expect(toolByKind("video-dubbing").accept).toBeNull();
+    expect(toolByKind("video-dubbing").taskTypes).toEqual(["freezone_video_dubbing"]);
+    expect(toolByKind("video-dubbing").titleKey).toBe("tools.videoDubbing.title");
     // 一句话生成短视频：无媒体批量输入（纯创意文本）；肖像/帧与逐镜双模型在面板内选。
     expect(toolByKind("video-idea").modelKind).toBe("video");
     expect(toolByKind("video-idea").accept).toBeNull();

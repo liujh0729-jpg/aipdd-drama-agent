@@ -69,9 +69,9 @@ Return ONLY valid JSON with no markdown formatting:
         from novelvideo.model_slots import SLOT_STYLE_ANALYZER
 
         # [aipdd fork delta req40] 这里不再写任何真实模型名当兜底：调用方没点名时传的
-        # 是**槽位键** ``DC-style-analyzer-LLM``，绑哪个模型由「设置 › 模型」+ 渠道目录
+        # 是**槽位键** ``DC-style-analyzer-LLM``，绑哪个模型由「设置 → 模型与渠道」+ 渠道目录
         # 决定；解析不到会在提交前抛 ModelSlotNotConfigured（HTTP 400 中文）。
-        # ``STYLE_ANALYZER_MODEL`` 已不再去进程环境里读：绑定只来自「设置 › 模型」。
+        # ``STYLE_ANALYZER_MODEL`` 已不再去进程环境里读：绑定只来自「设置 → 模型与渠道」。
         self.model = str(model or "").strip()
         self.agent = Agent(
             # 分析参考图（带图）：视觉隔离由登记表里 STYLE_ANALYZER_MODEL 的

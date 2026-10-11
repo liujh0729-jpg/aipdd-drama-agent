@@ -23,7 +23,7 @@ inherits the same auth, project guards, and task queue as the web UI.
 ## Prerequisites
 
 - A running AIPDD-Agent-Claw instance (`docker compose up -d`, REST API on `:8780`).
-- A configured, funded model gateway (Settings → Model Config) — the agent can
+- A configured, funded model gateway (Settings → Models & Channels) — the agent can
   plan/script without it, but image/video/audio generation needs working models.
   Generation can ride **AIPDD's low-cost idle compute**, any **NewAPI** channel you
   register, or **local ComfyUI** on your own GPU — see the
@@ -40,14 +40,14 @@ The server authenticates to the API with two environment variables:
 | `DRAMACLAW_API_URL` | Base URL of your instance, e.g. `http://localhost:8780` |
 | `DRAMACLAW_CE_OWNER` | Set to `1` for **CE** (self-host): calls are made as the local owner, no token needed. The target **must be loopback** (`localhost`, `127.0.0.1`, `::1`, `[::1]`) |
 | `DRAMACLAW_CE_OWNER_ALLOW_REMOTE` | Unsafe override: set to `1` to allow tokenless CE-owner mode against a **non-loopback** `DRAMACLAW_API_URL` (see the warning below) |
-| `DRAMACLAW_AGENT_TOKEN` | Bearer credential for token mode: a `st-…` **unified API key** (Settings → API keys; the same key the in-app MCP page hands you and the Model Plaza OpenAI-compatible endpoint accepts) or an EE scoped agent token |
+| `DRAMACLAW_AGENT_TOKEN` | Bearer credential for token mode: a `st-…` **unified API key** (Settings → API Keys; the same key the in-app MCP page hands you and the Model Plaza OpenAI-compatible endpoint accepts) or an EE scoped agent token |
 | `DRAMACLAW_PROJECT_ID` | Optional: default project so tools can omit `project_id` |
 
 **Community Edition** trusts local requests as the owner, so `DRAMACLAW_CE_OWNER=1`
 is all you need — no token to mint. When `DRAMACLAW_AGENT_TOKEN` is set it always
 takes precedence: the server sends `Authorization: Bearer <token>` instead of
 calling in as the local owner. The simplest token is the `st-…` unified API key
-generated under **Settings → API keys** — the same key the in-app MCP page
+generated under **Settings → API Keys** — the same key the in-app MCP page
 tells you to paste and the Model Plaza endpoint accepts. On EE, use a scoped
 agent token instead; the server enforces its project boundary and write scopes.
 Unified keys deliberately cannot touch admin endpoints (e.g. key management) —

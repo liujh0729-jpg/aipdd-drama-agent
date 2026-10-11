@@ -26,7 +26,7 @@ def create_video_prompt_builder_agent(language: str = "zh") -> Agent:
 
     # [aipdd fork delta] 可直接分析首帧图片（带图）：视觉隔离由点名的视觉槽位别名
     # （DC-video-prompt-optimizer-LLM，capability=vision）决定。``VIDEO_PROMPT_MODEL``
-    # env 已退出解析链 —— 模型名只听「设置 › 模型」与渠道目录的。
+    # env 已退出解析链 —— 模型名只听「设置 → 模型与渠道」与渠道目录的。
     model = get_superpower_pydantic_model(
         feature_provider_env="VIDEO_PROMPT_PROVIDER",
         default_model=DEFAULT_VIDEO_PROMPT_OPTIMIZER_MODEL,

@@ -40,7 +40,7 @@ cp .env.example .env
 docker compose up -d          # api + newapi (this gateway) + web
 ```
 
-Then open <http://localhost:8080> → **Settings → Model Config** and pick a mode:
+Then open <http://localhost:8080> → **Settings → Models & Channels** and pick a mode:
 
 | Mode | What the gateway does |
 |---|---|

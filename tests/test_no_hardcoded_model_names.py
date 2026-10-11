@@ -15,7 +15,7 @@ req40 的原则是「渠道有什么模型，平台不该预先知道，只能�
    是 env 键、``DC-*`` 槽位键或能力档名，绝不能是被当作兜底的模型名。
 4. **``*_MODEL`` 模块常量的字面默认值**必须是 ``DC-*`` 槽位键，或登记过的直连供应商参数。
 5. **槽位键是登记表键、不是环境变量源**：调用点不许 ``os.environ.get("HERMES_MODEL")``
-   这类把 env 排在「设置 › 模型」前面的写法（历史事故：cognee 配置层会把解析结果写进
+   这类把 env 排在「设置 → 模型与渠道」前面的写法（历史事故：cognee 配置层会把解析结果写进
    ``os.environ["LLM_MODEL"]`` 供库自己消费，读取点拿它当首选就等于 env 悄悄盖过设置）。
 
 直连供应商（火山方舟 ARK / HuiMeng / DashScope CosyVoice / OpenRouter / OpenAI 图像 /
@@ -245,7 +245,7 @@ DIRECT_VENDOR_ALLOWLIST: dict[str, tuple[str, frozenset[str]]] = {
     ),
     # ---- 不经网关的宿主 CLI / 直连 LLM 参数：codex CLI 与 google / OpenRouter 校验位。
     #
-    # [aipdd fork delta wave3 归档] 下面这些名字**故意**不迁进「设置 › 模型」，不是漏网的写死：
+    # [aipdd fork delta wave3 归档] 下面这些名字**故意**不迁进「设置 → 模型与渠道」，不是漏网的写死：
     #
     # * 部署内不可达（实测）：运行中的 aipdd-drama-api 里 OPENROUTER_API_KEY / MODEL_PROVIDER /
     #   MODEL_NAME / SCENE_SPATIAL_CONTRACT_MODEL / OPENROUTER_VISION_MODEL / SKETCH_GATE_MODEL /
@@ -259,7 +259,7 @@ DIRECT_VENDOR_ALLOWLIST: dict[str, tuple[str, frozenset[str]]] = {
     #   且这几处覆盖极薄，坏掉表现为「偶发质量下降」而非报错 —— 半迁移比不迁移更糟。
     #
     # 要动就一次动完（名字 / base_url / 鉴权同一个 commit 成对出现，做完删掉对应登记条目）：
-    # ① 先把 OpenRouter 之类在「设置 › 模型网关」配成一条 OpenAI 兼容渠道（baseUrl 归一会自动补
+    # ① 先把 OpenRouter 之类在「设置 → 模型与渠道」配成一条 OpenAI 兼容渠道（baseUrl 归一会自动补
     # /v1，清单走 /v1/models，不需要改代码）；② 调用点整体改走网关，凭证按
     # task_backend.subprocesses.build_model_child_env 的收口注入子进程，不走「透传父环境」；
     # ③ 名字改用槽位键 + 目录绑定解析，禁止再传字面量（规则 3 的调用点用例也会跟着放行）。
@@ -541,7 +541,7 @@ def test_resolver_call_sites_only_pass_env_keys_slot_keys_or_capabilities() -> N
     assert total >= 20, f"解析入口调用点扫描异常（只找到 {total} 处），守卫可能失效"
     assert not offenders, (
         "这些解析入口调用点传了真实模型名当兜底 —— req40 之后第二参数只能是 "
-        "``DC-*`` 槽位键（target 由「设置 › 模型」+ 渠道目录决定），"
+        "``DC-*`` 槽位键（target 由「设置 → 模型与渠道」+ 渠道目录决定），"
         "否则网关摘掉名字时又会跑到一半才死：\n" + "\n".join(offenders)
     )
 
@@ -615,7 +615,7 @@ def test_module_constant_allowlist_is_not_stale() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 规则 5：模型名只能由「设置 › 模型」解析，调用点不许把 env 排在它前面。
+# 规则 5：模型名只能由「设置 → 模型与渠道」解析，调用点不许把 env 排在它前面。
 # ---------------------------------------------------------------------------
 
 # cognee 库只认这几个 env 名，``cognee/config.py`` 把面板解析结果**写**进它们给库消费。
@@ -672,7 +672,7 @@ def test_slot_keys_are_registry_ids_not_environment_sources() -> None:
                 continue
             offenders.append(f"{rel}:{lineno} 读到了 {key}")
     assert not offenders, (
-        "这些调用点把 env 排在「设置 › 模型」前面：面板里改了模型不会生效，运维设过同名"
+        "这些调用点把 env 排在「设置 → 模型与渠道」前面：面板里改了模型不会生效，运维设过同名"
         'env 的机器还会默默跑回旧模型。模型名只许走 resolve_slot("<槽位键>")：\n'
         + "\n".join(offenders)
     )

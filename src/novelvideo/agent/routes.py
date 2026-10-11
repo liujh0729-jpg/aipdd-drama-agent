@@ -132,7 +132,7 @@ def _text_model_unresolved_detail() -> str:
         head += f"默认文本模型解析失败：{cause}"
     else:
         head += "当前既没有选中文本模型，也没有解析到系统默认文本模型。"
-    return head + "请直接在输入框左侧的「文本模型」下拉里选一个，或到「设置 › 模型」绑定文本功能位。"
+    return head + "请直接在输入框左侧的「文本模型」下拉里选一个，或到「设置 → 模型与渠道」绑定文本功能位。"
 
 
 def _default_image_model() -> str:

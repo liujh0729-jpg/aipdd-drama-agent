@@ -129,10 +129,11 @@ DEFAULT_IMAGE_RATIO_OPTIONS: tuple[str, ...] = (
     "21:9",
 )
 DEFAULT_IMAGE_QUALITY_OPTIONS: tuple[str, ...] = ("low", "medium", "high")
-# 只有名字落在 gpt-image / LingShan 这一族里才预置画质档位：这两族是上游确实
-# 接受 quality 参数的家族。给不接受 quality 的模型预置画质，等于让网关
-# 报错，所以宁可不给 —— 用户想要就在设置页勾上。
-_QUALITY_CAPABLE_IMAGE = re.compile(r"(gpt[-_]?image|lingshan)", re.IGNORECASE)
+# 只有名字落在 gpt-image 这一族里才预置画质档位：它是上游确实接受 quality
+# 参数的家族。给不接受 quality 的模型预置画质，等于让网关报错，所以宁可不给
+# —— 用户想要就在设置页勾上。发行方私有别名不进这条启发式：曾经带过一族私有
+# 名，绑着只会撞回网关的 503。
+_QUALITY_CAPABLE_IMAGE = re.compile(r"(gpt[-_]?image)", re.IGNORECASE)
 
 # 自动纳入的视频模型预置档位。同样只是**默认值**，设置页可逐条改；运行时是否下发
 # 只看目录声明。分辨率用与后端写死表一致的三档，比例覆盖常见画幅，时长取通用区间。

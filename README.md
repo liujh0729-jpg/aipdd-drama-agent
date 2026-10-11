@@ -344,7 +344,7 @@ docker compose up -d --build   # builds and starts three services: api / newapi 
 
 Only this repo's code changed? `docker compose up -d --build api web`. Only the vendored gateway? `docker compose up -d --build newapi`. Want to build the gateway from your own checkout instead of the vendored copy? Set `DRAMACLAW_GATEWAY_SRC` in `.env` to that path.
 
-Open the app at <http://localhost:8080>; the REST API is at <http://localhost:8780>. In **Settings → Model Config** pick one of:
+Open the app at <http://localhost:8080>; the REST API is at <http://localhost:8780>. In **Settings → Models & Channels** pick one of:
 
 - **Official** — paste your DC key (get one at <https://susciyuan.com>); no model mapping needed. LocalNewAPI stays idle.
 - **Custom** — one click initializes LocalNewAPI; then add your own upstream channels.
@@ -412,7 +412,7 @@ Whichever install path you chose, the app comes up the same way:
    - If you set `ST_LOCAL_PASSWORD` in `.env`, use that password.
    - Otherwise the backend generates a **one-time password** on first start and logs it once. Retrieve it with:
      `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`).
-3. **Connect your models** — go to **Settings → Model Config** and pick one mode (details in [Supported Models & Providers](#supported-models)):
+3. **Connect your models** — go to **Settings → Models & Channels** and pick one mode (details in [Supported Models & Providers](#supported-models)):
    - **Official** — paste a DC key from <https://susciyuan.com>; every model is already mapped, LocalNewAPI stays idle.
    - **Custom** — one click initializes LocalNewAPI, then add your own provider channels (API keys + model IDs) in its admin UI.
    - **LocalNewAPI + Official Hybrid** — official models for the main pipeline, your extra channels alongside.
@@ -426,14 +426,14 @@ Stay current: re-double-click the **Start** launcher to restart; check the runni
 
 ## <a name="supported-models"></a>Supported Models & Providers
 
-AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models connect through an **OpenAI-compatible gateway**, so the same pipeline can ride **AIPDD's low-cost idle compute**, the official hosted models, **any NewAPI channel you wire in**, or **your own GPU via ComfyUI local compute**. Pick the mode in **Settings → Model Config**:
+AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models connect through an **OpenAI-compatible gateway**, so the same pipeline can ride **AIPDD's low-cost idle compute**, the official hosted models, **any NewAPI channel you wire in**, or **your own GPU via ComfyUI local compute**. Pick the mode in **Settings → Models & Channels**:
 
 - **Official (recommended)** — paste your DC key (get one at NewAPI), save, done. The official gateway already ships every model mapping DramaClaw needs; nothing to configure.
 - **Custom** — one click initializes LocalNewAPI, then add your own provider channels (API keys, model IDs) in its admin UI. Every model DramaClaw calls goes through your channels.
 - **LocalNewAPI + Official Hybrid** — keep the official models for the main pipeline and add extra channels (for example a local ComfyUI video workflow) through LocalNewAPI.
 
 > 🧠 **Bring your own compute — lower cost, stay in control.** The gateway is built so *you* choose where each generation runs:
-> - **AIPDD idle compute (cut costs).** Connecting the **AIPDD** channel lets generation ride the platform's **idle compute pool**, so heavy batch drama work runs at a fraction of on-demand pricing — the single biggest lever on production cost. Register at <https://www.aipdd.work> to get an AIPDD API key, then add it as a channel in **Settings → Model Config**.
+> - **AIPDD idle compute (cut costs).** Connecting the **AIPDD** channel lets generation ride the platform's **idle compute pool**, so heavy batch drama work runs at a fraction of on-demand pricing — the single biggest lever on production cost. Register at <https://www.aipdd.work> to get an AIPDD API key, then add it as a channel in **Settings → Models & Channels**.
 > - **NewAPI, freely mixed.** The built-in **NewAPI** gateway lets you register many providers as channels and **combine them however you like** — official, AIPDD, a self-hosted box, or any OpenAI-compatible endpoint — per model, per stage. For NewAPI channels we recommend **sourcing your own providers and comparing prices**; a curated reference list is here: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjfk>.
 > - **ComfyUI, on your own GPU — the cheapest way to run canvas tasks.** A first-class **ComfyUI** adapter points canvas image / video generation at a workflow running on **your own machine**: your GPU does the rendering, so there's **no per-call cloud quota** — heavy generation costs you only electricity, far below any hosted model. Register your local ComfyUI endpoint as a channel in **Custom** or **Hybrid** mode.
 >   - **Fastest way to get ComfyUI up** — skip the manual install and just download our bundled **compute client (算力客户端)**, then run the installer — no Python or environment setup needed: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.

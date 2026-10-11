@@ -6,7 +6,7 @@ template, or be explicitly covered by an allowlist entry in this file.
 
 [aipdd fork delta] 槽位登记表 ``_SLOT_ALIASES`` 不再是「运行期真的会读」的来源：
 ``model_slots.resolve_slot`` 已完全不读进程环境，槽位名只是内部键。所以模板里再写
-``X_MODEL=DC-x-LLM`` 一律判死键 —— 模型绑定的真源是「设置 › 模型」+ 渠道目录。
+``X_MODEL=DC-x-LLM`` 一律判死键 —— 模型绑定的真源是「设置 → 模型与渠道」+ 渠道目录。
 """
 
 from __future__ import annotations

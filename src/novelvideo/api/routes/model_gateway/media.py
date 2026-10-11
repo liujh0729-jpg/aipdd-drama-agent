@@ -86,7 +86,7 @@ def _build_media_model_channel_specs(
         media_type = str(item.media_type or "").strip().lower()
         if not media_type:
             # [aipdd fork delta] 优先由面板显式传入 mediaType；兜底按通用命名特征归类。
-            # [aipdd fork delta wave2] 旧的 LingShan-G2 / NB-2 / MU-11 硬编码特判已删：
+            # [aipdd fork delta wave2] 旧的那批发行方私有别名硬编码特判已删：
             # 官方目录不再携带这些名字，留着就是「代码里藏着一个渠道已经不卖的模型」；
             # 真需要区分类型的模型由面板把 mediaType 一并传下来，而不是由后端猜。
             lowered = model.lower()

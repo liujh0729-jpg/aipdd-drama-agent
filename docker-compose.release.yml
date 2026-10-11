@@ -5,7 +5,7 @@
 #   cp .env.example .env && docker compose -f docker-compose.release.yml up -d --build
 # 网关源码默认取仓内 ./third_party/dramaclaw-gateway；改用外部 checkout：.env 设 DRAMACLAW_GATEWAY_SRC=<路径>。
 # 三服务：api + LocalNewAPI（dramaclaw-gateway，:3000）+ web（:8080）。
-# 首启打开 http://localhost:8080 → 设置 → 模型：选「官方」粘贴 DC key、或「自定义」一键初始化 LocalNewAPI、或「LocalNewAPI + 官方混合」。
+# 首启打开 http://localhost:8080 → 设置 → 模型与渠道：选「官方」粘贴 DC key、或「自定义」一键初始化 LocalNewAPI、或「LocalNewAPI + 官方混合」。
 # 默认模式是官方，此时 LocalNewAPI 只是常驻待命；.env 写 NEWAPI_PROVISIONER_ENABLED=false 可禁用一键初始化。
 services:
   api:
@@ -35,7 +35,7 @@ services:
       HERMES_CLI_PATH: /root/.local/bin/hermes
       # 运行时用哪个网关由应用设置（settings.db 的 model_gateway_mode）决定，CE 的网关路由不回退到 env；
       # [aipdd fork delta req41] 这里**不预填任何网关地址**（旧默认曾钉过两个具体域名）：网关
-      # 在哪是部署方在「设置 › 模型」里填的数据，换网关 / 换域名不该改编排文件。留空 =
+      # 在哪是部署方在「设置 → 模型与渠道」里填的数据，换网关 / 换域名不该改编排文件。留空 =
       # 未配置（调用面报「未配置网关」并指引去设置页）；需要 env 兜底时在 .env 写
       # NEWAPI_BASE_URL=<你的网关地址>。
       NEWAPI_BASE_URL: "${NEWAPI_BASE_URL:-}"

@@ -2,7 +2,7 @@
 
 [aipdd fork delta req40] 这里只剩下**渠道地址**与**内部功能位槽位键**两类常量，不再
 有「默认模型名」表：渠道有什么模型只能从 BaseURL 拉，用哪个模型由用户在
-「设置 › 模型」里绑定（见 :mod:`novelvideo.model_slots`）。旧
+「设置 → 模型与渠道」里绑定（见 :mod:`novelvideo.model_slots`）。旧
 ``DEFAULT_TEXT_MODEL_BY_ENV`` 表已并入 ``model_slots.SLOTS`` —— 它原先只是把功能 env
 指向 ``DC-*`` 槽位键，现在那层语义由槽位登记表唯一持有，且解析时还要校验绑定目标
 仍存在于渠道目录里。
@@ -23,7 +23,7 @@ from novelvideo.model_slots import (
 )
 
 # [aipdd fork delta req41] 官方模式地址**不写死**：本 fork 里它就是「部署者自己的
-# 网关地址」，真源在数据库（设置 › 模型的渠道 BaseURL）或 .env；代码不预设任何站点
+# 网关地址」，真源在数据库（设置 → 模型与渠道的渠道 BaseURL）或 .env；代码不预设任何站点
 # 地址，否则换网关地址 / 换机器部署时旧地址会继续被当成有效值打出去。
 # 旧实现把某个具体域名钉在源码常量里（上一版是 ``https://susciyuan.com/v1``），
 # 那等于「代码比部署更早知道网关在哪」—— 正是 req40/req41 要消灭的那类硬编码。

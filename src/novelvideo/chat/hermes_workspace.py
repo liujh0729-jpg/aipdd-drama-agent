@@ -151,7 +151,7 @@ def effective_gateway_credentials() -> tuple[str, str]:
 
 
 def _hermes_model_default() -> str:
-    """Hermes / 导演聊天的默认模型：只读「设置 › 模型」里 ``HERMES_MODEL`` 这一功能位。
+    """Hermes / 导演聊天的默认模型：只读「设置 → 模型与渠道」里 ``HERMES_MODEL`` 这一功能位。
 
     [aipdd fork delta] 以前从 root ``.env`` / 进程环境取 ``HERMES_MODEL``：设置页换了绑定，
     写进 worker ``config.yaml`` 的还是环境里那个旧名字，聊天的模型和面板显示的对不上。
@@ -645,7 +645,7 @@ def _ensure_model_config_from_env(config_yaml: Path) -> None:
     """Apply explicit Hermes model *deployment parameter* env overrides to existing config.yaml.
 
     [aipdd fork delta] ``HERMES_MODEL`` / ``DRAMACLAW_HERMES_MODEL`` 的模型名覆盖已删：模
-    型名由「设置 › 模型」的 ``HERMES_MODEL`` 功能位决定（下面的 _ensure_model_gateway_config
+    型名由「设置 → 模型与渠道」的 ``HERMES_MODEL`` 功能位决定（下面的 _ensure_model_gateway_config
     就按那条写 ``default``，env 再写一次只会互相盖）。API mode 与 context length 是网关能力
     参数、不是模型选择，继续读 env。
     """

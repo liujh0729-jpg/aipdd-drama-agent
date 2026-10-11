@@ -8,7 +8,7 @@
 
 - 不依赖 comfy-cli / comfy-mcp 二进制，也不需要本机另装 Python 环境 —— 服务器
   进程就在本平台运行时里起，Docker 部署同样可用；
-- 目标地址只有一个来源：``comfyui`` 渠道的 ``baseUrl``（设置 › 模型 › 本地
+- 目标地址只有一个来源：``comfyui`` 渠道的 ``baseUrl``（设置 → 模型与渠道 › 本地
   ComfyUI）。父进程启动子进程时会把它注入 ``COMFYUI_BASE_URL``，子进程自己也能
   从 settings.db 解析，杜绝第二份地址；
 - 生命周期不归本 MCP 管（不 launch / 不装 ComfyUI）：地址没配或 ComfyUI 没起来
@@ -42,7 +42,7 @@ SEARCH_LIMIT_DEFAULT = 30
 _MODEL_SLOT_KEYS = ("ckpt_name", "lora_name", "model_name", "vae_name", "unet_name")
 
 _UNCONFIGURED_HINT = (
-    "本地 ComfyUI 地址未配置：请到「设置 › 模型 › 本地 ComfyUI」填写 ComfyUI 地址"
+    "本地 ComfyUI 地址未配置：请到「设置 → 模型与渠道 › 本地 ComfyUI」填写 ComfyUI 地址"
     "（保存后即为所有 ComfyUI 服务的调用入口）。"
 )
 

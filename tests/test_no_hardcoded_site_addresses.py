@@ -187,7 +187,7 @@ def test_deploy_files_do_not_prefill_loopback_addresses() -> None:
     assert total >= 20, f"部署文件赋值行扫描异常（只解析到 {total} 行），守卫可能失效"
     assert not offenders, (
         "部署文件把「网关 / 服务跑在哪」写死成了本机地址。换主机名或不做本机部署时这些值"
-        "全部错：请改成留空 + ``${VAR:-}`` 透传，让部署方在 .env 或「设置 › 模型」里填。\n"
+        "全部错：请改成留空 + ``${VAR:-}`` 透传，让部署方在 .env 或「设置 → 模型与渠道」里填。\n"
         + "\n".join(offenders)
     )
 
@@ -203,7 +203,7 @@ def test_deploy_files_do_not_ship_fallback_model_names() -> None:
                 offenders.append(f"{rel}:{lineno} {key}={value!r} → {token.group(0)!r}")
     assert not offenders, (
         "部署文件写死了具体模型名。渠道目录才是模型名的真源（req40）：兜底项应当留空，"
-        "由「设置 › 模型」绑定的槽位 + 渠道目录决定。\n" + "\n".join(offenders)
+        "由「设置 → 模型与渠道」绑定的槽位 + 渠道目录决定。\n" + "\n".join(offenders)
     )
 
 

@@ -1,9 +1,9 @@
-"""[aipdd fork delta req40] 模型槽位解析：只认「设置 › 模型」+ 渠道目录。
+"""[aipdd fork delta req40] 模型槽位解析：只认「设置 → 模型与渠道」+ 渠道目录。
 
 平台不该预先知道渠道里有什么模型 —— 只能从渠道 BaseURL 拉。于是「某个功能用哪个
 模型」只剩两个合法来源：
 
-1. 用户在「设置 › 模型」里给**槽位**选的绑定 —— 且绑定的目标必须还在渠道目录里；
+1. 用户在「设置 → 模型与渠道」里给**槽位**选的绑定 —— 且绑定的目标必须还在渠道目录里；
 2. 调用方显式点名的模型（界面上下拉选出来的 ``{provider}::{model}`` 复合名），同样
    要过渠道目录裁决。
 
@@ -17,10 +17,10 @@
 ``IDENTITY_PLANNER_CAST_MODEL`` 这类 per-feature env 与 ``TEXT_MODEL_FALLBACK`` /
 ``VISION_MODEL_FALLBACK`` 全局兜底都退出了规划链。原因不是美观：
 
-* 它们是**设置页看不见的绑定**。用户在「设置 › 模型」里配好了，env 还在后面抢位，
+* 它们是**设置页看不见的绑定**。用户在「设置 → 模型与渠道」里配好了，env 还在后面抢位，
   于是「配了不生效」；把 env 清空又会掉到一个陈旧的出厂名上。
 * env 里的名字没有生命周期：渠道下架后它不会自动取消，生产上那条
-  ``No available channel for model LingShan-NB-2``（503）就是这么来的。
+  ``No available channel for model <发行方私有别名>``（503）就是这么来的。
 * 报错里出现环境变量名，等于把内部运维键交给界面用户当错误信息看。
 
 槽位键名（``IDENTITY_PLANNER_CAST_MODEL`` 这种）仍是**登记表主键与网关路由键**。
@@ -38,7 +38,7 @@ from typing import Any
 
 
 # ---- 内部功能位槽位键（``DC-*`` 命名空间：不是模型名，只是网关 model_mapping 的
-# 路由键；target 必须由用户在「设置 › 模型」里从渠道目录中选）。official_defaults 的
+# 路由键；target 必须由用户在「设置 → 模型与渠道」里从渠道目录中选）。official_defaults 的
 # ``DEFAULT_*`` 常量全部指到这里，两处不再各写一份字面量。
 SLOT_HERMES_LLM = "DC-hermes-LLM"
 SLOT_VIDEO_PROMPT_OPTIMIZER = "DC-video-prompt-optimizer-LLM"
@@ -81,7 +81,7 @@ class ModelSlot:
     """一个功能槽位：登记键（= 网关路由键）+ 别名 + 能力档 + 界面用中文功能名。
 
     ``key`` 仍是历史上的 per-feature env 名（也是设置页 / 体检接口认的槽位 ID），但
-    系统**不再去进程环境里读它** —— 绑定的唯一真源是「设置 › 模型」的别名表。
+    系统**不再去进程环境里读它** —— 绑定的唯一真源是「设置 → 模型与渠道」的别名表。
     ``label`` 只用于给用户看的中文成因，不许流入日志 / 网关协议。
     """
 
@@ -191,7 +191,7 @@ class ModelSlotNotConfigured(RuntimeError):
             back = "该功能位还没有绑定可用模型"
         else:
             back = "当前没有可用的模型绑定"
-        text = f"未绑定可用模型（{shown}）：{back}。请到「设置 › 模型」从渠道目录中选择。"
+        text = f"未绑定可用模型（{shown}）：{back}。请到「设置 → 模型与渠道」从渠道目录中选择。"
         if self.detail:
             text = f"{text}（{self.detail}）"
         return text
@@ -532,7 +532,7 @@ def _resolve_named_call_name(key: str, name: str, capability: str) -> str:
             key,
             REASON_DELISTED,
             detail=f"{name} 不在渠道的模型清单里（已从渠道下架或尚未开通）："
-            "渠道目录才是模型名的真源，请到「设置 › 模型」改选目录里的名字",
+            "渠道目录才是模型名的真源，请到「设置 → 模型与渠道」改选目录里的名字",
         )
     return name
 
@@ -605,7 +605,7 @@ def resolve_media_slot(media_type: str) -> str:
     """解析媒体默认槽位（image / video / audio / asr）：只看设置里的默认位。
 
     [aipdd fork delta] 以前第一层是 ``NEWAPI_{IMAGE,VIDEO,AUDIO,ASR}_MODEL`` env 覆盖：
-    它比「设置 › 模型」的默认生成模型面板还高，面板里换了模型而 env 还写着旧名时，
+    它比「设置 → 模型与渠道」的默认生成模型面板还高，面板里换了模型而 env 还写着旧名时，
     用户看到的和实际调用的不是同一个模型。现在真源只有媒体模型映射表（同类型里
     enabled 且 sortOrder 最小的那一条）。
     """

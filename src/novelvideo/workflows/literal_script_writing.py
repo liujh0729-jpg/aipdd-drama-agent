@@ -1409,7 +1409,7 @@ class LiteralScriptWritingWorkflow:
             )
         messages.append(
             "[Literal][ERROR] 建议：弱化该行及前后文中的血腥、暴力、胁迫、裸露等表达，"
-            "或在模型网关中将该内部文本模型切换到更适合剧本创作的上游模型后重试。"
+            "或到「设置 → 模型与渠道」把该内部文本模型绑到更适合剧本创作的上游模型后重试。"
         )
         messages.append(
             "[Literal][ERROR] 说明：上游模型不会返回精确违规规则；以上行号和疑似表达"

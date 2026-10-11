@@ -37,7 +37,7 @@ cp .env.example .env
 docker compose up -d          # api + newapi（本网关）+ web
 ```
 
-然后打开 <http://localhost:8080> → **设置 → 模型配置**，三选一：
+然后打开 <http://localhost:8080> → **设置 → 模型与渠道**，三选一：
 
 | 模式 | 网关在做什么 |
 |---|---|

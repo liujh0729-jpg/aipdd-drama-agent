@@ -2,7 +2,7 @@
 # 全部源码构建、零外部镜像；SQLite、CE inline、无 PostgreSQL。拉下即用。
 #   用法： docker-compose -f docker-compose.aipdd.yml up -d --build
 #   拓扑与 env 对齐 docker-compose.release.yml。
-#   首启打开 http://localhost:8080 → 设置 → 模型：选「自定义」一键初始化 LocalNewAPI，
+#   首启打开 http://localhost:8080 → 设置 → 模型与渠道：选「自定义」一键初始化 LocalNewAPI，
 #   再在网关里把 aipdd / susciyuan / comfyui 作为上游渠道开通、同步模型、按组件绑定默认模型。
 #   可选剪辑服务 VectCut（剪映/CapCut 草稿组装，见 services/vectcut/）：默认不启动，需要时
 #     docker-compose -f docker-compose.aipdd.yml --profile vectcut up -d vectcut
@@ -14,7 +14,7 @@ services:
       args:
         # 默认精简镜像；需 3DGS/SHARP world 特性时 INSTALL_WORLD=1（Mac 无 GPU）。
         INSTALL_WORLD: "${INSTALL_WORLD:-0}"
-    image: aipdd/dramaclaw-api:${DRAMACLAW_VERSION:-2.1.5}
+    image: aipdd/dramaclaw-api:${DRAMACLAW_VERSION:-2.1.6}
     # [aipdd fork delta] 固定容器名：MCP 栏目「本地 Agent 工具」写入的
     # aipdd-drama 条目以 docker exec 进本容器启动 MCP server，需要稳定可寻址的名字
     #（品牌改名前为 dramaclaw-api，外部已接入的配置在重新连接后迁移）。
@@ -45,7 +45,7 @@ services:
       HERMES_CLI_PATH: /root/.local/bin/hermes
       # 运行时用哪个网关由应用设置（settings.db 的 model_gateway_mode）决定，CE 不回退到 env。
       # [aipdd fork delta req41] 这里**不预填任何站点地址**（旧默认曾钉过一个具体域名）：
-      # 网关在哪是部署者在「设置 › 模型」里填的数据，换网关 / 换域名都不该改编排文件。
+      # 网关在哪是部署者在「设置 → 模型与渠道」里填的数据，换网关 / 换域名都不该改编排文件。
       # 留空 = 未配置；需要 env 兜底时在 .env 写 NEWAPI_BASE_URL=<你的网关地址>。
       NEWAPI_BASE_URL: "${NEWAPI_BASE_URL:-}"
       # 以下四项供 provisioner 一键初始化 LocalNewAPI（compose 强制覆盖 .env 里的 127.0.0.1 地址）。
@@ -61,7 +61,7 @@ services:
       NEWAPI_PUBLIC_BASE_URL: "${NEWAPI_PUBLIC_BASE_URL:-}"
       NEWAPI_PROVISIONER_ENABLED: "${NEWAPI_PROVISIONER_ENABLED:-true}"
       # [aipdd fork delta] 这里不再有 TEXT_MODEL_FALLBACK / VISION_MODEL_FALLBACK：
-      # 模型名的真源是「设置 › 模型」的槽位绑定 + 渠道目录，环境变量不参与选名。旧的两档
+      # 模型名的真源是「设置 → 模型与渠道」的槽位绑定 + 渠道目录，环境变量不参与选名。旧的两档
       # 全局兜底排在设置前面，容器里留着一个空值就等于留一条「换部署即失效」的隐式路由：
       # 面板换了模型，任务还跑在 env 指的那个名字上，名字下架就撞网关 503。解析不到时任务
       # 在提交前就报中文错误并指回设置页，绝不回落到预设模型名。
@@ -134,7 +134,7 @@ services:
     build:
       context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
       dockerfile: Dockerfile
-    image: aipdd/dramaclaw-gateway:${DRAMACLAW_VERSION:-2.1.5}
+    image: aipdd/dramaclaw-gateway:${DRAMACLAW_VERSION:-2.1.6}
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
@@ -162,7 +162,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: aipdd/dramaclaw-web:${DRAMACLAW_VERSION:-2.1.5}
+    image: aipdd/dramaclaw-web:${DRAMACLAW_VERSION:-2.1.6}
     restart: unless-stopped
     environment:
       BACKEND_HOST: api

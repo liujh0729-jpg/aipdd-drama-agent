@@ -8,7 +8,7 @@
      ``python -m novelvideo.chat.aipdd_drama_mcp``）——把本平台 API 作为 MCP 工具；
   2. Chrome DevTools（``chrome-devtools-mcp``，驱动客户本机已装 Chrome）；
   3. 本地 ComfyUI（``python -m novelvideo.chat.comfyui_mcp``）——参考官方
-     comfy-mcp 的工具语义自建，只打「设置 › 模型 › 本地 ComfyUI」配的 ComfyUI；
+     comfy-mcp 的工具语义自建，只打「设置 → 模型与渠道 › 本地 ComfyUI」配的 ComfyUI；
   4. Blender（官方 ``uvx mcp-for-blender``）——驱动本机已装的 Blender（Blender 侧
      须装 BlenderMCP 插件并 Start MCP Server，默认监听 9876）；渲染的白模（clay）
      预览视频可喂给画布「白模视频」节点作为成片参考；
@@ -56,7 +56,7 @@ CHROME_SERVER_ID = "chrome-devtools"
 # docs.comfy.org/zh/agent-tools/mcp）靠 comfy-cli 驱动「装了它的那台机器」上的
 # ComfyUI，容器里没有 comfy-cli、ComfyUI 又跑在宿主机，照搬就是一个永远连不上的
 # 默认项。这里参考它的工具语义自建同位服务器（``novelvideo.chat.comfyui_mcp``，
-# stdio 同进程环境），只打「设置 › 模型 › 本地 ComfyUI」配的那个地址——与网关调用
+# stdio 同进程环境），只打「设置 → 模型与渠道 › 本地 ComfyUI」配的那个地址——与网关调用
 # ComfyUI 用的是同一个真源，不引入第二份地址。
 COMFY_SERVER_ID = "comfyui-local"
 # [aipdd fork delta] 第四个内置：Blender MCP（官方 mcp-for-blender，接本机已装的
@@ -174,7 +174,7 @@ def _chrome_server() -> dict[str, Any]:
 def _comfyui_base_url() -> str:
     """本地 ComfyUI 地址：直接读 comfyui 渠道的 baseUrl（唯一真源，不另开 env）。
 
-    地址只在「设置 › 模型 › 本地 ComfyUI」一处维护；子进程自己也能从 settings.db
+    地址只在「设置 → 模型与渠道 › 本地 ComfyUI」一处维护；子进程自己也能从 settings.db
     解析，因此这里解析不到（渠道还没配）也不会让 MCP 起不来——工具调用时会返回
     「地址未配置 + 去哪儿配」的可读错误。
     """
@@ -194,7 +194,7 @@ def _comfy_server() -> dict[str, Any]:
         "name": "ComfyUI MCP",
         "description": (
             "内置：驱动你本地那台 ComfyUI（读写工作流、查已装节点与模型、"
-            "校验与跑一次任务）。目标地址就是「设置 › 模型 › 本地 ComfyUI」里的"
+            "校验与跑一次任务）。目标地址就是「设置 → 模型与渠道 › 本地 ComfyUI」里的"
             " ComfyUI 地址；ComfyUI 没启动或未配地址时，工具会直接告诉你要去哪配。"
             "本系统不代管 ComfyUI 的安装与启动。"
         ),

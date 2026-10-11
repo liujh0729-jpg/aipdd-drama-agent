@@ -354,7 +354,7 @@ Les deux checkouts sont de simples repos git : éditez, `git pull`, recompilez. 
 docker compose -f docker-compose.release.yml up -d
 ```
 
-Ouvrez l'app sur <http://localhost:8080> ; l'API REST est sur <http://localhost:8780>. Dans **Settings → Model Config**, choisissez l'un de :
+Ouvrez l'app sur <http://localhost:8080> ; l'API REST est sur <http://localhost:8780>. Dans **Settings → Models & Channels**, choisissez l'un de :
 
 - **Official** — collez votre clé DC (obtenez-en une sur <https://susciyuan.com>) ; aucune correspondance de modèles requise. LocalNewAPI reste inactif.
 - **Custom** — un clic initialise LocalNewAPI ; ajoutez ensuite vos propres canaux amont.
@@ -423,7 +423,7 @@ Quelle que soit la voie d'installation choisie, l'application se lance de la mê
    - Si vous avez défini `ST_LOCAL_PASSWORD` dans `.env`, utilisez ce mot de passe.
    - Sinon le backend génère un **mot de passe à usage unique** au premier démarrage et le journalise une seule fois. Récupérez-le avec :
      `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows : `... | findstr ST_LOCAL_PASSWORD`).
-3. **Connectez vos modèles** — allez dans **Réglages → Config des modèles** et choisissez un mode (détails dans [Modèles & fournisseurs pris en charge](#supported-models)) :
+3. **Connectez vos modèles** — allez dans **Settings → Models & Channels** et choisissez un mode (détails dans [Modèles & fournisseurs pris en charge](#supported-models)) :
    - **Officiel** — collez une clé DC depuis <https://susciyuan.com> ; tous les modèles sont déjà mappés, LocalNewAPI reste inactif.
    - **Personnalisé** — un clic initialise LocalNewAPI, puis ajoutez vos propres canaux amont (clés API + IDs de modèle) dans son UI d'admin.
    - **Hybride LocalNewAPI + Officiel** — officiel pour le pipeline principal, LocalNewAPI pour des canaux supplémentaires.
@@ -437,14 +437,14 @@ Restez à jour : re-double-cliquez le lanceur **Start** pour redémarrer ; véri
 
 ## <a name="supported-models"></a>Modèles & fournisseurs pris en charge
 
-DramaClaw reste neutre en modèles — tous les modèles texte / image / vidéo / audio se connectent via une **passerelle compatible OpenAI**. Choisissez le mode dans **Settings → Model Config** :
+DramaClaw reste neutre en modèles — tous les modèles texte / image / vidéo / audio se connectent via une **passerelle compatible OpenAI**. Choisissez le mode dans **Settings → Models & Channels** :
 
 - **Official (recommandé)** — collez votre clé DC (obtenez-en une sur <https://susciyuan.com>), enregistrez, terminé. La passerelle officielle fournit déjà toutes les correspondances de modèles dont DramaClaw a besoin ; rien à configurer.
 - **Custom** — un clic initialise LocalNewAPI, puis ajoutez vos propres canaux fournisseurs (clés API, IDs de modèles) dans son UI d'admin. Chaque modèle appelé par DramaClaw passe par vos canaux.
 - **LocalNewAPI + Official Hybrid** — gardez les modèles officiels pour le pipeline principal et ajoutez des canaux (par exemple un workflow vidéo ComfyUI local) via LocalNewAPI.
 
 > 🧠 **Apportez votre propre calcul — moins cher, mieux maîtrisé.** La passerelle est conçue pour que *vous* choisissiez où s'exécute chaque génération :
-> - **Calcul inactif d'AIPDD (réduction des coûts).** Connecter le canal **AIPDD** permet à la génération de tourner sur le **pool de calcul inactif** de la plateforme ; les tâches lourdes de séries par lot ne coûtent qu'une fraction du prix à la demande — le levier le plus efficace pour baisser le coût de production. Inscrivez-vous sur <https://www.aipdd.work> pour obtenir une clé API AIPDD, puis ajoutez-la comme canal dans **Paramètres → Configurer les modèles**.
+> - **Calcul inactif d'AIPDD (réduction des coûts).** Connecter le canal **AIPDD** permet à la génération de tourner sur le **pool de calcul inactif** de la plateforme ; les tâches lourdes de séries par lot ne coûtent qu'une fraction du prix à la demande — le levier le plus efficace pour baisser le coût de production. Inscrivez-vous sur <https://www.aipdd.work> pour obtenir une clé API AIPDD, puis ajoutez-la comme canal dans **Settings → Models & Channels**.
 > - **NewAPI, combinez librement.** La passerelle **NewAPI** intégrée vous laisse enregistrer plusieurs fournisseurs comme canaux et **les combiner comme vous voulez** — officiels, AIPDD, une machine auto-hébergée, ou tout endpoint compatible OpenAI — par modèle, par étape. Pour les canaux NewAPI, nous recommandons de **chercher vos propres fournisseurs et de comparer les prix** ; une liste de référence sélectionnée est ici : <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjfk>.
 > - **ComfyUI, sur votre propre GPU — le moins cher pour faire tourner la génération du canvas.** Un adaptateur **ComfyUI** de premier plan dirige la génération image / vidéo vers un workflow tournant sur **votre machine** : c'est votre GPU qui rend, **sans quota cloud par appel** — les gros calculs ne vous coûtent que l'électricité, bien moins que tout modèle hébergé. Enregistrez votre endpoint ComfyUI local comme canal en mode **Custom** ou **Hybrid**.
 >   - **Le plus simple pour installer ComfyUI** — pas d'installation manuelle ni d'environnement Python : téléchargez notre **client de calcul (算力客户端)** fourni et lancez l'installeur : <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.

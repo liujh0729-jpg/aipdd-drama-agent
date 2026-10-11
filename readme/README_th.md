@@ -365,7 +365,7 @@ checkout ทั้งสองเป็น git repo ธรรมดา: แก�
 docker compose -f docker-compose.release.yml up -d
 ```
 
-เปิดแอปที่ <http://localhost:8080>; REST API อยู่ที่ <http://localhost:8780> ใน **Settings → Model Config** เลือกหนึ่งอย่าง:
+เปิดแอปที่ <http://localhost:8080>; REST API อยู่ที่ <http://localhost:8780> ใน **Settings → Models & Channels** เลือกหนึ่งอย่าง:
 
 - **Official** — วาง DC key ของคุณ (รับได้ที่ <https://susciyuan.com>); ไม่ต้อง map model gateway ที่มาพร้อมกันจะอยู่เฉย ๆ
 - **Custom** — คลิกเดียวเพื่อเริ่มต้น gateway `newapi` ที่มาพร้อมกัน; จากนั้นเพิ่ม upstream channel ของคุณเอง
@@ -434,7 +434,7 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - ถ้าคุณตั้ง `ST_LOCAL_PASSWORD` ใน `.env` ใช้รหัสผ่านนั้น
    - ไม่งั้น backend จะสร้าง **รหัสผ่านใช้ครั้งเดียว** ตอนเริ่มครั้งแรกและ log ไว้ครั้งเดียว เอาคืนได้ด้วย:
      `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`)
-3. **ต่อโมเดลของคุณ** — ไปที่ **Settings → Config โมเดล** แล้วเลือกโหมดหนึ่ง (รายละเอียดใน [Model และผู้ให้บริการที่รองรับ](#supported-models)):
+3. **ต่อโมเดลของคุณ** — ไปที่ **Settings → Models & Channels** แล้วเลือกโหมดหนึ่ง (รายละเอียดใน [Model และผู้ให้บริการที่รองรับ](#supported-models)):
    - **Official** — วาง DC key จาก <https://susciyuan.com>; โมเดลทั้งหมด map ไว้แล้ว LocalNewAPI จะรอเฉย
    - **Custom** — คลิกเดียวจะ init LocalNewAPI แล้วเพิ่ม channel upstream ของคุณเอง (API key + model ID) ใน admin UI ของมัน
    - **LocalNewAPI + Official Hybrid** — ใช้ official สำหรับ pipeline หลัก และ channel เพิ่มเติมผ่าน LocalNewAPI
@@ -448,14 +448,14 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 ## <a name="supported-models"></a>Model และผู้ให้บริการที่รองรับ
 
-DramaClaw เป็นกลางเรื่อง model — model ข้อความ / ภาพ / วิดีโอ / เสียงทั้งหมดเชื่อมต่อผ่าน **gateway ที่เข้ากันได้กับ OpenAI** เลือกโหมดใน **Settings → Model Config**:
+DramaClaw เป็นกลางเรื่อง model — model ข้อความ / ภาพ / วิดีโอ / เสียงทั้งหมดเชื่อมต่อผ่าน **gateway ที่เข้ากันได้กับ OpenAI** เลือกโหมดใน **Settings → Models & Channels**:
 
 - **Official (แนะนำ)** — วาง DC key ของคุณ (รับได้ที่ <https://susciyuan.com>) บันทึก เสร็จ gateway อย่างเป็นทางการมี model mapping ทุกตัวที่ DramaClaw ต้องการอยู่แล้ว; ไม่ต้องตั้งค่าอะไรเลย
 - **Custom** — คลิกเดียวเพื่อเริ่มต้น `dramaclaw-gateway` ที่มาพร้อมกัน จากนั้นเพิ่ม channel ของผู้ให้บริการของคุณเอง (API key, model ID) ใน admin UI ของมัน ทุก model ที่ DramaClaw เรียกจะผ่าน channel ของคุณ
 - **LocalNewAPI + Official Hybrid** — ใช้ model official สำหรับสายการผลิตหลัก และเพิ่ม channel อื่น (เช่นเวิร์กโฟลว์วิดีโอ ComfyUI ในเครื่อง) ผ่าน gateway ที่มาพร้อมกัน
 
 > 🧠 **เลือกแหล่งกำลัง computation เอง — ถูกลงและคุมได้มากขึ้น.** gateway ถูกออกแบบให้ *คุณ* เป็นผู้ตัดสินใจว่าการสร้างแต่ละครั้งจะรันที่ไหน:
-> - **ทรัพยากร computation ที่ว่างของ AIPDD (ลดต้นทุน).** การต่อ channel **AIPDD** ทำให้การสร้างรันบน **pool ทรัพยากร computation ที่ว่าง** ของแพลตฟอร์ม งานสร้างซีรีส์แบบ batch ที่หนัก ๆ จึงเสียค่าใช้จ่ายเพียงเศษเสี้ยวของราคา on-demand — เป็นคานงัดที่ใหญ่ที่สุดในการลดต้นทุนการผลิต สมัครที่ <https://www.aipdd.work> เพื่อรับ AIPDD API key แล้วเพิ่มเป็น channel ใน **การตั้งค่า → ตั้งค่า Model**
+> - **ทรัพยากร computation ที่ว่างของ AIPDD (ลดต้นทุน).** การต่อ channel **AIPDD** ทำให้การสร้างรันบน **pool ทรัพยากร computation ที่ว่าง** ของแพลตฟอร์ม งานสร้างซีรีส์แบบ batch ที่หนัก ๆ จึงเสียค่าใช้จ่ายเพียงเศษเสี้ยวของราคา on-demand — เป็นคานงัดที่ใหญ่ที่สุดในการลดต้นทุนการผลิต สมัครที่ <https://www.aipdd.work> เพื่อรับ AIPDD API key แล้วเพิ่มเป็น channel ใน **Settings → Models & Channels**
 > - **NewAPI จับคู่อิสระ.** gateway **NewAPI** ที่ให้มาอนุญาตให้จด provider หลายรายเป็น channel และ **จับคู่ได้ตามใจ** — official, AIPDD, เครื่องที่คุณ host เอง หรือ endpoint ที่เข้ากันได้กับ OpenAI ใด ๆ — เลือกต่อ model ต่อขั้นตอน สำหรับ channel NewAPI เราแนะนำให้ **หา provider เองและเปรียบเทียบราคา**; รายการอ้างอิงที่คัดมาแล้วอยู่ที่นี่: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjfk>
 > - **ComfyUI บน GPU ของคุณ — วิธีถูกที่สุดในการรันการสร้างบน canvas.** adapter **ComfyUI** ชั้นหนึ่งจะ route การสร้างภาพ / วิดีโอไปยังเวิร์กโฟลว์ที่รันบน **เครื่องของคุณ**: GPU ของคุณเป็นผู้เรนเดอร์ **ไม่กินโควตา cloud ต่อการเรียก** — งานหนักเสียแค่ค่าไฟ ถูกกว่าโมเดล hosted ใดๆ มาก จด endpoint ComfyUI ในเครื่องเป็น channel ในโหมด **Custom** หรือ **Hybrid**
 >   - **วิธีลง ComfyUI ง่ายที่สุด** — ไม่ต้องลงด้วยมือหรือตั้งสภาพแวดล้อม Python แค่ดาวน์โหลด **compute client (算力客户端)** ที่เราแพ็กมาให้แล้วรันตัวติดตั้ง: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.

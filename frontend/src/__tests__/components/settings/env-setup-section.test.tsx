@@ -2,11 +2,11 @@
 // Copyright (c) 2026 ClaymoreLab
 // [aipdd fork delta] 设置 →「环境安装」：部署环境真实依赖探测 + 融入 3D 世界 + 本地 Agent 工具。
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { EnvSetupSection } from "@/components/settings/env-setup-section";
 
-const { envState, agentState } = vi.hoisted(() => ({
+const { envState, agentState, planState, installState, emptyPlan } = vi.hoisted(() => ({
   envState: {
     value: {
       isLoading: false,
@@ -43,6 +43,23 @@ const { envState, agentState } = vi.hoisted(() => ({
       },
     } as Record<string, unknown>,
   },
+  // 待办计划（环境自检 → 逐项安装）：默认给一份「全部就绪、零待办」的计划，
+  // 免得计划行与下面的依赖行重名，让 getByText 的断言产生歧义。具体用例自行改写。
+  planState: {
+    value: {
+      isLoading: false,
+      refetch: vi.fn(),
+      data: undefined,
+    } as Record<string, unknown>,
+  },
+  installState: {
+    value: { isPending: false, mutate: vi.fn() } as Record<string, unknown>,
+  },
+  emptyPlan: () => ({
+    items: [],
+    summary: { total: 0, ready: 0, installable: 0, missing: 0, all_ready: true },
+    world: {},
+  }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -51,6 +68,8 @@ vi.mock("react-i18next", () => ({
 
 vi.mock("@/lib/queries/env", () => ({
   useEnvStatus: () => envState.value,
+  useEnvPlan: () => planState.value,
+  useEnvInstall: () => installState.value,
 }));
 
 vi.mock("@/lib/queries/agent", () => ({
@@ -71,6 +90,26 @@ const DEFAULT_ITEMS = [
   { id: "chrome", installed: true, version: null, detail: "http://127.0.0.1:9222" },
   { id: "opencv", installed: true, version: "4.11.0", detail: null },
 ];
+
+/** 待办计划单项的骨架：只让用例覆盖自己要断言的字段，其余跟后端默认一致。 */
+function planItem(
+  id: string,
+  status: "ready" | "installable" | "missing",
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    id,
+    status,
+    installed: status === "ready",
+    auto_installable: false,
+    action: null,
+    version: null,
+    detail: null,
+    guide: null,
+    optional: false,
+    ...extra,
+  };
+}
 
 beforeEach(() => {
   envState.value = {
@@ -93,6 +132,12 @@ beforeEach(() => {
         hostHomePath: "/host-home",
       },
     },
+  };
+  installState.value = { isPending: false, mutate: vi.fn() };
+  planState.value = {
+    isLoading: false,
+    refetch: vi.fn(),
+    data: { data: emptyPlan() },
   };
 });
 
@@ -227,5 +272,87 @@ describe("EnvSetupSection", () => {
     agentState.value = { isLoading: true, data: undefined };
     render(<EnvSetupSection />);
     expect(screen.getByText("mcp.localTools.loading")).toBeInTheDocument();
+  });
+
+  // [aipdd fork delta 需求第 4 条] 环境自检 → 待办清单 → 逐项安装：探测结果得变成
+  // 能动作的条目，不然用户看完一堆「缺失」还是不知道该点哪里。
+  it("turns the environment plan into a to-do list with a per-item install action", () => {
+    planState.value = {
+      isLoading: false,
+      refetch: vi.fn(),
+      data: {
+        data: {
+          items: [
+            planItem("docker", "ready", { version: "27.1.1" }),
+            planItem("world", "installable", { auto_installable: true }),
+            planItem("npm", "missing"),
+            planItem("model_channel", "missing"),
+            planItem("chrome", "missing", { optional: true }),
+          ],
+          summary: { total: 5, ready: 1, installable: 1, missing: 2, all_ready: false },
+          world: {},
+        },
+      },
+    } as Record<string, unknown>;
+    render(<EnvSetupSection />);
+
+    expect(screen.getByText("settings.envSetup.plan.title")).toBeInTheDocument();
+    // 可装项与必需缺失项进待办；就绪项不占待办，按需项（chrome）也不算「待补」。
+    expect(screen.getByText("settings.envSetup.plan.items.world.name")).toBeInTheDocument();
+    expect(screen.getByText("settings.envSetup.plan.items.modelChannel.name")).toBeInTheDocument();
+    // 就绪项不进待办：docker 不在依赖表里，它出现就等于计划行漏了过滤。
+    expect(
+      screen.queryByText("settings.envSetup.dependencies.docker.name"),
+    ).not.toBeInTheDocument();
+    // npm 同时出现在待办行与依赖表（两处都在说同一件事，不互相顶替）。
+    expect(screen.getAllByText("settings.envSetup.dependencies.npm.name")).toHaveLength(2);
+    // 只有可自动装的条目给安装按钮，点击就报回对应 id。
+    const installButtons = screen.getAllByText("settings.envSetup.plan.install");
+    expect(installButtons).toHaveLength(1);
+    fireEvent.click(installButtons[0]);
+    expect(installState.value.mutate).toHaveBeenCalledWith("world");
+    // 模型渠道没密钥不能自动装，只能给可执行的指路（导航名必须是真实栏目）。
+    expect(
+      screen.getByText("settings.envSetup.plan.items.modelChannel.fix"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("settings.envSetup.plan.allReady")).not.toBeInTheDocument();
+  });
+
+  it("says everything is ready when the plan has nothing left to do", () => {
+    planState.value = {
+      isLoading: false,
+      refetch: vi.fn(),
+      data: { data: emptyPlan() },
+    } as Record<string, unknown>;
+    render(<EnvSetupSection />);
+    expect(screen.getByText("settings.envSetup.plan.allReady")).toBeInTheDocument();
+    expect(screen.queryByText("settings.envSetup.plan.install")).not.toBeInTheDocument();
+  });
+
+  it("locks the install action while the 3D world runtime is installing", () => {
+    planState.value = {
+      isLoading: false,
+      refetch: vi.fn(),
+      data: {
+        data: {
+          items: [planItem("world", "installable", { auto_installable: true })],
+          summary: { total: 1, ready: 0, installable: 1, missing: 0, all_ready: false },
+          world: { installing: true, message: "PULLING" },
+        },
+      },
+    } as Record<string, unknown>;
+    render(<EnvSetupSection />);
+    expect(screen.getByText("PULLING")).toBeInTheDocument();
+    // 安装中：按钮文案换成「安装中…」并置 disabled，误点不会叠出第二次安装。
+    const button = screen.getByText("settings.envSetup.plan.installing").closest("button");
+    expect(button).toBeDisabled();
+    fireEvent.click(button as HTMLButtonElement);
+    expect(installState.value.mutate).not.toHaveBeenCalled();
+  });
+
+  it("shows a detecting state for the plan before the first probe lands", () => {
+    planState.value = { isLoading: true, refetch: vi.fn(), data: undefined };
+    render(<EnvSetupSection />);
+    expect(screen.getByText("settings.envSetup.plan.loading")).toBeInTheDocument();
   });
 });

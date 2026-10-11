@@ -97,7 +97,8 @@ def test_custom_catalog_returns_only_configured_enabled_image_entries() -> None:
     # 只保留启用条目；停用条目和未配置的内置 / 网关模型都不进目录。
     ids = {entry["catalogId"] for entry in catalog}
     assert ids == {"ap-image-2.0"}
-    assert "LingShan-G2" not in ids
+    # 内置别名一律不再出现在目录里（曾经在这里钉过一个发行方私有名）。
+    assert not [i for i in ids if i not in {"ap-image-2.0"}]
     assert "ap-jimeng-image-4.0" not in ids
     # 图片条目补齐可编辑的默认档位，画布参数下拉照常可用。
     assert catalog[0]["resolutionOptions"]

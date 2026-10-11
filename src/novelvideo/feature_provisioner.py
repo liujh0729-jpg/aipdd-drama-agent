@@ -470,7 +470,7 @@ def _embedding_health_hints() -> list[str]:
     provider = str(config.get("provider") or "").strip().lower()
     upstream = str(config.get("upstreamModel") or "").strip()
     if not provider or not upstream:
-        return ["向量模型（知识图谱检索用）还没绑定：请到「设置 › 模型 › 向量模型」选择并填写维度。"]
+        return ["向量模型（知识图谱检索用）还没绑定：请到「设置 → 模型与渠道」的「向量化与语义检索（Embedding）」区块选择并填写维度。"]
     if catalog_is_known(provider) and upstream not in catalog_names_for_provider(provider):
-        return ["向量模型原来的绑定已从渠道下架：请到「设置 › 模型 › 向量模型」重新选择。"]
+        return ["向量模型原来的绑定已从渠道下架：请到「设置 → 模型与渠道」的「向量化与语义检索（Embedding）」区块重新选择。"]
     return []

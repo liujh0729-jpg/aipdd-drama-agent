@@ -357,7 +357,7 @@ class NewApiAdminServiceIdentity:
 # NewApiAdminServiceIdentity 的底层通用错「must be an HTTP service URL」，
 # 把可执行提示挡住——这里统一复用同一条可执行文案。
 ADMIN_BASE_URL_UNCONFIGURED_HINT = (
-    "未配置 NewAPI 管理面地址：请在「设置 › 模型」填自定义网关的管理面地址，"
+    "未配置 NewAPI 管理面地址：请在「设置 → 模型与渠道」填自定义网关的管理面地址，"
     "或在环境变量 NEWAPI_ADMIN_BASE_URL 指定（容器内部署时是网关服务地址，"
     "如 http://newapi:3000，不是 127.0.0.1）。"
 )

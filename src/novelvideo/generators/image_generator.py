@@ -1067,7 +1067,7 @@ async def generate_character_reference_unified(
 ) -> list[str]:
     """统一的角色参考图生成接口。
 
-    根据 model 参数或「设置 › 模型」的图源选择选生成器：
+    根据 model 参数或「设置 → 模型与渠道」的图源选择选生成器：
     - "nanobanana": 使用 Nano Banana Pro (Gemini)，与网格生成同一模型
     - "seedream": 使用 Seedream 4.0 (火山引擎)
 
@@ -1081,7 +1081,7 @@ async def generate_character_reference_unified(
         style: 风格名称（如 "post_apocalyptic"），默认使用全局配置
         ethnicity: 角色种族（默认 "Chinese"），用于确保生成正确的面部特征
         prompt_only: Dry Run 模式，只生成提示词文件，不调用 API
-        model: 模型选择，"nanobanana" 或 "seedream"，默认取「设置 › 模型」的图源选择
+        model: 模型选择，"nanobanana" 或 "seedream"，默认取「设置 → 模型与渠道」的图源选择
 
     Returns:
         生成的图片路径列表
@@ -1257,7 +1257,7 @@ async def generate_identity_image_unified(
         ethnicity: 角色种族（默认 "Chinese"），用于确保生成正确的面部特征
         style: 风格名称（如 "post_apocalyptic"），默认使用全局配置
         dry_run: 是否仅生成 Prompt 不生成图片（默认 False）
-        model: 模型选择，"nanobanana" 或 "seedream"，默认取「设置 › 模型」的图源选择
+        model: 模型选择，"nanobanana" 或 "seedream"，默认取「设置 → 模型与渠道」的图源选择
 
     Returns:
         dict: {"success": bool, "prompt": str, "prompt_file": str} (dry_run 模式返回 prompt)

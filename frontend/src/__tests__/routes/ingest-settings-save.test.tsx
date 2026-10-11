@@ -76,6 +76,20 @@ beforeAll(async () => {
               loadFailed: "Knowledge graph is unavailable",
               loadFailedHint: "Try again later.",
             },
+            // [aipdd fork delta] 导入后的自动化操作条（与 en 语言包同口径）。
+            auto: {
+              start: "One-click automation",
+              hint: "After import, builds characters, episodes, scenes and the graph automatically.",
+              running: "Automation in progress…",
+              queued: "Automation task queued (target {{targetEpisodes}} episodes)",
+            },
+            graph: {
+              build: "Generate graph",
+              running: "Generating the knowledge graph…",
+              emptyTitle: "No knowledge graph yet",
+              emptyHint: "Import only splits the text.",
+              buildQueued: "Graph generation task queued",
+            },
             inputMode: { upload: "Upload Novel", paste: "Paste Text" },
             sourceHint: {
               uploadActive: "Uploaded file active",
@@ -187,6 +201,10 @@ const mocks = vi.hoisted(() => ({
   // 这里给稳定引用 + 未落地的查询态，保持既有用例流程与之无异。
   autoSceneHeaders: vi.fn(),
   applyAutoSceneHeaders: vi.fn(),
+  // [aipdd fork delta] 结构化管线导入只切分落盘、不建图：建图与一键自动化两个入口
+  // 得在页面上可点。默认给一个成功回包，免得用例误点时踩到 undefined 崩在 catch 里。
+  buildGraph: vi.fn(async () => ({ ok: true, task_id: "graph-task-1" })),
+  startIngestAuto: vi.fn(async () => ({ ok: true, task_id: "auto-task-1" })),
   chaptersData: undefined as
     | {
         ok: true;
@@ -231,6 +249,8 @@ const mocks = vi.hoisted(() => ({
   ingestTasksFetchedAfterMount: true,
   refetchKnowledgeGraph: vi.fn(),
   taskStreamOnError: null as ((error: string) => void) | null,
+  // 三个流各自的 taskType，供断言「本页到底连了哪几条 SSE」。
+  streamTaskTypes: [] as string[],
 }));
 
 vi.mock("@/components/ui/select", async () => {
@@ -371,6 +391,14 @@ vi.mock("@/lib/queries/ingest", () => ({
     mutateAsync: mocks.applyAutoSceneHeaders,
     isPending: false,
   }),
+  useBuildKnowledgeGraph: () => ({
+    mutateAsync: mocks.buildGraph,
+    isPending: false,
+  }),
+  useStartIngestAuto: () => ({
+    mutateAsync: mocks.startIngestAuto,
+    isPending: false,
+  }),
 }));
 
 vi.mock("@/lib/queries/characters", () => ({
@@ -386,8 +414,14 @@ vi.mock("@/lib/queries/tasks", () => ({
 }));
 
 vi.mock("@/hooks/use-task-stream", () => ({
-  useTaskStream: (options: { onError?: (error: string) => void }) => {
-    mocks.taskStreamOnError = options.onError ?? null;
+  useTaskStream: (options: { taskType?: string; onError?: (error: string) => void }) => {
+    // [aipdd fork delta] 本页同时挂了三个流（ingest_fast / graph_preview /
+    // script_auto），只记导入那一条的 onError：否则后注册的会把先注册的顶掉，
+    // 用例会拿着一个永远不会被调的回调干等。
+    mocks.streamTaskTypes.push(options.taskType ?? "");
+    if (options.taskType === "ingest_fast") {
+      mocks.taskStreamOnError = options.onError ?? null;
+    }
     return {
       status: "idle",
       progress: 0,
@@ -431,12 +465,16 @@ beforeEach(() => {
   mocks.updateProject.mockResolvedValue({ ok: true, data: mocks.projectConfig });
   mocks.uploadNovel.mockReset();
   mocks.startIngest.mockReset();
+  // 只清调用记录，保留默认成功回包。
+  mocks.buildGraph.mockClear();
+  mocks.startIngestAuto.mockClear();
   mocks.chaptersData = undefined;
   mocks.toastSuccess.mockReset();
   mocks.toastError.mockReset();
   mocks.ingestTasks = [];
   mocks.ingestTasksFetchedAfterMount = true;
   mocks.taskStreamOnError = null;
+  mocks.streamTaskTypes = [];
 });
 
 describe("IngestPage settings save", () => {
@@ -702,6 +740,59 @@ describe("IngestPage settings save", () => {
     expect(screen.getByText("2 nodes · 1 relationships")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "林昭, Entity" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "雨巷, Entity" })).toBeInTheDocument();
+  });
+
+  // [aipdd fork delta] 结构化管线导入只切分落盘、不建图：图谱与一键自动化得在导入后的
+  // 操作条上直接点得动，否则角色/场景/道具那一层永远是空的。
+  it("queues the knowledge graph build from the post-import action bar", async () => {
+    const user = userEvent.setup();
+    mocks.chaptersData = {
+      ok: true,
+      data: {
+        total_chars: 10,
+        count: 1,
+        chapters: [{ number: 1, title: "第一章", char_count: 10 }],
+      },
+    };
+
+    render(
+      <Wrapper>
+        <IngestPageContent project="demo" />
+      </Wrapper>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Generate graph" }));
+    await waitFor(() => expect(mocks.buildGraph).toHaveBeenCalledTimes(1));
+    // 三条 SSE 各领自己的 taskType：写串了就会去连一条不存在的流（每次渲染都会调，取出现顺序去重）。
+    expect([...new Set(mocks.streamTaskTypes)]).toEqual([
+      "ingest_fast",
+      "graph_preview",
+      "script_auto",
+    ]);
+  });
+
+  // 两个入口争同一份侧车，启一个就必须锁另一个。
+  it("queues one-click automation and locks the graph button while it runs", async () => {
+    const user = userEvent.setup();
+    mocks.chaptersData = {
+      ok: true,
+      data: {
+        total_chars: 10,
+        count: 1,
+        chapters: [{ number: 1, title: "第一章", char_count: 10 }],
+      },
+    };
+
+    render(
+      <Wrapper>
+        <IngestPageContent project="demo" />
+      </Wrapper>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "One-click automation" }));
+    await waitFor(() => expect(mocks.startIngestAuto).toHaveBeenCalledTimes(1));
+    expect(mocks.startIngestAuto).toHaveBeenCalledWith({});
+    expect(screen.getByRole("button", { name: "Generate graph" })).toBeDisabled();
   });
 
   it("does not request or show the graph for an upload-only chapter preview", () => {

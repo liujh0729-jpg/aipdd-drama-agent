@@ -47,12 +47,12 @@ describe("canvas audio speech/music model plumbing", () => {
   it("sends the selected music model and omits it when unset", async () => {
     await submitFreezoneAudioMusic("p1", {
       prompt: "rain music",
-      model: "LingShan-MU-11",
+      model: "Acme-MU-1",
     });
     const selected = vi.mocked(apiCall).mock.calls[0][1] as {
       json: Record<string, unknown>;
     };
-    expect(selected.json.model).toBe("LingShan-MU-11");
+    expect(selected.json.model).toBe("Acme-MU-1");
 
     await submitFreezoneAudioMusic("p1", { prompt: "rain music" });
     const fallback = vi.mocked(apiCall).mock.calls[1][1] as {

@@ -516,7 +516,7 @@ def _model_gateway_client() -> TestClient:
 
 
 def test_resolve_slot_ignores_process_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """[aipdd fork delta] 模型选定的真源是「设置 › 模型」+ 渠道目录，进程环境一律不参与。
+    """[aipdd fork delta] 模型选定的真源是「设置 → 模型与渠道」+ 渠道目录，进程环境一律不参与。
 
     旧实现按「per-feature env → 全局兜底 env → 槽位绑定」取值。出厂模板把每一位都写成
     ``X=DC-x-LLM``，等于替所有部署把**没绑定过的槽位键**发给网关（网关注册表只从绑定表
@@ -559,7 +559,7 @@ def test_not_configured_message_leads_with_chinese_label(
     message = exc.value.message
     assert "出场角色筛选" in message
     assert "IDENTITY_PLANNER_CAST_MODEL" in message
-    assert "设置 › 模型" in message
+    assert "设置 → 模型与渠道" in message
     assert exc.value.display_name == "出场角色筛选"
 
 
@@ -577,7 +577,7 @@ def test_resolve_slot_rejects_unbound_and_delisted_with_chinese_reason() -> None
     assert unbound.value.reason == REASON_UNBOUND
     assert "DC-hermes-LLM" in unbound.value.message
     assert "未绑定可用模型" in unbound.value.message
-    assert "设置 › 模型" in unbound.value.message
+    assert "设置 → 模型与渠道" in unbound.value.message
 
     save_newapi_model_alias_mappings(
         {"DC-hermes-LLM": {"provider": PROVIDER, "target": "ap-gone"}}, merge=True
@@ -768,13 +768,13 @@ def test_dead_model_name_in_env_is_ignored_not_dispatched(
 ) -> None:
     """目录里根本没有的名字写进 env 后，旧实现会把它直接交出去（然后网关回 503）。
 
-    复现的是 ``HERMES_MODEL=LingShan-NB-2`` / ``SCENE_MASTER_IMAGE_MODEL=LingShan-NB-2``
+    复现的是 ``HERMES_MODEL=Acme-IMG-2`` / ``SCENE_MASTER_IMAGE_MODEL=Acme-IMG-2``
     那类出厂死名。现在 env 连读都不读：这一位走自己的兜底 —— 渠道目录里的复合调用名。
     （绑定指向死名、且两档都兜不出名字时的 400 由
     ``test_resolve_slot_rejects_unbound_and_delisted_with_chinese_reason`` 守着。）
     """
     _seed_catalog(names=["ap-live-llm"])
-    monkeypatch.setenv("HERMES_MODEL", "LingShan-NB-2")
+    monkeypatch.setenv("HERMES_MODEL", "Acme-IMG-2")
 
     assert resolve_slot("HERMES_MODEL") == f"{PROVIDER}::ap-live-llm"
 

@@ -32,7 +32,7 @@ def test_foss_only_e2e_script_encodes_locked_cli_sequence_and_assertions() -> No
     assert "gateway_configured" in script
     assert "gateway=$gateway_source" in script
     assert "provider=$PROVIDER" not in script
-    assert "Settings → Model Configuration" in script
+    assert "Settings → Models & Channels" in script
 
 
 def test_env_example_does_not_expose_legacy_direct_model_api_key() -> None:

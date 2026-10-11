@@ -260,7 +260,7 @@ def _to_cognee_provider(provider: str) -> str:
 
 
 def _cognee_llm_call_name() -> str:
-    """Cognee 这一位实际要用的调用名：只由「设置 › 模型」的槽位绑定 + 渠道目录决定。
+    """Cognee 这一位实际要用的调用名：只由「设置 → 模型与渠道」的槽位绑定 + 渠道目录决定。
 
     [aipdd fork delta] ``COGNEE_LLM_MODEL`` env 已退出解析链：它是注册表里的槽位键，不再是一个
     可以在进程环境里钉模型名的入口。本函数在模块导入期就要求值，因歡不得抛

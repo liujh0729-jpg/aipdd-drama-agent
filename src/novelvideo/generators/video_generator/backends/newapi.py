@@ -294,7 +294,7 @@ def _require_public_media_url(url: str, *, kind: str) -> None:
         return
     raise ValueError(
         f"{kind}必须使用公网可达的 http(s) 直链或素材库 asset:// 引用，当前拿到的是内联 data URL。"
-        "请在「设置 · 模型网关 · 媒体存储」填上 AIPDD API Key（选「AIPDD 数字资产云」档，"
+        "请在「设置 → 媒体存储」填上 AIPDD API Key（选「AIPDD 数字资产云」档，"
         "或在「本地存储」档下用它做参考媒体中转），或配置阿里云 OSS / Cloudinary 中转，"
         "或先把素材上传成公网直链后重试。"
     )
@@ -350,7 +350,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
             get_newapi_video_model,
         )
 
-        # [aipdd fork delta] 默认视频模型只读「设置 › 模型」的视频映射：
+        # [aipdd fork delta] 默认视频模型只读「设置 → 模型与渠道」的视频映射：
         # ``NEWAPI_VIDEO_MODEL`` env 已退出解析链（面板看不见的名字不能赢过用户选的默认）。
         default_video_model = get_newapi_video_model()
         self.egress_context = _video_egress_context(egress_context)

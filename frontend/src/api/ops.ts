@@ -3231,7 +3231,7 @@ export async function submitFreezoneVideoDubbing(
 export interface FreezoneAudioMusicPayload {
   /** 音乐描述 prompt（风格、乐器、氛围等）；映射到后端 `input`。 */
   prompt: string;
-  /** [aipdd fork delta] 选定的音乐模型；留空 = 后端解析「设置 › 模型」的默认音频模型。 */
+  /** [aipdd fork delta] 选定的音乐模型；留空 = 后端解析「设置 → 模型与渠道」的默认音频模型。 */
   model?: string;
   /** 生成长度（毫秒），范围 3000–600000，留空走后端默认 30000。 */
   musicLengthMs?: number;
@@ -3259,7 +3259,7 @@ export async function submitFreezoneAudioMusic(
       json: {
         input: payload.prompt,
         // [aipdd fork delta] 后端全程透传 body.model；不选时省略 key，让后端去解析
-        // 「设置 › 模型」里配好的默认音频模型，没配就在提交前拦住。
+        // 「设置 → 模型与渠道」里配好的默认音频模型，没配就在提交前拦住。
         ...(payload.model ? { model: payload.model } : {}),
         music_length_ms: payload.musicLengthMs,
         force_instrumental: payload.forceInstrumental,

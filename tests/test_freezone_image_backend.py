@@ -56,8 +56,8 @@ from novelvideo.task_state import get_task_manager
 @pytest.mark.parametrize(
     "selection,model",
     [
-        ("newapi_gpt_image2", "LingShan-G2"),
-        ("newapi_nanobanana2", "LingShan-NB-2"),
+        ("newapi_gpt_image2", "Acme-IMG-1"),
+        ("newapi_nanobanana2", "Acme-IMG-2"),
     ],
 )
 @pytest.mark.parametrize("quality", ["low", "medium", "high"])
@@ -97,8 +97,8 @@ async def test_mainline_canvas_enqueue_carries_effective_image_selection(
     # This legacy setting is not a generate_grid override: mode_key wins.
     monkeypatch.setenv("DIRECTOR_CONTROL_SKETCH_IMAGE_SIZE", "4K")
     for key, name in [
-        ("newapi_gpt_image2", "LingShan-G2"),
-        ("newapi_nanobanana2", "LingShan-NB-2"),
+        ("newapi_gpt_image2", "Acme-IMG-1"),
+        ("newapi_nanobanana2", "Acme-IMG-2"),
     ]:
         monkeypatch.setitem(
             image_config.IMAGE_GENERATION_SELECTIONS,
@@ -218,8 +218,8 @@ def test_director_sketch_config_prefers_override_over_projected_selection(monkey
     monkeypatch.delenv("DIRECTOR_CONTROL_SKETCH_IMAGE_QUALITY", raising=False)
     monkeypatch.delenv("DIRECTOR_CONTROL_SKETCH_IMAGE_SIZE", raising=False)
     for key, name in [
-        ("newapi_gpt_image2", "LingShan-G2"),
-        ("newapi_nanobanana2", "LingShan-NB-2"),
+        ("newapi_gpt_image2", "Acme-IMG-1"),
+        ("newapi_nanobanana2", "Acme-IMG-2"),
     ]:
         monkeypatch.setitem(
             image_config.IMAGE_GENERATION_SELECTIONS,
@@ -228,14 +228,14 @@ def test_director_sketch_config_prefers_override_over_projected_selection(monkey
         )
 
     config = director_sketch.get_director_sketch_generation_config("newapi_nanobanana2")
-    assert config["model"] == "LingShan-NB-2"
+    assert config["model"] == "Acme-IMG-2"
     assert config["image_size"] == "1K"
     assert config["openai_image_quality"] == "low"
 
     monkeypatch.setenv("DIRECTOR_CONTROL_SKETCH_IMAGE_SELECTION", "newapi_gpt_image2")
     monkeypatch.setenv("DIRECTOR_CONTROL_SKETCH_IMAGE_QUALITY", "high")
     config = director_sketch.get_director_sketch_generation_config("newapi_nanobanana2")
-    assert config["model"] == "LingShan-G2"
+    assert config["model"] == "Acme-IMG-1"
     assert config["image_size"] == "1K"
     assert config["openai_image_quality"] == "high"
 
@@ -1347,8 +1347,8 @@ async def test_freezone_audio_generation_enqueues_speech_and_music_jobs(
     assert captured[1]["task_type"] == "freezone_audio_eleven_music"
     music_payload = captured[1]["payload"]
     assert music_payload["input"] == "雨夜悬疑配乐"
-    # [aipdd fork delta] 入队时不再钉任何内置模型名（旧的 LingShan-MU-11 就是这样一个
-    # 渠道目录里不存在的名字）：默认音频位留给执行阶段按「设置 › 模型」解析。
+    # [aipdd fork delta] 入队时不再钉任何内置模型名（旧的 上游私有别名 就是这样一个
+    # 渠道目录里不存在的名字）：默认音频位留给执行阶段按「设置 → 模型与渠道」解析。
     assert music_payload["model"] == ""
     assert music_payload["music_length_ms"] == 30_500
     assert "billing" not in music_payload
@@ -3880,8 +3880,8 @@ async def test_freezone_gen_derives_execution_model_from_catalog(
                 "catalogId": "catalog-image",
                 "id": "catalog-image-legacy",
                 "providerId": "newapi",
-                "apiModel": "LingShan-G2",
-                "gatewayModel": "LingShan-G2",
+                "apiModel": "Acme-IMG-1",
+                "gatewayModel": "Acme-IMG-1",
             },
         )
 
@@ -3918,7 +3918,7 @@ async def test_freezone_gen_derives_execution_model_from_catalog(
     assert result["ok"] is True
     payload = captured["payload"]
     assert payload["provider"] == "newapi"
-    assert payload["model"] == "LingShan-G2"
+    assert payload["model"] == "Acme-IMG-1"
     assert payload["model_id"] == "catalog-image"
     assert payload["catalog_id"] == "catalog-image"
     # [aipdd fork delta] WP-D: 报价片段删除；目录里读到的出图规格仍要原样进执行载荷。
@@ -8380,9 +8380,9 @@ def test_ce_media_catalog_overlay_returns_defaults_without_local_models() -> Non
 def test_ce_media_catalog_does_not_match_custom_upstream_model_as_catalog_id() -> None:
     defaults = [
         {
-            "catalogId": "LingShan-G2",
-            "id": "LingShan-G2",
-            "gatewayModel": "LingShan-G2",
+            "catalogId": "Acme-IMG-1",
+            "id": "Acme-IMG-1",
+            "gatewayModel": "Acme-IMG-1",
             "label": "Official",
         }
     ]
@@ -8390,14 +8390,14 @@ def test_ce_media_catalog_does_not_match_custom_upstream_model_as_catalog_id() -
         {
             "catalogId": "my-image",
             "id": "my-image",
-            "gatewayModel": "LingShan-G2",
+            "gatewayModel": "Acme-IMG-1",
             "label": "Custom",
         }
     ]
 
     result = freezone_routes._merge_media_model_catalog_defaults(defaults, configured)
 
-    assert [entry["catalogId"] for entry in result] == ["LingShan-G2", "my-image"]
+    assert [entry["catalogId"] for entry in result] == ["Acme-IMG-1", "my-image"]
 
 
 @pytest.mark.asyncio

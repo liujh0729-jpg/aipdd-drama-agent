@@ -606,9 +606,9 @@ async def test_freezone_audio_eleven_music_resolves_the_default_audio_slot(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """[aipdd fork delta] 留空 = 走「设置 › 模型」的默认音频位；env 不再参与选名。
+    """[aipdd fork delta] 留空 = 走「设置 → 模型与渠道」的默认音频位；env 不再参与选名。
 
-    旧的内置名 LingShan-MU-11 不在任何渠道目录里，打出去就是网关那句
+    旧的内置名 Acme-MU-1 不在任何渠道目录里，打出去就是网关那句
     ``No available channel``（503）—— 报错来自网关，用户完全无从下手。同一条理由适用于
     ``NEWAPI_AUDIO_MODEL``：它排在面板前面时，用户换了默认音频模型、任务还跑在 env 那个名字
     上。现在这一位只认媒体模型映射（同类型 enabled、sortOrder 最小的一条），env 里写别的

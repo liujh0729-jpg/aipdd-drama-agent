@@ -365,7 +365,7 @@ Cả hai checkout đều là repo git bình thường: sửa, `git pull`, build 
 docker compose -f docker-compose.release.yml up -d
 ```
 
-Mở ứng dụng tại <http://localhost:8080>; REST API ở <http://localhost:8780>. Trong **Settings → Model Config** chọn một trong:
+Mở ứng dụng tại <http://localhost:8080>; REST API ở <http://localhost:8780>. Trong **Settings → Models & Channels** chọn một trong:
 
 - **Official** — dán DC key của bạn (lấy tại <https://susciyuan.com>); không cần ánh xạ model. Gateway đi kèm ở trạng thái chờ.
 - **Custom** — một cú bấm khởi tạo gateway `newapi` đi kèm; sau đó thêm các kênh upstream của riêng bạn.
@@ -434,7 +434,7 @@ Dù bạn chọn lối cài nào, ứng dụng đều khởi lên như nhau:
    - Nếu bạn đặt `ST_LOCAL_PASSWORD` trong `.env`, dùng mật khẩu đó.
    - Ngược lại backend sinh một **mật khẩu một lần** ở lần khởi động đầu và ghi log đúng một lần. Lấy nó bằng:
      `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`).
-3. **Kết nối model** — vào **Cài đặt → Cấu hình model** và chọn một chế độ (chi tiết ở [Model & nhà cung cấp được hỗ trợ](#supported-models)):
+3. **Kết nối model** — vào **Cài đặt → Model & Kênh** và chọn một chế độ (chi tiết ở [Model & nhà cung cấp được hỗ trợ](#supported-models)):
    - **Chính thức** — dán một DC key từ <https://susciyuan.com>; mọi model đã được map, LocalNewAPI nghỉ.
    - **Tùy chỉnh** — một chạm khởi tạo LocalNewAPI, rồi thêm kênh upstream của bạn (API key + model ID) trong UI admin của nó.
    - **Hỗn hợp LocalNewAPI + Chính thức** — chính thức cho pipeline chính, LocalNewAPI cho các kênh bổ sung.
@@ -448,14 +448,14 @@ Luôn cập nhật: nhấp đúp lại launcher **Start** để khởi động l
 
 ## <a name="supported-models"></a>Model & nhà cung cấp được hỗ trợ
 
-DramaClaw giữ trung lập về model — mọi model text / ảnh / video / âm thanh đều kết nối qua một **gateway tương thích OpenAI**. Chọn chế độ trong **Settings → Model Config**:
+DramaClaw giữ trung lập về model — mọi model text / ảnh / video / âm thanh đều kết nối qua một **gateway tương thích OpenAI**. Chọn chế độ trong **Settings → Models & Channels**:
 
 - **Official (khuyến nghị)** — dán DC key của bạn (lấy tại <https://susciyuan.com>), lưu, xong. Gateway chính thức đã có sẵn mọi ánh xạ model mà DramaClaw cần; không phải cấu hình gì.
 - **Custom** — một cú bấm khởi tạo `dramaclaw-gateway` đi kèm, rồi thêm các kênh nhà cung cấp của riêng bạn (API key, model ID) trong giao diện quản trị của nó. Mọi model DramaClaw gọi đều đi qua kênh của bạn.
 - **LocalNewAPI + Official Hybrid** — giữ các model official cho pipeline chính và thêm các kênh bổ sung (ví dụ một workflow video ComfyUI cục bộ) qua gateway đi kèm.
 
 > 🧠 **Tự chọn nơi tính toán — rẻ hơn, chủ động hơn.** Gateway được thiết kế để *chính bạn* quyết định mỗi lượt sinh chạy ở đâu:
-> - **Năng lực tính toán nhàn rỗi của AIPDD (giảm chi phí).** Kết nối kênh **AIPDD** cho phép việc sinh chạy trên **bể tính toán nhàn rỗi** của nền tảng, nên các công đoạn short-drama nặng chỉ tốn một phần nhỏ so với giá theo yêu cầu — đòn bẩy lớn nhất để hạ chi phí sản xuất. Đăng ký tại <https://www.aipdd.work> để lấy API key AIPDD, rồi thêm nó làm một kênh trong **Cài đặt → Cấu hình model**.
+> - **Năng lực tính toán nhàn rỗi của AIPDD (giảm chi phí).** Kết nối kênh **AIPDD** cho phép việc sinh chạy trên **bể tính toán nhàn rỗi** của nền tảng, nên các công đoạn short-drama nặng chỉ tốn một phần nhỏ so với giá theo yêu cầu — đòn bẩy lớn nhất để hạ chi phí sản xuất. Đăng ký tại <https://www.aipdd.work> để lấy API key AIPDD, rồi thêm nó làm một kênh trong **Cài đặt → Model & Kênh**.
 > - **NewAPI, tự do phối hợp.** Gateway **NewAPI** đi kèm cho phép đăng ký nhiều nhà cung cấp làm kênh và **kết hợp chúng tùy ý** — official, AIPDD, máy tự vận hành, hoặc bất kỳ endpoint tương thích OpenAI nào — theo từng model, từng công đoạn. Với kênh NewAPI, chúng tôi khuyên **tự tìm nhà cung cấp và so giá**; danh sách tham khảo đã chọn lọc ở đây: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjfk>.
 > - **ComfyUI, trên GPU của bạn — cách rẻ nhất để chạy sinh trên canvas.** Adapter **ComfyUI** hạng nhất định hướng việc sinh ảnh / video sang một workflow chạy trên **máy của bạn**: GPU của bạn render, **không tiêu hạn mức cloud theo mỗi lần gọi** — việc nặng chỉ tốn tiền điện, rẻ hơn hẳn mọi model hosted. Đăng ký endpoint ComfyUI cục bộ làm kênh trong chế độ **Custom** hoặc **Hybrid**.
 >   - **Cách cài ComfyUI nhanh nhất** — không cần cài thủ công hay môi trường Python: chỉ cần tải **trình khách tính toán (算力客户端)** đi kèm của chúng tôi rồi chạy trình cài đặt: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.

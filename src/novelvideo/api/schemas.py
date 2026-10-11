@@ -2577,7 +2577,7 @@ class FreezoneAudioMusicRequest(BaseModel):
     )
     model: str = Field(
         default="",
-        description="音乐模型；留空 = 用「设置 › 模型」里配好的默认音频模型。",
+        description="音乐模型；留空 = 用「设置 → 模型与渠道」里配好的默认音频模型。",
     )
     response_format: Literal["mp3", "opus", "pcm", "ulaw", "alaw"] = Field(
         default="mp3",
