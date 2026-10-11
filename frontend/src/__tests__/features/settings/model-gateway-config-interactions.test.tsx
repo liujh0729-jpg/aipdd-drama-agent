@@ -543,6 +543,9 @@ describe("渠道连接：火山 AI MediaKit 归属 VolcEngine", () => {
       />,
     );
 
+    // [aipdd fork delta] VolcEngine 卡默认折叠：先点标题展开填写区再断言区块次序。
+    fireEvent.click(screen.getByText("VolcEngine"));
+
     const volcCard = screen
       .getByText("VolcEngine")
       .closest("div.rounded-md") as HTMLElement;
@@ -578,6 +581,9 @@ describe("渠道连接：火山 AI MediaKit 归属 VolcEngine", () => {
         newApiBaseUrl="https://newapi.example/v1"
       />,
     );
+
+    // [aipdd fork delta] MediaKit 在 VolcEngine 卡内且默认折叠：先展开卡才能操作子区块按钮。
+    fireEvent.click(screen.getByText("VolcEngine"));
 
     const mediaKitBlock = screen
       .getByText("火山 AI MediaKit")
@@ -668,6 +674,8 @@ describe("渠道连接：OpenAI / Claude / Gemini 官方卡", () => {
 
     for (const item of trio) {
       const card = cardOf(item.title);
+      // [aipdd fork delta] 官方渠道卡默认折叠：点标题展开后才能取到保存按钮（role 查询）。
+      fireEvent.click(within(card).getByRole("button", { name: item.title }));
       fireEvent.change(within(card).getByPlaceholderText("粘贴 Key"), {
         target: { value: item.apiKey },
       });
@@ -701,6 +709,8 @@ describe("渠道连接：OpenAI / Claude / Gemini 官方卡", () => {
 
     const proxy = "https://my-proxy.example/v1beta";
     const card = cardOf("Gemini");
+    // [aipdd fork delta] Gemini 卡默认折叠：先点标题展开填写区。
+    fireEvent.click(within(card).getByRole("button", { name: "Gemini" }));
     fireEvent.change(
       within(card).getByPlaceholderText(
         "https://generativelanguage.googleapis.com/v1beta",

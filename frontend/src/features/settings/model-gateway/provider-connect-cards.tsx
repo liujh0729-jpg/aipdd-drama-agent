@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
+  ChevronDown,
   Eye,
   EyeOff,
   Loader2,
@@ -74,6 +75,7 @@ function ProviderConnectCard({
   asrCredentials = false,
   minimaxVoiceCredentials = false,
   extra,
+  defaultExpanded = true,
 }: {
   title: string;
   description: string;
@@ -98,6 +100,12 @@ function ProviderConnectCard({
    * 下的火山 AI MediaKit）。自成一块并自带保存入口，排在渠道主体与上游模型列表之后。
    */
   extra?: ReactNode;
+  /**
+   * [aipdd fork delta] 卡片填写区是否默认展开：AIPDD 展开，其余渠道卡由容器传
+   * false（折叠态只露标题/连接状态，点标题才展开）。默认 true，保证单卡直接渲染
+   * 与既有单测行为不变。
+   */
+  defaultExpanded?: boolean;
 }) {
   const save = useSaveProviderChannels();
   const fetchModels = useFetchUpstreamModels();
@@ -114,6 +122,7 @@ function ProviderConnectCard({
   );
   const [key, setKey] = useState("");
   const [reveal, setReveal] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [models, setModels] = useState<string[]>([]);
   // [aipdd fork delta] 豆包语音 ASR 凭证（仅 VolcEngine 卡渲染）：单个 API Key
   // 存 volcengine 渠道 settings.asr.apiKey，供抖音文案提取的豆包语音直连使用
@@ -275,7 +284,21 @@ function ProviderConnectCard({
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-1.5">
-            <p className="text-xs font-medium text-foreground">{title}</p>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              className="flex items-center gap-1 text-left text-xs font-medium text-foreground"
+            >
+              <ChevronDown
+                className={cn(
+                  "size-3.5 shrink-0 transition-transform duration-150",
+                  expanded ? "rotate-0" : "-rotate-90",
+                )}
+                aria-hidden
+              />
+              <span>{title}</span>
+            </button>
             <ProviderOfficialSiteLink provider={provider} brand={title} />
           </div>
           <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
@@ -295,7 +318,7 @@ function ProviderConnectCard({
             : t("settings.modelConfig.cards.notConnected")}
         </span>
       </div>
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 space-y-2" hidden={!expanded}>
         {fixedBaseUrl ? (
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">
@@ -463,7 +486,12 @@ function ProviderConnectCard({
         </div>
       </div>
       {extra ? (
-        <div className="mt-3 border-t border-border/60 pt-3">{extra}</div>
+        <div
+          className="mt-3 border-t border-border/60 pt-3"
+          hidden={!expanded}
+        >
+          {extra}
+        </div>
       ) : null}
     </div>
   );
@@ -681,6 +709,7 @@ function ProviderConnectCards({
       />
       <ProviderConnectCard
         title="VolcEngine"
+        defaultExpanded={false}
         description={t("settings.modelConfig.cards.volcengineDescription")}
         provider="volcengine"
         presetBaseUrl={ARK_BASE_URL}
@@ -691,6 +720,7 @@ function ProviderConnectCards({
       />
       <ProviderConnectCard
         title={t("settings.modelConfig.cards.newApiExternalTitle")}
+        defaultExpanded={false}
         description={t("settings.modelConfig.cards.newApiExternalDescription")}
         provider="newapi"
         presetBaseUrl=""
@@ -708,6 +738,7 @@ function ProviderConnectCards({
       */}
       <ProviderConnectCard
         title="OpenAI"
+        defaultExpanded={false}
         description={t("settings.modelConfig.cards.openaiDescription")}
         provider="openai_official"
         presetBaseUrl={OPENAI_OFFICIAL_BASE_URL}
@@ -715,6 +746,7 @@ function ProviderConnectCards({
       />
       <ProviderConnectCard
         title="Claude"
+        defaultExpanded={false}
         description={t("settings.modelConfig.cards.claudeDescription")}
         provider="anthropic"
         presetBaseUrl={ANTHROPIC_BASE_URL}
@@ -722,6 +754,7 @@ function ProviderConnectCards({
       />
       <ProviderConnectCard
         title="Gemini"
+        defaultExpanded={false}
         description={t("settings.modelConfig.cards.geminiDescription")}
         provider="gemini"
         presetBaseUrl={GEMINI_BASE_URL}
@@ -734,6 +767,7 @@ function ProviderConnectCards({
       */}
       <ProviderConnectCard
         title={t("settings.modelConfig.cards.minimaxTitle")}
+        defaultExpanded={false}
         description={t("settings.modelConfig.cards.minimaxDescription")}
         provider="minimax"
         presetBaseUrl={MINIMAX_BASE_URL}
@@ -742,6 +776,7 @@ function ProviderConnectCards({
       />
       <ProviderConnectCard
         title={t("settings.modelConfig.cards.minimaxCnTitle")}
+        defaultExpanded={false}
         description={t("settings.modelConfig.cards.minimaxCnDescription")}
         provider="minimax_cn"
         presetBaseUrl={MINIMAX_CN_BASE_URL}
@@ -749,6 +784,7 @@ function ProviderConnectCards({
         minimaxVoiceCredentials
       />
       <ComfyUILocalCard
+        defaultExpanded={false}
         config={config}
         newApiBaseUrl={newApiBaseUrl}
         saved={savedFor("comfyui")}
@@ -769,10 +805,13 @@ const ANALYZER_AUTO = "__auto__";
 // 的节点写参数（不再按 class_type 猜），模型档位也不再按名字 token 猜。
 function ComfyUILocalCard({
   saved,
+  defaultExpanded = true,
 }: {
   config: ModelGatewayConfig | undefined;
   newApiBaseUrl: string;
   saved?: SavedProviderChannelConfig;
+  /** [aipdd fork delta] 见 ProviderConnectCard.defaultExpanded：容器对非 AIPDD 渠道传 false。 */
+  defaultExpanded?: boolean;
 }) {
   const { t } = useTranslation();
   const resolve = useResolveComfyUIWorkflows();
@@ -811,6 +850,7 @@ function ComfyUILocalCard({
   // [aipdd fork delta req41] ComfyUI 跑在哪是部署形态数据，不预填本机地址：
   // 没存过就是空，用户填自己的地址（placeholder 只是格式示例）。
   const [baseUrl, setBaseUrl] = useState(saved?.baseUrl || "");
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [rows, setRows] = useState<
     Array<{ model: string; workflowName: string; type: string }>
   >(() => {
@@ -1092,9 +1132,21 @@ function ComfyUILocalCard({
     <div className="rounded-md border border-border/70 p-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-medium text-foreground">
-            {t("settings.modelConfig.comfy.title")}
-          </p>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="flex items-center gap-1 text-left text-xs font-medium text-foreground"
+          >
+            <ChevronDown
+              className={cn(
+                "size-3.5 shrink-0 transition-transform duration-150",
+                expanded ? "rotate-0" : "-rotate-90",
+              )}
+              aria-hidden
+            />
+            <span>{t("settings.modelConfig.comfy.title")}</span>
+          </button>
           <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
             {t("settings.modelConfig.comfy.description")}
           </p>
@@ -1110,7 +1162,7 @@ function ComfyUILocalCard({
             : t("settings.modelConfig.cards.notConnected")}
         </span>
       </div>
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 space-y-2" hidden={!expanded}>
         <div className="space-y-1">
           <Label className="text-[11px] text-muted-foreground">
             {t("settings.modelConfig.comfy.baseUrlLabel")}
