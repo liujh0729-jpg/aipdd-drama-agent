@@ -8981,6 +8981,9 @@
       },
       "modelList": {
         "panelTitle": "Model tạo mặc định",
+        "missingDefaultsTitle": "Còn {{count}} danh mục chưa có model mặc định",
+        "missingDefaultsBody": "Danh mục chưa đặt mặc định sẽ thất bại khi tạo (không có kênh khả dụng / không tìm thấy model). Nhấn vào danh mục bên dưới để chuyển sang TAB của nó, rồi chọn Đặt mặc định.",
+        "allDefaultsSet": "Đã đặt model mặc định cho cả {{total}} danh mục.",
         "description": "Theo nhóm ảnh / video / âm thanh / văn bản / hiểu thị giác, chọn một model đã lấy từ các kênh làm mặc định.",
         "truthSource": "Nguồn chân lý: dự án này ({{count}} ánh xạ alias); LocalNewAPI chỉ là bản chiếu, tự đồng bộ khi đổi mặc định.",
         "aliasNotChecked": "Ánh xạ alias chưa tự kiểm tra; có thể kiểm tra thủ công xem đích có tồn tại trên upstream không.",

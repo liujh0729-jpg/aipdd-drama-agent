@@ -8981,6 +8981,9 @@
       },
       "modelList": {
         "panelTitle": "默认生成模型",
+        "missingDefaultsTitle": "还有 {{count}} 个分类未设置默认模型",
+        "missingDefaultsBody": "未设默认模型的分类在生成时会失败（没有可用渠道 / 模型未找到）。点下方分类切到对应 TAB，再点「设为默认」。",
+        "allDefaultsSet": "全部 {{total}} 个分类都已设置默认模型。",
         "description": "按图片 / 视频 / 音频 / 文本 / 视觉理解分类，从各渠道已拉取的模型中点选一个作为默认。",
         "truthSource": "当前真源：本项目（已收录 {{count}} 条别名映射）；LocalNewAPI 为投影，改默认后会自动同步。",
         "aliasNotChecked": "别名映射尚未自检，可手动检查映射目标在上游是否存在。",

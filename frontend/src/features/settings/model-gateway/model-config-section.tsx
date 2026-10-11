@@ -227,6 +227,15 @@ function ModelConfigSection({ open }: { open: boolean }) {
               newApiBaseUrl={customBaseUrl}
             />
           ) : null}
+          {/* [aipdd fork delta] 默认生成模型面板：网关配置完成后拉取上游模型清单。
+              放在渠道连接卡之后、「高级」折叠之前——每个分类都必须设好默认模型，
+              否则生成时报「没有可用渠道 / 模型未找到」，故前置到重点位置强提示用户。 */}
+          {mode === "custom" ? (
+            <DefaultGenerationModelsPanel
+              config={config}
+              newApiBaseUrl={customBaseUrl}
+            />
+          ) : null}
           {mode === "hybrid" ? (
             <details className="mt-5 rounded-md border border-border/70">
               <summary className="cursor-pointer px-3 py-3 text-xs font-medium text-foreground">
@@ -284,13 +293,6 @@ function ModelConfigSection({ open }: { open: boolean }) {
                 />
               </div>
             </details>
-          ) : null}
-          {/* [aipdd fork delta] 默认生成模型面板：网关配置完成后拉取上游模型清单。 */}
-          {mode === "custom" ? (
-            <DefaultGenerationModelsPanel
-              config={config}
-              newApiBaseUrl={customBaseUrl}
-            />
           ) : null}
           {/* [aipdd fork delta req40] 渠道模型目录：只把渠道 /v1/models 拉到的事实
               摊出来供查看、无需操作，因此放在本页最后一个板块。 */}

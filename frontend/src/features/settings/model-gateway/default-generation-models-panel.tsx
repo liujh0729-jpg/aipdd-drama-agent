@@ -881,8 +881,66 @@ function DefaultGenerationModelsPanel({
             )}
             {t("settings.modelConfig.modelList.refreshModels")}
           </Button>
-        </div>
+       </div>
       </div>
+
+      {/* [aipdd fork delta] 强提示：每个分类都必须设好默认模型。未设的分类会在
+          生成时报「没有可用渠道 / 模型未找到」而失败——这是运行期最常见的坑，
+          故放在面板最前、动态列出还缺哪些分类（点分类切到对应 TAB）。 */}
+      {(() => {
+        const missingTabs = MEDIA_DEFAULT_TABS.filter(
+          (tabDef) => tabDef.key !== "other" && !tabHasDefault(tabDef.key),
+        );
+        const allSet = missingTabs.length === 0;
+        return (
+          <div
+            role="note"
+            className={cn(
+              "mt-3 rounded-md border px-3 py-2 text-[11px] leading-relaxed",
+              allSet
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                : "border-amber-500/50 bg-amber-500/10 text-amber-100",
+            )}
+          >
+            <p className="flex items-start gap-1.5 font-medium">
+              {allSet ? (
+                <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              ) : (
+                <AlertTriangle
+                  className="mt-0.5 size-3.5 shrink-0 text-amber-300"
+                  aria-hidden
+                />
+              )}
+              {allSet
+                ? t("settings.modelConfig.modelList.allDefaultsSet", {
+                    total: MEDIA_DEFAULT_TABS.length - 1,
+                  })
+                : t("settings.modelConfig.modelList.missingDefaultsTitle", {
+                    count: missingTabs.length,
+                  })}
+            </p>
+            {allSet ? null : (
+              <>
+                <p className="mt-1 text-amber-100/85">
+                  {t("settings.modelConfig.modelList.missingDefaultsBody")}
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {missingTabs.map((tabDef) => (
+                    <button
+                      key={tabDef.key}
+                      type="button"
+                      onClick={() => setTab(tabDef.key)}
+                      className="rounded-full border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-[11px] text-amber-100 transition-colors hover:bg-amber-500/25"
+                    >
+                      {t(tabDef.labelKey)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       <Tabs
         value={tab}

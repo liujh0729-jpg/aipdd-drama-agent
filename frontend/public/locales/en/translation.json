@@ -8981,6 +8981,9 @@
       },
       "modelList": {
         "panelTitle": "Default generation models",
+        "missingDefaultsTitle": "{{count}} categories still need a default model",
+        "missingDefaultsBody": "Categories without a default fail at generation time (no available channel / model not found). Click a category below to switch to its tab, then pick Set default.",
+        "allDefaultsSet": "All {{total}} categories have a default model set.",
         "description": "Pick a default from the fetched models per category: image / video / audio / text / vision.",
         "truthSource": "Source of truth: this project ({{count}} alias mappings); LocalNewAPI is a projection and syncs automatically when defaults change.",
         "aliasNotChecked": "Alias mappings have not been checked yet; you can check whether targets exist upstream.",
