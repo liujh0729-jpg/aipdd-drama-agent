@@ -22,7 +22,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends
 
-from novelvideo import env_probe, env_setup_install
+from novelvideo import diagnostics, env_probe, env_setup_install
 from novelvideo.api.auth import get_api_user, require_owner
 
 router = APIRouter()
@@ -32,6 +32,18 @@ router = APIRouter()
 async def get_env_setup_status(user: dict = Depends(require_owner)):
     """返回部署环境运行依赖的就绪清单（供设置页渲染）。只读、无副作用。"""
     data = await asyncio.to_thread(env_probe.probe)
+    return {"ok": True, "data": data}
+
+
+@router.get("/admin/diagnostics")
+async def get_diagnostics(user: dict = Depends(require_owner)):
+    """[aipdd fork delta] 系统整体自检：环境 / 模型渠道 / 默认模型 / 存储的一盘只读体检。
+
+    供设置页「系统整体自检」消费。复用 :mod:`novelvideo.diagnostics` 聚合 env_probe +
+    网关连通性（只读上游模型清单，零生成消耗）+ 分类默认模型覆盖 + 磁盘/数据库。
+    只读、无副作用；浏览器 owner 会话限定（``require_owner``）。
+    """
+    data = await asyncio.to_thread(diagnostics.run_diagnostics)
     return {"ok": True, "data": data}
 
 

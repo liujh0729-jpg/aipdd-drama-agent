@@ -3347,7 +3347,8 @@
     "pause": "Pause",
     "retry": "Retry",
     "requestId": "Request ID",
-    "listSeparator": ", "
+    "listSeparator": ", ",
+    "termsHintAriaLabel": "View explanation for this term"
   },
   "storyPage": {
     "title": "Story",
@@ -8117,7 +8118,9 @@
       "vectcutDraft": "CapCut Drafts",
       "douyinCookie": "Cookie storage",
       "envSetup": "Environment Setup",
-      "seedanceAssets": "Asset library"
+      "seedanceAssets": "Asset library",
+      "diagnostics": "System health check",
+      "configBackup": "Config backup & restore"
     },
     "accountSecurity": {
       "changeTitle": "Change Login Password",
@@ -8243,7 +8246,9 @@
         "installing": "Installing…",
         "runHint": "After the model channel key is set, run canvas / project tasks directly.",
         "items": {
-          "world": { "name": "3D world runtime (3DGS / SHARP)" },
+          "world": {
+            "name": "3D world runtime (3DGS / SHARP)"
+          },
           "modelChannel": {
             "name": "Model channel key",
             "fix": "Go to Settings → Models & Channels and add your AIPDD / official key, then you can run."
@@ -8951,7 +8956,11 @@
         "minimaxVoiceTitle": "MiniMax default voice (optional)",
         "minimaxVoiceId": "Voice ID (voice_id)",
         "minimaxVoiceIdPlaceholder": "e.g. male-qn-qingse (see the official system voice list)",
-        "minimaxVoiceHint": "Used by direct Speech 2.8 synthesis when the request sets no voice. System voices only; cloned voices are not wired up yet."
+        "minimaxVoiceHint": "Used by direct Speech 2.8 synthesis when the request sets no voice. System voices only; cloned voices are not wired up yet.",
+        "baseUrlFixedTip": "This channel's service address is built in — nothing to fill and it can't be edited.",
+        "baseUrlTip": "The base URL of an OpenAI-compatible API, usually ending in /v1 (e.g. https://api.xx.com/v1). Leave blank to use the channel default.",
+        "apiKeyTip": "The secret key used to call this channel's upstream, generated in the provider's console. Stored locally only and never leaked; blank keeps the saved value.",
+        "upstreamModelsTip": "The models available from this channel's /models endpoint — a read-only preview that uses no quota. Click refresh to re-fetch."
       },
       "comfy": {
         "title": "Local ComfyUI",
@@ -9129,6 +9138,23 @@
         "bucket": "Bucket",
         "endpoint": "Endpoint / Region",
         "ttlSeconds": "Signed URL TTL (seconds)"
+      },
+      "tips": {
+        "provider": "Where media and reference assets are stored: Local keeps them on the server disk; the cloud options (AIPDD / AWS S3 / Aliyun OSS / Cloudinary) store objects and generate signed, expiring links.",
+        "aipddApiKey": "The AIPDD relay key, the same st- key shared with the model channels. Local mode also needs it to turn reference video/audio into public links.",
+        "aipddBaseUrl": "The AIPDD upload site address. Usually leave blank (it's derived from the connected channel's base URL); fill only when the upload host differs from the channel.",
+        "aipddPrefix": "The path prefix for objects inside the bucket (e.g. assets/dramaclaw), isolating this app's files from other workloads.",
+        "cloudName": "Your Cloudinary account's Cloud Name, shown on the Cloudinary dashboard.",
+        "cloudinaryApiKey": "The Cloudinary API Key (same as the Access Key in its console); blank keeps the saved value.",
+        "cloudinaryApiSecret": "The Cloudinary API Secret, paired with the API Key and used only to sign links. Keep it safe.",
+        "apiFolder": "Optional folder name to group uploads within your Cloudinary account.",
+        "accessKeyId": "The object storage account's Access Key ID (Aliyun / AWS), created in the cloud console. Blank keeps the saved value.",
+        "accessKeySecret": "The secret paired with the Access Key ID — shown only at creation and must be regenerated if lost. Never share it.",
+        "bucket": "The bucket that holds your media. Create it in the cloud console first, matching the chosen region.",
+        "endpoint": "The object storage endpoint domain. Blank usually resolves the official endpoint by region; fill only for self-hosted / compatible gateways.",
+        "ttlSeconds": "How long (in seconds) a generated signed link stays valid before it expires and must be re-issued. Default 1800s.",
+        "region": "The region of your bucket (e.g. us-east-1). Must match the bucket's region in the console or signing will fail.",
+        "sessionToken": "Only needed for temporary security credentials (STS). Leave blank for long-lived Access Keys."
       }
     },
     "videoEnhance": {
@@ -9333,6 +9359,65 @@
         "pending": "No verification result yet (the person must finish it on their phone)",
         "tokenHint": "Session token: {{token}} — keep it, the result is queried with it"
       }
+    },
+    "diagnostics": {
+      "title": "System health check",
+      "description": "One-pass check of the deployment environment, model-gateway connectivity, per-category default models and storage readiness; read-only, changes nothing.",
+      "refresh": "Re-check",
+      "loading": "Checking…",
+      "loadFailed": "Health check failed",
+      "allReady": "All good",
+      "attention": "{{n}} item(s) need attention",
+      "goToModels": "Go to Models & Channels",
+      "sections": {
+        "environment": "Environment",
+        "model_gateway": "Model gateway",
+        "default_models": "Default models",
+        "storage": "Storage"
+      },
+      "status": {
+        "pass": "OK",
+        "warn": "Warning",
+        "fail": "Not ready",
+        "info": "Optional"
+      },
+      "items": {
+        "gateway_configured": {
+          "name": "Gateway configured",
+          "fix": "Set the gateway base URL and key under Settings → Models & Channels."
+        },
+        "gateway_reachable": {
+          "name": "Gateway reachable",
+          "fix": "Make sure the gateway URL is reachable and the key valid (the model list returns)."
+        },
+        "disk_space": {
+          "name": "Disk space",
+          "fix": "Free up or expand the disk so outputs / cache have room."
+        },
+        "settings_db": {
+          "name": "Settings database",
+          "fix": "settings.db read/write error; check the data volume mount and permissions."
+        }
+      },
+      "fix": {
+        "defaultModel": "Pick a default model for this category under Settings → Models & Channels."
+      }
+    },
+    "configBackup": {
+      "title": "Config backup & restore",
+      "description": "Export all editable platform settings (gateway keys, channels, default models, etc.) into one JSON; import it here after a reinstall to restore.",
+      "sensitiveNotice": "The backup contains API keys, passwords and other secrets. Store it safely; use it only to restore this deployment and never share it or commit it.",
+      "export": "Export config",
+      "exportDone": "Config file download started",
+      "exportFailed": "Export failed",
+      "import": "Import config",
+      "invalidFile": "Not a valid DramaClaw config file",
+      "preview": "Will import {{n}} settings (merge, overwriting same keys and keeping others)",
+      "previewMeta": "Source version: {{version}}; generated: {{generatedAt}}",
+      "confirm": "Confirm import",
+      "cancel": "Cancel",
+      "importDone": "Restored {{applied}} settings",
+      "importFailed": "Import failed"
     }
   },
   "pricing": {

@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InfoTip } from "@/components/ui/info-tip";
 import {
   Select,
   SelectContent,
@@ -323,6 +324,10 @@ function ProviderConnectCard({
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">
               {t("settings.modelConfig.cards.baseUrlFixedLabel")}
+              <InfoTip
+                text={t("settings.modelConfig.cards.baseUrlFixedTip")}
+                side="right"
+              />
             </Label>
             <p
               title={presetBaseUrl}
@@ -333,7 +338,10 @@ function ProviderConnectCard({
           </div>
         ) : (
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Base URL</Label>
+            <Label className="inline-flex items-center text-[11px] text-muted-foreground">
+              Base URL
+              <InfoTip text={t("settings.modelConfig.cards.baseUrlTip")} side="right" />
+            </Label>
             <Input
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
@@ -344,7 +352,10 @@ function ProviderConnectCard({
           </div>
         )}
         <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">API Key</Label>
+          <Label className="inline-flex items-center text-[11px] text-muted-foreground">
+            API Key
+            <InfoTip text={t("settings.modelConfig.cards.apiKeyTip")} side="right" />
+          </Label>
           <div className="flex items-center gap-2">
             <Input
               type={reveal ? "text" : "password"}
@@ -381,12 +392,16 @@ function ProviderConnectCard({
         {saved?.configured ? (
           <div className="space-y-2 border-t border-border/60 pt-2">
             <div className="flex items-center justify-between">
-              <Label className="text-[11px] text-muted-foreground">
+              <Label className="inline-flex items-center text-[11px] text-muted-foreground">
                 {t("settings.modelConfig.cards.upstreamModels", {
                   status: fetchModels.isPending
                     ? t("settings.modelConfig.cards.fetching")
                     : models.length,
                 })}
+                <InfoTip
+                  text={t("settings.modelConfig.cards.upstreamModelsTip")}
+                  side="right"
+                />
               </Label>
               <Button
                 type="button"
@@ -610,7 +625,10 @@ function MediaKitConnectCard({ saved }: { saved?: VideoEnhanceConfig }) {
           </p>
         </div>
         <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">API Key</Label>
+          <Label className="inline-flex items-center text-[11px] text-muted-foreground">
+            API Key
+            <InfoTip text={t("settings.modelConfig.cards.apiKeyTip")} side="right" />
+          </Label>
           <div className="flex items-center gap-2">
             <Input
               type={reveal ? "text" : "password"}

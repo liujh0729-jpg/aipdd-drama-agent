@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InfoTip } from "@/components/ui/info-tip";
 import { cn } from "@/lib/utils";
 
 function FieldRow({
@@ -19,6 +20,7 @@ function FieldRow({
   name,
   autoComplete,
   savedPreview,
+  hint,
 }: {
   label: string;
   value: string;
@@ -28,6 +30,8 @@ function FieldRow({
   name?: string;
   autoComplete?: string;
   savedPreview?: string;
+  /** 术语说明：非空时在标签旁渲染一枚悬停提示（ℹ️）。 */
+  hint?: string;
 }) {
   const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
@@ -37,8 +41,9 @@ function FieldRow({
   const hasSavedSecret = Boolean(savedPreview && !value);
   return (
     <div className="grid grid-cols-[120px_1fr] items-center gap-3">
-      <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
-        {label}
+      <Label className="flex items-center justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+        <span className="min-w-0">{label}</span>
+        {hint ? <InfoTip text={hint} side="right" /> : null}
       </Label>
       <div className="relative">
         <Input

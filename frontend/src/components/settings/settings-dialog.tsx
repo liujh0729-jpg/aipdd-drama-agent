@@ -11,6 +11,7 @@ import {
   Clapperboard,
   Cookie,
   Cpu,
+  DatabaseBackup,
   FileText,
   HardDrive,
   KeyRound,
@@ -19,6 +20,7 @@ import {
   MonitorDown,
   Palette,
   ShieldCheck,
+  Stethoscope,
   Users,
 } from "lucide-react";
 // [aipdd fork delta] API 密钥：统一密钥（外部 MCP + 模型广场），所有登录用户可见。
@@ -44,6 +46,10 @@ import { VectcutDraftSection } from "@/components/settings/vectcut-draft-section
 import { DouyinCookieSection } from "@/components/settings/douyin-cookie-section";
 // [aipdd fork delta] 环境安装：部署环境真实依赖探测 + 3D 世界按需安装（融入本页，仅超管可见）。
 import { EnvSetupSection } from "@/components/settings/env-setup-section";
+// [aipdd fork delta] 系统整体自检：环境 / 模型渠道 / 默认模型 / 存储一键只读体检（仅超管）。
+import { DiagnosticsSection } from "@/components/settings/diagnostics-section";
+// [aipdd fork delta] 配置备份 / 恢复：整盘 settings.db 导出与回灌（仅超管）。
+import { ConfigBackupSection } from "@/components/settings/config-backup-section";
 import { useSetupStatus } from "@/lib/queries/admin-users";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -57,6 +63,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { InfoTip } from "@/components/ui/info-tip";
 import { cn } from "@/lib/utils";
 import {
   useModelGatewayConfig,
@@ -135,6 +142,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     | "douyin"
     | "seedanceAssets"
     | "envSetup"
+    | "diagnostics"
+    | "configBackup"
   >("models");
   // [aipdd fork delta] 用户管理页只对开了多用户模式的超管开放。
   const role = useAuthStore((state) => state.role);
@@ -149,6 +158,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   // [aipdd fork delta] 环境安装（含 3D 世界按需安装）只对超管开放：它探测/操作的是
   // 部署容器的真实运行环境，属运维职责，普通成员无需看到。
   const showEnvSetupPage = role === "owner";
+  // [aipdd fork delta] 系统整体自检与配置备份/恢复都是运维职责，只对超管开放（与环境安装一致）。
+  const showDiagnosticsPage = role === "owner";
+  const showConfigBackupPage = role === "owner";
   // [aipdd fork delta] 剪映草稿目录只对超管开放（保存路由走网关管理权限守卫）。
   const showVectcutDraftPage = role === "owner";
   // [aipdd fork delta] 抖音登录态 Cookie 属部署级凭据，保存同样走网关管理守卫，仅超管可见。
@@ -409,6 +421,44 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 </span>
               </button>
             ) : null}
+            {/* [aipdd fork delta] 系统整体自检（仅超管）。 */}
+            {showDiagnosticsPage ? (
+              <button
+                type="button"
+                aria-current={page === "diagnostics" ? "page" : undefined}
+                onClick={() => setPage("diagnostics")}
+                className={cn(
+                  "relative flex h-10 items-center justify-center gap-2 rounded-md px-2 text-sm font-medium transition-colors sm:justify-start sm:px-3",
+                  page === "diagnostics"
+                    ? "bg-white/[0.09] text-foreground"
+                    : "text-muted-foreground hover:bg-white/[0.05] hover:text-foreground",
+                )}
+              >
+                <Stethoscope className="size-4" aria-hidden />
+                <span className="hidden sm:inline">
+                  {t("settings.pages.diagnostics")}
+                </span>
+              </button>
+            ) : null}
+            {/* [aipdd fork delta] 配置备份 / 恢复（仅超管）。 */}
+            {showConfigBackupPage ? (
+              <button
+                type="button"
+                aria-current={page === "configBackup" ? "page" : undefined}
+                onClick={() => setPage("configBackup")}
+                className={cn(
+                  "relative flex h-10 items-center justify-center gap-2 rounded-md px-2 text-sm font-medium transition-colors sm:justify-start sm:px-3",
+                  page === "configBackup"
+                    ? "bg-white/[0.09] text-foreground"
+                    : "text-muted-foreground hover:bg-white/[0.05] hover:text-foreground",
+                )}
+              >
+                <DatabaseBackup className="size-4" aria-hidden />
+                <span className="hidden sm:inline">
+                  {t("settings.pages.configBackup")}
+                </span>
+              </button>
+            ) : null}
           </nav>
 
           {page === "models" ? (
@@ -470,6 +520,18 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <div className="min-w-0 flex-1">
               <ScrollArea className="h-full [&_[data-slot=scroll-area-scrollbar]]:!w-1 [&_[data-slot=scroll-area-scrollbar]]:!border-l-0 [&_[data-slot=scroll-area-scrollbar]]:!p-0">
                 <EnvSetupSection />
+              </ScrollArea>
+            </div>
+          ) : page === "diagnostics" ? (
+            <div className="min-w-0 flex-1">
+              <ScrollArea className="h-full [&_[data-slot=scroll-area-scrollbar]]:!w-1 [&_[data-slot=scroll-area-scrollbar]]:!border-l-0 [&_[data-slot=scroll-area-scrollbar]]:!p-0">
+                <DiagnosticsSection onNavigate={setPage} />
+              </ScrollArea>
+            </div>
+          ) : page === "configBackup" ? (
+            <div className="min-w-0 flex-1">
+              <ScrollArea className="h-full [&_[data-slot=scroll-area-scrollbar]]:!w-1 [&_[data-slot=scroll-area-scrollbar]]:!border-l-0 [&_[data-slot=scroll-area-scrollbar]]:!p-0">
+                <ConfigBackupSection />
               </ScrollArea>
             </div>
           ) : (
@@ -766,8 +828,9 @@ function MediaStorageSection() {
       ) : null}
 
       <div className="mt-4 flex items-center gap-3">
-        <span className="w-[64px] shrink-0 text-xs text-muted-foreground">
+        <span className="inline-flex w-[64px] shrink-0 items-center text-xs text-muted-foreground">
           {t("settings.mediaStorage.provider")}
+          <InfoTip text={t("settings.mediaStorage.tips.provider")} side="right" />
         </span>
         <Tabs
           value={provider}
@@ -933,6 +996,7 @@ function AipddRelayFields({
         onChange={onApiKeyChange}
         placeholder={apiKeyPreview || undefined}
         savedPreview={apiKeyPreview}
+        hint={t("settings.mediaStorage.tips.aipddApiKey")}
       />
       {hasBaseUrlField ? (
         <FieldRow
@@ -940,6 +1004,7 @@ function AipddRelayFields({
           value={baseUrl ?? ""}
           onChange={(value) => onBaseUrlChange?.(value)}
           placeholder={t("settings.mediaStorage.aipddBaseUrlPlaceholder")}
+          hint={t("settings.mediaStorage.tips.aipddBaseUrl")}
         />
       ) : null}
       {hasAssetOptions ? (
@@ -949,6 +1014,7 @@ function AipddRelayFields({
             value={prefix ?? ""}
             onChange={(value) => onPrefixChange?.(value)}
             placeholder="assets/dramaclaw"
+            hint={t("settings.mediaStorage.tips.aipddPrefix")}
           />
           <label className="flex items-start gap-2.5 rounded-[8px] border border-border bg-muted/40 p-2.5">
             <Checkbox
@@ -993,6 +1059,7 @@ function CloudinaryFields({
         label={t("settings.mediaStorage.fields.cloudName")}
         value={config.cloudName}
         onChange={(v) => onChange({ cloudName: v })}
+        hint={t("settings.mediaStorage.tips.cloudName")}
       />
       <FieldRow
         secret
@@ -1002,6 +1069,7 @@ function CloudinaryFields({
         onChange={(v) => onChange({ apiKey: v })}
         placeholder={apiKeyPreview || undefined}
         savedPreview={apiKeyPreview}
+        hint={t("settings.mediaStorage.tips.cloudinaryApiKey")}
       />
       <FieldRow
         secret
@@ -1011,11 +1079,13 @@ function CloudinaryFields({
         onChange={(v) => onChange({ apiSecret: v })}
         placeholder={apiSecretPreview || undefined}
         savedPreview={apiSecretPreview}
+        hint={t("settings.mediaStorage.tips.cloudinaryApiSecret")}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.apiFolder")}
         value={config.apiFolder}
         onChange={(v) => onChange({ apiFolder: v })}
+        hint={t("settings.mediaStorage.tips.apiFolder")}
       />
     </>
   );
@@ -1046,6 +1116,7 @@ function AliyunOssFields({
         onChange={(v) => onChange({ accessKeyId: v })}
         placeholder={accessKeyIdPreview || undefined}
         savedPreview={accessKeyIdPreview}
+        hint={t("settings.mediaStorage.tips.accessKeyId")}
       />
       <FieldRow
         secret
@@ -1055,21 +1126,25 @@ function AliyunOssFields({
         onChange={(v) => onChange({ accessKeySecret: v })}
         placeholder={accessKeySecretPreview || undefined}
         savedPreview={accessKeySecretPreview}
+        hint={t("settings.mediaStorage.tips.accessKeySecret")}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.bucket")}
         value={config.bucket}
         onChange={(v) => onChange({ bucket: v })}
+        hint={t("settings.mediaStorage.tips.bucket")}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.endpoint")}
         value={config.endpoint}
         onChange={(v) => onChange({ endpoint: v })}
+        hint={t("settings.mediaStorage.tips.endpoint")}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.ttlSeconds")}
         value={ttlSeconds}
         onChange={onTtlSecondsChange}
+        hint={t("settings.mediaStorage.tips.ttlSeconds")}
       />
     </>
   );
@@ -1106,6 +1181,7 @@ function AwsS3Fields({
         onChange={(v) => onChange({ accessKeyId: v })}
         placeholder={accessKeyIdPreview || undefined}
         savedPreview={accessKeyIdPreview}
+        hint={t("settings.mediaStorage.tips.accessKeyId")}
       />
       <FieldRow
         secret
@@ -1115,23 +1191,27 @@ function AwsS3Fields({
         onChange={(v) => onChange({ accessKeySecret: v })}
         placeholder={accessKeySecretPreview || undefined}
         savedPreview={accessKeySecretPreview}
+        hint={t("settings.mediaStorage.tips.accessKeySecret")}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.awsRegion")}
         value={config.region}
         onChange={(v) => onChange({ region: v })}
         placeholder="us-east-1"
+        hint={t("settings.mediaStorage.tips.region")}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.bucket")}
         value={config.bucket}
         onChange={(v) => onChange({ bucket: v })}
+        hint={t("settings.mediaStorage.tips.bucket")}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.s3Endpoint")}
         value={config.endpoint}
         onChange={(v) => onChange({ endpoint: v })}
         placeholder={t("settings.mediaStorage.awsS3EndpointPlaceholder")}
+        hint={t("settings.mediaStorage.tips.endpoint")}
       />
       <FieldRow
         secret
@@ -1141,11 +1221,13 @@ function AwsS3Fields({
         onChange={(v) => onChange({ sessionToken: v })}
         placeholder={sessionTokenPreview || undefined}
         savedPreview={sessionTokenPreview}
+        hint={t("settings.mediaStorage.tips.sessionToken")}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.ttlSeconds")}
         value={ttlSeconds}
         onChange={onTtlSecondsChange}
+        hint={t("settings.mediaStorage.tips.ttlSeconds")}
       />
     </>
   );

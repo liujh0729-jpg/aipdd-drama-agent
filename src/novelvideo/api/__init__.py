@@ -65,6 +65,7 @@ from novelvideo.api.routes import (  # noqa: E402
     release_notifications,
     scenes,
     scripts,
+    settings_backup,
     story,
     styles,
     tasks,
@@ -130,6 +131,8 @@ api_router.include_router(styles.router, tags=["styles"])
 api_router.include_router(world.router, tags=["admin-world"])
 # [aipdd fork delta] 设置 → 环境安装：部署环境运行依赖的只读就绪探测。
 api_router.include_router(env_setup.router, tags=["admin-env-setup"])
+# [aipdd fork delta] 设置 → 配置备份 / 恢复：整盘 settings.db 的导出与回灌（仅超管）。
+api_router.include_router(settings_backup.router, tags=["admin-settings-backup"])
 api_router.include_router(pipeline.router, tags=["pipeline"])
 api_router.include_router(model_gateway.router, tags=["model-gateway"])
 # [aipdd fork delta] 设置 → 提示词库：内置提示词的列表 / 覆盖 / 恢复默认。

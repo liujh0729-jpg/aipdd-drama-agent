@@ -3347,7 +3347,8 @@
     "pause": "Tạm dừng",
     "retry": "Thử lại",
     "requestId": "Request ID",
-    "listSeparator": ", "
+    "listSeparator": ", ",
+    "termsHintAriaLabel": "Xem giải thích cho thuật ngữ này"
   },
   "storyPage": {
     "title": "Câu chuyện",
@@ -8117,7 +8118,9 @@
       "vectcutDraft": "Bản nháp CapCut",
       "douyinCookie": "Lưu Cookie",
       "envSetup": "Cài đặt môi trường",
-      "seedanceAssets": "Thư viện tư liệu"
+      "seedanceAssets": "Thư viện tư liệu",
+      "diagnostics": "Kiểm tra tổng thể hệ thống",
+      "configBackup": "Sao lưu & khôi phục cấu hình"
     },
     "accountSecurity": {
       "changeTitle": "Đổi mật khẩu đăng nhập",
@@ -8243,7 +8246,9 @@
         "installing": "Đang cài đặt…",
         "runHint": "Sau khi đặt khóa kênh mô hình, hãy chạy trực tiếp các tác vụ canvas / dự án.",
         "items": {
-          "world": { "name": "Runtime thế giới 3D (3DGS / SHARP)" },
+          "world": {
+            "name": "Runtime thế giới 3D (3DGS / SHARP)"
+          },
           "modelChannel": {
             "name": "Khóa kênh mô hình",
             "fix": "Vào Cài đặt → Model & Kênh và thêm khóa AIPDD / chính thức của bạn, sau đó có thể chạy."
@@ -8951,7 +8956,11 @@
         "minimaxVoiceTitle": "Giọng mặc định MiniMax (tùy chọn)",
         "minimaxVoiceId": "ID giọng (voice_id)",
         "minimaxVoiceIdPlaceholder": "ví dụ male-qn-qingse (xem danh sách giọng hệ thống trong tài liệu chính thức)",
-        "minimaxVoiceHint": "Dùng cho tổng hợp Speech 2.8 trực tiếp khi yêu cầu không chỉ định giọng; đợt này chỉ hỗ trợ giọng hệ thống, giọng nhân bản chưa tích hợp."
+        "minimaxVoiceHint": "Dùng cho tổng hợp Speech 2.8 trực tiếp khi yêu cầu không chỉ định giọng; đợt này chỉ hỗ trợ giọng hệ thống, giọng nhân bản chưa tích hợp.",
+        "baseUrlFixedTip": "Địa chỉ dịch vụ của kênh này được tích hợp sẵn, không cần nhập và không sửa được.",
+        "baseUrlTip": "Địa chỉ cơ bản của API tương thích OpenAI, thường kết thúc bằng /v1 (vd: https://api.xx.com/v1). Để trống sẽ dùng địa chỉ mặc định của kênh.",
+        "apiKeyTip": "Khóa bí mật để gọi thượng nguồn của kênh này, tạo trong bảng điều khiển nhà cung cấp. Chỉ lưu trên máy và không rò rỉ; để trống sẽ giữ giá trị đã lưu.",
+        "upstreamModelsTip": "Danh sách mô hình khả dụng từ endpoint /models của kênh này — chỉ để xem, không tốn hạn mức. Bấm làm mới để lấy lại."
       },
       "comfy": {
         "title": "ComfyUI cục bộ",
@@ -9129,6 +9138,23 @@
         "bucket": "Bucket",
         "endpoint": "Endpoint / Region",
         "ttlSeconds": "TTL của signed URL (giây)"
+      },
+      "tips": {
+        "provider": "Nơi lưu media và tài nguyên tham chiếu: cục bộ lưu trên đĩa máy chủ; các tùy chọn đám mây (AIPDD / AWS S3 / Aliyun OSS / Cloudinary) lưu object và sinh liên kết ký có hạn.",
+        "aipddApiKey": "Khóa trung chuyển AIPDD, dùng chung với khóa st- của kênh mô hình. Chế độ cục bộ cũng cần khóa này để biến video/âm thanh tham chiếu thành liên kết công khai.",
+        "aipddBaseUrl": "Địa chỉ trang đích tải lên AIPDD. Thường để trống (tự suy ra từ địa chỉ kênh đã kết nối); chỉ nhập khi máy chủ tải lên khác nguồn với kênh.",
+        "aipddPrefix": "Tiền tố đường dẫn của object trong bucket (vd: assets/dramaclaw), dùng để tách file của hệ thống này khỏi các nghiệp vụ khác.",
+        "cloudName": "Cloud Name của tài khoản Cloudinary, hiển thị ở trang tổng quan Cloudinary.",
+        "cloudinaryApiKey": "API Key của Cloudinary (giống Access Key trong bảng điều khiển); để trống sẽ giữ giá trị đã lưu.",
+        "cloudinaryApiSecret": "API Secret của Cloudinary, dùng cặp với API Key và chỉ dùng để ký liên kết. Hãy giữ bí mật.",
+        "apiFolder": "Tên thư mục tùy chọn khi tải lên Cloudinary, giúp phân loại trong tài khoản.",
+        "accessKeyId": "Access Key ID của tài khoản lưu trữ object (Aliyun / AWS), tạo trong bảng điều khiển đám mây. Để trống sẽ giữ giá trị đã lưu.",
+        "accessKeySecret": "Secret dùng cặp với Access Key ID, chỉ hiển thị lúc tạo, mất phải tạo lại. Tuyệt đối không chia sẻ.",
+        "bucket": "Tên bucket chứa media, cần tạo trước trong bảng điều khiển đám mây và khớp với vùng đã chọn.",
+        "endpoint": "Miền endpoint của lưu trữ object. Để trống thường tự phân giải endpoint chính thức theo vùng; chỉ nhập khi dùng gateway tự xây/tương thích.",
+        "ttlSeconds": "Thời gian (giây) liên kết ký đã sinh còn hiệu lực, hết hạn phải ký lại. Mặc định 1800 giây.",
+        "region": "Vùng của bucket (vd: us-east-1), phải khớp với vùng của bucket trong bảng điều khiển, nếu không việc ký sẽ thất bại.",
+        "sessionToken": "Chỉ cần khi dùng credential tạm (STS). Để trống với Access Key dài hạn."
       }
     },
     "videoEnhance": {
@@ -9333,6 +9359,65 @@
         "pending": "Chưa có kết quả (người đó cần hoàn tất trên điện thoại trước)",
         "tokenHint": "Mã phiên: {{token}} — hãy giữ lại, kết quả được tra bằng mã này"
       }
+    },
+    "diagnostics": {
+      "title": "Kiểm tra tổng thể hệ thống",
+      "description": "Kiểm tra một lần: môi trường triển khai, kết nối cổng mô hình, mô hình mặc định từng danh mục và trạng thái lưu trữ; chỉ đọc, không thay đổi cấu hình.",
+      "refresh": "Kiểm tra lại",
+      "loading": "Đang kiểm tra…",
+      "loadFailed": "Kiểm tra thất bại",
+      "allReady": "Tất cả sẵn sàng",
+      "attention": "Có {{n}} mục cần xử lý",
+      "goToModels": "Đến Mô hình & Kênh",
+      "sections": {
+        "environment": "Môi trường",
+        "model_gateway": "Cổng mô hình",
+        "default_models": "Mô hình mặc định",
+        "storage": "Lưu trữ"
+      },
+      "status": {
+        "pass": "Sẵn sàng",
+        "warn": "Cảnh báo",
+        "fail": "Chưa sẵn sàng",
+        "info": "Tùy chọn"
+      },
+      "items": {
+        "gateway_configured": {
+          "name": "Cấu hình cổng",
+          "fix": "Điền URL cổng và khóa trong Cài đặt → Mô hình & Kênh."
+        },
+        "gateway_reachable": {
+          "name": "Kết nối cổng",
+          "fix": "Đảm bảo URL cổng tới được và khóa hợp lệ (danh sách mô hình trả về)."
+        },
+        "disk_space": {
+          "name": "Dung lượng ổ đĩa",
+          "fix": "Giải phóng hoặc mở rộng ổ đĩa để đầu ra / bộ nhớ đệm còn chỗ."
+        },
+        "settings_db": {
+          "name": "CSDL cấu hình",
+          "fix": "Lỗi đọc/ghi settings.db; kiểm tra volume dữ liệu và quyền."
+        }
+      },
+      "fix": {
+        "defaultModel": "Chọn mô hình mặc định cho danh mục này trong Cài đặt → Mô hình & Kênh."
+      }
+    },
+    "configBackup": {
+      "title": "Sao lưu & khôi phục cấu hình",
+      "description": "Xuất toàn bộ cấu hình có thể chỉnh (khóa cổng, kênh, mô hình mặc định…) thành một JSON; nhập lại tại đây sau khi cài mới để khôi phục.",
+      "sensitiveNotice": "Bản sao lưu chứa API Key, mật khẩu và thông tin nhạy cảm. Hãy giữ an toàn; chỉ dùng để khôi phục, không chia sẻ hay commit.",
+      "export": "Xuất cấu hình",
+      "exportDone": "Đang tải tệp cấu hình",
+      "exportFailed": "Xuất thất bại",
+      "import": "Nhập cấu hình",
+      "invalidFile": "Không phải tệp cấu hình DramaClaw hợp lệ",
+      "preview": "Sẽ nhập {{n}} mục cấu hình (ghi đè cùng tên, giữ phần còn lại)",
+      "previewMeta": "Phiên bản nguồn: {{version}}; tạo lúc: {{generatedAt}}",
+      "confirm": "Xác nhận nhập",
+      "cancel": "Hủy",
+      "importDone": "Đã khôi phục {{applied}} mục cấu hình",
+      "importFailed": "Nhập thất bại"
     }
   },
   "pricing": {

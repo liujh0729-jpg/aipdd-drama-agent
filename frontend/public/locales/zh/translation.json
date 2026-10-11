@@ -3347,7 +3347,8 @@
     "pause": "暂停",
     "retry": "重试",
     "requestId": "请求ID",
-    "listSeparator": "、"
+    "listSeparator": "、",
+    "termsHintAriaLabel": "查看该术语的说明"
   },
   "storyPage": {
     "title": "故事",
@@ -8117,7 +8118,9 @@
       "vectcutDraft": "剪映草稿",
       "douyinCookie": "Cookie存储",
       "envSetup": "环境安装",
-      "seedanceAssets": "素材库"
+      "seedanceAssets": "素材库",
+      "diagnostics": "系统整体自检",
+      "configBackup": "配置备份 / 恢复"
     },
     "accountSecurity": {
       "changeTitle": "修改登录密码",
@@ -8243,7 +8246,9 @@
         "installing": "安装中…",
         "runHint": "配好模型渠道密钥后，即可在画布 / 项目里直接开跑。",
         "items": {
-          "world": { "name": "3D 世界运行时（3DGS / SHARP）" },
+          "world": {
+            "name": "3D 世界运行时（3DGS / SHARP）"
+          },
           "modelChannel": {
             "name": "模型渠道密钥",
             "fix": "前往「设置 → 模型与渠道」配置 AIPDD / 官方密钥后即可开跑。"
@@ -8951,7 +8956,11 @@
         "minimaxVoiceTitle": "MiniMax 语音默认音色（可选）",
         "minimaxVoiceId": "音色 ID（voice_id）",
         "minimaxVoiceIdPlaceholder": "如 male-qn-qingse（系统音色清单见官方文档）",
-        "minimaxVoiceHint": "Speech 2.8 直连合成时，请求未指定音色就用这个默认值；本期只支持系统音色，克隆音色未接入。"
+        "minimaxVoiceHint": "Speech 2.8 直连合成时，请求未指定音色就用这个默认值；本期只支持系统音色，克隆音色未接入。",
+        "baseUrlFixedTip": "该渠道的服务地址由系统内置，无需填写，也不可修改。",
+        "baseUrlTip": "OpenAI 兼容接口的基础地址，通常以 /v1 结尾（如 https://api.xx.com/v1）。留空则用渠道默认地址。",
+        "apiKeyTip": "调用该渠道上游的密钥，在服务商控制台生成。仅在本机保存、不会外泄；留空表示沿用已存值。",
+        "upstreamModelsTip": "从该渠道 /models 接口拉取的可用模型清单，只读预览、不消耗额度；点「刷新」可重新获取。"
       },
       "comfy": {
         "title": "本地 ComfyUI",
@@ -9129,6 +9138,23 @@
         "bucket": "Bucket",
         "endpoint": "Endpoint / 地域",
         "ttlSeconds": "签名有效期（秒）"
+      },
+      "tips": {
+        "provider": "媒体与参考素材的存放方式：本地=存服务器磁盘；数字资产云 / AWS S3 / 阿里云 OSS / Cloudinary=存对象存储并生成带签名、会过期的临时直链。",
+        "aipddApiKey": "AIPDD 中转的调用密钥，与模型渠道共用同一把 st- 密钥。本地档的参考视频 / 音频也要靠它转成公网直链。",
+        "aipddBaseUrl": "AIPDD 上传接口的站点地址，一般留空（自动取已连渠道地址的站点根）。仅当上传口与渠道不同源时才填。",
+        "aipddPrefix": "对象在存储桶内的路径前缀（如 assets/dramaclaw），用于把本系统的文件与其它业务隔离开。",
+        "cloudName": "Cloudinary 账号的 Cloud Name，在 Cloudinary 控制台首页可见。",
+        "cloudinaryApiKey": "Cloudinary 的 API Key，与控制台的 Access Key 一致；留空表示沿用已存值。",
+        "cloudinaryApiSecret": "Cloudinary 的 API Secret，与 API Key 配对使用，只在生成签名链接时用到，请妥善保管。",
+        "apiFolder": "上传到 Cloudinary 时的文件夹名（可选），便于在账号内归类管理。",
+        "accessKeyId": "对象存储账号的访问密钥 ID（阿里云 AccessKey ID / AWS Access Key ID），在云控制台创建。留空表示沿用已存值。",
+        "accessKeySecret": "与访问密钥 ID 配对的 Secret，只在创建时可见、遗失需重建。请仅用于本机恢复，切勿外传。",
+        "bucket": "存放媒体的存储桶名称，需在云控制台预先创建，且与所选区域一致。",
+        "endpoint": "对象存储的接入域名（Endpoint）。留空通常按区域自动解析官方端点；自建 / 兼容网关才需手填。",
+        "ttlSeconds": "生成的签名直链有效期（秒）。到期后链接失效、需重新签发；默认 1800 秒。",
+        "region": "存储桶所在的区域（如 us-east-1），必须与云控制台里该桶的区域一致，否则签名失败。",
+        "sessionToken": "仅在使用临时安全凭据（STS / 临时密钥）时才填；长期 AccessKey 留空即可。"
       }
     },
     "videoEnhance": {
@@ -9333,6 +9359,65 @@
         "pending": "还没查到认证结果（需本人先在手机上完成）",
         "tokenHint": "会话凭据：{{token}}（请保留，认证完成后凭它查询结果）"
       }
+    },
+    "diagnostics": {
+      "title": "系统整体自检",
+      "description": "一次看清部署环境、模型渠道连通性、各分类默认模型与存储就绪状态；全程只读，不改动任何配置。",
+      "refresh": "重新检测",
+      "loading": "检测中…",
+      "loadFailed": "自检失败",
+      "allReady": "全部就绪",
+      "attention": "有 {{n}} 项待处理",
+      "goToModels": "前往模型与渠道",
+      "sections": {
+        "environment": "运行环境",
+        "model_gateway": "模型渠道",
+        "default_models": "默认模型",
+        "storage": "存储"
+      },
+      "status": {
+        "pass": "就绪",
+        "warn": "注意",
+        "fail": "未就绪",
+        "info": "可选"
+      },
+      "items": {
+        "gateway_configured": {
+          "name": "网关配置",
+          "fix": "前往「设置 → 模型与渠道」填好网关地址与密钥。"
+        },
+        "gateway_reachable": {
+          "name": "网关连通性",
+          "fix": "确认网关地址可达、密钥有效（模型清单能正常返回）。"
+        },
+        "disk_space": {
+          "name": "磁盘空间",
+          "fix": "清理磁盘或扩容，保证输出 / 缓存有足够空间。"
+        },
+        "settings_db": {
+          "name": "配置数据库",
+          "fix": "settings.db 读写异常，检查持久卷挂载与权限。"
+        }
+      },
+      "fix": {
+        "defaultModel": "前往「设置 → 模型与渠道」为该分类选择默认模型。"
+      }
+    },
+    "configBackup": {
+      "title": "配置备份 / 恢复",
+      "description": "导出平台全部可编辑配置（网关密钥、渠道、默认模型等）为一个 JSON；重装后在同一入口导入即可还原。",
+      "sensitiveNotice": "备份包含 API Key、口令等敏感信息，请妥善保管；仅用于本机重装恢复，切勿外传或提交到代码库。",
+      "export": "导出配置",
+      "exportDone": "已开始下载配置文件",
+      "exportFailed": "导出失败",
+      "import": "导入配置",
+      "invalidFile": "不是有效的 DramaClaw 配置文件",
+      "preview": "将导入 {{n}} 项配置（合并覆盖同名项，保留其它）",
+      "previewMeta": "来源版本：{{version}}；生成时间：{{generatedAt}}",
+      "confirm": "确认导入",
+      "cancel": "取消",
+      "importDone": "已恢复 {{applied}} 项配置",
+      "importFailed": "导入失败"
     }
   },
   "pricing": {

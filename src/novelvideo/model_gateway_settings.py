@@ -2933,6 +2933,56 @@ def get_model_gateway_settings() -> dict[str, str]:
     return data
 
 
+# [aipdd fork delta] 设置 →「配置备份 / 恢复」：整个 runtime_settings 的导出 / 回灌。
+# settings.db 是平台全部可编辑配置的单一真源（网关密钥、渠道、默认模型、别名、
+# 提示词覆盖、ComfyUI 地址、抖音 Cookie、operator/导出口令、S3 中继……），所以
+# 「备份所有配置」本质就是导出这张表、重装后原样写回。
+
+
+def export_runtime_settings() -> dict[str, str]:
+    """导出 runtime_settings 全表（含密钥）——备份 bundle 的 ``settings`` 载荷。"""
+    return _read_all()
+
+
+def import_runtime_settings(values: dict[str, str], *, replace: bool = False) -> dict[str, int]:
+    """把备份 bundle 写回 runtime_settings，随后失效 CE 网关缓存。
+
+    默认 merge/upsert：只覆盖 ``values`` 里的键，保留 bundle 之外（升级后新增）
+    的键以保向前兼容；``replace=True`` 才先清空整表再写（UI 不暴露此档）。写完调
+    ``refresh_model_gateway_runtime()`` 让新配置即时生效——该刷新 CE-only，非 CE
+    或刷新失败都不回滚已写入的配置（吞异常即可，导入本身仍成功）。空键丢弃计入
+    ``skipped``。返回 ``{applied, skipped}``。
+    """
+    cleaned: dict[str, str] = {}
+    skipped = 0
+    for key, value in (values or {}).items():
+        name = str(key or "").strip()
+        if not name:
+            skipped += 1
+            continue
+        cleaned[name] = "" if value is None else str(value)
+    if replace:
+        conn = _connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("DELETE FROM runtime_settings")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    if cleaned:
+        _write_many(cleaned)
+    try:
+        from novelvideo import model_gateway_runtime
+
+        model_gateway_runtime.refresh_model_gateway_runtime()
+    except Exception:  # noqa: BLE001 - 缓存失效失败不该回滚已写入的配置
+        pass
+    return {"applied": len(cleaned), "skipped": skipped}
+
+
 def _official_base_url(settings: dict[str, str]) -> str:
     """「官方模式」网关地址：只看数据库里存过什么，再看 env；**代码不预设站点地址**。
 

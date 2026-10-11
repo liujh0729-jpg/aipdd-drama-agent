@@ -145,6 +145,8 @@ export const queryKeys = {
   envStatus: () => ["admin", "env-setup", "status"] as const,
   // [aipdd fork delta req-automcp] 环境补齐：探测 → 待办计划 → 逐项安装。
   envPlan: () => ["admin", "env-setup", "plan"] as const,
+  // [aipdd fork delta] 设置 → 系统整体自检（环境 / 模型渠道 / 默认模型 / 存储一盘只读体检）。
+  diagnostics: () => ["admin", "diagnostics"] as const,
   // [aipdd fork delta] 用户管理（仅超管）与首次初始化探测。
   adminUsers: () => ["admin", "users"] as const,
   setupStatus: () => ["auth", "setup-status"] as const,
