@@ -119,9 +119,12 @@ def test_build_uv_command_uses_extra_and_indexes(wdir):
         {"pip_index_url": "https://p/simple", "torch_index_url": "https://t/cpu"}
     )
     joined = " ".join(cmd)
-    assert "--frozen" in cmd
+    # 回归（通用系统）：绝不能再 --frozen——那会绕过 torch 变体索引、照 uv.lock 里
+    # 锁死的 CUDA-on-PyPI torch 图装，把无 GPU 机器拖去下载 GB 级 nvidia 依赖。
+    assert "--frozen" not in cmd
     assert "--extra world" in joined
     assert "--default-index https://p/simple" in joined
+    # 用户显式填了 torch 源 → 手动覆盖优先，原样作为 --index。
     assert "--index https://t/cpu" in joined
     # 回归：--python 绝不能指向尚未创建的 world venv（uv 会报 No interpreter found），
     # 必须用一个已存在的解释器；目标 venv 靠 UV_PROJECT_ENVIRONMENT 定位。
@@ -131,10 +134,84 @@ def test_build_uv_command_uses_extra_and_indexes(wdir):
     assert _sys.executable in cmd
 
 
-def test_build_uv_command_skips_empty_indexes(wdir):
-    cmd = world_install._build_uv_command({"pip_index_url": "", "torch_index_url": ""})
+def test_build_uv_command_skips_empty_pip_index(wdir):
+    # pip 镜像留空 → 不拼 --default-index；torch 源显式填写则原样作为 --index。
+    cmd = world_install._build_uv_command(
+        {"pip_index_url": "", "torch_index_url": "https://t/explicit"}
+    )
+    joined = " ".join(cmd)
     assert "--default-index" not in cmd
-    assert "--index" not in cmd
+    assert "--index https://t/explicit" in joined
+
+
+def test_build_uv_command_auto_resolves_cpu_index_when_source_blank(wdir, monkeypatch):
+    monkeypatch.setattr(
+        world_install,
+        "detect_torch_profile",
+        lambda: {"os": "linux", "arch": "x86_64", "has_nvidia": False, "flavor": "cpu"},
+    )
+    cmd = world_install._build_uv_command({"pip_index_url": "https://p/simple", "torch_index_url": ""})
+    joined = " ".join(cmd)
+    # 留空时按硬件解析出 cpu 变体索引（南大镜像），而不是根本不装 torch 源。
+    assert "--index https://mirrors.nju.edu.cn/pytorch/whl/cpu" in joined
+
+
+# --------------------------------------------------------------- 环境/硬件解析
+
+
+def test_pick_cuda_flavor_maps_to_largest_supported():
+    assert world_install._pick_cuda_flavor(12.8) == "cu128"
+    assert world_install._pick_cuda_flavor(12.6) == "cu126"
+    assert world_install._pick_cuda_flavor(12.3) == "cu121"
+    assert world_install._pick_cuda_flavor(11.8) == "cu118"
+    assert world_install._pick_cuda_flavor(11.0) is None
+
+
+def test_resolve_torch_index_manual_override_wins():
+    idx = world_install.resolve_torch_index({"torch_index_url": "https://mine/custom"})
+    assert idx == "https://mine/custom"
+
+
+def test_resolve_torch_index_auto_from_flavor():
+    idx = world_install.resolve_torch_index(
+        {"torch_index_url": ""}, {"flavor": "cu124"}
+    )
+    assert idx == "https://mirrors.nju.edu.cn/pytorch/whl/cu124"
+
+
+def test_detect_torch_profile_linux_no_gpu_is_cpu(wdir, monkeypatch):
+    monkeypatch.setattr(world_install.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(world_install.platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(world_install, "_nvidia_cuda_version", lambda: None)
+    p = world_install.detect_torch_profile()
+    assert p["os"] == "linux"
+    assert p["has_nvidia"] is False
+    assert p["flavor"] == "cpu"
+
+
+def test_detect_torch_profile_linux_with_cuda_picks_flavor(wdir, monkeypatch):
+    monkeypatch.setattr(world_install.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(world_install.platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(world_install, "_nvidia_cuda_version", lambda: 12.6)
+    p = world_install.detect_torch_profile()
+    assert p["has_nvidia"] is True
+    assert p["cuda_version"] == 12.6
+    assert p["flavor"] == "cu126"
+
+
+def test_detect_torch_profile_macos_is_cpu_without_probe(wdir, monkeypatch):
+    monkeypatch.setattr(world_install.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(world_install.platform, "machine", lambda: "arm64")
+    # macOS 不应去跑 nvidia-smi（无 CUDA pip 轮子）。
+    monkeypatch.setattr(
+        world_install,
+        "_nvidia_cuda_version",
+        lambda: (_ for _ in ()).throw(AssertionError("macOS 不应探测 nvidia-smi")),
+    )
+    p = world_install.detect_torch_profile()
+    assert p["os"] == "darwin"
+    assert p["arch"] == "arm64"
+    assert p["flavor"] == "cpu"
 
 
 # --------------------------------------------------------------- 安装流程（mock）

@@ -19,6 +19,17 @@ export interface WorldSources {
   https_proxy: string;
 }
 
+/** 后端分析环境+硬件后解析出的 torch 下载变体（通用系统，实机探测）。 */
+export interface WorldHardware {
+  os: string;
+  arch: string;
+  has_nvidia: boolean;
+  cuda_version: number | null;
+  flavor: string;
+  reason: string;
+  torch_index: string;
+}
+
 export interface WorldStatus {
   enabled: boolean;
   install_state: WorldInstallState;
@@ -30,6 +41,7 @@ export interface WorldStatus {
   message: string;
   installed_at: string;
   sources: WorldSources;
+  hardware: WorldHardware;
   venv_path: string;
   splat_transform: boolean;
   can_install: boolean;

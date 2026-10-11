@@ -8368,7 +8368,7 @@
         "pip": "PyPI mirror",
         "pipHint": "e.g. https://pypi.tuna.tsinghua.edu.cn/simple",
         "torch": "PyTorch index",
-        "torchHint": "CPU build mirror, e.g. https://mirrors.nju.edu.cn/pytorch/whl/cpu",
+        "torchHint": "Leave blank to auto-resolve the build (CPU / cuXXX) from hardware; override to force a mirror",
         "npm": "npm registry",
         "npmHint": "e.g. https://registry.npmmirror.com",
         "hf": "HuggingFace mirror",
@@ -8379,6 +8379,9 @@
         "saved": "Download sources saved",
         "saveFailed": "Failed to save download sources",
         "saveHint": "Applies on the next install / download"
+      },
+      "hardware": {
+        "title": "Detected environment"
       }
     },
     "users": {

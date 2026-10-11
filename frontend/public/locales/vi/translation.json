@@ -8368,7 +8368,7 @@
         "pip": "Mirror PyPI",
         "pipHint": "vd https://pypi.tuna.tsinghua.edu.cn/simple",
         "torch": "Chỉ mục PyTorch",
-        "torchHint": "Mirror bản CPU, vd https://mirrors.nju.edu.cn/pytorch/whl/cpu",
+        "torchHint": "Để trống tự phân tích bản xây (CPU / cuXXX) theo phần cứng; điền để ép một mirror",
         "npm": "npm registry",
         "npmHint": "vd https://registry.npmmirror.com",
         "hf": "Mirror HuggingFace",
@@ -8379,6 +8379,9 @@
         "saved": "Đã lưu nguồn tải",
         "saveFailed": "Lưu nguồn tải thất bại",
         "saveHint": "Áp dụng ở lần cài đặt / tải tiếp theo"
+      },
+      "hardware": {
+        "title": "Môi trường đã phát hiện"
       }
     },
     "users": {

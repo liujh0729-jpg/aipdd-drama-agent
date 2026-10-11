@@ -8368,7 +8368,7 @@
         "pip": "PyPI 镜像",
         "pipHint": "如 https://pypi.tuna.tsinghua.edu.cn/simple",
         "torch": "PyTorch 索引",
-        "torchHint": "CPU 版镜像，如 https://mirrors.nju.edu.cn/pytorch/whl/cpu",
+        "torchHint": "留空则根据硬件自动解析构建版（CPU / cuXXX）；填写可强制指定镜像",
         "npm": "npm registry",
         "npmHint": "如 https://registry.npmmirror.com",
         "hf": "HuggingFace 镜像",
@@ -8379,6 +8379,9 @@
         "saved": "下载源已保存",
         "saveFailed": "保存下载源失败",
         "saveHint": "下次安装/下载时生效"
+      },
+      "hardware": {
+        "title": "已检测到的环境"
       }
     },
     "users": {

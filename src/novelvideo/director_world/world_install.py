@@ -13,6 +13,16 @@
 - 下载源（pip 镜像 / npm / HuggingFace / 可选代理）默认已填国内可用镜像，用户可在
   设置里改。整个安装/下载依赖容器能出网。
 
+这是**通用系统**，安装分两步、不假设具体机器：
+1. 分析环境和硬件（:func:`detect_torch_profile`）：只读探测 OS/架构 + 有没有 NVIDIA
+   GPU、驱动支持的 CUDA 版本；据此解析出该下载的 torch 构建变体（cpu / cuXXX）。
+2. 解析对应的版本下载（:func:`resolve_torch_index` + :func:`_build_uv_command`）：用
+   变体对应的 PyTorch 轮子索引参与解析，**不再 ``--frozen``**——``--frozen`` 会照
+   uv.lock 里锁死的 CUDA-on-PyPI torch 图装，把 torch 源架空，让无 GPU 机器被迫去
+   下 GB 级 nvidia/cuda 轮子（且 pythonhosted 直连常被拒 → 退出码 2）。CPU 变体不含
+   nvidia 依赖、CUDA 变体自带运行库，两种都不再碰 pythonhosted。用户显式填 torch 源
+   时以其为准（手动覆盖），留空则按硬件自动解析。
+
 本模块只负责编排（写 settings.json、跑 uv 子进程、更新状态），不改变 world 之外的行为。
 """
 
@@ -20,6 +30,8 @@ from __future__ import annotations
 
 import json
 import os
+import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -65,13 +77,30 @@ def _now_iso() -> str:
 
 
 # 国内默认可用镜像；用户可在设置里逐项覆盖（"帮我默认好，用户自己去选择下载"）。
+# torch 源留空＝按硬件自动解析变体（cpu/cuXXX），这是通用系统的默认姿态；填了则手动覆盖。
 DEFAULT_SOURCES: dict[str, str] = {
     "pip_index_url": "https://pypi.tuna.tsinghua.edu.cn/simple",
-    "torch_index_url": "https://mirrors.nju.edu.cn/pytorch/whl/cpu",
+    "torch_index_url": "",  # 留空：detect_torch_profile() 解析 cpu / cuXXX 后拼官方镜像
     "npm_registry": "https://registry.npmmirror.com",
     "hf_endpoint": "https://hf-mirror.com",
     "https_proxy": "",  # 可选：需要走代理时填 http://host:port
 }
+
+# PyTorch 轮子按硬件分构建变体：cpu / cu118 / cu121 / cu124 / cu126 / cu128。用南大镜像
+# （国内可达）按变体拼路径；镜像缺某变体时用户可在设置里覆盖成官方 download.pytorch.org。
+_PYTORCH_WHEEL_INDEX = "https://mirrors.nju.edu.cn/pytorch/whl/{flavor}"
+
+# torch 官方 cuXXX 轮子覆盖的 CUDA 版本（由新到旧）。据 nvidia-smi 报的驱动 CUDA 版本挑
+# 「不超过它的最大 flavor」——驱动向后兼容，能跑更低 CUDA 的轮子。
+_CUDA_FLAVORS: tuple[tuple[str, float], ...] = (
+    ("cu128", 12.8),
+    ("cu126", 12.6),
+    ("cu124", 12.4),
+    ("cu121", 12.1),
+    ("cu118", 11.8),
+)
+
+_NVIDIA_CUDA_RE = re.compile(r"CUDA Version:\s*(\d+(?:\.\d+)?)")
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "enabled": False,  # 是否对画布开放 3D 世界入口
@@ -196,6 +225,87 @@ def require_ready() -> tuple[str, dict[str, str]]:
     return resolved
 
 
+def _nvidia_cuda_version() -> float | None:
+    """用 nvidia-smi 探测驱动支持的最高 CUDA 版本；无 NVIDIA GPU / 命令缺失 → None。
+
+    只读、短超时：拿不到 nvidia-smi（无独显、未装驱动）一律 None，不抛。
+    """
+    exe = shutil.which("nvidia-smi")
+    if not exe:
+        return None
+    try:
+        proc = subprocess.run([exe], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    match = _NVIDIA_CUDA_RE.search(proc.stdout or "")
+    if not match:
+        return None
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return None
+
+
+def _pick_cuda_flavor(cuda: float) -> str | None:
+    """把驱动 CUDA 版本映射到 torch 官方 cuXXX 变体（取不超过驱动的最大 flavor）。"""
+    for flavor, min_cuda in _CUDA_FLAVORS:
+        if cuda >= min_cuda:
+            return flavor
+    return None
+
+
+def detect_torch_profile() -> dict[str, Any]:
+    """第一步：分析运行环境与硬件，解析该下载的 torch 构建变体（通用系统、不假设具体机器）。
+
+    只读探测、无副作用。规则：
+    - 非 Linux（macOS/Windows）：无 NVIDIA CUDA pip 轮子，用 CPU 版
+      （Apple Silicon 靠 MPS 加速，仍是 CPU 轮子）。
+    - Linux 且有 NVIDIA GPU：按驱动支持的 CUDA 版本选官方 cuXXX 变体；
+      版本过低（< 11.8）回退 CPU。
+    - Linux 无 GPU：CPU 版，不下载 GB 级 nvidia/cuda 依赖。
+    """
+    system = (platform.system() or "").lower()
+    machine = (platform.machine() or "").lower()
+    profile: dict[str, Any] = {
+        "os": system or "unknown",
+        "arch": machine or "unknown",
+        "has_nvidia": False,
+        "cuda_version": None,
+        "flavor": "cpu",
+    }
+    cuda = _nvidia_cuda_version() if system == "linux" else None
+    if cuda is not None:
+        profile["has_nvidia"] = True
+        profile["cuda_version"] = cuda
+        flavor = _pick_cuda_flavor(cuda)
+        if flavor:
+            profile["flavor"] = flavor
+            profile["reason"] = f"检测到 NVIDIA GPU（驱动 CUDA {cuda}）：解析为 {flavor} 版 torch。"
+        else:
+            profile["reason"] = (
+                f"检测到 NVIDIA GPU（驱动 CUDA {cuda}）低于受支持的 11.8，回退 CPU 版 torch。"
+            )
+        return profile
+    if system == "linux":
+        profile["reason"] = "未检测到 NVIDIA GPU：解析为 CPU 版 torch（不下载 nvidia/CUDA 依赖）。"
+    else:
+        profile["reason"] = f"{profile['os']} 平台无 NVIDIA CUDA pip 轮子：解析为 CPU 版 torch。"
+    return profile
+
+
+def resolve_torch_index(
+    sources: dict[str, Any] | None, profile: dict[str, Any] | None = None
+) -> str:
+    """第二步：用户显式填了 torch 源就用它（手动覆盖）；否则按探测到的硬件变体拼官方镜像。"""
+    manual = str((sources or {}).get("torch_index_url") or "").strip()
+    if manual:
+        return manual
+    profile = profile or detect_torch_profile()
+    return _PYTORCH_WHEEL_INDEX.format(flavor=profile.get("flavor", "cpu"))
+
+
 def _build_child_env(sources: dict[str, str]) -> dict[str, str]:
     wd = world_dir()
     env = dict(os.environ)
@@ -212,26 +322,34 @@ def _build_child_env(sources: dict[str, str]) -> dict[str, str]:
     return env
 
 
-def _build_uv_command(sources: dict[str, str]) -> list[str]:
+def _build_uv_command(
+    sources: dict[str, str],
+    profile: dict[str, Any] | None = None,
+) -> list[str]:
     # 目标 venv 靠子进程 env 里的 UV_PROJECT_ENVIRONMENT 指定（见 _run_install），
     # 不能把 --python 指向尚未创建的 venv/bin/python（uv 会报 No interpreter found）。
     # --python 传一个已存在的解释器（当前运行进程），uv 会在 UV_PROJECT_ENVIRONMENT
-    # 位置用它建 venv；--frozen 直接复用 uv.lock（与 Dockerfile 的 INSTALL_WORLD 装法一致）。
+    # 位置用它建 venv。
+    #
+    # 关键：不再 --frozen。--frozen 会照 uv.lock 里锁死的 CUDA-on-PyPI torch 图安装，
+    # 把下面传进去的 torch 变体索引架空——无 GPU 机器因此被迫下载 GB 级 nvidia/cuda
+    # 轮子（pythonhosted 直连常被拒 → 退出码 2）。去掉 --frozen 后，变体索引以更高优先级
+    # （uv 默认 first-match）参与解析：torch/torchvision 从变体索引取，CPU 变体不含 nvidia
+    # 依赖、CUDA 变体自带运行库，两种都不再碰 pythonhosted。
     uv = shutil.which("uv") or "uv"
     cmd = [
         uv,
         "sync",
-        "--frozen",
         "--extra",
         "world",
         "--no-dev",
         "--python",
         sys.executable,
     ]
-    pip_index = sources.get("pip_index_url")
+    pip_index = (sources.get("pip_index_url") or "").strip()
     if pip_index:
         cmd += ["--default-index", pip_index]
-    torch_index = sources.get("torch_index_url")
+    torch_index = resolve_torch_index(sources, profile)
     if torch_index:
         cmd += ["--index", torch_index]
     return cmd
@@ -269,6 +387,10 @@ def status_snapshot() -> dict[str, Any]:
         "venv_path": str(venv_dir()),
         "splat_transform": shutil.which("splat-transform") is not None,
         "can_install": _project_root() != "/app" or Path("/app/uv.lock").exists(),
+        "hardware": {
+            **detect_torch_profile(),
+            "torch_index": resolve_torch_index(s.get("sources", {})),
+        },
         "log_tail": _read_log_tail(),
     }
 
@@ -319,13 +441,20 @@ def _run_install() -> None:
         (wd / "torch_cache").mkdir(parents=True, exist_ok=True)
         (wd / "hf_cache").mkdir(parents=True, exist_ok=True)
         sources = load_settings().get("sources", {})
+        # 先分析环境和硬件 → 解析该下载哪个 torch 变体（通用系统，不假设具体机器）。
+        profile = detect_torch_profile()
         env = _build_child_env(sources)
         # uv 自己的缓存也放持久卷
         env["UV_CACHE_DIR"] = str(wd / "uv_cache")
         # 关键：覆盖镜像全局 UV_PROJECT_ENVIRONMENT=/app/.venv，把 world 依赖装进独立 venv，
         # 不动应用主环境；uv 会在该路径不存在时自动建 venv。
         env["UV_PROJECT_ENVIRONMENT"] = str(venv_dir())
-        cmd = _build_uv_command(sources)
+        _set_progress(
+            0.05,
+            f"已解析下载方案：{profile.get('reason', '')}（torch 源："
+            f"{resolve_torch_index(sources, profile)}）",
+        )
+        cmd = _build_uv_command(sources, profile)
         with _LOCK:
             logf = install_log_path().open("w", encoding="utf-8")
         proc = subprocess.Popen(

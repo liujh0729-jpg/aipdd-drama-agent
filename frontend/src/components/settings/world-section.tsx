@@ -270,6 +270,18 @@ export function WorldSection() {
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 {t("settings.world.sources.description")}
               </p>
+              {status.hardware ? (
+                <div className="mt-2 rounded-md border border-border bg-white/[0.03] px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {t("settings.world.hardware.title")}
+                    {": "}
+                  </span>
+                  <span>{status.hardware.reason}</span>
+                  <span className="mt-0.5 block break-all opacity-80">
+                    {status.hardware.torch_index}
+                  </span>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-3">
               {SOURCE_FIELDS.map(({ key, labelKey, hintKey }) => (
