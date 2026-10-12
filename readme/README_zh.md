@@ -546,6 +546,16 @@ DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音�
 
 <br/>
 
+## <a name="community"></a>社区
+
+加入画布讨论群，请扫下面二维码即可。欢迎发现问题和提出改进建议，我们来实现并开源。
+
+<div align="center">
+  <img src="../assets/canvas-group-qr.png" width="260" alt="画布讨论群 · 微信群二维码"/>
+</div>
+
+<br/>
+
 ## 许可证
 
 [Elastic License 2.0](../LICENSE)。源码可得（source available），允许自用、修改、再分发、拿它做的东西拿去卖；请在界面里保留一行小字「Powered by AIPDD & DramaClaw」。唯一限制是不得把本软件本身作为托管服务提供给他人。详见 [许可证说明](../docs/zh/license.md) 和 [授权说明](https://github.com/dramaclaw/dramaclaw/issues/475)。

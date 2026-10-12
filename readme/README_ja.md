@@ -496,6 +496,16 @@ DramaClaw はモデル中立 —— すべてのテキスト / 画像 / 動画 /
 
 <br/>
 
+## <a name="community"></a>コミュニティ
+
+キャンバス検討グループに参加するには、下の QR コードをスキャンして WeChat で私を友達に追加してください。バグ報告や改善のご提案も大歓迎です。良いものは実装し、オープンソースとして公開します。
+
+<div align="center">
+  <img src="../assets/canvas-group-qr.png" width="260" alt="キャンバス討論グループの WeChat QR コード"/>
+</div>
+
+<br/>
+
 ## ライセンス
 
 [Elastic License 2.0](../LICENSES/Elastic-2.0.txt)。利用・改変・再配布、そしてそれで作ったものを販売することが自由；UI の片隅に小さな "Powered by AIPDD & DramaClaw" を残してください。唯一の制限は、ソフトウェアそのものを他者へホスト型サービスとして提供できないことです。[ライセンス解説](../docs/en/license.md) と [ライセンス声明](https://github.com/dramaclaw/dramaclaw/issues/475) 参照。

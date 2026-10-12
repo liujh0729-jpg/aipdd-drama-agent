@@ -507,6 +507,16 @@ Những tính năng này đang được xây dựng công khai và chưa có tro
 
 <br/>
 
+## <a name="community"></a>Cộng đồng
+
+Để tham gia nhóm thảo luận về canvas, chỉ cần quét mã QR bên dưới để kết bạn với tôi trên WeChat. Rất hoan nghênh bạn báo lỗi và góp ý cải tiến — chúng tôi sẽ hiện thực hóa và mã nguồn mở chúng.
+
+<div align="center">
+  <img src="../assets/canvas-group-qr.png" width="260" alt="Mã QR WeChat — tham gia nhóm thảo luận canvas"/>
+</div>
+
+<br/>
+
 ## Giấy phép
 
 [Elastic License 2.0](../LICENSES/Elastic-2.0.txt). Tự do sử dụng, sửa đổi, phân phối lại và bán những gì bạn xây bằng nó; giữ một dòng nhỏ "Powered by AIPDD & DramaClaw" trong giao diện của bạn. Hạn chế duy nhất là bạn không được cung cấp chính phần mềm này như một dịch vụ lưu trữ cho người khác. Xem [giải thích giấy phép](../docs/en/license.md) và [tuyên bố cấp phép](https://github.com/dramaclaw/dramaclaw/issues/475).

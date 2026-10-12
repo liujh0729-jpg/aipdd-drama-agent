@@ -496,6 +496,16 @@ Estos se están construyendo en abierto y aún no están en un release. Observa 
 
 <br/>
 
+## <a name="community"></a>Comunidad
+
+Para unirte al grupo de discusión del lienzo (canvas), solo escanea el código QR de abajo para agregarme en WeChat. Agradecemos los informes de errores y las sugerencias de mejora: las implementaremos y las publicaremos como código abierto.
+
+<div align="center">
+  <img src="../assets/canvas-group-qr.png" width="260" alt="Código QR de WeChat — únete al grupo de discusión del canvas"/>
+</div>
+
+<br/>
+
 ## Licencia
 
 [Elastic License 2.0](../LICENSES/Elastic-2.0.txt). Libre de usar, modificar, redistribuir y vender lo que construyas con él; conserva un pequeño «Powered by AIPDD & DramaClaw» en tu UI. La única restricción es que no puedes ofrecer el software en sí como un servicio alojado a otros. Consulta la [explicación de la licencia](../docs/en/license.md) y la [declaración de licencia](https://github.com/dramaclaw/dramaclaw/issues/475).

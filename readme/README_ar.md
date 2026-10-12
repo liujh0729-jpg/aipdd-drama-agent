@@ -579,6 +579,20 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 <br/>
 
+## <a name="community"></a>المجتمع
+
+<div dir="rtl">
+
+للانضمام إلى مجموعة مناقشة الـ Canvas، ما عليك سوى مسح رمز QR أدناه لإضافتي على WeChat. نرحّب بالإبلاغ عن المشكلات واقتراحات التحسين، وسننفّذ الجيد منها ونصدره كمفتوح المصدر.
+
+</div>
+
+<div align="center">
+  <img src="../assets/canvas-group-qr.png" width="260" alt="رمز QR لمجموعة مناقشة الـ Canvas على WeChat"/>
+</div>
+
+<br/>
+
 ## الرخصة
 
 <div dir="rtl">

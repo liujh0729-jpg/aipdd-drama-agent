@@ -485,6 +485,16 @@ These are being built in the open and are not in a release yet. Watch the branch
 
 <br/>
 
+## <a name="community"></a>Community
+
+To join the canvas discussion group, just scan the QR code below to add me on WeChat. Bug reports and improvement suggestions are very welcome — we'll build the good ones and open-source them.
+
+<div align="center">
+  <img src="./assets/canvas-group-qr.png" width="260" alt="WeChat QR code — join the AIPDD-Agent-Claw canvas discussion group"/>
+</div>
+
+<br/>
+
 ## License
 
 [Elastic License 2.0](./LICENSES/Elastic-2.0.txt). Free to use, modify, redistribute and sell what you build with it; keep a small "Powered by AIPDD & DramaClaw" in your UI. The only restriction is that you may not offer the software itself as a hosted service to others. See the [license explainer](./docs/en/license.md) and the [licensing statement](https://github.com/dramaclaw/dramaclaw/issues/475).
