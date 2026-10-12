@@ -1,12 +1,15 @@
 name: release-images
 
+# 发布/手动触发时，从源码构建三服务多架构镜像并推送到 GHCR（ghcr.io）。
+# 用内置 GITHUB_TOKEN 登录，无需配置任何仓库 Secret。镜像默认私有，
+# 需匿名 pull 时把包置为 public（镜像推送成功后由维护者用包设置或 API 处理）。
 on:
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: "要构建的 release tag(如 v1.0.2)"
+        description: "要构建的 release tag(如 v2.1.6)"
         required: true
         type: string
       push_latest:
@@ -16,69 +19,57 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
-# release 事件取 tag 名(github.ref_name),手动触发取输入的 tag。
 env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  REGISTRY: ghcr.io
+  IMAGE_NS: ${{ github.repository_owner }}
 
 jobs:
-  backend:
+  build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - svc: api
+            context: .
+            dockerfile: Dockerfile
+          - svc: gateway
+            context: third_party/dramaclaw-gateway
+            dockerfile: Dockerfile
+          - svc: web
+            context: frontend
+            dockerfile: Dockerfile
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_TAG }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: claymorelab/dramaclaw
-          # release: latest=auto(prerelease 不推 latest);手动触发由 push_latest 决定,
-          # 默认 false —— 重建历史版本时避免把 latest 回退到旧版。
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NS }}/dramaclaw-${{ matrix.svc }}
           tags: |
             type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
           flavor: |
             latest=${{ github.event_name == 'release' && 'auto' || (inputs.push_latest && 'true' || 'false') }}
-      - uses: docker/build-push-action@v6
+      - name: Build and push
+        uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-  frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: claymorelab/dramaclaw-frontend
-          tags: |
-            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
-          flavor: |
-            latest=${{ github.event_name == 'release' && 'auto' || (inputs.push_latest && 'true' || 'false') }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: frontend
-          file: frontend/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
           build-args: |
             VITE_APP_VERSION=${{ env.RELEASE_TAG }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
