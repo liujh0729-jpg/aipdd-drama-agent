@@ -1,0 +1,5 @@
+name: dramaclaw
+version: 0.1.0
+description: "AIPDD API tools for AIPDD Canvas. Uses direct HTTP client calls with the injected agent token; no shell, subprocess, or curl."
+author: "AIPDD"
+kind: backend

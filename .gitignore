@@ -81,7 +81,8 @@ backups/
 /需求/newapi_models_raw.json
 # 本地 agent/skill 工作目录与规格变更流程，非产品内容。
 /.codex/
-/.hermes/
+/.hermes/**/__pycache__/
+/.hermes/**/*.pyc
 /openspec/
 # 任意层级的本地虚拟环境兜底（根 /.venv/ 只盖住了顶层）。
 .venv/
