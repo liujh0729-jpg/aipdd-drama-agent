@@ -1,0 +1,27 @@
+# Tauri / Rust 构建产物
+src-tauri/target/
+src-tauri/gen/
+
+# 打包产出目录（.app/.dmg 等重量级分发件，本地留档不入库）
+dist/
+
+# prepare-resources.sh 生成的重量级资源（体积大、可重建，不入库）
+src-tauri/resources/python/
+src-tauri/resources/bin/
+src-tauri/resources/app/
+
+# 保留随包提交的静态配置与模板（体积小、需版本管理）
+!src-tauri/resources/nginx.conf
+!src-tauri/resources/model-manifest.json
+!src-tauri/resources/nginx/
+
+# 环境变量与签名凭据（绝不入库）
+.env
+*.p12
+*.pfx
+*.mobileprovision
+entitlements.local.plist
+
+# 杂项
+.DS_Store
+*.log

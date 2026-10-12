@@ -1,0 +1,39 @@
+# 精简但够用的 mime.types：保证前端 dist 的 JS/CSS/HTML/wasm/字体/媒体被正确类型下发，
+# 避免 SPA 因 application/octet-stream 被浏览器拒绝执行。prepare-resources 若从
+# nginx 安装树拷贝到更全的版本会覆盖本文件；本文件是「即开可用」的下限保底。
+types {
+    text/html                             html htm shtml;
+    text/css                              css;
+    text/xml                              xml rss;
+    text/plain                            txt jsm mjs map;
+    image/gif                             gif;
+    image/jpeg                            jpeg jpg;
+    image/png                             png;
+    image/svg+xml                         svg svgz;
+    image/webp                            webp;
+    image/avif                            avif;
+    image/x-icon                          ico cur;
+    application/javascript                js;
+    application/json                      json;
+    application/wasm                      wasm;
+    application/xml                       atom;
+    application/font-woff                 woff;
+    application/font-woff2                woff2;
+    application/vnd.ms-fontobject         eot;
+    font/ttf                              ttf;
+    font/otf                              otf;
+    font/woff                             woff;
+    font/woff2                            woff2;
+    video/mp4                             mp4 m4v;
+    video/webm                            webm;
+    video/quicktime                       mov;
+    audio/mpeg                              mp3;
+    audio/mp4                               m4a;
+    audio/wav                             wav;
+    audio/ogg                             ogg oga;
+    audio/webm                            weba;
+    application/ogg                       ogv;
+    application/pdf                       pdf;
+    application/octet-stream              bin exe dll;
+    application/x-apple-diskimage         dmg;
+}

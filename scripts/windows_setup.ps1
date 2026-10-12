@@ -47,20 +47,36 @@ try {
 
 # ─────────────────────────── [2/7] WSL 2 ───────────────────────────
 Write-Step '[2/7] 检查 WSL 2（Docker Desktop 的 Linux 引擎底座）'
+# 就绪判定的头号杀手是编码，不是 WSL 没装：wsl.exe 默认按 **UTF-16LE** 打印，而
+# windows_common.ps1 第 17 行为显示中文已把 [Console]::OutputEncoding 设成 UTF-8。两者一撞，
+# PowerShell 拿 UTF-8 去解 UTF-16 的字节，得到 W\0S\0L\0 这种夹 NUL 的乱码：版本号 2.1.5 变成
+# 2\0.\01\0，正则 \d+\.\d+ 与表格 VERSION 列的 \s2$ 全部落空——明明装好了 WSL2 却被判成「没探到」。
+# 所以不再裸调 & wsl（那会用被改成 UTF-8 的控制台解码），而是对每个子命令分别按 UTF-16LE 与
+# UTF-8 各取一次，哪种解出可读文本就用哪种；两种都试过仍拿不到才判未就绪。
+function Get-WslOutput {
+    param([string[]]$WslArgs)
+    $prev = [Console]::OutputEncoding
+    $texts = @()
+    try {
+        [Console]::OutputEncoding = [System.Text.Encoding]::Unicode    # wsl.exe 默认输出
+        $texts += ((& wsl @WslArgs 2>$null) -join "`n")
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()  # 外部设了 WSL_UTF8=1 时
+        $texts += ((& wsl @WslArgs 2>$null) -join "`n")
+    } catch { }
+    finally { [Console]::OutputEncoding = $prev }
+    return $texts
+}
 function Get-WslVersion {
     if (-not (Test-Command 'wsl')) { return $null }
-    # 就绪不押在单一信号上：旧逻辑把「解析不到 wsl --version」直接等同「inbox 版/未就绪」，
-    # 结果用户机上 wsl --version 明明正常打印却被判死、卡在第 2 步。逐条拆掉脆弱点：
-    #   · 不再因为 $LASTEXITCODE 非 0 就单独判未就绪（部分 Windows 的 wsl 会带告警返回非 0，但版本已打印出来）；
-    #   · 非英文 Windows 标签本地化，只从输出抓版本号数字，正则放宽到两段及以上；
-    #   · 原生调用包 try，本地化/编码下写 stderr 也不至于把整步崩掉；
-    #   · --version 拿不到时，再用 wsl -l -v 是否存在 VERSION 2 的发行版兜底（Docker 的 wsl-2 后端要的就是它）。
-    try { $out = ((& wsl --version 2>$null) -join ' ') } catch { $out = '' }
-    if ($out -match '(\d+\.\d+(?:\.\d+){0,2})') { return $Matches[1] }
-    $rows = @()
-    try { $rows = @(& wsl -l -v 2>$null) } catch { $rows = @() }
-    foreach ($row in $rows) {
-        if (("$row").TrimEnd() -match '\s2$') { return 'WSL2' }
+    # 1) wsl --version 里能抓到版本号即视为就绪（本地化标签无妨，只认数字，放宽到两段以上）。
+    foreach ($t in (Get-WslOutput -WslArgs @('--version'))) {
+        if ($t -match '(\d+\.\d+(?:\.\d+){0,2})') { return $Matches[1] }
+    }
+    # 2) 拿不到版本号时，再看是否已存在 VERSION 2 的发行版（Docker 的 wsl-2 后端要的就是它）。
+    foreach ($t in (Get-WslOutput -WslArgs @('-l','-v'))) {
+        foreach ($row in ($t -split "`r?`n")) {
+            if ("$row".TrimEnd() -match '\s2$') { return 'WSL2' }
+        }
     }
     return $null
 }

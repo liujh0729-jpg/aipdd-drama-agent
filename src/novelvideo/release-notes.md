@@ -1,29 +1,27 @@
 ---
-version: 2.0.5
+version: 2.1.6
 attention: low
 ---
-# v2.0.5
+# v2.1.6
 
 ## User-facing Highlights (zh)
 
-- **素材归档更完整**: 视频、图片和音频生成结果支持归档后的交付与访问，减少临时结果链接失效带来的影响。
-- **参考素材提前校验**: 画布生成前会检查参考素材的时长等限制，并标出不符合要求的文件，方便及时调整。
-- **账号与充值体验改进**: 密码账号支持首次绑定手机号，并新增积分充值和独立结账流程。
+- **macOS 桌面客户端上线**: 新增 AIPDD DramaClaw 原生 macOS 应用（Apple 芯片），内置后端与全部服务，双击即用，无需手动配置 Docker/环境。
+- **Windows 安装更可靠**: 修复已安装 WSL 2 却被误判为「不可用」的问题，安装脚本能正确识别本机 WSL 2，减少首次部署受阻。
+- **全新品牌标识**: 桌面应用图标、网页登录页与浏览器标签页统一为 AIPDD 品牌 logo。
 
 ## User-facing Highlights (en)
 
-- **More reliable archived media**: Generated videos, images, and audio can be delivered from archives, reducing reliance on expiring result links.
-- **Earlier reference validation**: XiaHua checks reference media limits before generation and identifies files that need adjustment.
-- **Improved accounts and checkout**: Password accounts can bind a phone number for the first time, with a new credit top-up and checkout flow.
+- **macOS desktop app**: AIPDD DramaClaw now ships as a native macOS app (Apple silicon) with the backend and all services bundled — double-click to launch, no manual Docker or environment setup.
+- **More reliable Windows install**: Fixed WSL 2 being falsely reported as unavailable on machines that already have it; the installer now detects WSL 2 correctly.
+- **New brand identity**: The desktop app icon, web login page and browser tab now share the AIPDD logo.
 
 ## Fixes
 
-- 修复并发草图重生成时输出路径冲突的问题 (#612)。
-- 修复视频编辑错误提示及参考素材校验体验问题 (#597, #625)。
-- 修复按集配音任务身份传递和完成后的刷新问题 (#551, #552)。
-- 修复每日备份包含已弃用项目数据的问题 (#531)。
+- 修复 Windows 安装脚本 `Get-WslVersion` 的假阴性：wsl.exe 默认输出 UTF-16LE，被按 UTF-8 控制台编码误解码，导致已装 WSL 2 被判为不可用。现按 Unicode 与 UTF-8 各解码一次再判定。
+- 修复 macOS 桌面运行期 nginx 因配置路径含空格未加引号而启动失败，以及网关目录未预建导致服务链路卡住的问题。
 
 ## Improvements
 
-- 优化视频、图片和音频归档结果的交付与访问 (#574, #616)。
-- 减少上传及媒体读取对服务响应速度的影响 (#560, #566, #578)。
+- macOS 应用图标按 Apple 图标栅格加圆角与四周留白，Dock 呈现更规范。
+- 品牌资产统一由 `scripts/gen_brand_assets.py` 从单一源图派生，改 logo 一处即可重生成桌面图标与前端 favicon/登录字标。

@@ -1,0 +1,39 @@
+[package]
+name = "dramaclaw-desktop"
+version = "2.1.6"
+description = "AIPDD DramaClaw 桌面壳（Tauri v2）—— 多进程后端编排器"
+authors = ["ClaymoreLab"]
+license = "Elastic-2.0"
+edition = "2021"
+rust-version = "1.77"
+
+# 仅桌面：入口在 src/main.rs，用模块划分职责，不做移动端 lib 拆分。
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+url = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+log = "0.4"
+
+# 子进程编排用 std::process（不经 JS shell 插件，天然安全：Web 侧无法触发进程）。
+# 端口探活用 std::net::TcpStream（带超时）。模型下载用 tokio + reqwest 流式。
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "time", "sync"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+futures-util = "0.3"
+sha2 = "0.10"
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29", features = ["signal", "process"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }

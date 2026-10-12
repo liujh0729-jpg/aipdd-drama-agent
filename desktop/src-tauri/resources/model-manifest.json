@@ -1,0 +1,4 @@
+{
+  "_comment": "模型下载清单：不打包进安装包的模型在此声明，App 首启后台拉取到 app-data/models。留空 models 数组=不下载任何模型（安全默认）。字段：name 展示名 / url 直链 / dest 相对 models 的子路径 / sha256 校验值 / size 字节。sha256 缺失则跳过完整性校验。请复用后端 feature_provisioner / catalog 的既有下载源补全 url 与 sha256（见 desktop/README 开放项）。",
+  "models": []
+}

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AIPDD DramaClaw",
+  "version": "2.1.6",
+  "identifier": "work.aipdd.dramaclaw",
+
+  "build": {
+    "frontendDist": "../panel",
+    "removeUnusedCommands": false
+  },
+
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "category": "DeveloperTool",
+    "shortDescription": "AIPDD DramaClaw 桌面客户端",
+    "longDescription": "基于 Tauri v2 的桌面壳，内置便携 Python 与 Go/nginx/Chromium 等后端服务并统一编排。",
+    "copyright": "© ClaymoreLab",
+    "license": "Elastic-2.0",
+
+    "resources": [
+      "resources/nginx.conf",
+      "resources/model-manifest.json",
+      "resources/nginx/*",
+      "resources/bin/*",
+      "resources/app/dist/**/*",
+      "resources/app/src/**/*",
+      "resources/app/services/**/*",
+      "resources/python/**/*"
+    ],
+
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "frameworks": [],
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": "entitlements.plist"
+    },
+
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"]
+      }
+    }
+  }
+}

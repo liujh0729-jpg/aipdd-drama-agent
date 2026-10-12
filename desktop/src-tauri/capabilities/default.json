@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口（加载 http://127.0.0.1:8080）与状态面板窗口的默认权限。进程编排全部在 Rust 侧用 std::process 完成，Web 侧不授予任何 shell 能力。",
+  "windows": ["main", "panel"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-start-dragging",
+    "core:webview:allow-create-webview-window",
+    "core:event:allow-listen",
+    "core:event:allow-emit"
+  ]
+}
