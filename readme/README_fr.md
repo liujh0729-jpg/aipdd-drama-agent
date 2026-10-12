@@ -70,13 +70,7 @@ Pourquoi, et la FAQ : <a href="https://github.com/dramaclaw/dramaclaw/issues/475
 
 <br/>
 
-<p align="center">
-  <img src="../assets/hero.png" alt="DramaClaw — storytellers, back in front of the camera" width="820"/>
-</p>
 
-<p align="center">
-  <sub>🎬 Bandeau : <a href="https://www.bilibili.com/video/BV1iQV26cE4S">Bilibili</a> &nbsp;·&nbsp; <a href="https://www.youtube.com/watch?v=64apa3maxK0">YouTube</a></sub>
-</p>
 
 <br/>
 

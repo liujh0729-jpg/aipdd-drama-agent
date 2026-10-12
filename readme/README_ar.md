@@ -71,9 +71,6 @@ DramaClaw مرخّص بـ <a href="../LICENSES/Elastic-2.0.txt">رخصة Elastic
 
 <br/>
 
-<p align="center">
-  <img src="../assets/hero.png" alt="DramaClaw — الحكّاءون يعودون أمام الكاميرا" width="820"/>
-</p>
 
 <!--
   Demo video — after uploading, paste the user-attachments link on its own line below.
@@ -85,9 +82,6 @@ DramaClaw مرخّص بـ <a href="../LICENSES/Elastic-2.0.txt">رخصة Elastic
   https://github.com/user-attachments/assets/REPLACE-AFTER-UPLOAD
 -->
 
-<p align="center">
-  <sub dir="rtl">🎬 المقطع الترويجي: <a href="https://www.bilibili.com/video/BV1iQV26cE4S">Bilibili</a> &nbsp;·&nbsp; <a href="https://www.youtube.com/watch?v=64apa3maxK0">YouTube</a></sub>
-</p>
 
 <br/>
 

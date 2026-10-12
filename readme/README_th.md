@@ -71,9 +71,6 @@ DramaClaw ใช้สัญญาอนุญาต <a href="../LICENSES/Elasti
 
 <br/>
 
-<p align="center">
-  <img src="../assets/hero.png" alt="DramaClaw — นักเล่าเรื่อง กลับมาอยู่หน้ากล้องอีกครั้ง" width="820"/>
-</p>
 
 <!--
   Demo video — after uploading, paste the user-attachments link on its own line below.
@@ -85,9 +82,6 @@ DramaClaw ใช้สัญญาอนุญาต <a href="../LICENSES/Elasti
   https://github.com/user-attachments/assets/REPLACE-AFTER-UPLOAD
 -->
 
-<p align="center">
-  <sub>🎬 ตัวอย่างหนัง: <a href="https://www.bilibili.com/video/BV1iQV26cE4S">Bilibili</a> &nbsp;·&nbsp; <a href="https://www.youtube.com/watch?v=64apa3maxK0">YouTube</a></sub>
-</p>
 
 <br/>
 

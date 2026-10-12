@@ -71,9 +71,6 @@ Lý do và các câu hỏi thường gặp: <a href="https://github.com/dramacla
 
 <br/>
 
-<p align="center">
-  <img src="../assets/hero.png" alt="DramaClaw — người kể chuyện, trở lại trước ống kính" width="820"/>
-</p>
 
 <!--
   Video demo — sau khi upload, dán link user-attachments vào một dòng riêng bên dưới.
@@ -85,9 +82,6 @@ Lý do và các câu hỏi thường gặp: <a href="https://github.com/dramacla
   https://github.com/user-attachments/assets/REPLACE-AFTER-UPLOAD
 -->
 
-<p align="center">
-  <sub>🎬 Trailer: <a href="https://www.bilibili.com/video/BV1iQV26cE4S">Bilibili</a> &nbsp;·&nbsp; <a href="https://www.youtube.com/watch?v=64apa3maxK0">YouTube</a></sub>
-</p>
 
 <br/>
 

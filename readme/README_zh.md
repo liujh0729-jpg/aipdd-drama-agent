@@ -71,9 +71,6 @@ DramaClaw 采用 <a href="../LICENSE">Elastic License 2.0</a>。自己跑、自�
 
 <br/>
 
-<p align="center">
-  <img src="../assets/hero.png" alt="DramaClaw — 讲故事的人，重新走回镜头前" width="820"/>
-</p>
 
 <!--
   演示视频 —— 上传完成后，把 user-attachments 链接单独一行粘到下面。
@@ -84,9 +81,6 @@ DramaClaw 采用 <a href="../LICENSE">Elastic License 2.0</a>。自己跑、自�
   https://github.com/user-attachments/assets/REPLACE-AFTER-UPLOAD
 -->
 
-<p align="center">
-  <sub>🎬 宣传片：<a href="https://www.bilibili.com/video/BV1iQV26cE4S">Bilibili</a> &nbsp;·&nbsp; <a href="https://www.youtube.com/watch?v=64apa3maxK0">YouTube</a></sub>
-</p>
 
 <br/>
 
