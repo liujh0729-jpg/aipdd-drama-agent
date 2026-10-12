@@ -14,7 +14,7 @@ services:
       args:
         # 默认精简镜像；需 3DGS/SHARP world 特性时 INSTALL_WORLD=1（Mac 无 GPU）。
         INSTALL_WORLD: "${INSTALL_WORLD:-0}"
-    image: aipdd/dramaclaw-api:${DRAMACLAW_VERSION:-2.1.6}
+    image: ghcr.io/liujh0729-jpg/dramaclaw-api:${DRAMACLAW_VERSION:-2.1.6}
     # [aipdd fork delta] 固定容器名：MCP 栏目「本地 Agent 工具」写入的
     # aipdd-drama 条目以 docker exec 进本容器启动 MCP server，需要稳定可寻址的名字
     #（品牌改名前为 dramaclaw-api，外部已接入的配置在重新连接后迁移）。
@@ -134,7 +134,7 @@ services:
     build:
       context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
       dockerfile: Dockerfile
-    image: aipdd/dramaclaw-gateway:${DRAMACLAW_VERSION:-2.1.6}
+    image: ghcr.io/liujh0729-jpg/dramaclaw-gateway:${DRAMACLAW_VERSION:-2.1.6}
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
@@ -162,7 +162,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: aipdd/dramaclaw-web:${DRAMACLAW_VERSION:-2.1.6}
+    image: ghcr.io/liujh0729-jpg/dramaclaw-web:${DRAMACLAW_VERSION:-2.1.6}
     restart: unless-stopped
     environment:
       BACKEND_HOST: api
@@ -184,7 +184,7 @@ services:
     build:
       context: ./services/vectcut
       dockerfile: Dockerfile
-    image: aipdd/vectcut:${VECTCUT_VERSION:-1.0.0}
+    image: ghcr.io/liujh0729-jpg/dramaclaw-vectcut:${DRAMACLAW_VERSION:-2.1.6}
     restart: unless-stopped
     profiles: ["vectcut"]
     environment:
