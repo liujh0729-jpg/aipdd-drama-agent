@@ -778,7 +778,7 @@ frontend/src/api/sceneAssets.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.to
 frontend/src/api/skills.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/api/tasks.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/api/viewerManifests.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
-frontend/src/assets/icons/two-finger-pan.gif,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
+frontend/public/images/two-finger-pan.gif,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/commands/image.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/components/GlobalErrorDialog.tsx,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/components/account/avatar-upload-dialog.tsx,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation

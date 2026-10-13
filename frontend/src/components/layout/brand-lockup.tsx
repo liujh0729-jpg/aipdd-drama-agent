@@ -36,7 +36,7 @@ export function BrandLockup({ value }: {
         src="/brand/dramaclaw-wordmark.png"
         alt=""
         aria-hidden="true"
-        className="h-[22.7px] w-auto max-w-[113px] object-contain"
+        className="h-[50px] w-auto max-w-[113px] object-contain"
       />
       {organizationBrand ? (
         <OrganizationBrand key={organizationBrand.updatedAt} logoUrl={organizationBrand.logoUrl} />
