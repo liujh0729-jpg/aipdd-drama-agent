@@ -414,9 +414,8 @@ Elijes la ruta de instalación que elijas, la app arranca igual:
 
 1. **Abre la UI** en <http://localhost:8080> (los lanzadores de un clic la abren por ti). La REST API está en <http://localhost:8780>; el navegador solo habla con `web`, que hace proxy inverso a `api`.
 2. **Inicia sesión.** La configuración de `docker-compose.aipdd.yml` habilita el inicio de sesión de máquina única (cuenta `local`).
-   - Si definiste `ST_LOCAL_PASSWORD` en `.env`, usa esa contraseña.
-   - De lo contrario el backend genera una **contraseña de un solo uso** en el primer arranque y la registra una sola vez. Recupérala con:
-     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`).
+   - Si definiste `ST_LOCAL_PASSWORD` en `.env`, inicia sesión con la cuenta `local` y esa contraseña.
+   - Si lo dejas vacío, el backend **no** crea una cuenta por ti: la primera pantalla es el **formulario de inicialización**, define tu usuario y tu contraseña inicial. La primera cuenta es superadmin y el formulario se cierra para siempre; luego se añaden usuarios en **Ajustes → Usuarios**.
 3. **Conecta tus modelos** — ve a **Settings → Models & Channels** y elige un modo (detalles en [Modelos y proveedores soportados](#supported-models)):
    - **Oficial** — pega una clave DC de <https://susciyuan.com>; todos los modelos ya están mapeados, LocalNewAPI queda inactivo.
    - **Personalizado** — un clic inicializa LocalNewAPI, y luego añade tus propios canales upstream (claves API + IDs de modelo) en su UI de administración.

@@ -407,7 +407,7 @@ docker compose -f docker-compose.aipdd.yml up -d --build
 
 - **端口。** `8080` Web UI · `8780` REST API · `3000` LocalNewAPI 管理面（默认只绑 `127.0.0.1`）。在 `8080` 前面放一个**带 TLS 的反向代理**（Caddy / Nginx / Traefik），把 `8780` / `3000` 保持为内部端口；防火墙 / 安全组只开 `80` / `443`。
 - **首次构建要留足空间** —— 给主机 ≥ 8 GB 内存和 ≥ 40 GB 磁盘，否则前端构建会被 OOM 杀掉。
-- **登录** 用单机账号 `local`，密码为 `ST_LOCAL_PASSWORD`（或首次启动时打印到 `docker compose -f docker-compose.aipdd.yml logs api` 的一次性口令）。
+- **登录** 用单机账号 `local` + `ST_LOCAL_PASSWORD`；口令留空时后端不替你造账户，第一次打开网页会让你自己设置用户名和初始密码。
 - **多用户？** CE 按设计是单主人。要服务多个用户，请开启 `ST_CE_MULTI_USER` 并在前面放真正的鉴权 + HTTPS。完整生产须知见 [自托管指南](../docs/zh/guides/self-hosting.md)。
 
 ### 本地开发（uv + Python 3.11+）
@@ -442,10 +442,9 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 无论你选了哪条安装路径，应用的启动方式都一样：
 
 1. **打开 UI** <http://localhost:8080>（一键启动器会替你打开）。REST API 在 <http://localhost:8780>；浏览器只和 `web` 通信，`web` 再反向代理到 `api`。
-2. **登录。** `docker-compose.aipdd.yml` 这套启用了单机登录（账号 `local`）。
-   - 若你在 `.env` 设了 `ST_LOCAL_PASSWORD`，就用那个密码。
-   - 否则后端在首次启动时生成一个**一次性口令**并只记录一次。用以下命令取回：
-     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令`（Windows：`... | findstr ST_LOCAL_PASSWORD`）。
+2. **登录。** `docker-compose.aipdd.yml` 这套启用了单机登录。
+   - 若你在 `.env` 设了 `ST_LOCAL_PASSWORD`，就用账号 `local` 加那个密码登录。
+   - 否则库里还没有账户，第一屏就是**初始化表单**：在那里自己定用户名和初始密码。首个账户即超管，初始化完成后该表单永久关闭，之后加人走「设置 → 用户管理」。
 3. **连接你的模型** —— 进入 **设置 → 模型与渠道**，选一种模式（细节见 [支持的模型与供应商](#supported-models)）：
    - **官方** —— 粘贴一个来自 <https://susciyuan.com> 的 DC key；所有模型都已映射好，LocalNewAPI 保持空闲。
    - **自定义** —— 一键初始化 LocalNewAPI，然后在其管理界面里加上你自己的上游渠道（API key + 模型 ID）。
@@ -463,10 +462,9 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 不管走哪条安装路径，起来后的用法都一样：
 
 1. **打开界面** <http://localhost:8080>（一键启动器会自动帮你打开）。REST API 在 <http://localhost:8780>；浏览器只访问 `web`，由它反代到 `api`。
-2. **登录。** `docker-compose.aipdd.yml` 这套启用了单机登录（账户 `local`）。
-   - 若你在 `.env` 里设了 `ST_LOCAL_PASSWORD`，就用那个口令。
-   - 否则后端首次启动会**随机生成一次性口令**并只打印一次，用这条取回：
-     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令`（Windows：`... | findstr ST_LOCAL_PASSWORD`）。
+2. **登录。** `docker-compose.aipdd.yml` 这套启用了单机登录。
+   - 若你在 `.env` 里设了 `ST_LOCAL_PASSWORD`，就用账号 `local` 加那个口令登录。
+   - 否则库里还没有账户，第一屏是**初始化表单**，在那里自己定用户名和初始密码；首个账户即超管，之后加人走「设置 → 用户管理」。
 3. **配置模型** —— 进**设置 → 模型与渠道**三选一（细节见[支持的模型与服务商](#supported-models)）：
    - **官方** —— 粘贴在 <https://susciyuan.com> 获取的 DC key，模型已全部映射好，LocalNewAPI 闲置待命。
    - **自定义** —— 一键初始化 LocalNewAPI，再在它的管理页添加你自己的供应商渠道（API key、模型 ID）。

@@ -367,7 +367,7 @@ docker compose -f docker-compose.aipdd.yml up -d --build
 
 - **Ports.** `8080` web UI · `8780` REST API · `3000` LocalNewAPI admin (bound to `127.0.0.1` by default). Put a **reverse proxy with TLS** (Caddy / Nginx / Traefik) in front of `8080` and keep `8780` / `3000` internal; open only `80` / `443` in the firewall / security group.
 - **First build needs room** — give the host ≥ 8 GB RAM and ≥ 40 GB disk, or the frontend build gets OOM-killed.
-- **Sign in** as the single-machine account `local` using `ST_LOCAL_PASSWORD` (or the one-time password printed to `docker compose -f docker-compose.aipdd.yml logs api` on first start).
+- **Sign in.** If you set `ST_LOCAL_PASSWORD` in `.env`, use account `local` with that password. Leave it empty and the first page you see is an **initialization form** — set your own username and initial password there (no password to dig out of the logs).
 - **Multi-user?** CE is single-owner by design. To serve several users, enable `ST_CE_MULTI_USER` and put real auth + HTTPS in front. Full production notes: [Self-hosting guide](docs/en/guides/self-hosting.md).
 
 ### Local development (uv + Python 3.11+)
@@ -403,10 +403,9 @@ or run the gateway from source directly in `third_party/dramaclaw-gateway` (`mak
 Whichever install path you chose, the app comes up the same way:
 
 1. **Open the UI** at <http://localhost:8080> (the one-click launchers open it for you). The REST API is at <http://localhost:8780>; the browser only talks to `web`, which reverse-proxies to `api`.
-2. **Sign in.** The `docker-compose.aipdd.yml` setup enables single-machine login (account `local`).
-   - If you set `ST_LOCAL_PASSWORD` in `.env`, use that password.
-   - Otherwise the backend generates a **one-time password** on first start and logs it once. Retrieve it with:
-     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`).
+2. **Sign in.** The `docker-compose.aipdd.yml` setup enables single-machine login.
+   - If you set `ST_LOCAL_PASSWORD` in `.env`, sign in as account `local` with that password.
+   - Otherwise the database has no account yet, so page one is the **initialization form**: set your username and initial password there. That first account becomes the super admin, the form closes for good afterwards, and more users are added under **Settings → Users**.
 3. **Connect your models** — go to **Settings → Models & Channels** and pick one mode (details in [Supported Models & Providers](#supported-models)):
    - **Official** — paste a DC key from <https://susciyuan.com>; every model is already mapped, LocalNewAPI stays idle.
    - **Custom** — one click initializes LocalNewAPI, then add your own provider channels (API keys + model IDs) in its admin UI.

@@ -62,16 +62,23 @@ class _CredentialRequest(BaseModel):
     password: str = ""
 
 
-async def _bootstrap_if_env_password(store) -> None:
+async def bootstrap_if_env_password(store=None) -> None:
     """[aipdd fork delta] 只有显式配了 ST_LOCAL_PASSWORD 才自动引导账户。
 
     原来 login 无条件 bootstrap：没配这个环境变量时会用一个随机口令建账户，
     而口令只出现在一次 WARNING 日志里，用户根本登不进去，“首次初始化”也无从谈起。
     现在这条路收紧，剩下的空库场景交给 POST /auth/setup（用户自己定用户名密码）。
     已部署实例（库里已有账户）行为零变化：bootstrap 本身幂等，这里不走也不影响。
+
+    ASGI 启动钩子（``app.py``）也走这同一个函数，避免两处口径分叉。
     """
-    if os.environ.get("ST_LOCAL_PASSWORD", "").strip():
-        await store.bootstrap_local_account()
+    if not os.environ.get("ST_LOCAL_PASSWORD", "").strip():
+        return
+    if store is None:
+        from novelvideo.ports.local.users import get_local_user_store
+
+        store = get_local_user_store()
+    await store.bootstrap_local_account()
 
 
 _LOGIN_FAIL_LIMIT = 5
@@ -108,7 +115,7 @@ async def login(request: Request, payload: _CredentialRequest):
     from novelvideo.ports.local.users import get_local_user_store
 
     store = get_local_user_store()
-    await _bootstrap_if_env_password(store)
+    await bootstrap_if_env_password(store)
 
     key = _login_fail_key(request, payload.username)
     if _too_many_login_failures(key):
@@ -192,7 +199,7 @@ async def setup_status():
 
     store = get_local_user_store()
     # 配了固定口令的部署保持原行为：这里先把引导账户建好，前端就不会误弹初始化表单。
-    await _bootstrap_if_env_password(store)
+    await bootstrap_if_env_password(store)
     needs_setup = await store.count_users() == 0
     return JSONResponse(
         {

@@ -309,13 +309,15 @@ async def _lifespan(application: FastAPI):
 
         ensure_bootstrap()
 
-        # [aipdd fork delta] CE 最小多用户：启动时创建 bootstrap 账户（幂等）。
+        # [aipdd fork delta] CE 最小多用户：只在显式配了 ST_LOCAL_PASSWORD 时才自动
+        # 建引导账户。没配就保持空库，登录页查 setup-status 后给初始化表单，
+        # 让用户自己定用户名和初始密码——启动时无条件 bootstrap 会烧掉这个入口。
         from novelvideo.shared.runtime_env import ce_multi_user
 
         if ce_multi_user():
-            from novelvideo.ports.local.users import get_local_user_store
+            from novelvideo.api.routes.auth import bootstrap_if_env_password
 
-            await get_local_user_store().bootstrap_local_account()
+            await bootstrap_if_env_password()
 
         await get_port("lifecycle").on_startup(register_as_worker=True)
 

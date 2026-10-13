@@ -28,8 +28,8 @@ services:
       ST_EDITION: ce
       ST_CONTROL_PLANE_DSN: ""
       # [aipdd fork delta] CE 最小可用多用户隔离：登录制，账户/会话存在
-      # /data/state/local/auth.db；引导账户口令取 .env 的 ST_LOCAL_PASSWORD
-      # （未设置则启动时生成随机口令并打印一次 WARNING 日志）。
+      # /data/state/local/auth.db。配了 .env 的 ST_LOCAL_PASSWORD 才自动引导
+      # local 账户；留空则库里没有账户，登录页会先让你自己设置用户名和初始密码。
       ST_CE_MULTI_USER: "${ST_CE_MULTI_USER:-true}"
       # [aipdd fork delta] 本编排走 http://:8080，Secure cookie 会被浏览器丢弃，必须显式关。
       ST_COOKIE_SECURE: "${ST_COOKIE_SECURE:-false}"

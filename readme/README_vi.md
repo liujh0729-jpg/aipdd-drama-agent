@@ -425,9 +425,8 @@ Dù bạn chọn lối cài nào, ứng dụng đều khởi lên như nhau:
 
 1. **Mở UI** tại <http://localhost:8080> (các launcher một chạm mở giúp bạn). REST API tại <http://localhost:8780>; trình duyệt chỉ nói chuyện với `web`, cái làm reverse-proxy tới `api`.
 2. **Đăng nhập.** Cấu hình `docker-compose.aipdd.yml` bật đăng nhập máy đơn (tài khoản `local`).
-   - Nếu bạn đặt `ST_LOCAL_PASSWORD` trong `.env`, dùng mật khẩu đó.
-   - Ngược lại backend sinh một **mật khẩu một lần** ở lần khởi động đầu và ghi log đúng một lần. Lấy nó bằng:
-     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`).
+   - Nếu bạn đặt `ST_LOCAL_PASSWORD` trong `.env`, đăng nhập bằng tài khoản `local` và mật khẩu đó.
+   - Nếu để trống, backend **không** tạo tài khoản hộ bạn: màn hình đầu tiên là **form khởi tạo**, hãy tự đặt tên đăng nhập và mật khẩu ban đầu. Tài khoản đầu tiên là super admin, form đóng vĩnh viễn sau đó; thêm người vào **Cài đặt → Quản lý người dùng**.
 3. **Kết nối model** — vào **Cài đặt → Model & Kênh** và chọn một chế độ (chi tiết ở [Model & nhà cung cấp được hỗ trợ](#supported-models)):
    - **Chính thức** — dán một DC key từ <https://susciyuan.com>; mọi model đã được map, LocalNewAPI nghỉ.
    - **Tùy chỉnh** — một chạm khởi tạo LocalNewAPI, rồi thêm kênh upstream của bạn (API key + model ID) trong UI admin của nó.

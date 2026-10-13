@@ -425,9 +425,8 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 1. **เปิด UI** ที่ <http://localhost:8080> (launcher แบบ one-click เปิดให้เอง) REST API อยู่ที่ <http://localhost:8780>; browser คุยกับ `web` เท่านั้น ซึ่ง reverse-proxy ต่อไปยัง `api`
 2. **ล็อกอิน** การจัดตั้ง `docker-compose.aipdd.yml` เปิดใช้การล็อกอินเครื่องเดียว (บัญชี `local`)
-   - ถ้าคุณตั้ง `ST_LOCAL_PASSWORD` ใน `.env` ใช้รหัสผ่านนั้น
-   - ไม่งั้น backend จะสร้าง **รหัสผ่านใช้ครั้งเดียว** ตอนเริ่มครั้งแรกและ log ไว้ครั้งเดียว เอาคืนได้ด้วย:
-     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令` (Windows: `... | findstr ST_LOCAL_PASSWORD`)
+   - ถ้าคุณตั้ง `ST_LOCAL_PASSWORD` ใน `.env` ให้ล็อกอินด้วยบัญชี `local` และรหัสผ่านนั้น
+   - ถ้าปล่อยว่าง backend จะ**ไม่**สร้างบัญชีให้: หน้าแรกคือ**ฟอร์มเริ่มใช้งาน** ตั้งชื่อผู้ใช้และรหัสผ่านเริ่มต้นเอง บัญชีแรกจะเป็น super admin แล้วฟอร์มจะปิดถาวร เพิ่มผู้ใช้ later ที่ **การตั้งค่า → จัดการผู้ใช้**
 3. **ต่อโมเดลของคุณ** — ไปที่ **Settings → Models & Channels** แล้วเลือกโหมดหนึ่ง (รายละเอียดใน [Model และผู้ให้บริการที่รองรับ](#supported-models)):
    - **Official** — วาง DC key จาก <https://susciyuan.com>; โมเดลทั้งหมด map ไว้แล้ว LocalNewAPI จะรอเฉย
    - **Custom** — คลิกเดียวจะ init LocalNewAPI แล้วเพิ่ม channel upstream ของคุณเอง (API key + model ID) ใน admin UI ของมัน

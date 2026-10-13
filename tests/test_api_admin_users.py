@@ -594,6 +594,43 @@ async def test_login_does_not_bootstrap_random_password_account(
 
 
 @pytest.mark.asyncio
+async def test_startup_hook_does_not_eat_the_first_run_setup(
+    fresh_install,
+) -> None:
+    """[aipdd fork delta] 启动钩子必须与 login 同一口径：没配口令就不建账户。
+
+    app.py 的 lifespan 以前无条件 bootstrap，随机口令只打一次日志，账户一建
+    setup-status 就不再返回 needs_setup，全新安装直接卡在登录页。
+    """
+    from novelvideo.api.routes.auth import bootstrap_if_env_password
+
+    await bootstrap_if_env_password()
+    assert await fresh_install.get_local_user_store().count_users() == 0
+
+    import inspect
+
+    from novelvideo.api import app as app_module
+
+    source = inspect.getsource(app_module)
+    assert "bootstrap_if_env_password" in source
+    assert "bootstrap_local_account" not in source
+
+
+@pytest.mark.asyncio
+async def test_startup_hook_bootstraps_when_env_password_is_set(
+    multi_user,
+) -> None:
+    """配了 ST_LOCAL_PASSWORD 的部署保持原行为：启动即建引导账户，口令可用。"""
+    from novelvideo.api.routes.auth import bootstrap_if_env_password
+
+    await bootstrap_if_env_password()
+    store = multi_user.get_local_user_store()
+    assert await store.count_users() == 1
+    record = await store.login("local", PASSWORD)
+    assert record.role == "owner"
+
+
+@pytest.mark.asyncio
 async def test_setup_rejected_in_single_user_mode(single_user) -> None:
     from fastapi import HTTPException
 

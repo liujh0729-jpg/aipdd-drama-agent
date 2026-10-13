@@ -414,9 +414,8 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 1. **UI を開く** <http://localhost:8080>（ワンクリック ランチャーが代わりに開いてくれます）。REST API は <http://localhost:8780>。ブラウザは `web` とのみ通信し、`web` が `api` へリバースプロキシします。
 2. **ログイン。** `docker-compose.aipdd.yml` の構成は単一マシンログイン（アカウント `local`）を有効にします。
-   - `.env` で `ST_LOCAL_PASSWORD` を設定していれば、そのパスワードを使います。
-   - そうでなければ、バックエンドが初回起動時に**使い捨てパスワード**を生成して一度だけログに出します。次のコマンドで取得できます：
-     `docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令`（Windows：`... | findstr ST_LOCAL_PASSWORD`）。
+   - `.env` で `ST_LOCAL_PASSWORD` を設定していれば、アカウント `local` とそのパスワードでログインします。
+   - 空のままならバックエンドはアカウントを作りません：最初の画面が**初期化フォーム**になり、ユーザー名と初期パスワードを自分で設定します。最初のアカウントがスーパー管理者になり、このフォームは二度と開きません。以降のユーザー追加は **設定 → ユーザー管理** です。
 3. **モデルを接続** —— **Settings → Models & Channels** でいずれか 1 モードを選びます（詳細は [サポートするモデルとプロバイダ](#supported-models)）：
    - **公式** —— <https://susciyuan.com> の DC key を貼り付け。全モデルがすでにマッピング済みで、LocalNewAPI は待機のまま。
    - **カスタム** —— ワンクリックで LocalNewAPI を初期化し、その管理 UI にご自分のアップストリームチャネル（API key + モデル ID）を追加。
