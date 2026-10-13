@@ -197,11 +197,8 @@ $version = Get-FileEnvValue -Key 'DRAMACLAW_VERSION' -Default (Get-ComposeDefaul
 $webPort = Get-FileEnvValue -Key 'ST_WEB_PORT' -Default '8080'
 $apiPort = Get-FileEnvValue -Key 'ST_API_PORT' -Default '8780'
 if (-not (Get-FileEnvValue -Key 'ST_LOCAL_PASSWORD')) {
-    Write-Note '登录口令未配置：后端启动时会为账户 local 生成一次性口令（只打一次日志）。'
-    # 抓 ASCII 的 `ST_LOCAL_PASSWORD` 而不是中文“一次性口令”：findstr 按当前代码页比对字节，
-    # GBK 控制台下用中文去找 UTF-8 日志会匹配不到（同一条日志里两个 token 都在，拿一定在的那个）。
-    Write-Host "    取回：$composeHint -f docker-compose.aipdd.yml logs api | findstr ST_LOCAL_PASSWORD"
-    Write-Host '    想固定它：在 .env 里写 ST_LOCAL_PASSWORD=<你的口令>（留空即走上面的随机路径）'
+    Write-Note '登录口令未配置：系统不会替你造账户，首次打开网页会让你自己设置用户名和初始密码。'
+    Write-Host '    想固定它：在 .env 里写 ST_LOCAL_PASSWORD=<你的口令>（那样启动即建 local 账户，跳过初始化表单）'
 }
 Write-Good "版本 $version · 站点 http://localhost:$webPort · 后端 $apiPort"
 
@@ -210,7 +207,7 @@ Write-Step '[7/7] 准备镜像（api / web 源码构建，网关拉发布镜像�
 $composeFile = Join-Path $RepoRoot 'docker-compose.aipdd.yml'
 $needBuild = $false
 foreach ($repo in @('aipdd/dramaclaw-api', 'aipdd/dramaclaw-web')) {
-    $found = (& docker images -q "${repo}:$version" 2>$null) | Where-Object { $_ }
+    $found = ((Invoke-NativeProbe -Exe 'docker' -NativeArgs @('images', '-q', "${repo}:$version")).Output -split "`n") | Where-Object { $_ }
     if ($found) {
         Write-Good "${repo}:$version 已存在"
     } else {

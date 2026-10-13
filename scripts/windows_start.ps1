@@ -8,7 +8,9 @@
 # （.bat 把它翻译成环境变量 AIPDD_REBUILD 传进来，避开 PowerShell 把 `--rebuild`
 #   当参数名去绑定的坑；直接跑 ps1 时用 -Rebuild 开关也可以。）
 #
-# 本脚本在 macOS 上编写，未在真实 Windows 上执行验证；口径与限制见 需求/环境说明.md §8。
+# 真机状态：已在干净 Windows 机首启过一次，跑到 [3/5] 就崩——`& docker inspect aipdd-drama-api *> $null`
+# 在 EAP=Stop 下把 docker 的 stderr 升级成终止异常（新机上容器本来就不存在，必然走失败分支）。
+# 现改走 windows_common.ps1 的 Invoke-NativeProbe；完整五步仍未在真机走通到底，口径与限制见 需求/环境说明.md §8。
 
 param([switch]$Rebuild)
 
@@ -69,7 +71,7 @@ $listeners = @()
 try {
     $listeners = @(Get-NetTCPConnection -LocalPort $webPort -State Listen -ErrorAction SilentlyContinue)
 } catch { }   # 老版本没有 Get-NetTCPConnection 就跳过这项检查，不影响启动
-$ourWebRunning = (& docker ps --format '{{.Names}}' 2>$null) | Where-Object { $_ -match 'web' }
+$ourWebRunning = ((Invoke-NativeProbe -Exe 'docker' -NativeArgs @('ps', '--format', '{{.Names}}')).Output -split "`n") | Where-Object { $_ -match 'web' }
 if ($listeners.Count -gt 0 -and -not $ourWebRunning) {
     $owners = ($listeners | ForEach-Object { $_.OwningProcess } | Select-Object -Unique | ForEach-Object {
         try { (Get-Process -Id $_ -ErrorAction Stop).ProcessName } catch { "PID $_" }
@@ -82,7 +84,7 @@ if ($listeners.Count -gt 0 -and -not $ourWebRunning) {
 Write-Step '[3/5] 检查镜像'
 $needBuild = [bool]$Rebuild
 foreach ($repo in @('aipdd/dramaclaw-api', 'aipdd/dramaclaw-web', 'aipdd/dramaclaw-gateway')) {
-    $found = (& docker images -q "${repo}:$version" 2>$null) | Where-Object { $_ }
+    $found = ((Invoke-NativeProbe -Exe 'docker' -NativeArgs @('images', '-q', "${repo}:$version")).Output -split "`n") | Where-Object { $_ }
     if ($found) {
         Write-Good "${repo}:$version 已在本地"
     } else {
@@ -94,8 +96,7 @@ if ($needBuild) {
     # 状态库的一致性快照要靠 scripts/predeploy_backup.sh（bash + 容器内 Python 的 sqlite
     # Backup API）。Windows 上没有 bash，这里**不假装**能在线备份，只把风险说清并要一次确认：
     # 双击默认路径不会走到这里，所以普通用户永远不会被问。
-    & docker inspect aipdd-drama-api *> $null
-    if ($LASTEXITCODE -eq 0) {
+    if ((Invoke-NativeProbe -Exe 'docker' -NativeArgs @('inspect', 'aipdd-drama-api')).ExitCode -eq 0) {
         Write-Note '本次重建不走部署前的状态库在线备份（该能力在 scripts/predeploy_backup.sh，需要 bash）。'
         $ans = Read-Host '确定要继续重建吗？回车取消，输入 y 继续'
         if ($ans -notmatch '^[yY]') {
@@ -136,10 +137,10 @@ if (Wait-HttpReady -Url $gateUrl -TimeoutSec 300 -Label '站点') {
     if ($localPassword) {
         Write-Step '登录      账号 local，口令见 .env 的 ST_LOCAL_PASSWORD（本脚本不回显）'
     } else {
-        # ST_CE_MULTI_USER=true 时后端启动就引导 local 账户；口令留空 → 随机生成并只打一次日志。
-        # 用 ASCII 的 ST_LOCAL_PASSWORD 做 findstr 关键字：中文关键字在 GBK 控制台下匹配不到 UTF-8 日志。
-        Write-Step '登录      账号 local，口令是首启随机生成的一次性口令，取回：'
-        Write-Step "          $composeHint -f docker-compose.aipdd.yml logs api | findstr ST_LOCAL_PASSWORD"
+        # 没配 ST_LOCAL_PASSWORD 时后端不会替用户造账户（启动钩子与 login 同口径），
+        # 空库 → /auth/setup-status 返回 needs_setup → 登录页直接给初始化表单。
+        Write-Step '登录      首次打开请在页面里设置用户名与初始密码（完成初始化后才能登录）'
+        Write-Step '          初始化只认第一次提交，超管建好后加人走「设置 → 用户管理」'
     }
     Write-Step "后端      http://localhost:$apiPort/api/v1"
     Write-Step "停止      $composeHint -f docker-compose.aipdd.yml stop"

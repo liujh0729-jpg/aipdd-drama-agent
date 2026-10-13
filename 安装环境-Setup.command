@@ -140,9 +140,8 @@ version="$(env_value DRAMACLAW_VERSION "$(compose_default_version "$root_dir/doc
 web_port="$(env_value ST_WEB_PORT 8080 "$root_dir/.env")"
 api_port="$(env_value ST_API_PORT 8780 "$root_dir/.env")"
 if [ -z "$(env_value ST_LOCAL_PASSWORD "" "$root_dir/.env")" ]; then
-  warn "登录口令未配置：后端启动时会为账户 local 生成一次性口令（只打一次日志）。"
-  printf '    取回：docker-compose -f docker-compose.aipdd.yml logs api | grep 一次性口令\n'
-  printf '    想固定它：在 .env 里写 ST_LOCAL_PASSWORD=<你的口令>（留空即走上面的随机路径）\n\n'
+  warn "登录口令未配置：系统不会替你造账户，首次打开网页会让你自己设置用户名和初始密码。"
+  printf '    想固定它：在 .env 里写 ST_LOCAL_PASSWORD=<你的口令>（那样启动即建 local 账户，跳过初始化表单）\n\n'
 fi
 ok "版本 ${version} · 站点 http://localhost:${web_port} · 后端 ${api_port}"
 

@@ -37,8 +37,12 @@ rem >=3 = the script already printed its own report and waited for Enter.
 if %RC% GEQ 3 goto :eof
 echo.
 echo [!] The installer stopped with code %RC% without printing its own report.
-echo     Usual cause: an ExecutionPolicy pushed by Group Policy overrides the
+echo     Known cause 1: an ExecutionPolicy pushed by Group Policy overrides the
 echo     -ExecutionPolicy switch. Check with:  Get-ExecutionPolicy -List
+echo     Known cause 2: an unhandled PowerShell error (a red record above this
+echo     line). Observed on a fresh machine: a native command writing to stderr
+echo     aborts the whole script under ErrorActionPreference=Stop.
+echo     Either way: screenshot this window, red record included, and send it in.
 echo     Otherwise screenshot this window and send it to the maintainer.
 echo.
 pause

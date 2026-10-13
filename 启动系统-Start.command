@@ -127,9 +127,10 @@ if wait_http_ready "$gate_url" 300 "站点"; then
   if [ -n "$local_password" ]; then
     log "登录      账号 local，口令见 .env 的 ST_LOCAL_PASSWORD（本脚本不回显）"
   else
-    # ST_CE_MULTI_USER=true 时后端启动就会引导 local 账户；口令留空 → 随机生成并只打一次 WARNING 日志。
-    log "登录      账号 local，口令是首启随机生成的一次性口令，取回："
-    log "          ${compose_cmd[*]} -f docker-compose.aipdd.yml logs api | grep 一次性口令"
+    # 没配 ST_LOCAL_PASSWORD 时后端不会替用户造账户（启动钩子与 login 同口径），
+    # 空库 → /auth/setup-status 返回 needs_setup → 登录页直接给初始化表单。
+    log '登录      首次打开请在页面里设置用户名与初始密码（完成初始化后才能登录）'
+    log '          初始化只认第一次提交，超管建好后加人走「设置 → 用户管理」'
   fi
   log "后端      http://localhost:${api_port}/api/v1"
   log "停止      ${compose_cmd[*]} -f docker-compose.aipdd.yml stop"

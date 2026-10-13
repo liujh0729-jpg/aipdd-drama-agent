@@ -9,8 +9,10 @@
 # 本文件必须存成 **UTF-8 带 BOM**：Windows PowerShell 5.1 读无 BOM 的 UTF-8 会按本地
 # 代码页解析，中文提示直接成乱码（这是 Windows 侧最常见的交付事故，不是风格问题）。
 #
-# 诚实声明：本层在 macOS 上编写，**未在真实 Windows 机器上执行验证**。所有外部命令的
-# 参数面取自 Docker 官方文档《Install Docker Desktop on Windows》（Installer flags 一节），
+# 诚实声明：本层在 macOS 上编写。真机首启已经踩过一次坑并修掉（预期会失败的原生探测把
+# stderr 变成终止异常，整条启动器崩在探测那一下 → 见下面 Invoke-NativeProbe 的注释）；
+# 除此之外仍未在真实 Windows 上把两个入口全流程走通。所有外部命令的参数面取自 Docker
+# 官方文档《Install Docker Desktop on Windows》（Installer flags 一节），
 # 逐条列在下面注释里；改动前请优先维持那些出处，不要凭手感加 flag。
 
 $ErrorActionPreference = 'Stop'
@@ -22,6 +24,32 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 function Write-Step { param([string]$m) Write-Host ">> $m" -ForegroundColor Cyan }
 function Write-Good { param([string]$m) Write-Host "OK $m" -ForegroundColor Green }
 function Write-Note { param([string]$m) Write-Host "!  $m" -ForegroundColor Yellow }
+
+# 「预期会失败」的外部命令探测一律走这里，不要直接 & docker … *> $null。
+# 为什么：Windows PowerShell 5.1 把**被重定向的**原生 stderr 包成 ErrorRecord，而本层开头
+# $ErrorActionPreference='Stop' 会把这条记录升级成终止异常——于是要么把 stderr 全丢给
+# 用户看（新机首启满屏红的「Error: No such object」），要么整条启动器在探测那一下就崩掉。
+# 真机实录（第一台干净机首启，[3/5] 检查镜像）：
+#   & docker inspect aipdd-drama-api *> $null      → NativeCommandError，脚本停在 [3/5]，
+#   且没来得及打印自己的报告，bat 只兜出「stopped with code 1」那句。
+# 同形状的另一处在 Get-ComposeLauncher：compose 插件不存在时 docker 会往 stderr 写
+# 「'compose' is not a docker command」，本来该走 docker-compose.exe 回退分支，结果先崩。
+# 做法：临时把 EAP 降回 Continue、把 2>&1 收到的 ErrorRecord 收成纯文本、返回退出码。
+# 可执行文件本身不存在时仍抛 CommandNotFoundException（那是真的没装，不该被静默成「探测失败」）。
+function Invoke-NativeProbe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Exe,
+        [Parameter(Mandatory = $true)][string[]]$NativeArgs
+    )
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $lines = @(& $Exe @NativeArgs 2>&1 | ForEach-Object { "$_" })
+        $code = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $prev }
+    return @{ ExitCode = $code; Output = ($lines -join "`n") }
+}
 
 # 失败出口：停在这里，让用户读完信息再关窗。
 # 退出码 3 是与两个 .bat 的约定：bat 看到 >=3 就知道「脚本已经自己报完原因并等人按过回车」，
@@ -89,8 +117,9 @@ function Get-ComposeLauncher {
     # 先确认 docker 本身在：$ErrorActionPreference='Stop' 下，对不存在的命令用 & 会直接抛
     # CommandNotFoundException，把「还没装 Docker」这种正常分支变成一屏红字崩溃。
     if (-not (Test-Command 'docker')) { return $null }
-    & docker compose version --short *> $null
-    if ($LASTEXITCODE -eq 0) { return @{ File = 'docker.exe'; Args = @('compose') } }
+    if ((Invoke-NativeProbe -Exe 'docker' -NativeArgs @('compose', 'version', '--short')).ExitCode -eq 0) {
+        return @{ File = 'docker.exe'; Args = @('compose') }
+    }
     if (Test-Command 'docker-compose.exe') { return @{ File = 'docker-compose.exe'; Args = @() } }
     return $null
 }
