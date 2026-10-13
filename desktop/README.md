@@ -50,6 +50,8 @@ desktop/
     prepare-resources.sh      三架构便携运行时准备（Python/Go/nginx/ffmpeg/Chromium）
     build-macos-dmg.sh        产出 .app + .dmg
     mac-sign-notarize.sh      批量内嵌二进制签名 + notarytool 公证 + staple
+    build-windows.ps1         产出 NSIS .exe 安装包（前置自检 → cargo tauri build --bundles nsis → 产物 sha256）
+    win-sign.ps1              Windows 代码签名（-Stage Resources 签内嵌 PE / -Stage Installer 签安装包）
     build-windows.md          Windows NSIS 打包 + 代码签名说明
   licenses/README.md     第三方开源许可与 AGPL/LGPL 义务清单
   resources/             （构建期生成，见 .gitignore）由 prepare-resources 填充
@@ -82,7 +84,8 @@ desktop/
 
 启动顺序（串行 + 探活）：`环境自检 → nginx → gateway → VectCut(可选) → FastAPI → 打开主窗口`。
 退出（关闭所有窗口触发 `RunEvent::Exit`）：**逆序**终止；Unix 对独立进程组 `killpg`，
-Windows 靠 Job Object `KILL_ON_JOB_CLOSE` 连带回收全树，杜绝端口残留。
+Windows 给**每个服务单建一个 Job Object**（`KILL_ON_JOB_CLOSE`）——单服务重启只结束顶层 pid 时，
+其 nginx worker / uvicorn 子进程 / ffmpeg / chrome 后代也随作业一起回收，不会留着占端口。
 
 ---
 
@@ -106,7 +109,8 @@ Tauri 计算并注入两类目录，再派生后端既有的 env：
 | `PYTHONPATH` | `…/app/src` | FastAPI 导入 novelvideo |
 | `PORT` / `SQL_DSN` | `3000` / 空(内置 SQLite) | 网关 |
 | `VECTCUT_PORT` | `9001` | VectCut |
-| `PATH` | 前置 `python/bin` 与 `bin` | ffmpeg/chromium 等就近命中 |
+| `PATH` | 前置便携 Python 与 `bin` | ffmpeg/chromium 等就近命中；Windows 为 `python\`+`python\Scripts\`，Unix 为 `python/bin` |
+| `PYTHONUTF8` / `PYTHONIOENCODING` / `PYTHONNOUSERSITE` | `1` / `utf-8` / `1`（仅 Windows 注入） | 让 Python 子进程 stdio 统一 UTF-8，否则中文 Windows 按 cp936 输出，面板与日志会乱码、读线程会中断 |
 
 > 引导口令：CE 多用户首次需要一个引导账户口令。可在打包时经 `.env` 的 `ST_LOCAL_PASSWORD`
 > 注入，或首启读取后端打印的随机口令。**不要把口令写进仓库**。
@@ -137,7 +141,8 @@ curl -fsSL https://bun.sh/install | bash                 # bun：网关自带后
 > 不先产出 `web/dist`，`go build` 会直接失败：`pattern web/dist: no matching files found`。
 > `prepare-resources.sh` 第 5 步已改为「先 `bun install --frozen-lockfile && bun run build`，再 go build」。
 
-Windows：见 `scripts/build-windows.md`（VS Build Tools + rustup MSVC + tauri-cli + WebView2 + bun）。
+Windows：见 `scripts/build-windows.md`（VS Build Tools + rustup MSVC + tauri-cli + Git Bash + bun + WebView2），
+出包用 `scripts/build-windows.ps1`，签名用 `scripts/win-sign.ps1`。
 
 三套产物互不复用，便携 Python 不能跨架构 —— 需在对应机器分别构建。
 
@@ -174,6 +179,18 @@ scripts/build-macos-dmg.sh arm64              # 开发/本机自测：不签名�
 scripts/mac-sign-notarize.sh \
   "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/AIPDD DramaClaw.app" \
   "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/AIPDD DramaClaw_<ver>_aarch64.dmg"
+```
+
+Windows x64（PowerShell，与 mac 分属独立流水线；细节见 `scripts/build-windows.md`）：
+
+```powershell
+cd desktop
+bash scripts/prepare-resources.sh win-x64                                  # 便携资源（win 布局）
+powershell -File scripts\build-windows.ps1                                 # NSIS setup.exe
+# 对外分发前（证书与 Apple 是两套；顺序不能反，先签内嵌 PE 再出包）：
+powershell -File scripts\win-sign.ps1 -Stage Resources
+powershell -File scripts\build-windows.ps1
+powershell -File scripts\win-sign.ps1 -Stage Installer -Installer '<上一步打印的 setup.exe>'
 ```
 
 ---
@@ -242,7 +259,7 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
 | M4 | 模型下载器 | 代码已编译通过；**manifest 数据源待定** |
 | M5 | 打包/签名/公证脚本 | 🟢 **`.dmg` 真实产出**：`tauri build --bundles dmg` → 597 MiB `.dmg`（hdiutil 校验通过，内嵌有效 arm64 `.app`）；**签名/公证仍需 Developer ID + 真机** |
 | M6 | 合规/关于页/文档 | 义务清单 + 本 README 落地；**App 内合规页待做（前端）** |
-| M7 | Windows NSIS | 脚手架 + 说明；**需真实 Windows** |
+| M7 | Windows NSIS | 🟢 **全链路真机跑通**：`prepare-resources.sh win-x64` 真实产出 2.39GB 资源（便携 Python/前端 dist/后端源码/`new-api.exe`/nginx/ffmpeg+ffprobe/Chromium，共 28 733 个文件）→ `build-windows.ps1` 出 `AIPDD DramaClaw_2.1.7_x64-setup.exe` **668MB**（sha256 见 sidecar）→ 静默安装 58s/退出码 0 → 起服后 8080/3000 返回 200、9001/8780 探活通过 → 强杀壳零残留 → 卸载后包内只剩 1 个运行期写出的文件。详见 `scripts/build-windows.md §8.1`。**签名仍需代码签名证书** |
 
 ---
 
@@ -261,8 +278,10 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
 7. **模型清单**：需复用后端 `feature_provisioner`/`catalog` 的源与校验值，否则下载器空转。
 8. **自动更新**：需求 4.5 预留 Tauri updater，本骨架**未接**（主程序全量更新，模型独立更新）。
 9. **强杀不回收子进程树**：优雅退出（关窗 → `RunEvent::Exit` → `shutdown()`）会逆序回收全树；
-   但 `SIGKILL`/崩溃时 nginx/python 子进程会短暂残留（各自独立 process group）。后续可加信号
-   处理器/启动前端口自清。本机冒烟时以 `pkill` 验证过手动回收。
+   但 macOS 上被 `SIGKILL`/崩溃时 nginx/python 子进程会短暂残留（各自独立 process group）。
+   本机冒烟时以 `pkill` 验证过手动回收。**Windows 已闭环**：每个服务一个 Job Object
+   （`KILL_ON_JOB_CLOSE`），实测强杀桌面壳后 nginx/网关/便携 Python 与其孙进程零残留、端口全释放；
+   macOS 侧可用「子进程也放一个独立会话/作业」的等价方案跟进（未做，避免动已验证的 mac 链路）。
 
 ### 12.1 本轮端到端冒烟实测修正（macOS）
 
@@ -274,10 +293,54 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
 
 ---
 
-## 13. 故障排查（Gatekeeper / 启动失败）
+### 12.2 本轮端到端冒烟实测修正（Windows x64，真机）
 
-- **「已损坏 / 无法验证开发者」**：未签名或未公证。本机自测可 `xattr -dr com.apple.quarantine "<App>"`；
+在真实 Win10 x64（MSVC 工具链）上编译并实跑桌面壳，逐条修掉「只在 Windows 才暴露」的问题：
+
+- **便携 Python 布局**：install_only 包在 Windows 是 `python\python.exe`（**没有 `bin/` 这一层**），
+  旧 `env.rs::python()` 写死 `python/bin/python3` → 环境自检必然判「缺 python」、FastAPI 起不来。
+  现按平台解析（`python()` / `python_path_dirs()`），`prepare-resources.sh` 用同一约定。
+- **`\\?\` verbatim 路径**：未打包运行时 Tauri 的 `resource_dir()` 源自 `current_exe()`，返回
+  `\\?\E:\…`；它被 `display()` 原样写进 nginx 的 `include`/`root` 和注入的 `PYTHONPATH`/`PATH`。
+  verbatim 语义关闭系统路径规范化，第三方程序支持不一。`RuntimePaths::new` 现统一剥前缀（实测修前后对照）。
+- **nginx 配置反斜杠**：nginx 在 Windows 把 `\` 当转义符（`C:\Users\x` → `C:Usersx`），配置内路径
+  一律经 `env::nginx_path_str` 转正斜杠；`-p` 前缀参数保持原生路径。实测渲染后 8080 返回 200。
+- **进程树回收改成「每服务一个作业」**：原来全套服务共用一个 Job，`terminate_tree` 是空实现，
+  单服务重启只 kill 顶层 → nginx worker/后代留在作业里继续占端口，重启必然超时。
+  现按 pid 建作业，重启即 `TerminateJobObject`；回归测试 `proc_win::tests`（`cargo test -- --ignored`，2 passed）。
+- **日志读线程会被非 UTF-8 打断**：旧实现 `read_line` into `String`，中文 Windows 上 nginx.exe 等
+  原生程序按 cp936 输出 → `Err` 即 break，日志断流且管道写满后**子进程直接卡死**。现改为按字节读行 +
+  `GetOEMCP` 代码页回落解码，并对 Python 服务注入 `PYTHONUTF8=1`。实测 GBK 行与 Python 中文行都正确入库。
+- **控制台黑框**：GUI 壳拉起 console 程序会闪黑窗，子进程统一带 `CREATE_NO_WINDOW`。
+- **ffprobe 随包**：后端有 63 处 ffprobe 调用，`prepare-resources.sh` 现在与 ffmpeg 一起取
+  （Windows 取 BtbN **LGPL** win64 构建，避免 GPL 变体带来的额外源码义务）。
+- **WebView2**：`bundle.windows.webviewInstallMode = embedBootstrapper`（静默补装，+~1.8MB），
+  对齐「用户无需手动安装任何系统依赖」；完全离线交付可改 `offlineInstaller`（+~127MB）。
+
+12.2 的替身联调之后，Windows 侧已用**真实资源出过真包并装过**（同机 Win10 x64）：
+`prepare-resources.sh win-x64` 全量产出 2.39GB / 28 733 个文件 → NSIS 安装包 **668MB** →
+静默安装 58s → 四服务起服 → 强杀零残留 → 卸载只剩 1 个运行期写出的文件。数字与逐条证据在
+`scripts/build-windows.md §8.1`。这一轮又暴露三个只有出真包才会碰到的问题，已修：
+
+- **makensis 的 2GB SOLID 上限**：资源含 Chromium 后未压缩体积 2.39GB，Tauri 模板写死
+  `SetCompressor /SOLID`，32 位 makensis 并成单块映射即崩（`Internal compiler error #12345`）。
+  `compression` 配置换不掉 `/SOLID`、`installerHooks` 位置太晚被 NSIS 拒绝，最后用
+  `bundle.windows.nsis.template` 落一份本地模板，只改那一行。代价是逐文件压缩、丢掉 SOLID 的
+  跨文件字典（含 Chromium 668MB；`SKIP_CHROMIUM=1` 走 SOLID 是 514MB），换来的是不再顶 2GB 硬线。
+- **`bundle.resources` 单层 glob 不递归**：`resources/bin/*` 收不进 `chrome/` 目录，装完包里没有
+  Chromium（mac 的 `.app` 同样从来没带过）。现显式补 `resources/bin/chrome/**/*`。
+- **运行期 `.pyc` 写进包内**：默认行为首次运行往 `site-packages` 生成 4 057 个 `__pycache__` 文件，
+  卸载器不认得 → 装机目录留残骸（macOS 上更会破坏 `.app` 签名）。现注入
+  `PYTHONPYCACHEPREFIX=<app-data>/pycache`，卸载残骸降到 1 个文件。
+
+## 13. 故障排查（Gatekeeper / SmartScreen / 启动失败）
+
+- **「已损坏 / 无法验证开发者」**（macOS）：未签名或未公证。本机自测可 `xattr -dr com.apple.quarantine "<App>"`；
   对外分发必须走 `mac-sign-notarize.sh` 完成签名 + 公证 + staple。
+- **「Windows 已保护你的电脑 / 未知发布者」**（Windows）：未签名安装包的 SmartScreen 拦截。本机自测点
+  「更多信息 → 仍要运行」；对外分发必须按 `win-sign.ps1` 两段式签名（先内嵌 PE、后安装包）。
+- **装机目录过长导致 Python 依赖找不到**：`python\Lib\site-packages` 深层路径叠加长安装目录会顶到
+  260 字符上限；用短目录（如 `D:\DramaClaw`）或开启「Win32 长路径」组策略。
 - **「端口 8080/8780/3000/9001 已被占用」**：多为仍在运行的 Docker/Colima 旧栈占用，先 `docker-compose -f docker-compose.aipdd.yml down` 或关掉占用进程。面板会红条提示。
 - **某服务一直「启动中/异常」**：看面板日志（红色为 stderr）。FastAPI 首次冷启动（import 依赖）可能较慢，就绪超时 180s。
 - **日志位置**：`app-data/logs/{nginx,gateway,vectcut,api}.log` + `app-data/nginx/{access,error}.log`；面板底部「复制日志目录路径」。

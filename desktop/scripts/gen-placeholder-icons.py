@@ -49,13 +49,19 @@ def ico(path, entries):
 
 
 # 1) 资源 glob 占位（均为 gitignore 的构建期目录）
-for rel in [
-    "bin/nginx", "bin/new-api", "bin/ffmpeg",
+# 两套平台命名都占位，让 cargo check / tauri build 在 mac 与 Windows 上都能过 glob 校验：
+# 受管二进制 Windows 带 .exe；便携 Python 在 Unix 是 python/bin/python3，
+# 在 Windows 是 python/python.exe（install_only 包没有 bin/ 这一层）。
+placeholder_rels = [
     "app/dist/index.html",
     "app/src/novelvideo/__init__.py",
     "app/services/vectcut/aipdd_server.py",
     "python/bin/python3",
-]:
+    "python/python.exe",
+]
+for b in ["nginx", "new-api", "ffmpeg"]:
+    placeholder_rels += [f"bin/{b}", f"bin/{b}.exe"]
+for rel in placeholder_rels:
     ensure(os.path.join(RES, rel))
 
 # 2) 图标：tauri.conf 引用的三个 png

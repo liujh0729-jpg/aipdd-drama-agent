@@ -16,7 +16,10 @@ pub struct RuntimePaths {
 
 impl RuntimePaths {
     pub fn new(app_data: PathBuf, resource: PathBuf) -> std::io::Result<Self> {
-        let p = Self { app_data, resource };
+        let p = Self {
+            app_data: native_path(app_data),
+            resource: native_path(resource),
+        };
         // 预建可写目录，避免各服务首次写文件时因目录缺失失败。
         // gateway 必须预建：new-api 以 app-data/gateway 为 cwd 启动（oneapi.db 落此），
         // 目录不存在会让 Command::current_dir 的 spawn 直接失败。
@@ -46,15 +49,26 @@ impl RuntimePaths {
         self.rel(&format!("bin/{name}"))
     }
 
-    /// 便携 Python 解释器。
+    /// 便携 Python 解释器。两种发布布局不同（prepare-resources.sh 同源约定）：
+    /// - Unix（python-build-standalone）：`python/bin/python3` + `python/lib/python3.12/site-packages`
+    /// - Windows：`python\python.exe` + `python\Lib\site-packages`（没有 `bin/` 这一层）
     pub fn python(&self) -> PathBuf {
-        self.rel("python/bin/python3")
+        if cfg!(windows) {
+            self.rel("python/python.exe")
+        } else {
+            self.rel("python/bin/python3")
+        }
     }
 
-    /// python 的 bin 目录（console script 也在此，但见 orchestrator 注释——
-    /// 我们用 `python -c` 方式启动，绕开 shim 里写死的绝对解释器路径）。
-    pub fn python_bin_dir(&self) -> PathBuf {
-        self.rel("python/bin")
+    /// Python 可执行文件与 console script 所在目录，按序供 PATH 前置。
+    /// Windows 需要 `python\`（放 python.exe / python312.dll / vcruntime DLL）和
+    /// `python\Scripts\`（pip 等入口点）；Unix 两者同为 `python/bin`。
+    pub fn python_path_dirs(&self) -> Vec<PathBuf> {
+        if cfg!(windows) {
+            vec![self.rel("python"), self.rel("python/Scripts")]
+        } else {
+            vec![self.rel("python/bin")]
+        }
     }
 
     /// 后端 FastAPI 源码根（打包期拷贝 `src/` 进来），作为 PYTHONPATH。
@@ -101,16 +115,18 @@ impl RuntimePaths {
 
     /// 供各子进程注入的环境变量（除各自专属项外的公共集合）。
     pub fn base_env(&self) -> Vec<(String, String)> {
-        let path_sep = if cfg!(windows) { ';' } else { ':' };
-        let extra_path = format!(
-            "{}{}{}",
-            self.python_bin_dir().display(),
-            path_sep,
-            self.rel("bin").display()
-        );
+        let path_sep = if cfg!(windows) { ";" } else { ":" };
+        // PATH 前置：便携 Python（解释器目录 + Scripts）、随附二进制目录（nginx/ffmpeg/chrome）。
+        let mut path_dirs = self.python_path_dirs();
+        path_dirs.push(self.rel("bin"));
+        let extra_path = path_dirs
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(path_sep);
         let system_path = std::env::var("PATH").unwrap_or_default();
 
-        vec![
+        let mut env = vec![
             ("APP_DATA_PATH".into(), self.app_data.display().to_string()),
             ("APP_RESOURCE_PATH".into(), self.resource.display().to_string()),
             // 后端数据根：CE inline 模式全部落在 app-data。
@@ -130,9 +146,23 @@ impl RuntimePaths {
             ("NEWAPI_BASE_URL".into(), "http://127.0.0.1:3000".into()),
             // Python 行为。
             ("PYTHONUNBUFFERED".into(), "1".into()),
+            // .pyc 一律写进 app-data：安装包内的 resources/ 视为只读。默认行为会在
+            // 首次运行时往 site-packages 里生成约 4000 个 __pycache__ 文件，Windows 上
+            // 卸载器不认识这些文件（安装目录留残骸），macOS 上更会破坏 .app 签名。
+            ("PYTHONPYCACHEPREFIX".into(), self.app_data.join("pycache").display().to_string()),
             ("PYTHONPATH".into(), self.backend_src().display().to_string()),
             ("PATH".into(), format!("{extra_path}{path_sep}{system_path}")),
-        ]
+        ];
+        if cfg!(windows) {
+            // 关键：Windows 上 Python 默认按系统代码页（zh-CN 为 cp936）写管道，
+            // 编排器侧按 UTF-8 解码会失败并中断读线程（见 logs.rs）。强制 UTF-8 模式，
+            // 让便携 Python 的 stdio / 文件名编码统一走 UTF-8。
+            env.push(("PYTHONUTF8".into(), "1".into()));
+            env.push(("PYTHONIOENCODING".into(), "utf-8".into()));
+            // 不让解释器回落到用户 AppData 里的 site-packages / 全局 PYTHONPATH。
+            env.push(("PYTHONNOUSERSITE".into(), "1".into()));
+        }
+        env
     }
 
     /// 把 base_env 应用到 Command，并保留调用方后续追加的专属变量。
@@ -141,6 +171,30 @@ impl RuntimePaths {
             cmd.env(k, v);
         }
     }
+}
+
+/// 去掉 Windows 的 `\\?\` 扩展前缀，得到常规原生路径。
+///
+/// 真机踩点：Rust `current_exe()`（Tauri 未打包运行时的 `resource_dir()` 走它）返回
+/// `\\?\E:\…` 形式的**verbatim 路径**。它会被 `display()` 原样渗进 nginx 配置的
+/// `include`/`root`、以及注入给后端的 `PYTHONPATH`/`PATH`——verbatim 语义关闭了系统的
+/// 路径规范化，Python 的 site 初始化与各第三方程序对它的支持并不一致，是出包后的隐性故障源。
+/// 这里只做前缀剥离（路径本身已是绝对规范路径，无需再 canonicalize）。
+#[cfg(windows)]
+fn native_path(path: PathBuf) -> PathBuf {
+    let s = path.display().to_string();
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    if let Some(rest) = s.strip_prefix(r"\\?\") {
+        return PathBuf::from(rest);
+    }
+    path
+}
+
+#[cfg(not(windows))]
+fn native_path(path: PathBuf) -> PathBuf {
+    path
 }
 
 /// 存在性检查：确认关键内置二进制齐全（环境自检用）。
@@ -163,4 +217,17 @@ pub fn missing_required_bins(paths: &RuntimePaths) -> Vec<String> {
 
 fn strip(p: &Path) -> String {
     p.display().to_string()
+}
+
+/// 写进 nginx 配置文件的路径值。
+///
+/// nginx 在 Windows 上把反斜杠当转义符（`C:\Users\x` 会被解析成 `C:Usersx`），
+/// 官方 Windows 版要求配置内使用正斜杠；argv（`-p` 前缀）仍用原生反斜杠路径。
+pub fn nginx_path_str(p: &Path) -> String {
+    let s = p.display().to_string();
+    if cfg!(windows) {
+        s.replace('\\', "/")
+    } else {
+        s
+    }
 }

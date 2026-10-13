@@ -421,10 +421,14 @@ fn prepare_nginx_conf(p: &RuntimePaths) -> PathBuf {
     let _ = std::fs::create_dir_all(prefix.join("client_body"));
 
     let template = std::fs::read_to_string(p.nginx_conf_src()).unwrap_or_default();
+    // 配置内的路径值统一转正斜杠：Windows 下反斜杠会被 nginx 当转义符（见 env::nginx_path_str）。
     let rendered = template
-        .replace("__PREFIX__", &prefix.display().to_string())
-        .replace("__WEB_ROOT__", &p.web_root().display().to_string())
-        .replace("__RESOURCE_NGINX__", &p.rel_nginx_dir().display().to_string())
+        .replace("__PREFIX__", &crate::env::nginx_path_str(&prefix))
+        .replace("__WEB_ROOT__", &crate::env::nginx_path_str(&p.web_root()))
+        .replace(
+            "__RESOURCE_NGINX__",
+            &crate::env::nginx_path_str(&p.rel_nginx_dir()),
+        )
         .replace("__BACKEND_PORT__", "8780")
         .replace("__LISTEN_PORT__", "8080");
     let out = prefix.join("nginx.conf");

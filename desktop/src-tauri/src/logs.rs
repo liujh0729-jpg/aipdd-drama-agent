@@ -49,14 +49,17 @@ fn spawn_reader<R: Read + Send + 'static>(
             .open(&log_path)
             .ok();
         let mut buf = BufReader::new(reader);
-        let mut line = String::new();
+        let mut raw: Vec<u8> = Vec::with_capacity(512);
         loop {
-            line.clear();
-            match buf.read_line(&mut line) {
+            raw.clear();
+            // 按字节读一行，再决定编码：直接 read_line into String 会在遇到非 UTF-8
+            // 字节时返回 Err，读线程随之退出——日志断流且管道写满后子进程会卡死。
+            match buf.read_until(b'\n', &mut raw) {
                 Ok(0) | Err(_) => break, // EOF 或读错误：进程已结束
                 Ok(_) => {}
             }
-            let trimmed = line.trim_end_matches(['\n', '\r']);
+            let decoded = decode_line(&raw);
+            let trimmed = decoded.trim_end_matches(['\n', '\r']);
             if trimmed.is_empty() {
                 continue;
             }
@@ -72,4 +75,55 @@ fn spawn_reader<R: Read + Send + 'static>(
             });
         }
     });
+}
+
+/// 一行原始字节 → 可展示文本。
+///
+/// Python 侧已由编排器注入 `PYTHONUTF8=1`/`PYTHONIOENCODING=utf-8`，正常走 UTF-8 分支；
+/// 其余原生程序（nginx.exe 等）在中文 Windows 上按系统 OEM 代码页（cp936）输出，
+/// 需要回落解码，否则面板与 .log 里是乱码。
+fn decode_line(raw: &[u8]) -> String {
+    match std::str::from_utf8(raw) {
+        Ok(s) => s.to_string(),
+        Err(_) => fallback_decode(raw),
+    }
+}
+
+#[cfg(not(windows))]
+fn fallback_decode(raw: &[u8]) -> String {
+    String::from_utf8_lossy(raw).into_owned()
+}
+
+#[cfg(windows)]
+fn fallback_decode(raw: &[u8]) -> String {
+    use std::sync::OnceLock;
+    use windows::Win32::Globalization::{
+        GetOEMCP, MultiByteToWideChar, MULTI_BYTE_TO_WIDE_CHAR_FLAGS,
+    };
+
+    static OEM_CP: OnceLock<u32> = OnceLock::new();
+    let cp = *OEM_CP.get_or_init(|| unsafe { GetOEMCP() });
+
+    // 窄字节 → UTF-16（Windows 代码页 API 的正解），再交给 Rust 转 String。
+    let converted = unsafe {
+        let need = MultiByteToWideChar(cp, MULTI_BYTE_TO_WIDE_CHAR_FLAGS(0), raw, None);
+        if need > 0 {
+            let mut wide: Vec<u16> = vec![0; need as usize];
+            let got = MultiByteToWideChar(
+                cp,
+                MULTI_BYTE_TO_WIDE_CHAR_FLAGS(0),
+                raw,
+                Some(&mut wide),
+            );
+            if got > 0 {
+                wide.truncate(got as usize);
+                Some(String::from_utf16_lossy(&wide))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+    converted.unwrap_or_else(|| String::from_utf8_lossy(raw).into_owned())
 }

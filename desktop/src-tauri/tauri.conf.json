@@ -31,6 +31,7 @@
       "resources/model-manifest.json",
       "resources/nginx/*",
       "resources/bin/*",
+      "resources/bin/chrome/**/*",
       "resources/app/dist/**/*",
       "resources/app/src/**/*",
       "resources/app/services/**/*",
@@ -58,9 +59,19 @@
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": "",
+      "tsp": true,
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["SimpChinese", "English"]
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "startMenuFolder": "AIPDD",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "template": "windows/installer.nsi"
       }
     }
   }

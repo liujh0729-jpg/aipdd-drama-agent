@@ -25,19 +25,21 @@ RES="$DESKTOP_DIR/src-tauri/resources"
 
 # ------------------------------------------------------------------ 目标三元组
 PY="3.12"                     # 与 pyproject requires-python(>=3.11,<3.13) 对齐；仅小版本，patch 由 API 解析
+# CFT = Chrome-for-Testing 的**平台目录名**，官方只认小写（win64 / mac-x64 / mac-arm64）；
+# 写成 Win64 会让 storage.googleapis.com 直接 404。
 case "$TARGET" in
-  mac-arm64) TRIPLE="aarch64-apple-darwin";  GOOS=darwin; GOARCH=arm64; CFT="Mac-x64"; TAURI_TARGET="aarch64-apple-darwin" ;;
-  mac-x64)   TRIPLE="x86_64-apple-darwin";   GOOS=darwin; GOARCH=amd64; CFT="Mac-x64"; TAURI_TARGET="x86_64-apple-darwin" ;;
-  win-x64)   TRIPLE="x86_64-pc-windows-msvc"; GOOS=windows; GOARCH=amd64; CFT="Win64";  TAURI_TARGET="x86_64-pc-windows-msvc" ;;
+  mac-arm64) TRIPLE="aarch64-apple-darwin";  GOOS=darwin; GOARCH=arm64; CFT="mac-arm64"; TAURI_TARGET="aarch64-apple-darwin" ;;
+  mac-x64)   TRIPLE="x86_64-apple-darwin";   GOOS=darwin; GOARCH=amd64; CFT="mac-x64";   TAURI_TARGET="x86_64-apple-darwin" ;;
+  win-x64)   TRIPLE="x86_64-pc-windows-msvc"; GOOS=windows; GOARCH=amd64; CFT="win64";    TAURI_TARGET="x86_64-pc-windows-msvc" ;;
   *) echo "未知目标：$TARGET" >&2; exit 2 ;;
 esac
-# Chrome-for-Testing 的 mac 变体按 arch 细分
-if [[ "$TARGET" == "mac-arm64" ]]; then CFT="Mac-arm64"; fi
 
 EXE=""; [[ "$GOOS" == windows ]] && EXE=".exe"
 
 log() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 need() { command -v "$1" >/dev/null 2>&1 || { echo "缺少命令：$1（见 desktop/README 构建机准备）" >&2; exit 3; }; }
+# win-x64 的 nginx/ffmpeg/Chromium 都以 zip 分发（Git Bash 自带 unzip；MSYS 缺失时提前报错）。
+if [[ "$GOOS" == windows ]]; then need unzip; fi
 
 # 只重建生成物子目录；保留随包提交的静态配置（nginx.conf / model-manifest.json / nginx/mime.types）。
 rm -rf "$RES/bin" "$RES/python" "$RES/app"
@@ -58,18 +60,27 @@ if [[ -z "${PBS_URL:-}" ]]; then
     API_JSON="https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest"
   fi
   # 容忍 set -o pipefail：各 grep 无匹配不中断；不用 head（避免 SIGPIPE）；可选带 GITHUB_TOKEN 提高限额。
-  PBS_URL="$( { curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} "$API_JSON" || true; } \
+  # 注意匹配 `+` 的两种写法：API 现在把资产名里的 `+` 百分号编码成 `%2B`（早期是字面 `+`），
+  # 只写 `\+` 会解析不到任何 URL（曾表现为「疑似限流」的假报错）。
+  PBS_URL="$( { curl -fsSL --retry 3 ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} "$API_JSON" || true; } \
     | { grep -oE '"browser_download_url": *"[^"]+"' || true; } \
     | sed -E 's/.*"(https[^"]*)"/\1/' \
-    | { grep -E "cpython-${PY}\.[0-9]+\+.*-${TRIPLE}-install_only\.tar\.gz$" || true; } )"
+    | { grep -E "cpython-${PY}\.[0-9]+(%2B|\+).*-${TRIPLE}-install_only\.tar\.gz$" || true; } )"
   PBS_URL="${PBS_URL%%$'\n'*}"
   [[ -n "$PBS_URL" ]] || { echo "无法从 GitHub 解析 PBS ${PY}/${TRIPLE} install_only 资源（可能触发 API 限流）；请设 PBS_URL=<直链> 或 PBS_RELEASE=<日期标签>+GITHUB_TOKEN 重试" >&2; exit 4; }
 fi
 log "下载 $PBS_URL"
 curl -fL --retry 3 -o /tmp/pbs.tar.gz "$PBS_URL"
 tar -xzf /tmp/pbs.tar.gz -C "$RES/python" --strip-components=1
-PYBIN="$RES/python/bin/python${EXE}"
-[[ -x "$PYBIN" ]] || { echo "便携 Python 解压后找不到解释器：$PYBIN" >&2; exit 4; }
+# 解释器位置按平台不同：install_only 包在 Unix 是 python/bin/python3，
+# Windows 没有 bin/ 这一层，是 python/python.exe + python/Lib/site-packages（env.rs::python() 同源）。
+if [[ "$GOOS" == windows ]]; then
+  PYBIN="$RES/python/python.exe"
+else
+  PYBIN="$RES/python/bin/python3"
+fi
+[[ -f "$PYBIN" ]] || { echo "便携 Python 解压后找不到解释器：$PYBIN" >&2; exit 4; }
+"$PYBIN" -V || { echo "便携 Python 无法执行：$PYBIN" >&2; exit 4; }
 
 # --------------------------------------------------- 2) 离线预装 CE 后端依赖
 log "2/6 按 uv.lock 冻结预装 CE 后端依赖（无 pip 暴露给用户）"
@@ -127,6 +138,12 @@ if [[ -d "$ROOT_DIR/services/hyperframes-renderer" ]]; then
 fi
 
 # ------------------------------------------------------ 5) Go 网关静态编译
+if [[ -n "${NEWAPI_BIN:-}" ]]; then
+  # 允许用外部已编译好的 win-x64/darwin 网关二进制出包（构建机缺 Go/bun 时的逃生门，与 NGINX_BIN 同思路）。
+  [[ -f "$NEWAPI_BIN" ]] || { echo "NEWAPI_BIN 指向的文件不存在：$NEWAPI_BIN" >&2; exit 6; }
+  cp "$NEWAPI_BIN" "$RES/bin/new-api${EXE}"
+  log "5/6 使用外部网关二进制 $NEWAPI_BIN → resources/bin/new-api${EXE}（跳过 go/bun 构建）"
+else
 log "5/6 编译 newapi 网关（先 bun 构建内嵌 web/dist，再 CGO_ENABLED=0 go build）→ resources/bin/new-api${EXE}"
 need go
 need bun
@@ -137,9 +154,11 @@ GW="$ROOT_DIR/third_party/dramaclaw-gateway"
   DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION="$(cat "$GW/VERSION" 2>/dev/null || echo dev)" bun run build )
 [[ -f "$GW/web/dist/index.html" ]] || { echo "网关 web/dist 未生成：go:embed 会失败" >&2; exit 6; }
 # GOEXPERIMENT=nogreenteagc / GOWORK=off 与 Dockerfile 对齐；relaykit 为 replace 指向的本地子模块。
+# CGO_ENABLED=0 → 纯 Go 交叉编译，Windows 构建机无需 C 工具链。
 ( cd "$GW" && CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" GOEXPERIMENT=nogreenteagc GOWORK=off \
   go build -trimpath -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION 2>/dev/null || echo dev)'" \
   -o "$RES/bin/new-api${EXE}" . )
+fi
 
 # ------------------------------------------------ 6) 随附二进制：nginx/ffmpeg/chromium
 log "6/6 随附 nginx / ffmpeg / Chromium（官方预编译，注意可重定位性，见 README）"
@@ -170,11 +189,37 @@ if [[ ! -f "$RES/nginx/mime.types" ]]; then
 fi
 [[ -f "$RES/nginx/mime.types" ]] || { echo "缺少 resources/nginx/mime.types（桌面 nginx 必需）" >&2; exit 5; }
 
-# ffmpeg：期望提供一个静态/自包含二进制；否则用 PATH 上的并告警。
+# ffmpeg + ffprobe：后端 63 处调用 ffprobe（探测时长/分辨率），两者必须同时随包。
+# 首选显式提供 FFMPEG_BIN（其同目录下的 ffprobe 一并取）；Windows 无现成则下载 LGPL 静态构建。
+copy_ffprobe_sibling() {
+  local src_dir="$1"
+  local cand="$src_dir/ffprobe$EXE"
+  if [[ -f "$cand" ]]; then
+    cp "$cand" "$RES/bin/ffprobe$EXE"
+    return 0
+  fi
+  return 1
+}
 if [[ -n "${FFMPEG_BIN:-}" ]]; then
   cp "$FFMPEG_BIN" "$RES/bin/ffmpeg$EXE"
+  copy_ffprobe_sibling "$(dirname "$FFMPEG_BIN")" \
+    || log "警告：$FFMPEG_BIN 同目录未找到 ffprobe$EXE，请另设含 ffprobe 的构建。"
+elif [[ "$GOOS" == windows ]]; then
+  # BtbN/FFmpeg-Builds 的 win64 **LGPL** 变体（单文件静态，无外部 DLL）；
+  # 选 LGPL 而非默认 GPL，避免 x264 等 GPL 组件带来的额外源码分发义务（见 licenses/README.md）。
+  FFB_URL="${FFB_URL:-https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-lgpl.zip}"
+  log "下载 FFmpeg（win64 LGPL）：$FFB_URL"
+  curl -fL --retry 3 -o /tmp/ffmpeg.zip "$FFB_URL"
+  unzip -oq /tmp/ffmpeg.zip -d /tmp/ffpkg
+  FFROOT="$(find /tmp/ffpkg -maxdepth 1 -type d -name 'ffmpeg-*' | head -1)"
+  [[ -f "$FFROOT/bin/ffmpeg.exe" ]] || { echo "FFmpeg 包内缺 bin/ffmpeg.exe：$FFROOT" >&2; exit 8; }
+  cp "$FFROOT/bin/ffmpeg.exe"  "$RES/bin/ffmpeg.exe"
+  cp "$FFROOT/bin/ffprobe.exe" "$RES/bin/ffprobe.exe"
+  [[ -f "$FFROOT/LICENSE.txt" ]] && cp "$FFROOT/LICENSE.txt" "$RES/bin/ffmpeg-LICENSE.txt"
 elif command -v ffmpeg >/dev/null 2>&1; then
   cp "$(command -v ffmpeg)" "$RES/bin/ffmpeg$EXE"
+  copy_ffprobe_sibling "$(dirname "$(command -v ffmpeg)")" \
+    || log "警告：系统 ffmpeg 同目录未找到 ffprobe，后端媒体探测会在运行期失败。"
   log "警告：从系统 PATH 拷贝的 ffmpeg 可能依赖系统 dylib，跨机分发前请确认其自包含或改提供静态构建。"
 else
   log "警告：未提供 ffmpeg。yt-dlp 合流/抽音在运行期会失败；请设 FFMPEG_BIN=<静态ffmpeg> 重跑。"
@@ -192,10 +237,17 @@ if [[ -z "$CFT_VER" ]]; then
 fi
 if [[ -n "$CFT_VER" ]]; then
   curl -fL -o /tmp/chrome.zip "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VER}/${CFT}/chrome-${CFT}.zip"
-  unzip -oq /tmp/chrome.zip -d "$RES/bin/chrome"
+  # 包内顶层是 chrome-<平台>/ 一层，剥掉它让 exe 直接落在 bin/chrome/ 下
+  # （Windows: bin/chrome/chrome.exe；mac: bin/chrome/Google Chrome for Testing.app）。
+  # 直接解到 bin/ 再同级改名：Git Bash 自带 unzip 6.00 没有 --strip-components，
+  # 而「解到临时目录 + cp -R 跨盘搬运」在这套 MSYS cp 下要十几分钟（Chromium 约 700 文件）。
+  rm -rf "$RES/bin/chrome" "$RES/bin/chrome-${CFT}"
+  unzip -oq /tmp/chrome.zip -d "$RES/bin"
+  [[ -d "$RES/bin/chrome-${CFT}" ]] || { echo "Chromium 包内未找到 chrome-${CFT}/：$(ls "$RES/bin")" >&2; exit 8; }
+  mv "$RES/bin/chrome-${CFT}" "$RES/bin/chrome"
   # 运行期后端连 CDP：需由编排器以 --remote-debugging-port 启动该 Chrome，并把它的路径
   # 通过环境变量交给后端。见 desktop/README「Chromium/CDP 接线」TODO。
-  log "Chromium 已内置 resources/bin/chrome（CDP 接线见 README）"
+  log "Chromium $CFT_VER 已内置 resources/bin/chrome（CDP 接线见 README）"
 else
   log "警告：未能确定 Chrome for Testing 版本；设 CFT_VER=<版本> 重跑以内置 Chromium。"
 fi
