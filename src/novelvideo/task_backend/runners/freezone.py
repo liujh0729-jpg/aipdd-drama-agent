@@ -326,6 +326,8 @@ _TOOL_ARCHIVE_LABELS = {
     "freezone_explainer_video": "科普讲解视频",
     # [aipdd fork delta req46] 音乐创作：产物是一首 mp3/wav/pcm 音频。
     "freezone_music_generate": "音乐创作",
+    # [aipdd fork delta] 口播智能剪辑：产物是剪后口播成片（或 VectCut 剪映草稿）。
+    "freezone_narration_smart_edit": "口播智能剪辑",
 }
 
 
@@ -1763,6 +1765,21 @@ async def _run_freezone_explainer_video_async(
         resolve_reference_content,
     )
     from novelvideo.freezone.explainer_motion import render_explainer_video
+    from novelvideo.freezone.explainer_frames import (
+        CANVAS_FORMATS,
+        ENGINE_HYPERFRAMES,
+        build_explainer_project,
+        explainer_engine,
+        mux_audio,
+        normalize_canvas_format,
+        normalize_style_preset,
+    )
+    from novelvideo.renderer.client import (
+        RenderFailed,
+        RendererNotConfigured,
+    )
+    from novelvideo.renderer.client import is_configured as renderer_configured
+    from novelvideo.renderer.client import render_project
     from novelvideo.freezone.jobs import ensure_freezone_dirs
     from novelvideo.freezone.mix import normalize_mix_resolution, resolve_mix_canvas
     from novelvideo.freezone.paths import outputs_dir
@@ -1889,47 +1906,108 @@ async def _run_freezone_explainer_video_async(
         raise RuntimeError("explainer timeline is empty")
 
     bgm_path = str(payload.get("bgm_path") or "").strip() or None
-    bgm_volume = payload.get("bgm_volume")
+    bgm_volume = (
+        0.2 if payload.get("bgm_volume") is None else float(payload.get("bgm_volume"))
+    )
     output_path = outputs_dir(project_dir, task_type) / f"{job_id}.mp4"
 
-    # 5) 逐帧绘制 + 流式编码。渲染是线程里的单次长调用，回调只写普通 dict（在
-    # 工作线程里直接调 ``_update`` 会丢任务上下文），进度由事件循环这边轮询上报。
-    # 起始文案用 lmsg：进度条由前端按 code 翻，否则英文界面下会直接漏出这句中文；
-    # 渲染回调中途写入的仍是它自己的成品文本，那时按普通字符串走兜底。
-    render_seed = lmsg("tasks.progress.explainer.renderingFrames", "逐帧绘制 MG 画面...")
-    _update(ctx, task_type, job_id, 0.32, render_seed)
-    progress_state: dict[str, Any] = {"fraction": 0.0, "message": render_seed}
+    async def _render_with_pillow() -> None:
+        """原 Pillow 逐帧绘制链路（回退 / 无渲染服务时用）：线程内长调用 + 轮询上报。"""
+        render_seed = lmsg("tasks.progress.explainer.renderingFrames", "逐帧绘制 MG 画面...")
+        _update(ctx, task_type, job_id, 0.32, render_seed)
+        progress_state: dict[str, Any] = {"fraction": 0.0, "message": render_seed}
 
-    def _note_progress(fraction: float, message: MessageLike) -> None:
-        progress_state["fraction"] = float(fraction)
-        progress_state["message"] = message
+        def _note_progress(fraction: float, message: MessageLike) -> None:
+            progress_state["fraction"] = float(fraction)
+            progress_state["message"] = message
 
-    render_task = asyncio.create_task(
-        asyncio.to_thread(
-            render_explainer_video,
-            timeline=timeline,
-            out_path=output_path,
-            width=canvas_width,
-            height=canvas_height,
-            fps=timeline.fps,
-            background=background,
-            narration_path=narration_path,
-            bgm_path=bgm_path,
-            bgm_volume=0.2 if bgm_volume is None else float(bgm_volume),
-            on_progress=_note_progress,
+        render_task = asyncio.create_task(
+            asyncio.to_thread(
+                render_explainer_video,
+                timeline=timeline,
+                out_path=output_path,
+                width=canvas_width,
+                height=canvas_height,
+                fps=timeline.fps,
+                background=background,
+                narration_path=narration_path,
+                bgm_path=bgm_path,
+                bgm_volume=bgm_volume,
+                on_progress=_note_progress,
+            )
         )
+        while not render_task.done():
+            await asyncio.sleep(2.0)
+            fraction = max(0.0, min(1.0, float(progress_state["fraction"])))
+            _update(
+                ctx,
+                task_type,
+                job_id,
+                round(0.32 + 0.62 * fraction, 3),
+                progress_state["message"],
+            )
+        await render_task
+
+    engine = explainer_engine()
+    canvas_format = normalize_canvas_format(payload.get("format")) or "landscape"
+    hf_width, hf_height = CANVAS_FORMATS.get(
+        canvas_format, CANVAS_FORMATS["landscape"]
     )
-    while not render_task.done():
-        await asyncio.sleep(2.0)
-        fraction = max(0.0, min(1.0, float(progress_state["fraction"])))
-        _update(
-            ctx,
-            task_type,
-            job_id,
-            round(0.32 + 0.62 * fraction, 3),
-            progress_state["message"],
-        )
-    await render_task
+    style_preset = normalize_style_preset(payload.get("style_preset"))
+    captions_on = bool(payload.get("captions", True))
+    rendered_by = "pillow"
+
+    # 5) 出片：默认走 HyperFrames 引擎即服务（产 HTML 帧项目→无头渲静音视频→
+    # 本地 ffmpeg 混配音/BGM）；未配置渲染服务或渲染异常时回退 Pillow（不阻断出片）。
+    if engine == ENGINE_HYPERFRAMES and renderer_configured():
+        try:
+            _update(ctx, task_type, job_id, 0.34, "生成 HyperFrames 帧项目...")
+            hf_project_dir = work_dir / "hf_project"
+            proj = await asyncio.to_thread(
+                build_explainer_project,
+                timeline,
+                project_dir=hf_project_dir,
+                width=hf_width,
+                height=hf_height,
+                style_preset=style_preset,
+                captions=captions_on,
+                canvas_format=canvas_format,
+            )
+            _update(ctx, task_type, job_id, 0.40, "调用渲染服务无头出片...")
+            silent_path = work_dir / f"{job_id}_silent.mp4"
+            render_timeout_s = int(max(600, proj.duration_seconds * 20))
+            render_result = await render_project(
+                proj.project_dir,
+                output_path=silent_path,
+                fps=proj.fps,
+                quality="high",
+                canvas_format=canvas_format,
+                entry_file=proj.entry_file,
+                timeout_s=render_timeout_s,
+            )
+            _update(ctx, task_type, job_id, 0.84, "混入配音与背景音乐...")
+            await asyncio.to_thread(
+                mux_audio,
+                Path(render_result.output_path),
+                out_path=output_path,
+                narration_path=narration_path,
+                bgm_path=bgm_path,
+                bgm_volume=bgm_volume,
+                duration_seconds=proj.duration_seconds,
+            )
+            rendered_by = "hyperframes"
+        except (RendererNotConfigured, RenderFailed) as exc:
+            # 渲染服务不可达 / 出片失败：落回 Pillow 逐帧绘制，错误只作进度提示不致命。
+            _update(
+                ctx,
+                task_type,
+                job_id,
+                0.32,
+                f"HyperFrames 渲染不可用，回退本地绘制：{str(exc)[:120]}",
+            )
+            await _render_with_pillow()
+    else:
+        await _render_with_pillow()
 
     # 6) 归档与结果。
     _update(ctx, task_type, job_id, 0.97, "登记讲解视频成片...")
@@ -1952,7 +2030,13 @@ async def _run_freezone_explainer_video_async(
         "fps": timeline.fps,
         "duration_seconds": round(timeline.duration_seconds, 3),
         "background": background,
-        "aspect_ratio": "16:9",
+        "aspect_ratio": (
+            {"portrait": "9:16", "square": "1:1"}.get(canvas_format, "16:9")
+            if rendered_by == "hyperframes"
+            else "16:9"
+        ),
+        "engine": rendered_by,
+        "style_preset": style_preset if rendered_by == "hyperframes" else "",
         "resolution": resolution,
         "chapter_starts_seconds": [
             round(start / float(timeline.fps or EXPLAINER_FPS), 3)
@@ -1978,6 +2062,682 @@ def run_freezone_explainer_video(
     return _run_cancellable(
         envelope, _run_freezone_explainer_video_async(envelope, ctx)
     )
+
+
+def _extract_video_cover(video_path: Path, out_path: Path, *, at_second: float = 0.5) -> bool:
+    """从成片抽一帧作封面（本地 ffmpeg，线程内调用；失败返回 False，不致命）。
+
+    [aipdd fork delta] 渠道短视频交付附带一张封面，供用户发布时手动上传；不接
+    渠道上传 API。取 ``at_second`` 处的一帧（避开首帧黑场），jpg 质量 2。
+    """
+    import subprocess
+
+    if not video_path.exists():
+        return False
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        "ffmpeg",
+        "-y",
+        "-ss",
+        f"{max(0.0, float(at_second)):.3f}",
+        "-i",
+        str(video_path),
+        "-frames:v",
+        "1",
+        "-q:v",
+        "2",
+        str(out_path),
+    ]
+    proc = subprocess.run(command, capture_output=True, text=True)
+    return proc.returncode == 0 and out_path.exists() and out_path.stat().st_size > 0
+
+
+async def _run_freezone_channel_short_video_async(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+) -> dict[str, Any]:
+    """[aipdd fork delta] 渠道短视频：复用讲解视频的 HyperFrames 渲染管线，按渠道定制
+    画幅/时长/字幕/封面，产出该渠道规格 MP4 + 封面 + 文案建议；**不自动上传**。
+
+    与讲解视频唯一的结构差异：画幅/时长来自渠道预设（``renderer.presets``），且只走
+    hyperframes 引擎——Pillow 回退是固定横屏，无法出竖屏/方形，故渲染服务未配置时直接
+    失败并给出配置指引（不静默出错画幅）。出网口径与讲解视频逐字相同：解说词 + 分镜两次
+    ``generate_freezone_text``（EG-18a）+ 配音一次 ``generate_freezone_audio_speech``；
+    渲染走本地渲染服务、封面抽帧与混音是纯本地 ffmpeg，均不经分发器。
+    """
+    from novelvideo.api.deps import (
+        make_sqlite_store_for_context,
+        make_static_url_for_context,
+    )
+    from novelvideo.freezone.audio_node import generate_freezone_audio_speech
+    from novelvideo.freezone.explainer import (
+        EXPLAINER_FPS,
+        ExplainerChapter,
+        build_explainer_narration_prompt,
+        build_explainer_storyboard_prompt,
+        flatten_sentences,
+        normalize_explainer_background,
+        parse_explainer_narration,
+        parse_explainer_storyboard,
+        plan_explainer_timeline,
+        resolve_reference_content,
+    )
+    from novelvideo.freezone.explainer_frames import (
+        CANVAS_FORMATS,
+        build_explainer_project,
+        mux_audio,
+        normalize_style_preset,
+    )
+    from novelvideo.renderer.client import (
+        RenderFailed,
+        RendererNotConfigured,
+    )
+    from novelvideo.renderer.client import is_configured as renderer_configured
+    from novelvideo.renderer.client import render_project
+    from novelvideo.renderer.presets import copy_suggestions, get_channel, resolve_duration
+    from novelvideo.freezone.jobs import ensure_freezone_dirs
+    from novelvideo.freezone.mix import normalize_mix_resolution
+    from novelvideo.freezone.paths import outputs_dir
+    from novelvideo.freezone.text_node import generate_freezone_text
+
+    payload = envelope.get("payload") or {}
+    task_type = "freezone_channel_short_video"
+    job_id = str(payload["job_id"])
+    project_dir = Path(str(payload.get("project_dir") or ctx.output_dir))
+    ensure_freezone_dirs(project_dir)
+    work_dir = outputs_dir(project_dir, task_type) / f"{job_id}_work"
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    channel = get_channel(payload.get("channel"))
+    reference = resolve_reference_content(payload.get("reference_content"))
+    duration_s = resolve_duration(channel.key, payload.get("duration_s"))
+    title_hint = str(payload.get("title") or "").strip()
+    model_text = str(payload.get("model_text") or "").strip()
+    resolution = normalize_mix_resolution(str(payload.get("resolution") or ""))
+    background = normalize_explainer_background(payload.get("background"))
+    canvas_format = channel.canvas_format
+    hf_width, hf_height = CANVAS_FORMATS.get(canvas_format, CANVAS_FORMATS["landscape"])
+    style_preset = normalize_style_preset(payload.get("style_preset"))
+    captions_on = (
+        bool(payload["captions"])
+        if payload.get("captions") is not None
+        else channel.captions_default
+    )
+
+    if not renderer_configured():
+        raise RendererNotConfigured(
+            "渠道短视频需要 HyperFrames 渲染服务（配置 DRAMACLAW_RENDERER_URL），"
+            "当前未配置；竖屏/方形画幅无本地 Pillow 回退。"
+        )
+
+    cancel_kwargs = {
+        "project_id": ctx.project_id,
+        "task_type": task_type,
+        "episode": 0,
+        "task_id": str(envelope.get("__run_task_id") or ""),
+        "scope": job_id,
+    }
+
+    # 1) 解说词：把时长下限压到渠道档、按渠道画幅改写片种提示，其余沿用讲解视频链。
+    _update(ctx, task_type, job_id, 0.05, "把源内容改写成解说词...")
+    _narration_model, narration_raw = await _await_with_cancel_watch(
+        _call_freezone_leaf(
+            envelope,
+            generate_freezone_text,
+            "generate_freezone_text",
+            prompt=build_explainer_narration_prompt(
+                reference,
+                duration_s=duration_s,
+                title_hint=title_hint,
+                min_s=channel.duration_min_s,
+                orientation_label=f"{channel.label} 渠道短视频（{channel.aspect}）",
+            ),
+            model=model_text or None,
+        ),
+        **cancel_kwargs,
+    )
+    chapters = parse_explainer_narration(narration_raw)
+    if not chapters:
+        lines = tuple(part.strip() for part in reference.splitlines() if part.strip())
+        if not lines:
+            raise RuntimeError("channel short video narration is empty")
+        chapters = [ExplainerChapter(name="讲解", sentences=lines[:80])]
+    flat = flatten_sentences(chapters)
+
+    # 2) 分镜：模型只能选词汇表内的图元/动效，帧号一律本地算。
+    _update(ctx, task_type, job_id, 0.16, "规划分镜...")
+    _storyboard_model, storyboard_raw = await _await_with_cancel_watch(
+        _call_freezone_leaf(
+            envelope,
+            generate_freezone_text,
+            "generate_freezone_text",
+            prompt=build_explainer_storyboard_prompt(
+                [(index, text) for _, index, text in flat],
+                title_hint=title_hint,
+            ),
+            model=model_text or None,
+        ),
+        **cancel_kwargs,
+    )
+    title, shots = parse_explainer_storyboard(storyboard_raw, chapters=chapters)
+
+    # 3) 配音：朗读整段解说词，总时长驱动全片帧号分配。
+    narration_script = "".join(text for _, _, text in flat)
+    _update(ctx, task_type, job_id, 0.26, "合成配音...")
+    projection = read_projection(payload)
+    store = None if projection is not None else await make_sqlite_store_for_context(ctx)
+    try:
+        speech = await _await_with_cancel_watch(
+            _call_freezone_leaf(
+                envelope,
+                generate_freezone_audio_speech,
+                "generate_freezone_audio_speech",
+                store=store,
+                username=ctx.owner_username,
+                project=ctx.project_name,
+                account_voice_username=str(
+                    payload.get("account_voice_username")
+                    or ctx.requester_username
+                    or ctx.owner_username
+                ),
+                project_dir=project_dir,
+                job_id=f"{job_id}_voice",
+                text=narration_script,
+                emotion_prompt=str(payload.get("emotion_prompt") or ""),
+                voice_ref=payload.get("voice_ref"),
+                projection=projection,
+                model=str(payload.get("model") or ""),
+            ),
+            **cancel_kwargs,
+        )
+    finally:
+        close = getattr(store, "close", None)
+        if close:
+            await close()
+    narration_path = str(speech.audio_path)
+    narration_ms = int(speech.duration_ms or 0)
+    narration_model = str(speech.model or "")
+    if narration_ms <= 0:
+        raise RuntimeError("channel short video narration duration is invalid")
+
+    # 4) 时间轴：句/镜头/字幕块按朗读权重分摊。
+    timeline = plan_explainer_timeline(
+        chapters=chapters,
+        shots=shots,
+        title=title,
+        duration_ms=narration_ms,
+        fps=EXPLAINER_FPS,
+    )
+    if not timeline.scenes:
+        raise RuntimeError("channel short video timeline is empty")
+
+    bgm_path = str(payload.get("bgm_path") or "").strip() or None
+    bgm_volume = (
+        0.2 if payload.get("bgm_volume") is None else float(payload.get("bgm_volume"))
+    )
+    output_path = outputs_dir(project_dir, task_type) / f"{job_id}.mp4"
+
+    # 5) 出片：产 HTML 帧项目（渠道画幅）→ 无头渲静音视频 → 本地 ffmpeg 混配音/BGM。
+    _update(ctx, task_type, job_id, 0.34, "生成 HyperFrames 帧项目...")
+    hf_project_dir = work_dir / "hf_project"
+    proj = await asyncio.to_thread(
+        build_explainer_project,
+        timeline,
+        project_dir=hf_project_dir,
+        width=hf_width,
+        height=hf_height,
+        style_preset=style_preset,
+        captions=captions_on,
+        canvas_format=canvas_format,
+    )
+    _update(ctx, task_type, job_id, 0.40, "调用渲染服务无头出片...")
+    silent_path = work_dir / f"{job_id}_silent.mp4"
+    render_timeout_s = int(max(600, proj.duration_seconds * 20))
+    try:
+        render_result = await render_project(
+            proj.project_dir,
+            output_path=silent_path,
+            fps=proj.fps,
+            quality="high",
+            canvas_format=canvas_format,
+            entry_file=proj.entry_file,
+            timeout_s=render_timeout_s,
+        )
+    except (RendererNotConfigured, RenderFailed) as exc:
+        raise RuntimeError(
+            f"HyperFrames 渲染失败（渠道短视频无 Pillow 回退）：{str(exc)[:200]}"
+        ) from exc
+
+    _update(ctx, task_type, job_id, 0.84, "混入配音与背景音乐...")
+    await asyncio.to_thread(
+        mux_audio,
+        Path(render_result.output_path),
+        out_path=output_path,
+        narration_path=narration_path,
+        bgm_path=bgm_path,
+        bgm_volume=bgm_volume,
+        duration_seconds=proj.duration_seconds,
+    )
+
+    # 6) 封面抽帧 + 渠道文案建议（交付附件，不上传）。
+    _update(ctx, task_type, job_id, 0.94, "抽取封面并生成渠道文案...")
+    cover_path = outputs_dir(project_dir, task_type) / f"{job_id}_cover.jpg"
+    cover_ok = await asyncio.to_thread(
+        _extract_video_cover, output_path, cover_path, at_second=0.5
+    )
+    result_title = title.big or title.rest or title_hint or channel.label
+    copy = copy_suggestions(channel.key, title=result_title, narration=narration_script)
+
+    rel = output_path.relative_to(project_dir).as_posix()
+    result: dict[str, Any] = {
+        "job_id": job_id,
+        "output_path": str(output_path),
+        "output_url": make_static_url_for_context(ctx, rel),
+        "media_type": "video",
+        "channel": channel.key,
+        "channel_label": channel.label,
+        "aspect": channel.aspect,
+        "cover_ratio": channel.cover_ratio,
+        "narration": narration_script,
+        "chapters": [chapter.name for chapter in chapters],
+        "shot_count": len(timeline.scenes),
+        "title": result_title,
+        "narration_model": _narration_model,
+        "storyboard_model": _storyboard_model,
+        "plan_model": _storyboard_model,
+        "model": narration_model or _storyboard_model,
+        "narration_duration_ms": narration_ms,
+        "requested_duration_s": duration_s,
+        "fps": timeline.fps,
+        "duration_seconds": round(timeline.duration_seconds, 3),
+        "background": background,
+        "engine": "hyperframes",
+        "style_preset": style_preset,
+        "canvas_format": canvas_format,
+        "captions": captions_on,
+        "resolution": resolution,
+        "copy_suggestions": copy,
+    }
+    if cover_ok:
+        cover_rel = cover_path.relative_to(project_dir).as_posix()
+        result["cover_path"] = str(cover_path)
+        result["cover_url"] = make_static_url_for_context(ctx, cover_rel)
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type=task_type,
+        job_id=job_id,
+        media="video",
+        url=str(result["output_url"]),
+        result=result,
+        stem=_archive_stem_from_text(title.rest or narration_script) or job_id,
+    )
+    return result
+
+
+def run_freezone_channel_short_video(
+    envelope: dict[str, Any], ctx: ProjectContext
+) -> dict[str, Any]:
+    return _run_cancellable(
+        envelope, _run_freezone_channel_short_video_async(envelope, ctx)
+    )
+
+
+# [aipdd fork delta] 口播智能剪辑成片画幅：竖屏（默认）/ 横屏 / 方屏。
+_NARRATION_CANVAS: dict[str, tuple[int, int]] = {
+    "9:16": (1080, 1920),
+    "16:9": (1920, 1080),
+    "1:1": (1080, 1080),
+}
+
+
+async def _run_freezone_narration_smart_edit_async(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+) -> dict[str, Any]:
+    """[aipdd fork delta] 口播智能剪辑：把一条口播视频多阶段剪成成片 / 剪映草稿。
+
+    阶段（各按 payload 开关短路）：本地 silencedetect 剪静音停顿（借鉴 auto-editor）
+    → 网关 ASR 转写口播 → 文本模型挑口误废话整段删（借鉴 video-use）→ 文本模型理解
+    内容拆镜并标 B-roll 槽（借鉴 erduo-broll）→ 生图叶出 B-roll → 音乐叶出 BGM →
+    按 output_mode 出直出 MP4（本地 ffmpeg 裁接混）/ VectCut 剪映草稿（多轨落盘）。
+
+    出网口径：转写叶 ``transcribe_freezone_clone_dialogue``（EG-15c）+ 两次
+    ``generate_freezone_text``（瑕疵剪 / 分镜，EG-18a）+ 生图叶 ``run_freezone_gen``
+    （EG-18b）+ 音乐叶 ``run_freezone_music_generate``（EG-15d），均经分发器。静音检测 /
+    裁接 / 混音 / 封面 / 草稿组装都是本地直调，不经分发器（narration_edit / narration_draft
+    为新模块，不入 leaf 分类表）。分段时间戳用「静音语音段骨架 + 文本按段时长比例
+    对齐」，不依赖 ASR 回分段时间戳（计划允许的回退口径）。
+    """
+    from novelvideo.api.deps import make_static_url_for_context
+    from novelvideo.freezone import narration_draft, narration_edit
+    from novelvideo.freezone.jobs import (
+        ensure_freezone_dirs,
+        run_freezone_gen,
+        transcribe_freezone_clone_dialogue,
+    )
+    from novelvideo.freezone.minimax_music import run_freezone_music_generate
+    from novelvideo.freezone.paths import outputs_dir
+    from novelvideo.freezone.text_node import generate_freezone_text
+    from novelvideo.freezone.video_node import register_vectcut_draft_item
+
+    payload = envelope.get("payload") or {}
+    task_type = "freezone_narration_smart_edit"
+    job_id = str(payload["job_id"])
+    project_dir = Path(str(payload.get("project_dir") or ctx.output_dir))
+    ensure_freezone_dirs(project_dir)
+    out_dir = outputs_dir(project_dir, task_type)
+    work_dir = out_dir / f"{job_id}_work"
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    source_path = str(payload.get("source_path") or "").strip()
+    if not source_path or not Path(source_path).is_file():
+        raise RuntimeError(f"口播源视频未找到：{source_path!r}")
+
+    cut_silence = bool(payload.get("cut_silence", True))
+    cut_fillers = bool(payload.get("cut_fillers", True))
+    plan_broll = bool(payload.get("plan_broll", True))
+    gen_bgm = bool(payload.get("gen_bgm", False))
+    captions_on = bool(payload.get("captions", True))
+    output_mode = str(payload.get("output_mode") or "both").strip().lower()
+    if output_mode not in {"draft", "video", "both"}:
+        output_mode = "both"
+    wants_draft = output_mode in {"draft", "both"}
+    wants_video = output_mode in {"video", "both"}
+    noise_db = float(payload.get("noise_db") if payload.get("noise_db") is not None else -35.0)
+    min_silence_s = float(
+        payload.get("min_silence_s") if payload.get("min_silence_s") is not None else 0.4
+    )
+    aspect = str(payload.get("aspect") or "9:16").strip()
+    canvas = _NARRATION_CANVAS.get(aspect) or _NARRATION_CANVAS["9:16"]
+    bgm_gain = float(payload.get("bgm_gain") if payload.get("bgm_gain") is not None else 0.2)
+    bgm_prompt = str(payload.get("bgm_prompt") or "").strip()
+    broll_max = int(payload.get("broll_max") or 8)
+    asr_model = str(payload.get("asr_model") or "").strip()
+    text_model = str(payload.get("text_model") or "").strip()
+    image_model = str(payload.get("image_model") or "").strip()
+    image_provider = payload.get("image_provider") or None
+    image_model_params = payload.get("image_model_params") or None
+    image_request_schema = payload.get("image_request_schema") or None
+    music_model = str(payload.get("music_model") or "").strip()
+
+    cancel_kwargs = {
+        "project_id": ctx.project_id,
+        "task_type": task_type,
+        "episode": 0,
+        "task_id": str(envelope.get("__run_task_id") or ""),
+        "scope": job_id,
+    }
+    report: list[str] = []
+
+    total = await asyncio.to_thread(narration_edit.probe_duration, source_path)
+    if total <= 0.0:
+        raise RuntimeError("无法探测源视频时长（ffmpeg/ffprobe 不可用或文件损坏）")
+
+    # 1) 静音/停顿剪（本地 silencedetect）：先拿静音区间，再反推保留（有语音）段。
+    _update(ctx, task_type, job_id, 0.05, lmsg("tasks.progress.narration.silence", "检测静音与停顿..."))
+    silences = await asyncio.to_thread(
+        narration_edit.detect_silences, source_path, noise_db=noise_db, min_silence_s=min_silence_s
+    )
+    if cut_silence:
+        kept = narration_edit.kept_ranges(total, silences)
+        report.append(f"静音剪：检出 {len(silences)} 处静音、保留 {len(kept)} 段")
+    else:
+        kept = [narration_edit.Interval(0.0, total)]
+        report.append("静音剪：已关闭，整段保留")
+    # 语音段骨架（供文本对齐 / 字幕）：无论是否剪静音，都用 kept 当骨架。
+    skeleton = narration_edit.segments_from_ranges(kept)
+
+    # 2) ASR 转写（分发 EG-15c）：best-effort，拿不到不影响成片。
+    transcript = ""
+    if cut_fillers or plan_broll or captions_on:
+        _update(ctx, task_type, job_id, 0.14, lmsg("tasks.progress.narration.asr", "转写口播内容..."))
+        transcript = str(
+            await _await_with_cancel_watch(
+                _call_freezone_leaf(
+                    envelope,
+                    transcribe_freezone_clone_dialogue,
+                    "transcribe_freezone_clone_dialogue",
+                    project_dir=project_dir,
+                    job_id=job_id,
+                    video_path=source_path,
+                    asr_model=asr_model,
+                ),
+                **cancel_kwargs,
+            )
+            or ""
+        ).strip()
+    aligned = narration_edit.align_text_to_segments(transcript, skeleton)
+    if not transcript:
+        report.append("ASR：未拿到转写，字幕/B-roll/瑕疵剪退化为无文本驱动")
+
+    # 3) 瑕疵剪（分发 EG-18a）：模型挑该整段删的保留段编号。
+    if cut_fillers and aligned:
+        _update(ctx, task_type, job_id, 0.30, lmsg("tasks.progress.narration.defect", "识别口误与废话..."))
+        _defect_model, defect_raw = await _await_with_cancel_watch(
+            _call_freezone_leaf(
+                envelope,
+                generate_freezone_text,
+                "generate_freezone_text",
+                prompt=narration_edit.build_defect_prompt(aligned),
+                model=text_model or None,
+            ),
+            **cancel_kwargs,
+        )
+        drops = set(narration_edit.parse_defect_drops(defect_raw, len(kept)))
+        if drops:
+            kept = [seg for index, seg in enumerate(kept) if index not in drops]
+            aligned = [seg for index, seg in enumerate(aligned) if index not in drops]
+            report.append(f"瑕疵剪：整段剔除 {len(drops)} 段")
+        else:
+            report.append("瑕疵剪：未检出需剔除的整段")
+    if not kept:
+        raise RuntimeError("剪完无保留段（阈值过激），请下调静音阈值或关闭瑕疵剪")
+
+    # 4) 最终时间轴：把源时间轴上的语音段整体映射到剪后拼接时间轴（供字幕与 B-roll 落位）。
+    final_segs = [narration_edit.remap_segment_to_final(seg, kept) for seg in aligned]
+    final_duration = narration_edit.final_duration(kept)
+
+    # 5) 内容理解 + 分镜 + B-roll 判定（分发 EG-18a），仅 draft 输出才真生成 B-roll 图。
+    broll_slots: list[dict[str, Any]] = []
+    broll_images: list[dict[str, Any]] = []
+    if plan_broll and final_segs and wants_draft:
+        _update(ctx, task_type, job_id, 0.50, lmsg("tasks.progress.narration.storyboard", "拆解镜头与 B-roll..."))
+        _board_model, board_raw = await _await_with_cancel_watch(
+            _call_freezone_leaf(
+                envelope,
+                generate_freezone_text,
+                "generate_freezone_text",
+                prompt=narration_edit.build_storyboard_prompt(
+                    final_segs, final_duration=final_duration, aspect=aspect
+                ),
+                model=text_model or None,
+            ),
+            **cancel_kwargs,
+        )
+        broll_slots = narration_edit.parse_broll_plan(
+            board_raw, final_duration=final_duration, max_slots=broll_max
+        )
+        if broll_slots:
+            _update(ctx, task_type, job_id, 0.64, lmsg("tasks.progress.narration.broll", "生成 B-roll 画面..."))
+        for slot_index, slot in enumerate(broll_slots):
+            try:
+                image_path = await _await_with_cancel_watch(
+                    _call_freezone_leaf(
+                        envelope,
+                        run_freezone_gen,
+                        "run_freezone_gen",
+                        project_dir=project_dir,
+                        job_id=f"{job_id}_broll{slot_index}",
+                        prompt=slot["prompt"],
+                        aspect_ratio=aspect,
+                        image_size="2K",
+                        provider=image_provider,
+                        model=image_model or None,
+                        model_params=image_model_params,
+                        request_schema=image_request_schema,
+                        output_task_type="freezone_narration_smart_edit",
+                    ),
+                    **cancel_kwargs,
+                )
+            except Exception:  # noqa: BLE001 - 单张 B-roll 失败不致命
+                report.append(f"B-roll 槽 #{slot_index} 生图失败，已跳过")
+                continue
+            if image_path is not None:
+                broll_images.append(
+                    {
+                        "url": str(image_path),
+                        "timeline_start": slot["t_start"],
+                        "timeline_end": slot["t_end"],
+                    }
+                )
+    elif plan_broll and not wants_draft:
+        report.append("B-roll：仅在剪映草稿里落轨，直出 MP4 不烧录 B-roll")
+
+    # 6) BGM（分发 EG-15d，best-effort）：组织任务下音乐叶 fail-closed，降级为无 BGM。
+    bgm_path = ""
+    if gen_bgm:
+        _update(ctx, task_type, job_id, 0.72, lmsg("tasks.progress.narration.bgm", "生成背景音乐..."))
+        try:
+            music = await _await_with_cancel_watch(
+                _call_freezone_leaf(
+                    envelope,
+                    run_freezone_music_generate,
+                    "run_freezone_music_generate",
+                    project_dir=project_dir,
+                    job_id=f"{job_id}_bgm",
+                    mode="prompt",
+                    model=music_model or "music-3.0",
+                    prompt=bgm_prompt or "轻快、低强度的无人声背景垫乐",
+                ),
+                **cancel_kwargs,
+            )
+            bgm_path = str(music.audio_path)
+            report.append("BGM：已生成")
+        except Exception as exc:  # noqa: BLE001 - 无可用音乐通道不致命（组织任务会命中这里）
+            report.append(f"BGM：生成失败，降级为无 BGM（{str(exc)[:120]}）")
+
+    result: dict[str, Any] = {
+        "job_id": job_id,
+        "media_type": "video",
+        "output_mode": output_mode,
+        "aspect": aspect,
+        "source_duration": round(total, 3),
+        "final_duration": final_duration,
+        "transcript": transcript,
+        "kept_ranges": [
+            {"start": round(seg.start, 3), "end": round(seg.end, 3)} for seg in kept
+        ],
+        "broll_slots": broll_slots,
+        "broll_count": len(broll_images),
+        "report": report,
+    }
+
+    # 7a) 剪映草稿：VectCut 多轨落盘（正片逐段 + 字幕 + B-roll + BGM）。
+    if wants_draft:
+        srt_path = ""
+        if captions_on:
+            srt_text = narration_edit.build_srt(final_segs)
+            if srt_text:
+                srt_file = out_dir / f"{job_id}.srt"
+                await asyncio.to_thread(
+                    srt_file.write_text, srt_text, "utf-8"
+                )
+                srt_path = str(srt_file)
+        cursor = 0.0
+        video_clips: list[dict[str, Any]] = []
+        for seg in kept:
+            video_clips.append(
+                {
+                    "url": source_path,
+                    "source_start": round(seg.start, 3),
+                    "source_end": round(seg.end, 3),
+                    "timeline_start": round(cursor, 3),
+                    "duration": round(seg.duration, 3),
+                }
+            )
+            cursor += seg.duration
+        draft = await narration_draft.build_vectcut_draft(
+            width=canvas[0],
+            height=canvas[1],
+            video_clips=video_clips,
+            srt_path=srt_path,
+            broll_images=broll_images,
+            bgm_path=bgm_path,
+            bgm_gain=bgm_gain,
+            final_duration=final_duration,
+            draft_folder=str(payload.get("draft_folder") or "").strip(),
+            project_name=str(payload.get("title") or "").strip() or f"口播剪辑_{job_id}",
+        )
+        result["draft"] = draft.as_dict()
+        if draft.ok and draft.draft_id:
+            result["draft_id"] = draft.draft_id
+            try:
+                register_vectcut_draft_item(
+                    project_dir,
+                    draft_id=draft.draft_id,
+                    name=str(payload.get("title") or "").strip() or f"口播剪辑_{job_id}",
+                )
+            except Exception:  # noqa: BLE001 - 登记不阻断草稿已落盘
+                report.append("草稿已落盘，资产库登记失败（不致命）")
+        elif draft.not_configured:
+            report.append(draft.hint)
+        else:
+            report.append(f"草稿组装未完成：{draft.error or draft.hint}")
+
+    # 7b) 直出 MP4：本地裁接 + 混 BGM + 封面（B-roll 不入基底）。
+    if wants_video:
+        _update(ctx, task_type, job_id, 0.88, lmsg("tasks.progress.narration.render", "裁接正片并混音..."))
+        base_path = work_dir / f"{job_id}_base.mp4"
+        cut_ok = await asyncio.to_thread(
+            narration_edit.cut_and_concat,
+            source_path,
+            kept,
+            str(base_path),
+            work_dir=str(work_dir),
+        )
+        video_src = str(base_path) if cut_ok else source_path
+        if not cut_ok:
+            report.append("本地裁接失败，回退用原片作基底")
+        output_path = out_dir / f"{job_id}.mp4"
+        mixed = await asyncio.to_thread(
+            narration_edit.mix_bgm, video_src, bgm_path, str(output_path), bgm_gain=bgm_gain
+        )
+        if not mixed:
+            raise RuntimeError("成片输出失败（基底与混音均未能落盘）")
+        rel = output_path.relative_to(project_dir).as_posix()
+        result["output_path"] = str(output_path)
+        result["output_url"] = make_static_url_for_context(ctx, rel)
+        result["bgm_applied"] = bool(bgm_path)
+        cover_path = out_dir / f"{job_id}_cover.jpg"
+        cover_ok = await asyncio.to_thread(
+            _extract_video_cover, output_path, cover_path, at_second=0.5
+        )
+        if cover_ok:
+            cover_rel = cover_path.relative_to(project_dir).as_posix()
+            result["cover_path"] = str(cover_path)
+            result["cover_url"] = make_static_url_for_context(ctx, cover_rel)
+        _archive_tool_output_to_library(
+            ctx=ctx,
+            payload=payload,
+            task_type=task_type,
+            job_id=job_id,
+            media="video",
+            url=str(result["output_url"]),
+            result=result,
+            stem=narration_edit.join_transcript(final_segs)[:20] or job_id,
+        )
+    _update(ctx, task_type, job_id, 1.0, lmsg("tasks.progress.narration.done", "口播智能剪辑完成"))
+    return result
+
+
+def run_freezone_narration_smart_edit(
+    envelope: dict[str, Any], ctx: ProjectContext
+) -> dict[str, Any]:
+    return _run_cancellable(
+        envelope, _run_freezone_narration_smart_edit_async(envelope, ctx)
+    )
+
 
 
 async def _run_freezone_video_idea_async(
@@ -3119,6 +3879,117 @@ async def _run_freezone_text_generate_async(
     return result
 
 
+async def _run_freezone_article_write_async(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+) -> dict[str, Any]:
+    """[aipdd fork delta] 公众号文章编写与排版：写作风格 → Markdown → 合规 HTML → 门禁。
+
+    出网只有一处——``generate_freezone_text``（EG-18a，走既有文本网关分发）；排版
+    （``layout.render_article``）与合规校验（``validate.assert_compliant``）都是纯本地
+    确定性代码，不出网。排版产物落一份 HTML（预览/发布共用），结果 JSON 里给 Markdown、
+    静态 HTML URL、标题、风格/主题与校验 warning。
+    """
+    import json
+
+    from novelvideo.api.deps import make_static_url_for_context
+    from novelvideo.freezone.jobs import ensure_freezone_dirs
+    from novelvideo.freezone.paths import outputs_dir
+    from novelvideo.freezone.text_node import generate_freezone_text
+    from novelvideo.gzh import layout, validate, write
+    from novelvideo.gzh.themes import normalize_theme
+    from novelvideo.gzh.writer_styles import normalize_style
+
+    payload = envelope.get("payload") or {}
+    job_id = str(payload["job_id"])
+    project_dir = Path(str(payload.get("project_dir") or ctx.output_dir))
+    ensure_freezone_dirs(project_dir)
+
+    topic = str(payload.get("topic") or "").strip()
+    material = str(payload.get("material") or "").strip()
+    style = normalize_style(payload.get("style"))
+    theme = normalize_theme(payload.get("theme"))
+    target_words = int(payload.get("target_words") or 1500)
+    audience = str(payload.get("audience") or "").strip()
+    tone = str(payload.get("tone") or "").strip()
+    intro_quote = str(payload.get("intro_quote") or "").strip()
+    author = str(payload.get("author") or "").strip()
+    model_text = str(payload.get("model_text") or "").strip()
+
+    _update(ctx, "freezone_article_write", job_id, 0.1, "开始撰写文章...")
+    prompt = write.build_write_prompt(
+        topic=topic,
+        material=material,
+        style=style,
+        target_words=target_words,
+        audience=audience,
+        tone=tone,
+    )
+    model, raw_md = await _call_freezone_leaf(
+        envelope,
+        generate_freezone_text,
+        "generate_freezone_text",
+        prompt=prompt,
+        **( {"model": model_text} if model_text else {} ),
+    )
+    markdown = write.normalize_markdown(raw_md)
+    if not write.has_markdown_structure(markdown):
+        raise ValueError("模型未产出可排版的 Markdown 结构（缺标题/分节）")
+
+    _update(ctx, "freezone_article_write", job_id, 0.7, "正在排版与合规校验...")
+    html = layout.render_article(
+        markdown,
+        theme=theme,
+        intro_quote=intro_quote,
+        author=author,
+    )
+    # 强门禁：ERROR 非空直接判任务失败（产物不合规不可交付）。
+    result_validation = validate.assert_compliant(html, name=f"{job_id}.html")
+    title = layout.infer_title(markdown, fallback=topic or "未命名文章")
+
+    out_dir = outputs_dir(project_dir, "freezone_article_write")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    html_path = out_dir / f"{job_id}.html"
+    html_path.write_text(html, encoding="utf-8")
+    html_rel = html_path.relative_to(project_dir).as_posix()
+
+    data = {
+        "title": title,
+        "style": style,
+        "theme": theme,
+        "model": model,
+        "markdown": markdown,
+        "html_url": make_static_url_for_context(ctx, html_rel),
+        "span_leaf_count": result_validation.span_leaf_count,
+        "validation_warnings": result_validation.warnings,
+    }
+    out = out_dir / f"{job_id}.json"
+    out.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    result = {
+        "job_id": job_id,
+        "output_format": "json",
+        "output_path": str(out),
+        "html_path": str(html_path),
+        **data,
+    }
+    history_record = _append_node_history(
+        ctx=ctx,
+        project_dir=project_dir,
+        payload=payload,
+        task_type="freezone_article_write",
+        job_id=job_id,
+        media_type="text",
+        input_preview=(topic or material)[:240],
+        prompt=prompt,
+        model=model,
+        result=result,
+    )
+    if history_record:
+        result["generation_history_record"] = history_record
+    return result
+
+
 async def _run_freezone_story_script_async(
     envelope: dict[str, Any],
     ctx: ProjectContext,
@@ -3307,6 +4178,12 @@ def run_freezone_story_script(
     envelope: dict[str, Any], ctx: ProjectContext
 ) -> dict[str, Any]:
     return _run_cancellable(envelope, _run_freezone_story_script_async(envelope, ctx))
+
+
+def run_freezone_article_write(
+    envelope: dict[str, Any], ctx: ProjectContext
+) -> dict[str, Any]:
+    return _run_cancellable(envelope, _run_freezone_article_write_async(envelope, ctx))
 
 
 def run_freezone_image_reverse_prompt(
@@ -4091,6 +4968,13 @@ register_project_task_runner(
     run_freezone_explainer_video,
     requires_home_node=False,
 )
+# [aipdd fork delta] Phase 2B 渠道短视频：复用讲解视频渲染链（text×2 + audio×1 + 本地
+# 渲染/混音/封面抽帧），渠道只改变画幅/时长/字幕/文案，出网口径与讲解视频逐字相同。
+register_project_task_runner(
+    "freezone_channel_short_video",
+    run_freezone_channel_short_video,
+    requires_home_node=False,
+)
 register_project_task_runner(
     "freezone_video_idea", run_freezone_video_idea, requires_home_node=False
 )
@@ -4114,6 +4998,10 @@ register_project_task_runner(
 )
 register_project_task_runner(
     "freezone_story_script", run_freezone_story_script, requires_home_node=False
+)
+# [aipdd fork delta] 公众号文章编写与排版：出网只有文本叶（EG-18a），排版/校验纯本地。
+register_project_task_runner(
+    "freezone_article_write", run_freezone_article_write, requires_home_node=False
 )
 register_project_task_runner(
     "freezone_image_reverse_prompt",
@@ -4160,3 +5048,11 @@ register_project_task_runner("freezone_voice_replace", run_freezone_voice_replac
 # 可用、需建项目 SQLite store 解析 narration_style，故保持默认 home-node 绑定
 # （不入 PLACEMENT_FREE_TASKS），由投递方把任务路由到存放项目的那台机器。
 register_project_task_runner("freezone_video_dubbing", run_freezone_video_dubbing)
+# [aipdd fork delta] 口播智能剪辑（工具页新增）。静音/瑕疵剪 + 分镜/B-roll/BGM 判定
+# 走分发器；本地裁接/混音/封面/草稿组装直调。与 channel/explainer 一致：requires_home_node
+# =False（草稿落盘由 VectCut 服务侧完成）。
+register_project_task_runner(
+    "freezone_narration_smart_edit",
+    run_freezone_narration_smart_edit,
+    requires_home_node=False,
+)

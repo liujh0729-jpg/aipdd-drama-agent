@@ -224,6 +224,14 @@ CE_REVERSE_ENV_ALLOWLIST: tuple[tuple[re.Pattern[str], str], ...] = (
         "service is standalone (scripts/start-vectcut.sh / compose vectcut profile) and "
         "documents its env in services/vectcut/README-AIPDD.md, not the public template.",
     ),
+    (
+        re.compile(r"^WECHAT_(?:APPID|SECRET)$"),
+        "[aipdd fork delta] Optional WeChat Official Account publish credentials read by "
+        "gzh/publish.py only as the lowest-priority fallback (config.json > "
+        "~/.wechat_publish.json > env). The operator contract is the project config.json / "
+        "settings, so these per-deployment secrets stay out of the public template to avoid "
+        "an env/config dual source.",
+    ),
 )
 SUPERTALE_REVERSE_ENV_ALLOWLIST: tuple[tuple[re.Pattern[str], str], ...] = (
     (

@@ -1,27 +1,22 @@
 ---
-version: 2.1.6
+version: 2.1.7
 attention: low
 ---
-# v2.1.6
+# v2.1.7
 
 ## User-facing Highlights (zh)
 
-- **macOS 桌面客户端上线**: 新增 AIPDD DramaClaw 原生 macOS 应用（Apple 芯片），内置后端与全部服务，双击即用，无需手动配置 Docker/环境。
-- **Windows 安装更可靠**: 修复已安装 WSL 2 却被误判为「不可用」的问题，安装脚本能正确识别本机 WSL 2，减少首次部署受阻。
-- **全新品牌标识**: 桌面应用图标、网页登录页与浏览器标签页统一为 AIPDD 品牌 logo。
+- **口播智能剪辑上线**: 新增「口播智能剪辑」工具，上传一条口播视频即可自动跑多阶段流水线——本地静音/停顿裁剪 + 网关 ASR 文本瑕疵识别裁剪，直接产出精剪成片，全程本地渲染。
+- **环境安装更可操作**: 「设置 → 环境安装」检测到缺失依赖时，点「安装 / 重装」会复制一条可直接粘进终端运行的命令（Mac「终端」/ Windows PowerShell 分别提示），并新增「部署前提：Docker / Colima」说明与《安装环境-Setup》脚本入口。
+- **初始化可自定义管理员用户名**: 配置本地模型网关时不再写死 root，可自定义管理员用户名。
 
 ## User-facing Highlights (en)
 
-- **macOS desktop app**: AIPDD DramaClaw now ships as a native macOS app (Apple silicon) with the backend and all services bundled — double-click to launch, no manual Docker or environment setup.
-- **More reliable Windows install**: Fixed WSL 2 being falsely reported as unavailable on machines that already have it; the installer now detects WSL 2 correctly.
-- **New brand identity**: The desktop app icon, web login page and browser tab now share the AIPDD logo.
+- **Narration smart-edit tool**: A new tool turns one talking-head video into a polished cut through a multi-stage pipeline — local silence/pause trimming plus gateway-ASR verbal-filler trimming, rendered locally end to end.
+- **More actionable environment setup**: When a runtime dependency is missing, Install / Reinstall now copies a terminal-ready command (Mac Terminal / Windows PowerShell aware), and a new "Deployment prerequisite: Docker / Colima" note points to the 安装环境-Setup script.
+- **Custom admin username at init**: Configuring the local model gateway no longer hardcodes root.
 
 ## Fixes
 
-- 修复 Windows 安装脚本 `Get-WslVersion` 的假阴性：wsl.exe 默认输出 UTF-16LE，被按 UTF-8 控制台编码误解码，导致已装 WSL 2 被判为不可用。现按 Unicode 与 UTF-8 各解码一次再判定。
-- 修复 macOS 桌面运行期 nginx 因配置路径含空格未加引号而启动失败，以及网关目录未预建导致服务链路卡住的问题。
-
-## Improvements
-
-- macOS 应用图标按 Apple 图标栅格加圆角与四周留白，Dock 呈现更规范。
-- 品牌资产统一由 `scripts/gen_brand_assets.py` 从单一源图派生，改 logo 一处即可重生成桌面图标与前端 favicon/登录字标。
+- 本地网关报错文案统一称 LocalNewAPI（不再出现 newapi 措辞），并说明网关随系统部署自动提供、无需手动填写管理地址。
+- 「设置 → 环境安装」安装提示由裸容器命令升级为含 Docker 前提的终端命令，按客户端平台给出对应终端名称。

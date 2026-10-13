@@ -1,7 +1,9 @@
 """freezone.video_ops 子模块（自 api/routes/freezone.py 拆分）。"""
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -11,10 +13,12 @@ from novelvideo.api.auth import get_api_user
 from novelvideo.api.routes import freezone as _freezone
 from novelvideo.api.schemas import FreezoneAnalyzeShotsRequest
 from novelvideo.api.schemas import FreezoneAnalyzeVideoStoryRequest
+from novelvideo.api.schemas import FreezoneChannelShortVideoRequest
 from novelvideo.api.schemas import FreezoneDouyinCopywriteRequest
 from novelvideo.api.schemas import FreezoneExtractFramesRequest
 from novelvideo.api.schemas import FreezoneExplainerVideoRequest
 from novelvideo.api.schemas import FreezoneMediaCopywriteRequest
+from novelvideo.api.schemas import FreezoneNarrationSmartEditRequest
 from novelvideo.api.schemas import FreezoneVideoCloneRequest
 from novelvideo.api.schemas import FreezoneVideoIdeaRequest
 from novelvideo.api.schemas import FreezoneVideoMixRequest
@@ -22,6 +26,9 @@ from novelvideo.api.schemas import FreezoneWhiteboardAnimationRequest
 from novelvideo.freezone.explainer import normalize_explainer_background
 from novelvideo.freezone.explainer import normalize_explainer_duration_s
 from novelvideo.freezone.explainer import resolve_reference_content
+from novelvideo.freezone.paths import outputs_dir
+from novelvideo.renderer.presets import get_channel
+from novelvideo.renderer.presets import resolve_duration
 from novelvideo.freezone.mix import normalize_mix_aspect_ratio
 from novelvideo.freezone.mix import normalize_mix_resolution
 from novelvideo.freezone.mix import normalize_mix_subtitle_font_size
@@ -673,6 +680,10 @@ async def freezone_explainer_video(
         "model": selected_audio_model,
         "background": normalize_explainer_background(body.background),
         "resolution": normalize_mix_resolution(body.resolution),
+        # [aipdd fork delta] HyperFrames 引擎参数（未知值由 runner 侧归一化）：
+        "style_preset": body.style_preset.strip(),
+        "format": body.format.strip(),
+        "captions": bool(body.captions),
         "emotion_prompt": body.emotion_prompt,
         "voice_ref": voice_ref_payload,
         "bgm_path": bgm_path.as_posix() if bgm_path else "",
@@ -707,6 +718,247 @@ async def freezone_explainer_video(
         )
         raise HTTPException(
             503, f"failed to start freezone explainer video task: {exc}"
+        ) from exc
+
+
+@router.post(
+    "/projects/{project}/freezone/channel-short-video", tags=[TAG_FREEZONE_VIDEO]
+)
+async def freezone_channel_short_video(
+    project: str,
+    body: FreezoneChannelShortVideoRequest,
+    user: dict = Depends(get_api_user),
+):
+    """[aipdd fork delta] Phase 2B 渠道短视频：文章/素材 → 走讲解视频同一渲染管线，
+    按渠道定制画幅/时长/字幕/封面 → 产出该渠道规格 MP4。**不自动上传**。
+
+    源可以是参考正文（``reference_content``），也可以直接指向一篇已排版的
+    公众号文章（``article_job_id``，后端读取其 Markdown 正文）。渠道只改变成片规格，
+    渲染链与出网口径与讲解视频逐字相同（文本叶×2 + 音频叶×1）。
+    """
+    ctx, username, project_name, project_dir, output_dir = await _freezone._resolve_freezone_project(
+        project, user
+    )
+
+    channel = get_channel(body.channel)
+
+    # 源：显式参考正文优先；否则从指定文章任务的 Markdown 产物取。
+    reference_raw = str(body.reference_content or "").strip()
+    article_job_id = str(body.article_job_id or "").strip()
+    if not reference_raw and article_job_id:
+        article_json = outputs_dir(project_dir, "freezone_article_write") / f"{article_job_id}.json"
+        if not article_json.is_file():
+            raise HTTPException(404, f"article result not found: {article_job_id}")
+        try:
+            article_data = json.loads(article_json.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise HTTPException(400, f"article result unreadable: {exc}") from exc
+        reference_raw = str(article_data.get("markdown") or article_data.get("title") or "").strip()
+        if not str(body.title or "").strip() and article_data.get("title"):
+            body.title = str(article_data["title"])
+
+    try:
+        reference_content = resolve_reference_content(reference_raw)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    # 配音模型目录：传了 model 就必须命中后台音频目录，提交前定型为内部模型名（同讲解视频）。
+    requested_audio_model = str(body.model or "").strip()
+    selected_audio_model = ""
+    if requested_audio_model:
+        audio_catalog = (
+            await _freezone._scoped_media_model_catalog(
+                "audio",
+                requester_user_id=ctx.requester_user_id,
+            )
+            or []
+        )
+        audio_entry = next(
+            (
+                item
+                for item in audio_catalog
+                if requested_audio_model in _freezone._catalog_entry_identifiers(item)
+            ),
+            None,
+        )
+        if audio_entry is None:
+            raise HTTPException(
+                409,
+                "音频模型未在后台「默认生成模型」的音频列表里配置或已停用，请刷新后重选",
+            )
+        selected_audio_model = str(
+            audio_entry.get("apiModel") or audio_entry.get("api_model") or ""
+        ).strip() or requested_audio_model
+
+    bgm_path = None
+    if body.bgm_url.strip():
+        try:
+            bgm_path = _freezone.resolve_static_url_to_path(body.bgm_url, project_dir)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if not bgm_path.exists():
+            raise HTTPException(404, f"bgm not found: {bgm_path}")
+
+    voice_ref_payload = body.voice_ref.model_dump() if body.voice_ref else None
+    account_voice_username = (
+        ctx.requester_username if ctx is not None and ctx.requester_username else username
+    )
+
+    job_id = _freezone._new_job_id()
+    payload = {
+        "channel": channel.key,
+        "reference_content": reference_content,
+        "title": body.title.strip(),
+        # 时长按渠道上下限夹好，runner 不重复猜默认。
+        "duration_s": resolve_duration(channel.key, body.duration_s),
+        "model_text": body.model_text.strip(),
+        "model": selected_audio_model,
+        "style_preset": body.style_preset.strip(),
+        "resolution": normalize_mix_resolution(body.resolution),
+        # captions 为 None 时交给 runner 取渠道默认（不在此处提前真值化）。
+        "captions": body.captions,
+        "emotion_prompt": body.emotion_prompt,
+        "voice_ref": voice_ref_payload,
+        "bgm_path": bgm_path.as_posix() if bgm_path else "",
+        "bgm_volume": body.bgm_volume,
+        "account_voice_username": account_voice_username,
+        "archive_to_library": body.archive_to_library,
+        "source_tool": body.source_tool,
+    }
+    if ctx is not None:
+        projection_payload = await _freezone._task_projection_payload(
+            ctx=ctx,
+            username=username,
+            project_name=project_name,
+            episode=0,
+            task_type="freezone_channel_short_video",
+            extra_config={"voice_ref": voice_ref_payload},
+        )
+        payload.update(projection_payload)
+    try:
+        return await _freezone._enqueue_or_start_freezone_channel_short_video(
+            ctx=ctx,
+            username=username,
+            project=project_name,
+            project_dir=project_dir,
+            output_dir=output_dir,
+            job_id=job_id,
+            payload=payload,
+        )
+    except RuntimeError as exc:
+        _freezone._handle_task_start_runtime_error(
+            "failed to start freezone channel short video task", exc
+        )
+        raise HTTPException(
+            503, f"failed to start freezone channel short video task: {exc}"
+        ) from exc
+
+
+@router.post(
+    "/projects/{project}/freezone/narration-smart-edit", tags=[TAG_FREEZONE_VIDEO]
+)
+async def freezone_narration_smart_edit(
+    project: str,
+    body: FreezoneNarrationSmartEditRequest,
+    user: dict = Depends(get_api_user),
+):
+    """[aipdd fork delta] 口播智能剪辑：一条口播视频 → 本地静音剪 +
+    网关 ASR/文本瑕疵剪与分镜/B-roll 判定 + 生图/生乐 → 直出 MP4 或 VectCut 剪映草稿。
+
+    三阶段（静音剪/瑕疵剪/B-roll）按开关短路；只调用模型网关与 VectCut，不引外部运行期。
+    源须为同源引用（上传路径或 /static 资产），后端解析为本地路径。"""
+    ctx, username, project_name, project_dir, output_dir = await _freezone._resolve_freezone_project(
+        project, user
+    )
+
+    src_raw = str(body.video_url or "").strip()
+    if not src_raw:
+        raise HTTPException(400, "video_url 不能为空：请上传或选择项目内口播视频")
+    try:
+        source_path = _freezone.resolve_static_url_to_path(src_raw, project_dir)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if not source_path.is_file():
+        raise HTTPException(404, f"video not found: {source_path}")
+
+    # B-roll 生图模型：选了就必须命中后台图片目录，与白板/一句话同机制提交前
+    # 定型为内部执行身份（provider/model/params/schema）；留空走图片槽位默认。
+    image_request_schema: dict = {}
+    image_model_params: dict = {}
+    image_provider: Optional[str] = None
+    image_model_resolved: Optional[str] = None
+    requested_image_model = str(body.image_model or "").strip()
+    if requested_image_model and ctx is not None:
+        (
+            image_request_schema,
+            image_model_params,
+            image_catalog_entry,
+        ) = await _freezone._resolve_catalog_request(
+            "image",
+            requested_image_model,
+            None,
+            requester_user_id=ctx.requester_user_id,
+        )
+        (
+            image_provider,
+            image_model_resolved,
+        ) = _freezone._catalog_image_execution_selection(
+            image_catalog_entry,
+            requested_provider=None,
+            requested_model=requested_image_model,
+        )
+
+    job_id = _freezone._new_job_id()
+    payload = {
+        "source_path": source_path.as_posix(),
+        "output_mode": str(body.output_mode or "both").strip().lower(),
+        "aspect": str(body.aspect or "9:16").strip(),
+        "cut_silence": bool(body.cut_silence),
+        "cut_fillers": bool(body.cut_fillers),
+        "plan_broll": bool(body.plan_broll),
+        "gen_bgm": bool(body.gen_bgm),
+        "captions": bool(body.captions),
+        "noise_db": body.noise_db,
+        "min_silence_s": body.min_silence_s,
+        "broll_max": int(body.broll_max or 0),
+        "asr_model": str(body.asr_model or "").strip(),
+        "text_model": str(body.text_model or "").strip(),
+        "image_provider": image_provider,
+        "image_model": image_model_resolved or "",
+        "image_model_params": image_model_params,
+        "image_request_schema": image_request_schema,
+        "music_model": str(body.music_model or "").strip(),
+        "bgm_prompt": str(body.bgm_prompt or "").strip(),
+        "bgm_gain": body.bgm_gain,
+        "title": str(body.title or "").strip(),
+        "archive_to_library": bool(body.archive_to_library),
+        "source_tool": str(body.source_tool or "").strip(),
+    }
+    if ctx is not None:
+        projection_payload = await _freezone._task_projection_payload(
+            ctx=ctx,
+            username=username,
+            project_name=project_name,
+            episode=0,
+            task_type="freezone_narration_smart_edit",
+        )
+        payload.update(projection_payload)
+    try:
+        return await _freezone._enqueue_or_start_freezone_narration_smart_edit(
+            ctx=ctx,
+            username=username,
+            project=project_name,
+            project_dir=project_dir,
+            output_dir=output_dir,
+            job_id=job_id,
+            payload=payload,
+        )
+    except RuntimeError as exc:
+        _freezone._handle_task_start_runtime_error(
+            "failed to start freezone narration smart edit task", exc
+        )
+        raise HTTPException(
+            503, f"failed to start freezone narration smart edit task: {exc}"
         ) from exc
 
 

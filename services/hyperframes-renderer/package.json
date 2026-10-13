@@ -1,0 +1,10 @@
+{
+  "name": "aipdd-hyperframes-renderer",
+  "version": "2.1.6",
+  "private": true,
+  "type": "module",
+  "description": "HyperFrames 渲染服务：@hyperframes/producer（Puppeteer/Chromium + FFmpeg）无头把 HyperFrames 项目目录渲染成 MP4，作为讲解视频与渠道短视频的底层渲染服务（引擎即服务）。",
+  "dependencies": {
+    "@hyperframes/producer": "0.8.150"
+  }
+}

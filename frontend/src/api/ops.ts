@@ -938,6 +938,12 @@ export interface FreezoneExplainerVideoPayload {
   /** 幕底样式 dots 点阵波（默认）/ stars 星点。 */
   background?: "dots" | "stars";
   resolution?: FreezoneVideoResolution;
+  /** [aipdd fork delta] HyperFrames 渲染设计预设（配色/字体/底纹）；仅 hyperframes 引擎生效。 */
+  stylePreset?: "ink" | "ocean" | "sunset" | "paper" | "mono";
+  /** [aipdd fork delta] 成片画幅（hyperframes 引擎）：landscape 横屏 / portrait 竖屏 / square 方形。 */
+  format?: "landscape" | "portrait" | "square";
+  /** [aipdd fork delta] 是否叠加同步字幕带；默认开。 */
+  captions?: boolean;
   /** 配音情绪提示词（可选）。 */
   emotionPrompt?: string;
   /** 配音声线引用（可选；留空用项目默认解说声线）。 */
@@ -975,6 +981,9 @@ export async function submitFreezoneExplainerVideo(
         duration_s: normalizeNumberInput(payload.durationS, 180, 90, 330, true),
         background: payload.background ?? "dots",
         resolution: payload.resolution ?? "720p",
+        style_preset: payload.stylePreset ?? "ink",
+        format: payload.format ?? "landscape",
+        captions: payload.captions ?? true,
         emotion_prompt: payload.emotionPrompt ?? "",
         voice_ref: voiceRefBody,
         bgm_url: payload.bgmUrl ?? "",
@@ -992,6 +1001,304 @@ export async function submitFreezoneExplainerVideo(
 }
 
 // /freezone/video/idea ----------------------------------------------------- //
+
+/**
+ * [aipdd fork delta] 公众号文章编写与排版（内容创作族）：主题/素材 → 风格化
+ * Markdown → 本地确定性排版套用主题组件生成公众号合规 HTML（每个中文文本节点包
+ * span leaf）→ validate 强门禁（ERROR=0 才算成功）。写作只走网关文本模型一处出网；
+ * 排版与校验纯本地。产物为结果 JSON + 一份预览 HTML；一次提交产出一篇文章。
+ */
+export interface FreezoneArticleWritePayload {
+  /** 文章主题（如「RAG 检索增强生成」）；与素材至少填一项。 */
+  topic?: string;
+  /** 参考素材（文章 / 文档正文，1-12000 字）；写作只在素材范围内取材。 */
+  material?: string;
+  /** 写作风格：viewpoint 观点深度（默认）/ tutorial / emotional / data / story / rational。 */
+  style?: "viewpoint" | "tutorial" | "emotional" | "data" | "story" | "rational";
+  /** 排版主题：moyu-green 摸鱼绿（默认）/ graphite-minimal / red-white / amber-orange / terminal-geek / zen-whitespace。 */
+  theme?: "moyu-green" | "graphite-minimal" | "red-white" | "amber-orange" | "terminal-geek" | "zen-whitespace";
+  /** 正文目标字数，自动夹到 300-6000；默认 1500。 */
+  targetWords?: number;
+  /** 目标读者画像（可选）。 */
+  audience?: string;
+  /** 语气提示（可选）。 */
+  tone?: string;
+  /** 开头引言金句（可选）；留空省略引言卡。 */
+  introQuote?: string;
+  /** 作者署名（可选）。 */
+  author?: string;
+  /** 文本（LLM）模型 id；留空走系统默认文本链。 */
+  modelText?: string;
+  /** 产物完成后自动登记进资产库「待分类资产」。 */
+  archiveToLibrary?: boolean;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）。 */
+  sourceTool?: string;
+}
+
+export async function submitFreezoneArticleWrite(
+  project: string,
+  payload: FreezoneArticleWritePayload,
+): Promise<FreezoneJobRef> {
+  return await apiCall<FreezoneJobRef>(
+    `projects/${encodeURIComponent(project)}/freezone/article/write`,
+    {
+      method: "POST",
+      json: {
+        topic: payload.topic ?? "",
+        material: payload.material ?? "",
+        style: payload.style ?? "viewpoint",
+        theme: payload.theme ?? "moyu-green",
+        target_words: normalizeNumberInput(payload.targetWords, 1500, 300, 6000, true),
+        audience: payload.audience ?? "",
+        tone: payload.tone ?? "",
+        intro_quote: payload.introQuote ?? "",
+        author: payload.author ?? "",
+        ...(payload.modelText ? { model_text: payload.modelText } : {}),
+        ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
+      },
+    },
+  );
+}
+
+/**
+ * [aipdd fork delta] 渠道短视频（内容创作族 Phase 2B）：文章/素材 → 走讲解视频同一
+ * HyperFrames 渲染管线，但按渠道（douyin/kuaishou/xiaohongshu/shipinhao/bilibili/tiktok）
+ * 定制成片规格（画幅/时长上下限/字幕/封面）。源可为参考正文（referenceContent）或直接指向
+ * 一篇已排版的公众号文章（articleJobId，后端读其 Markdown）。产出该渠道规格 MP4 + 封面 +
+ * 文案建议；**不自动上传**。竖屏/方形无 Pillow 回退，需后端配置渲染服务。
+ */
+export interface FreezoneChannelShortVideoPayload {
+  /** 目标渠道 key（默认 douyin）；画幅/时长上下限据此而定。 */
+  channel?: string;
+  /** 参考资料（与 articleJobId 至少一项，1-12000 字）。 */
+  referenceContent?: string;
+  /** 或直接指定来源 freezone_article_write 任务的 job_id（后端读其 Markdown 正文）。 */
+  articleJobId?: string;
+  /** 片名提示（可选）；留空由模型自拟。 */
+  title?: string;
+  /** 目标成片时长（秒）；0/留空用渠道默认档，非零自动夹到该渠道上下限。 */
+  durationS?: number;
+  /** 解说词与分镜共用的文本（LLM）模型 id；留空走系统默认文本链。 */
+  modelText?: string;
+  /** 配音音频模型目录 id（后台 audio 目录）；留空走默认语音引擎。 */
+  model?: string;
+  /** 配音情绪提示词（可选）。 */
+  emotionPrompt?: string;
+  /** HyperFrames 渲染设计预设；仅 hyperframes 引擎生效，未知值后端归一化为 ink。 */
+  stylePreset?: "ink" | "ocean" | "sunset" | "paper" | "mono";
+  /** 是否叠加同步字幕带；undefined = 用渠道默认（均为开），显式 true/false 覆盖。 */
+  captions?: boolean;
+  resolution?: FreezoneVideoResolution;
+  /** 配音声线引用（可选；留空用项目默认解说声线）。 */
+  voiceRef?: FreezoneAudioVoiceRef | null;
+  /** 背景音乐静态地址（可选）。 */
+  bgmUrl?: string;
+  /** BGM 音量 0-1；留空自动（与配音混音 0.2）。 */
+  bgmVolume?: number | null;
+  /** 产物完成后自动登记进资产库「待分类资产」。 */
+  archiveToLibrary?: boolean;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）；写入 metadata.source_tool。 */
+  sourceTool?: string;
+}
+
+export async function submitFreezoneChannelShortVideo(
+  project: string,
+  payload: FreezoneChannelShortVideoPayload,
+): Promise<FreezoneJobRef> {
+  const voiceRefBody = payload.voiceRef
+    ? {
+        scope: payload.voiceRef.scope,
+        character_name: payload.voiceRef.characterName ?? "",
+        identity_id: payload.voiceRef.identityId ?? "",
+        slot: payload.voiceRef.slot ?? "",
+        voice_id: payload.voiceRef.voiceId ?? "",
+      }
+    : null;
+  return await apiCall<FreezoneJobRef>(
+    `projects/${encodeURIComponent(project)}/freezone/channel-short-video`,
+    {
+      method: "POST",
+      json: {
+        channel: payload.channel ?? "douyin",
+        reference_content: payload.referenceContent ?? "",
+        article_job_id: payload.articleJobId ?? "",
+        title: payload.title ?? "",
+        // 0 = 渠道默认档；上下限由后端 resolve_duration 按渠道夹，前端不预设固定范围。
+        duration_s: Number.isFinite(payload.durationS) ? Math.trunc(payload.durationS ?? 0) : 0,
+        resolution: payload.resolution ?? "720p",
+        style_preset: payload.stylePreset ?? "ink",
+        // captions 缺省传 null，交给后端取渠道默认（不提前真值化）。
+        captions: payload.captions ?? null,
+        emotion_prompt: payload.emotionPrompt ?? "",
+        voice_ref: voiceRefBody,
+        bgm_url: payload.bgmUrl ?? "",
+        // 空 = 自动音量（后端混音 0.2）；0 是显式合法值，不能被当空丢弃。
+        ...(payload.bgmVolume == null
+          ? {}
+          : { bgm_volume: clampNumberInput(payload.bgmVolume, 0.2, 0, 1) }),
+        ...(payload.modelText ? { model_text: payload.modelText } : {}),
+        ...(payload.model ? { model: payload.model } : {}),
+        ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
+      },
+    },
+  );
+}
+
+/**
+ * [aipdd fork delta] 口播智能剪辑：一条口播视频→本地静音剪 + 网关 ASR/文本
+ * 瑕疵剪与分镜/B-roll 判定 + 生图/生乐→直出 MP4 或 VectCut 剪映草稿（或两者）。
+ */
+export interface FreezoneNarrationSmartEditPayload {
+  /** 待剪源的同源引用（上传路径或 /static 资产）；必填。 */
+  videoUrl: string;
+  /** 输出通道：draft / video / both（默认 both）。 */
+  outputMode?: "draft" | "video" | "both";
+  /** 成片画幅：9:16 / 16:9 / 1:1（默认 9:16）。 */
+  aspect?: string;
+  /** 是否剪静音/停顿（默认 true）。 */
+  cutSilence?: boolean;
+  /** 是否剪口误/废话/重复（默认 true）。 */
+  cutFillers?: boolean;
+  /** 是否分镜/B-roll 判定与生成（默认 true）。 */
+  planBroll?: boolean;
+  /** 是否网关生成 BGM（默认 false）。 */
+  genBgm?: boolean;
+  /** 草稿是否导入剪后转录字幕（默认 true）。 */
+  captions?: boolean;
+  /** silencedetect 静音阈值 dB（默认 -35）。 */
+  noiseDb?: number | null;
+  /** 判为静音的最短时长秒（默认 0.4）。 */
+  minSilenceS?: number | null;
+  /** 单次 B-roll 生图槽位上限（默认 8）。 */
+  brollMax?: number;
+  /** 转写 ASR 模型候选 id（空串走自动）。 */
+  asrModel?: string;
+  /** 文本模型 id（瑕疵剪与分镜共用）。 */
+  textModel?: string;
+  /** B-roll 生图模型 id。 */
+  imageModel?: string;
+  /** 音乐生成模型 id（BGM）。 */
+  musicModel?: string;
+  /** BGM 提示词。 */
+  bgmPrompt?: string;
+  /** BGM 垫底音量 0-1（默认 0.2）。 */
+  bgmGain?: number | null;
+  /** 可选草稿/成片标题。 */
+  title?: string;
+  /** 产物完成后自动登记进资产库「待分类资产」。 */
+  archiveToLibrary?: boolean;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）。 */
+  sourceTool?: string;
+}
+
+export async function submitFreezoneNarrationSmartEdit(
+  project: string,
+  payload: FreezoneNarrationSmartEditPayload,
+): Promise<FreezoneJobRef> {
+  return await apiCall<FreezoneJobRef>(
+    `projects/${encodeURIComponent(project)}/freezone/narration-smart-edit`,
+    {
+      method: "POST",
+      json: {
+        video_url: payload.videoUrl,
+        output_mode: payload.outputMode ?? "both",
+        aspect: payload.aspect ?? "9:16",
+        cut_silence: payload.cutSilence ?? true,
+        cut_fillers: payload.cutFillers ?? true,
+        plan_broll: payload.planBroll ?? true,
+        gen_bgm: payload.genBgm ?? false,
+        captions: payload.captions ?? true,
+        noise_db: payload.noiseDb ?? -35,
+        min_silence_s: clampNumberInput(payload.minSilenceS ?? 0.4, 0.4, 0, 5),
+        broll_max: payload.brollMax ?? 8,
+        asr_model: payload.asrModel ?? "",
+        text_model: payload.textModel ?? "",
+        image_model: payload.imageModel ?? "",
+        music_model: payload.musicModel ?? "",
+        bgm_prompt: payload.bgmPrompt ?? "",
+        bgm_gain: clampNumberInput(payload.bgmGain ?? 0.2, 0.2, 0, 1),
+        title: payload.title ?? "",
+        ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
+      },
+    },
+  );
+}
+
+/**
+ * [aipdd fork delta] 公众号发布（同步）：把已排版的文章发到草稿箱 / 可选直发。
+ * 凭证缺失不阻塞——后端返回 status=needs_config 与配置指引（在面板内联展示）。
+ */
+export interface FreezoneArticlePublishPayload {
+  /** 来源 freezone_article_write 任务 job_id（与 htmlUrl 二选一）。 */
+  articleJobId?: string;
+  /** 或直接指定排版 HTML 静态地址；优先于 articleJobId。 */
+  htmlUrl?: string;
+  title?: string;
+  author?: string;
+  digest?: string;
+  /** 封面图静态地址（图文草稿必填）。 */
+  coverUrl?: string;
+  /** 建草稿后是否直接发布。 */
+  publishNow?: boolean;
+}
+
+export interface FreezoneArticlePublishResult {
+  /** 发布结果：published / draft / needs_config / dry_run / error。 */
+  status: string;
+  /** 是否真正产出可交付（published/draft/dry_run）；needs_config/error 为 false。 */
+  published_ok: boolean;
+  message: string;
+  draft_media_id?: string | null;
+  publish_id?: string | null;
+  article_url?: string | null;
+  guidance?: string | null;
+  error_code?: number | string | null;
+}
+
+export async function submitFreezoneArticlePublish(
+  project: string,
+  payload: FreezoneArticlePublishPayload,
+): Promise<FreezoneArticlePublishResult> {
+  return await apiCall<FreezoneArticlePublishResult>(
+    `projects/${encodeURIComponent(project)}/freezone/article/publish`,
+    {
+      method: "POST",
+      json: {
+        article_job_id: payload.articleJobId ?? "",
+        html_url: payload.htmlUrl ?? "",
+        title: payload.title ?? "",
+        author: payload.author ?? "",
+        digest: payload.digest ?? "",
+        cover_url: payload.coverUrl ?? "",
+        publish_now: payload.publishNow ?? false,
+      },
+    },
+  );
+}
+
+/** freezone_article_write 产物结果（任务完成后回读，用于预览与发布）。 */
+export interface FreezoneArticleResult {
+  title: string;
+  style: string;
+  theme: string;
+  model: string;
+  markdown: string;
+  html_url: string;
+  span_leaf_count: number;
+  validation_warnings: string[];
+}
+
+export async function fetchFreezoneArticleResult(
+  project: string,
+  jobId: string,
+): Promise<FreezoneArticleResult> {
+  return await apiCall<FreezoneArticleResult>(
+    `projects/${encodeURIComponent(project)}/freezone/jobs/freezone_article_write/${encodeURIComponent(jobId)}/result`,
+  );
+}
 
 /**
  * [aipdd fork delta] 一句话生成短视频（ViMax idea2video 口径）：一句话创意 →

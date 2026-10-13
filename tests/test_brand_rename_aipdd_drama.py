@@ -63,7 +63,11 @@ def test_no_tool_keeps_dramaclaw_prefix() -> None:
     # [aipdd fork delta B+C] Blender 白模视频落片（aipdd_drama_commit_white_model_video）注册，名册 98 → 99。
     # [aipdd fork delta] 视频配音（aipdd_drama_video_dubbing）注册，名册 99 → 100。
     # [aipdd fork delta req-automcp] 环境自动安装（aipdd_drama_env_setup）注册，名册 100 → 101。
-    assert len(names) == len(set(names)) == 101
+    # [aipdd fork delta] 公众号文章写作（aipdd_drama_article_write）注册，名册 101 → 102。
+    # [aipdd fork delta] 公众号文章发布（aipdd_drama_article_publish）注册，名册 102 → 103。
+    # [aipdd fork delta] 渠道短视频（aipdd_drama_channel_short_video）注册，名册 103 → 104。
+    # [aipdd fork delta] 口播智能剪辑（aipdd_drama_narration_smart_edit）注册，名册 104 → 105。
+    assert len(names) == len(set(names)) == 105
     # 通用 REST 面与两个一键自动化工具都在新前缀下。
     assert {"aipdd_drama_get", "aipdd_drama_post", "aipdd_drama_auto_storyboard", "aipdd_drama_video_range"} <= set(names)
     # [aipdd fork delta] 工具页白板动画在新前缀下。

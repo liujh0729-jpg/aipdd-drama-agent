@@ -2345,10 +2345,11 @@ def _handle_whiteboard_animation(args: dict[str, Any], **_: Any) -> str:
 
 def _handle_explainer_video(args: dict[str, Any], **_: Any) -> str:
     """科普讲解视频（freezone_explainer_video）：参考资料 → 分章解说词 → 分镜
-    JSON → 本地按朗读权重分配时长 → 逐帧代码绘制 MG 动画 → 拼接 + 配音（+ BGM）。
+    JSON → 本地按朗读权重分配时长 → 产出 HyperFrames 帧项目无头渲染成片（默认，
+    DRAMACLAW_RENDERER_URL），渲染服务不可达时回退 Pillow 逐帧绘制 + ffmpeg。
 
-    画面全部由本机 Pillow/ffmpeg 绘制与编码（不需要浏览器、不调图像/视频模型），
-    只用到网关的文本与音频两类能力；两者都可留空走系统默认链。一次提交一条成片。
+    画面先渲染为静音，再在 api 侧 ffmpeg 混配音（+ 可选 BGM）；只用到网关的文本
+    与音频两类能力，不调图像/视频模型；两者都可留空走系统默认链。一次提交一条成片。
     """
     try:
         project = _project_from_args(args)
@@ -2368,6 +2369,9 @@ def _handle_explainer_video(args: dict[str, Any], **_: Any) -> str:
             "model",
             "background",
             "resolution",
+            "style_preset",
+            "format",
+            "captions",
             "emotion_prompt",
             "bgm_url",
             "bgm_volume",
@@ -2392,6 +2396,115 @@ def _handle_explainer_video(args: dict[str, Any], **_: Any) -> str:
             _request(
                 "POST",
                 f"/api/v1/projects/{project}/freezone/explainer-video",
+                body=body,
+            )
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_channel_short_video(args: dict[str, Any], **_: Any) -> str:
+    """渠道短视频（freezone_channel_short_video）：文章/素材 → 复用讲解视频渲染管线，
+    按渠道（douyin/kuaishou/xiaohongshu/shipinhao/bilibili/tiktok）定制画幅/时长/字幕/封面，
+    产出该渠道规格 MP4 + 封面 + 文案建议；**不自动上传**。
+
+    源可以是 ``reference_content``（参考正文），也可以直接指向一篇已排版的
+    公众号文章（``article_job_id``，后端读其 Markdown 正文）。只走 HyperFrames 引擎（需
+    配置 DRAMACLAW_RENDERER_URL，竖屏/方形无 Pillow 回退）；画幅由渠道决定，无需传 format。
+    """
+    try:
+        project = _project_from_args(args)
+        reference = str(args.get("reference_content") or "").strip()
+        article_job_id = str(args.get("article_job_id") or "").strip()
+        if not reference and not article_job_id:
+            raise ValueError("reference_content or article_job_id is required")
+        if len(reference) > 12_000:
+            raise ValueError("reference_content must be <= 12000 characters")
+        body: dict[str, Any] = {
+            "archive_to_library": _tools_page_archive_flag(args),
+        }
+        if reference:
+            body["reference_content"] = reference
+        if article_job_id:
+            body["article_job_id"] = article_job_id
+        for key in (
+            "channel",
+            "title",
+            "duration_s",
+            "model_text",
+            "model",
+            "style_preset",
+            "captions",
+            "resolution",
+            "emotion_prompt",
+            "bgm_url",
+            "bgm_volume",
+        ):
+            if args.get(key) is not None:
+                body[key] = args[key]
+        voice_ref = {
+            "scope": str(args.get("voice_scope") or "").strip(),
+            "character_name": str(args.get("voice_character_name") or "").strip(),
+            "identity_id": str(args.get("voice_identity_id") or "").strip(),
+            "slot": str(args.get("voice_slot") or "").strip(),
+            "voice_id": str(args.get("voice_id") or "").strip(),
+        }
+        if any(voice_ref.values()):
+            if not voice_ref["scope"]:
+                raise ValueError(
+                    "voice_scope is required when any voice_* field is provided "
+                    "(project_narrator/user_custom/character_default/character_age_group/identity/identity_resolved)"
+                )
+            body["voice_ref"] = voice_ref
+        return tool_result(
+            _request(
+                "POST",
+                f"/api/v1/projects/{project}/freezone/channel-short-video",
+                body=body,
+            )
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_narration_smart_edit(args: dict[str, Any], **_: Any) -> str:
+    """口播智能剪辑（freezone_narration_smart_edit）：一条口播视频 →
+    本地静音剪 + 网关 ASR/文本瑕疵剪与分镜/B-roll 判定 + 生图/生乐 →
+    直出 MP4 或 VectCut 剪映草稿（或两者）。只调用模型网关与 VectCut，不引外部运行期。"""
+    try:
+        project = _project_from_args(args)
+        video_url = str(args.get("video_url") or "").strip()
+        if not video_url:
+            raise ValueError("video_url is required (a same-origin upload path or /static asset URL)")
+        body: dict[str, Any] = {
+            "video_url": video_url,
+            "archive_to_library": _tools_page_archive_flag(args),
+        }
+        for key in (
+            "output_mode",
+            "aspect",
+            "cut_silence",
+            "cut_fillers",
+            "plan_broll",
+            "gen_bgm",
+            "captions",
+            "noise_db",
+            "min_silence_s",
+            "broll_max",
+            "asr_model",
+            "text_model",
+            "image_model",
+            "music_model",
+            "bgm_prompt",
+            "bgm_gain",
+            "title",
+        ):
+            if args.get(key) is not None:
+                body[key] = args[key]
+        return tool_result(
+            _request(
+                "POST",
+                f"/api/v1/projects/{project}/freezone/narration-smart-edit",
                 body=body,
             )
         )
@@ -3070,6 +3183,77 @@ def _handle_text_translate(args: dict[str, Any], **_: Any) -> str:
             body["node_type"] = args["node_type"]
         return tool_result(
             _request("POST", f"/api/v1/projects/{project}/freezone/text/translate", body=body)
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_article_write(args: dict[str, Any], **_: Any) -> str:
+    """公众号文章编写与排版（freezone_article_write）：主题/素材 → 风格化
+    Markdown → 合规公众号 HTML（异步任务）。
+
+    写作只走网关文本模型这一处出网（EG-18a）：按所选写作风格 + 素材产出结构化
+    Markdown，再由本地排版层套用主题组件生成公众号合规 HTML（每个中文文本节点包
+    ``<span leaf="">``），最后过 validate 强门禁（ERROR=0 才算成功）。排版与校验都是
+    纯本地、不出网；发布是用户自带凭证的公开 API 直连（另走 aipdd_drama_article_publish）。
+    产物为结果 JSON + 一份排版 HTML 预览，topic 与 material 至少填一项。
+    """
+    try:
+        project = _project_from_args(args)
+        topic = str(args.get("topic") or "").strip()
+        material = str(args.get("material") or "").strip()
+        if not topic and not material:
+            raise ValueError("topic or material is required")
+        if material and len(material) > 12_000:
+            raise ValueError("material must be <= 12000 characters")
+        body: dict[str, Any] = {
+            "topic": topic,
+            "material": material,
+            "archive_to_library": _tools_page_archive_flag(args),
+        }
+        for key in (
+            "style",
+            "theme",
+            "target_words",
+            "audience",
+            "tone",
+            "intro_quote",
+            "author",
+            "model_text",
+        ):
+            if args.get(key) is not None:
+                body[key] = args[key]
+        return tool_result(
+            _request("POST", f"/api/v1/projects/{project}/freezone/article/write", body=body)
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_article_publish(args: dict[str, Any], **_: Any) -> str:
+    """发布已排版的公众号文章（freezone_article_publish，同步）：草稿箱 / 可选直发。
+
+    凭证优先级 config.json > ~/.wechat_publish.json > 环境变量；未配置时**不抛错**，
+    返回 status=needs_config 与「去公众号后台取 AppID/Secret + 配 IP 白名单」的指引，
+    排版产物照常可下载。48001（未认证）自动降级为「API 建草稿 + 后台手动发布」。
+    """
+    try:
+        project = _project_from_args(args)
+        article_job_id = str(args.get("article_job_id") or "").strip()
+        html_url = str(args.get("html_url") or "").strip()
+        if not article_job_id and not html_url:
+            raise ValueError("article_job_id or html_url is required")
+        body: dict[str, Any] = {
+            "article_job_id": article_job_id,
+            "html_url": html_url,
+        }
+        for key in ("title", "author", "digest", "cover_url"):
+            if args.get(key) is not None:
+                body[key] = args[key]
+        if args.get("publish_now") is not None:
+            body["publish_now"] = bool(args["publish_now"])
+        return tool_result(
+            _request("POST", f"/api/v1/projects/{project}/freezone/article/publish", body=body)
         )
     except Exception as exc:
         return tool_error(str(exc))
@@ -5142,13 +5326,18 @@ TOOLS = (
             "Turn reference material into a narrated science-explainer motion-graphics video (科普讲解"
             "视频, task_type=freezone_explainer_video): the text model rewrites the material into chapter-"
             "marked narration, plans one shot per sentence on a restricted visual DSL (term / flow / "
-            "compare / bars / bignumber / list / cycle / timeline primitives), then every frame is drawn "
-            "locally with Pillow and encoded by ffmpeg over streaming rawvideo - no browser, no image or "
-            "video model, only the gateway text + audio capabilities. Shot durations follow the real "
+            "compare / bars / bignumber / list / cycle / timeline primitives), then the shot timeline is "
+            "emitted as a self-contained HTML frame project and rendered headlessly to MP4 by the "
+            "HyperFrames producer service (engine-as-a-service, DRAMACLAW_RENDERER_URL); if that service is "
+            "unreachable it falls back to local Pillow frame drawing + ffmpeg. The video picture is rendered "
+            "silent and the voice-over (+ optional BGM) is mixed on the API side, so only the gateway text + "
+            "audio capabilities are used - no image or video model. Shot durations follow the real "
             "voice-over length, chapters get a HUD capsule and a section card, subtitles ride the bottom. "
             "model_text picks the LLM for narration + storyboard (from /model-gateway/text-models), model "
             "the audio catalog for the voice-over (from /freezone/audio/models); either may stay empty to "
-            "use the system default chain. One call produces one finished 16:9 MP4 - poll it with GET "
+            "use the system default chain. style_preset / format / captions tune the HyperFrames look "
+            "(color preset, canvas orientation, subtitle band). One call produces one finished MP4 (default "
+            "16:9) - poll it with GET "
             "/projects/{project}/freezone/jobs/freezone_explainer_video/{job_id}/result.",
             {
                 "project_id": _TOOLS_PAGE_PROJECT_PROP,
@@ -5158,7 +5347,10 @@ TOOLS = (
                 "model_text": {"type": "string", "description": "Text model id used for both narration and storyboard from /model-gateway/text-models; empty = system default text chain."},
                 "model": {"type": "string", "description": "Audio catalog id for the narration from /freezone/audio/models; empty = default voice engine."},
                 "background": {"type": "string", "enum": ["dots", "stars"], "description": "Backdrop style: dots (animated dot grid, default) or stars."},
-                "resolution": {"type": "string", "enum": ["720p", "1080p"], "description": "Output resolution tier (default 720p; the canvas is fixed 16:9 landscape)."},
+                "resolution": {"type": "string", "enum": ["720p", "1080p"], "description": "Output resolution tier (default 720p)."},
+                "style_preset": {"type": "string", "enum": ["ink", "ocean", "sunset", "paper", "mono"], "description": "HyperFrames color/typography preset (ink = black MG default). Only affects the hyperframes engine; unknown values normalize to ink."},
+                "format": {"type": "string", "enum": ["landscape", "portrait", "square"], "description": "Finished canvas orientation for the hyperframes engine: landscape 16:9 (default), portrait 9:16, square 1:1."},
+                "captions": {"type": "boolean", "description": "Overlay the synced subtitle band (default true)."},
                 "emotion_prompt": {"type": "string", "description": "Optional emotion hint for the narration, e.g. '沉稳、克制'."},
                 "voice_scope": {"type": "string", "description": "Voice kind: project_narrator / user_custom / character_default / character_age_group / identity / identity_resolved. Required when any voice_* field is set."},
                 "voice_character_name": {"type": "string", "description": "Character name for character_*/identity* scopes."},
@@ -5172,6 +5364,96 @@ TOOLS = (
             ["reference_content"],
         ),
         _handle_explainer_video,
+    ),
+    (
+        "aipdd_drama_channel_short_video",
+        _schema(
+            "aipdd_drama_channel_short_video",
+            "Turn an article or reference material into a channel-formatted short video (渠道短视频, "
+            "task_type=freezone_channel_short_video): it reuses the science-explainer render pipeline "
+            "(text model rewrites the source into chapter-marked narration + plans shots on the restricted "
+            "visual DSL + HyperFrames producer renders the HTML frame project headlessly, voice-over and "
+            "optional BGM mixed on the API side), but the target CHANNEL decides the finished spec - aspect "
+            "ratio, duration band, subtitle default and cover - instead of a free-form format. channel is one "
+            "of douyin (default, portrait 9:16) / kuaishou / xiaohongshu / shipinhao / bilibili (landscape "
+            "16:9) / tiktok. The source is either reference_content (a topic brief / article / doc body) OR "
+            "article_job_id pointing at a finished aipdd_drama_article_write job (its Markdown body is pulled "
+            "as the source). It runs the HyperFrames engine ONLY (portrait/square has no Pillow fallback), so "
+            "DRAMACLAW_RENDERER_URL must be configured. One call produces one MP4 plus a cover frame and "
+            "per-channel copy suggestions (title / hashtags / hook) - it does NOT upload anywhere. Poll it "
+            "with GET /projects/{project}/freezone/jobs/freezone_channel_short_video/{job_id}/result.",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "channel": {"type": "string", "enum": ["douyin", "kuaishou", "xiaohongshu", "shipinhao", "bilibili", "tiktok"], "description": "Target channel; decides canvas orientation, duration band and cover. Unknown normalizes to douyin."},
+                "reference_content": {"type": "string", "description": "Material to explain (0-12000 characters). Provide this OR article_job_id."},
+                "article_job_id": {"type": "string", "description": "A finished freezone_article_write job id; its Markdown body becomes the video source. Provide this OR reference_content."},
+                "title": {"type": "string", "description": "Optional title hint; empty = the model titles it (auto-filled from the article title when article_job_id is used)."},
+                "duration_s": {"type": "integer", "description": "Target length in seconds; 0/empty = channel default, otherwise clamped to the channel's min-max band."},
+                "model_text": {"type": "string", "description": "Text model id for narration + storyboard from /model-gateway/text-models; empty = system default text chain."},
+                "model": {"type": "string", "description": "Audio catalog id for the narration from /freezone/audio/models; empty = default voice engine."},
+                "style_preset": {"type": "string", "enum": ["ink", "ocean", "sunset", "paper", "mono"], "description": "HyperFrames color/typography preset (ink = black MG default); unknown normalizes to ink."},
+                "captions": {"type": "boolean", "description": "Overlay the synced subtitle band; empty = channel default (all channels default to on)."},
+                "resolution": {"type": "string", "enum": ["720p", "1080p"], "description": "Output resolution tier (default 720p)."},
+                "emotion_prompt": {"type": "string", "description": "Optional emotion hint for the narration, e.g. '沉稳、克制'."},
+                "voice_scope": {"type": "string", "description": "Voice kind: project_narrator / user_custom / character_default / character_age_group / identity / identity_resolved. Required when any voice_* field is set."},
+                "voice_character_name": {"type": "string", "description": "Character name for character_*/identity* scopes."},
+                "voice_identity_id": {"type": "string", "description": "Identity id for identity/identity_resolved scopes."},
+                "voice_slot": {"type": "string", "description": "Age-group slot (child/youth/middle/elder) for character_age_group scope."},
+                "voice_id": {"type": "string", "description": "Account voice id for user_custom scope (from /freezone/audio/references)."},
+                "bgm_url": {"type": "string", "description": "Optional background-music /static URL; empty = no BGM."},
+                "bgm_volume": {"type": "number", "description": "BGM volume 0-1; empty = auto (0.2 mixed under the narration)."},
+                "archive_to_library": _TOOLS_PAGE_ARCHIVE_PROP,
+            },
+            [],
+        ),
+        _handle_channel_short_video,
+    ),
+
+    (
+        "aipdd_drama_narration_smart_edit",
+        _schema(
+            "aipdd_drama_narration_smart_edit",
+            "Smart-edit a talking-head narration video end-to-end (口播智能剪辑, "
+            "task_type=freezone_narration_smart_edit). Borrows the methodology of auto-editor / "
+            "video-use / erduo-broll but calls ONLY the model gateway + VectCut - no external "
+            "Node/Nim runtime. Stages, each behind its own switch: (1) silence/pause cutting runs "
+            "LOCALLY with ffmpeg silencedetect (cut_silence, tune noise_db/min_silence_s); "
+            "(2) filler / misspeak / repetition cutting = gateway ASR + text model picks droppable "
+            "spans (cut_fillers, asr_model/text_model); (3) content understanding + shot breakdown "
+            "+ B-roll planning = text model, then B-roll images are generated via the gateway image "
+            "model (plan_broll, image_model, broll_max caps the slots). Optional gateway-generated "
+            "BGM (gen_bgm, music_model/bgm_prompt/bgm_gain). output_mode picks the deliverable: "
+            "'video' = a local ffmpeg base MP4 (silence+filler cuts + BGM mixed, cover frame; NO "
+            "B-roll/captions burned in); 'draft' = a JianYing/CapCut draft laid down through VectCut "
+            "with the trimmed main track + B-roll on their tracks + subtitles + BGM (needs VECTCUT_BASE_URL "
+            "and a configured draft dir); 'both' emits both. The source video_url must be a same-origin "
+            "reference (an upload path or a /static asset URL) - public URLs are not downloaded. Poll with "
+            "GET /projects/{project}/freezone/jobs/freezone_narration_smart_edit/{job_id}/result.",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "video_url": {"type": "string", "description": "REQUIRED. Same-origin reference to the narration clip to edit: an upload path or a /static asset URL (a project video/asset). Resolved to a local path server-side; public URLs are rejected."},
+                "output_mode": {"type": "string", "enum": ["draft", "video", "both"], "description": "Deliverable channel (default both). video = base MP4 only; draft = VectCut JianYing draft only (needs VectCut configured); both = both."},
+                "aspect": {"type": "string", "enum": ["9:16", "16:9", "1:1"], "description": "Finished orientation for the draft canvas and B-roll (default 9:16)."},
+                "cut_silence": {"type": "boolean", "description": "Cut silence/pauses locally with ffmpeg silencedetect (default true)."},
+                "cut_fillers": {"type": "boolean", "description": "Cut fillers/misspeaks/repetitions via gateway ASR + text model (default true)."},
+                "plan_broll": {"type": "boolean", "description": "Understand content, break into shots and plan/generate B-roll - laid down only in the draft (default true)."},
+                "gen_bgm": {"type": "boolean", "description": "Generate BGM via the gateway music model (default false; degrades gracefully when no music channel is available)."},
+                "captions": {"type": "boolean", "description": "Import the post-cut transcript as subtitles into the draft (default true; base MP4 has no burned captions)."},
+                "noise_db": {"type": "number", "description": "silencedetect noise threshold in dB, more negative = more conservative (default -35)."},
+                "min_silence_s": {"type": "number", "description": "Minimum silence length in seconds to cut (default 0.4, 0-5)."},
+                "broll_max": {"type": "integer", "description": "Max B-roll image slots per run to protect the gateway (default 8, 0-20)."},
+                "asr_model": {"type": "string", "description": "Transcription ASR model candidate id; empty = auto (Doubao speech -> gateway ASR)."},
+                "text_model": {"type": "string", "description": "Text model id shared by filler-cut and shot planning from /model-gateway/text-models; empty = system default text chain."},
+                "image_model": {"type": "string", "description": "Image catalog id for B-roll generation from /freezone/image/models; empty = image slot default."},
+                "music_model": {"type": "string", "description": "Music generation model id for BGM; empty = default music channel."},
+                "bgm_prompt": {"type": "string", "description": "BGM prompt; empty = a built-in 'light, low-intensity instrumental pad' default."},
+                "bgm_gain": {"type": "number", "description": "BGM bed volume 0-1 mixed under the voice (default 0.2)."},
+                "title": {"type": "string", "description": "Optional draft/film title; empty = the job id."},
+                "archive_to_library": _TOOLS_PAGE_ARCHIVE_PROP,
+            },
+            ["video_url"],
+        ),
+        _handle_narration_smart_edit,
     ),
 
     (
@@ -5822,6 +6104,61 @@ TOOLS = (
             ["text"],
         ),
         _handle_text_translate,
+    ),
+    (
+        "aipdd_drama_article_write",
+        _schema(
+            "aipdd_drama_article_write",
+            "Write and lay out a WeChat-Official-Account article (公众号文章编写与排版, "
+            "task_type=freezone_article_write). Provide topic and/or material (at least one). The gateway "
+            "text model drafts structured Markdown in the chosen writing style inside the material only (it "
+            "is told not to invent facts), then a deterministic local layout engine wraps it into "
+            "platform-compliant Official-Account HTML (every Chinese text node is wrapped in a "
+            "``<span leaf="">`` so styling survives paste) using the chosen theme component library, and a "
+            "hard validation gate must pass with zero errors before the job succeeds. Layout + validation are "
+            "fully local (no network); only the single text-model call is gateway-routed (EG-18a). Publishing "
+            "is a separate call (aipdd_drama_article_publish). Produces a result JSON + a preview HTML - poll "
+            "with GET /projects/{project}/freezone/jobs/freezone_article_write/{job_id}/result.",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "topic": {"type": "string", "description": "Article topic / brief (e.g. 'RAG 检索增强生成'); at least one of topic / material is required."},
+                "material": {"type": "string", "description": "Reference material (an article or document body, 1-12000 characters). The draft stays inside this material - the model is told not to invent facts it does not contain."},
+                "style": {"type": "string", "enum": ["viewpoint", "tutorial", "emotional", "data", "story", "rational"], "description": "Writing style: viewpoint 观点深度 (default) / tutorial 教程清单 / emotional 情绪共鸣 / data 数据复盘 / story 叙事特稿 / rational 理性干货; unknown normalizes to viewpoint."},
+                "theme": {"type": "string", "enum": ["moyu-green", "graphite-minimal", "red-white", "amber-orange", "terminal-geek", "zen-whitespace"], "description": "Layout theme (determines colors + authoritative underline CSS). Default moyu-green (摸鱼绿); unknown normalizes to it."},
+                "target_words": {"type": "integer", "description": "Target body length in Chinese characters, clamped to 300-6000 (default 1500)."},
+                "audience": {"type": "string", "description": "Optional target-reader persona (e.g. '一线工程师'); empty = the model judges."},
+                "tone": {"type": "string", "description": "Optional tone hint (e.g. '克制、专业'); empty = follows the chosen style."},
+                "intro_quote": {"type": "string", "description": "Optional opening pull-quote; empty = the layout omits the intro card."},
+                "author": {"type": "string", "description": "Optional byline for the intro card and signature block; empty = unsigned."},
+                "model_text": {"type": "string", "description": "Text (LLM) model id for the draft from /model-gateway/text-models; empty = system default text chain."},
+                "archive_to_library": _TOOLS_PAGE_ARCHIVE_PROP,
+            },
+        ),
+        _handle_article_write,
+    ),
+    (
+        "aipdd_drama_article_publish",
+        _schema(
+            "aipdd_drama_article_publish",
+            "Publish a laid-out Official-Account article to the draft box / optionally push live "
+            "(公众号发布, synchronous). Point it at an aipdd_drama_article_write job via article_job_id or "
+            "pass an html_url directly. Credentials resolve in this order: project config.json > "
+            "~/.wechat_publish.json > env WECHAT_APPID/WECHAT_SECRET. When nothing is configured it does NOT "
+            "fail the layout - it returns status=needs_config with guidance to fetch AppID/Secret from the "
+            "Official-Account backend and add the server IP to the whitelist. An uncertified account (error "
+            "48001) auto-degrades to 'create draft via API + publish manually from the backend'.",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "article_job_id": {"type": "string", "description": "job_id of a completed freezone_article_write task whose layout HTML will be published (one of article_job_id / html_url)."},
+                "html_url": {"type": "string", "description": "Or directly point at a layout HTML /static URL; takes priority over article_job_id."},
+                "title": {"type": "string", "description": "Article title (default: inferred from the product / body)."},
+                "author": {"type": "string", "description": "Author name (optional)."},
+                "digest": {"type": "string", "description": "Digest / summary (default: first 120 chars of the body)."},
+                "cover_url": {"type": "string", "description": "Cover image /static URL (required for a graphic-text draft; uploaded as a permanent material)."},
+                "publish_now": {"type": "boolean", "description": "Also push live after creating the draft (certified service accounts only; subscription accounts get one broadcast/day - use with care). Default false."},
+            },
+        ),
+        _handle_article_publish,
     ),
     (
         "aipdd_drama_story_script_generate",

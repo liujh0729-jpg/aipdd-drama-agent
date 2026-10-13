@@ -351,15 +351,19 @@ class NewApiAdminServiceIdentity:
             raise ValueError("admin_base_url must be an HTTP service URL")
 
 
-# [aipdd fork delta] 管理面地址未配置时的可执行错误（说清去哪设、合法入口是什么）。
+# [aipdd fork delta] 本地网关（LocalNewAPI）管理地址未就绪时的可执行错误。
 # 早先这条只在 wait_for_newapi 里抛，但 ensure_newapi_setup 会先跑
 # require_newapi_admin_service 构造 identity，空地址会先撞上
 # NewApiAdminServiceIdentity 的底层通用错「must be an HTTP service URL」，
 # 把可执行提示挡住——这里统一复用同一条可执行文案。
+# [aipdd fork delta] 本地网关随部署自带（compose 把网关服务地址写入
+# NEWAPI_ADMIN_BASE_URL），不是让用户手动填的东西：文案不再要求用户去设置里
+# 填地址，而是指向「用 Docker Compose 部署拉起网关」；只有接入自定义外部网关时
+# 才需要用户填管理地址。命名统一 LocalNewAPI，不再出现 newapi 字样。
 ADMIN_BASE_URL_UNCONFIGURED_HINT = (
-    "未配置 NewAPI 管理面地址：请在「设置 → 模型与渠道」填自定义网关的管理面地址，"
-    "或在环境变量 NEWAPI_ADMIN_BASE_URL 指定（容器内部署时是网关服务地址，"
-    "如 http://newapi:3000，不是 127.0.0.1）。"
+    "LocalNewAPI 管理地址尚未就绪：本地网关随系统部署自动提供，无需手动填写地址。"
+    "请用 Docker Compose 部署启动后端，让本地网关随编排一并拉起；"
+    "仅当接入的是自定义外部网关时，才在「设置 → 模型与渠道」填写它的管理地址。"
 )
 
 

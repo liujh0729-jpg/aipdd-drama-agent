@@ -33,7 +33,9 @@ def test_repository_ships_only_source_and_release_compose_files() -> None:
 
 def test_compose_builds_all_three_from_source() -> None:
     services = _compose()["services"]
-    assert set(services) == {"api", "newapi", "web"}
+    # [aipdd fork delta] Phase 0 新增第 4 个服务 renderer（HyperFrames producer 渲染引擎），
+    # 同样从源码构建（services/hyperframes-renderer/Dockerfile）、aipdd/ 前缀、unless-stopped。
+    assert set(services) == {"api", "newapi", "web", "renderer"}
     for name, service in services.items():
         assert "build" in service, f"{name} must carry a source build block"
         assert "pull_policy" not in service, f"{name} must not set pull_policy"
@@ -123,7 +125,7 @@ def test_source_file_extends_release_and_builds_all_three() -> None:
 
     assert set(source) == {"services", "volumes"}
     services = source["services"]
-    assert set(services) == {"api", "newapi", "web"}
+    assert set(services) == {"api", "newapi", "web", "renderer"}
     for name, service in services.items():
         assert set(service) == {"extends", "image", "build"}, f"{name} keys: {set(service)}"
         assert service["extends"] == {"file": RELEASE_FILE, "service": name}
@@ -142,6 +144,12 @@ def test_source_file_extends_release_and_builds_all_three() -> None:
         "dockerfile": "Dockerfile",
     }
     assert services["web"]["build"] == {"context": "./frontend", "dockerfile": "Dockerfile"}
+    # [aipdd fork delta] renderer 服务在源编排里只重申 extends/image/build（与 api/web 同形）。
+    assert services["renderer"]["image"] == "aipdd/renderer"
+    assert services["renderer"]["build"] == {
+        "context": "./services/hyperframes-renderer",
+        "dockerfile": "Dockerfile",
+    }
 
     assert set(source["volumes"]) == {"ce-data", "newapi-data"}
 

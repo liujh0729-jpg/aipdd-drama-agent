@@ -150,7 +150,15 @@ def test_registered_task_types_are_the_full_bridge_set() -> None:
     # 因此 PROJECTION_REQUIREMENTS 里不留条目 —— 投影为 None 即逐字透传）。
     # 29 → 30：视频配音（freezone_video_dubbing，[aipdd fork delta]）注册进 bridge 集
     # （与 voice_replace 同族：多一步本地音轨回填，无额外项目态读取）。
-    assert len(task_types) == 30, task_types
+    # 30 → 31：公众号文章写作（freezone_article_write，[aipdd fork delta]）注册进 bridge 集
+    # （一次 generate_freezone_text 出 Markdown，排版/校验纯本地，不额外读项目态，
+    # 因此 PROJECTION_REQUIREMENTS 里不留条目 —— 投影为 None 即逐字透传）。
+    # 31 → 32：渠道短视频（freezone_channel_short_video，[aipdd fork delta]）注册进 bridge 集
+    # （与讲解视频同构：解说词/分镜/配音走既有分发，需要的投影与讲解视频逐字相同）。
+    # 32 → 33：口播智能剪辑（freezone_narration_smart_edit，[aipdd fork delta]）注册进 bridge 集
+    # （静音剪本地、ASR/文本/生图/生乐走既有分发，不额外读项目态，
+    # 因此 PROJECTION_REQUIREMENTS 里不留条目 —— 投影为 None 即逐字透传）。
+    assert len(task_types) == 33, task_types
     assert {
         "mainline_sketch_from_context",
         "mainline_frame_from_context",

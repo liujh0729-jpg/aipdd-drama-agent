@@ -307,7 +307,11 @@ def test_only_canvas_routes_opt_out_of_the_home_node_guard() -> None:
     # 拉回（POST /freezone/blender/pull-white-model-video）计 100；
     # 入库（POST /freezone/blender/ingest-white-model-video）计 101。
     # [aipdd fork delta] 视频配音提交路由（POST /freezone/audio/video-dubbing）计 102。
-    assert router_decorators == 102
+    # [aipdd fork delta] Phase 2A 公众号文章两条路由（前一批漏记，在此补齐）：
+    # 写作（POST /freezone/article/write）计 103；发布（POST /freezone/article/publish）计 104。
+    # [aipdd fork delta] Phase 2B 渠道短视频提交路由（POST /freezone/channel-short-video）计 105。
+    # [aipdd fork delta] 口播智能剪辑提交路由（POST /freezone/narration-smart-edit）计 106。
+    assert router_decorators == 106
     assert len(canvas_routes) == 14
 
     # 正向：14 条画布路由必须全部、且每一处调用都 opt-out。

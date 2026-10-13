@@ -7,8 +7,8 @@ AIPDD-Agent-Claw ships an [MCP](https://modelcontextprotocol.io) server that exp
 whole drama pipeline — ingest, characters, script, storyboards, first frames,
 video, audio, compose, export, Jianying/CapCut draft editing, the tools-page
 batch suite (video remake / short-video mixing / whiteboard animation /
-explainer motion video /
-idea-to-video / voice synth / lip-sync / person replace / watermark removal /
+explainer motion video / channel short video / WeChat Official Account article writing & publish /
+idea-to-video / narration smart edit / voice synth / lip-sync / person replace / watermark removal /
 Douyin copy extract), one-click
 automation (story→storyboard step driver, batch shot videos by beat range), and the
 canvas (freezone) image / image-edit / video / audio / text-script / resource
@@ -115,6 +115,10 @@ The tools cover the full pipeline. A typical end-to-end run:
     (mixes a pool of library images/videos into one narrated film with
     burned-in subtitles + BGM), `aipdd_drama_video_idea` (one-line idea → story /
     characters / storyboard → per-shot generation → stitched film),
+    `aipdd_drama_narration_smart_edit` (narration smart edit: one talking-head
+    video → local silence cut + gateway ASR/text defect cut & storyboard/B-roll
+    planning + image/BGM generation → a direct MP4 or a VectCut Jianying draft,
+    or both; each stage's model can be left blank to use the default),
     `aipdd_drama_voice_clone`, `aipdd_drama_lip_sync`,
     `aipdd_drama_replace_person`, `aipdd_drama_video_watermark`,
     `aipdd_drama_image_watermark` — outputs are archived into the asset library

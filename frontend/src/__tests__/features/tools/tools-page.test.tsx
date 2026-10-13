@@ -31,6 +31,40 @@ vi.mock("@/api/ops", () => ({
   submitFreezoneVideoDubbing: vi.fn(),
   // [aipdd fork delta req46] 音乐创作：MusicCreatePanel 直接 import，mock 须提供。
   submitFreezoneMusicCreate: vi.fn(),
+  // [aipdd fork delta] 公众号文章：ArticleVideoPanel 直接 import 三个函数，mock 须提供。
+  submitFreezoneArticleWrite: vi.fn(async () => ({
+    task_type: "freezone_article_write",
+    job_id: "article-job-1",
+    task_key: "article-key",
+  })),
+  submitFreezoneArticlePublish: vi.fn(async () => ({
+    status: "needs_config",
+    published_ok: false,
+    message: "未配置公众号凭证",
+    guidance: "请到公众号后台获取 AppID / Secret",
+  })),
+  fetchFreezoneArticleResult: vi.fn(async () => ({
+    title: "示例文章",
+    style: "viewpoint",
+    theme: "moyu-green",
+    model: "test",
+    markdown: "# 示例文章\n\n正文",
+    html_url: "/static/freezone/article.html",
+    span_leaf_count: 3,
+    validation_warnings: [],
+  })),
+  // [aipdd fork delta Phase 2B] 渠道短视频：ChannelShortVideoPanel 直接 import，mock 须提供。
+  submitFreezoneChannelShortVideo: vi.fn(async () => ({
+    task_type: "freezone_channel_short_video",
+    job_id: "channel-job-1",
+    task_key: "channel-key",
+  })),
+  // [aipdd fork delta] 口播智能剪辑：NarrationSmartEditPanel 直接 import，mock 须提供。
+  submitFreezoneNarrationSmartEdit: vi.fn(async () => ({
+    task_type: "freezone_narration_smart_edit",
+    job_id: "narration-job-1",
+    task_key: "narration-key",
+  })),
   // 两步翻唱第一步是同步接口：桩固定给一个特征 id + 抽出来的词。
   submitFreezoneMusicCoverPreprocess: vi.fn(async () => ({
     cover_feature_id: "cf-1",
@@ -149,6 +183,14 @@ import {
   submitFreezoneAudioSpeech,
   // [aipdd fork delta] 科普讲解视频提交。
   submitFreezoneExplainerVideo,
+  // [aipdd fork delta] 公众号文章：面板提交/发布/预览回读。
+  submitFreezoneArticleWrite,
+  submitFreezoneArticlePublish,
+  fetchFreezoneArticleResult,
+  // [aipdd fork delta Phase 2B] 渠道短视频提交。
+  submitFreezoneChannelShortVideo,
+  // [aipdd fork delta] 口播智能剪辑提交。
+  submitFreezoneNarrationSmartEdit,
   submitFreezoneMediaCopywrite,
   // [aipdd fork delta req46] 音乐创作：五模式提交 + 两步翻唱的抽取歌词。
   submitFreezoneMusicCreate,
@@ -211,6 +253,8 @@ describe("ToolsPage", () => {
       "音视频提取文案",
       "视频反推剧本",
       "讲解类视频",
+      // [aipdd fork delta] 内容创作：公众号文章编写与排版（排菜单最后）。
+      "内容创作",
     ]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
@@ -543,15 +587,17 @@ describe("ToolsPage", () => {
     );
   });
 
-  it("merges whiteboard and explainer into one explainer-class entry at the bottom of the menu", async () => {
+  it("merges whiteboard and explainer into one explainer-class entry (now not the last)", async () => {
     renderPage();
     // 一个菜单入口（讲解类视频），两个类型切换项；入口不再各占一行。
     expect(screen.getAllByRole("button", { name: "讲解类视频" })).toHaveLength(1);
-    // 白板动画 / 科普讲解不在菜单里（只在入口内作为类型出现），且它是最后一项。
-    const nav = screen.getByRole("button", { name: "视频复刻" }).parentElement;
-    expect(nav?.lastElementChild?.textContent).toBe("讲解类视频");
+    // 白板动画 / 科普讲解不在菜单里（只在入口内作为类型出现）。
     expect(screen.queryByRole("button", { name: "白板动画视频" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "科普讲解视频" })).not.toBeInTheDocument();
+    // 内容创作组已置顶（菜单首项），音乐创作排在最后。
+    const nav = screen.getByRole("button", { name: "视频复刻" }).parentElement;
+    expect(nav?.firstElementChild?.textContent).toBe("内容创作");
+    expect(nav?.lastElementChild?.textContent).toBe("音乐创作");
 
     await userEvent.click(screen.getByRole("button", { name: "讲解类视频" }));
     // 默认展开组内第一个类型（白板动画），并只展示那一份表单。
@@ -1729,6 +1775,105 @@ describe("ToolsPage", () => {
     expect(trigger).toHaveValue("");
     expect(within(trigger).getByRole("option", { name: "跟随所选模型（默认）" })).toBeInTheDocument();
     expect(within(trigger).getByRole("option", { name: "MiniMax 国内站" })).toBeInTheDocument();
+  });
+
+  it("content-creation article panel submits, previews and degrades publish without credentials", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "内容创作" }));
+    // 只有主题或素材之一非空时才能提交。
+    expect(screen.getByRole("button", { name: "撰写并排版" })).toBeDisabled();
+    await userEvent.type(
+      screen.getByPlaceholderText("如：RAG 检索增强生成"),
+      "RAG 检索增强生成",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "撰写并排版" }));
+    await waitFor(() => expect(submitFreezoneArticleWrite).toHaveBeenCalledTimes(1));
+    expect(submitFreezoneArticleWrite).toHaveBeenCalledWith(
+      "demo",
+      expect.objectContaining({
+        topic: "RAG 检索增强生成",
+        style: "viewpoint",
+        theme: "moyu-green",
+        archiveToLibrary: true,
+        sourceTool: "article-video",
+      }),
+    );
+    // 提交后出现预览区：载入预览回读排版产物。
+    await userEvent.click(await screen.findByRole("button", { name: "载入预览" }));
+    await waitFor(() =>
+      expect(fetchFreezoneArticleResult).toHaveBeenCalledWith("demo", "article-job-1"),
+    );
+    // 打开「排版后发布到公众号」开关：内联展示公众号侧需配置提示。
+    await userEvent.click(
+      await screen.findByRole("checkbox", { name: "排版后发布到公众号" }),
+    );
+    expect(screen.getByText(/发布需要使用你自己的公众号凭证/)).toBeInTheDocument();
+    // 发布降级：未配置凭证时返回 needs_config，不抛错。
+    await userEvent.click(screen.getByRole("button", { name: "创建草稿 / 发布" }));
+    await waitFor(() =>
+      expect(submitFreezoneArticlePublish).toHaveBeenCalledWith(
+        "demo",
+        expect.objectContaining({ articleJobId: "article-job-1" }),
+      ),
+    );
+  });
+
+  it("content-creation channel short video panel switches tab and submits per channel", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "内容创作" }));
+    // 内容创作组默认落在第一项（文章）：切 tab 到「渠道短视频」。
+    await userEvent.click(await screen.findByRole("tab", { name: "渠道短视频" }));
+    // 无源时提交禁用；填参考素材后可提交。
+    const submitBtn = screen.getByRole("button", { name: "生成渠道短视频" });
+    expect(submitBtn).toBeDisabled();
+    await userEvent.type(
+      screen.getByPlaceholderText("粘贴要做成短视频的主题说明或文章正文（1-12000 字）"),
+      "RAG 检索增强生成",
+    );
+    await userEvent.click(submitBtn);
+    await waitFor(() =>
+      expect(submitFreezoneChannelShortVideo).toHaveBeenCalledTimes(1),
+    );
+    expect(submitFreezoneChannelShortVideo).toHaveBeenCalledWith(
+      "demo",
+      expect.objectContaining({
+        channel: "douyin",
+        referenceContent: "RAG 检索增强生成",
+        archiveToLibrary: true,
+        sourceTool: "channel-short-video",
+      }),
+    );
+  });
+
+  it("narration smart edit panel uploads a source and submits with defaults", async () => {
+    const { container } = renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "口播智能剪辑" }));
+    // 未选源时提交禁用。
+    const submitBtn = screen.getByRole("button", { name: "开始智能剪辑" });
+    expect(submitBtn).toBeDisabled();
+    // 源入口是面板内唯一的 file input（SingleRefInput）；上传桩回 /static/x 并回显「已选择」。
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: { files: [new File(["x"], "talk.mp4", { type: "video/mp4" })] },
+    });
+    await screen.findByText("已选择");
+    await userEvent.click(submitBtn);
+    await waitFor(() => expect(submitFreezoneNarrationSmartEdit).toHaveBeenCalledTimes(1));
+    expect(submitFreezoneNarrationSmartEdit).toHaveBeenCalledWith(
+      "demo",
+      expect.objectContaining({
+        videoUrl: "/static/x",
+        outputMode: "both",
+        aspect: "9:16",
+        cutSilence: true,
+        cutFillers: true,
+        planBroll: true,
+        genBgm: false,
+        captions: true,
+        archiveToLibrary: true,
+        sourceTool: "narration-smart-edit",
+      }),
+    );
   });
 
 });

@@ -94,9 +94,12 @@ _PROJECT_TASK_RESOURCE_KINDS = {
     "freezone_video_mix": "video",
     "freezone_whiteboard_animation": "video",
     "freezone_explainer_video": "video",
+    "freezone_channel_short_video": "video",
+    "freezone_narration_smart_edit": "video",
     "freezone_video_idea": "video",
     "freezone_image_reverse_prompt": "script",
     "freezone_text_generate": "script",
+    "freezone_article_write": "script",
     "freezone_story_script": "script",
 }
 

@@ -14,7 +14,7 @@ services:
       args:
         # 默认精简镜像；需 3DGS/SHARP world 特性时 INSTALL_WORLD=1（Mac 无 GPU）。
         INSTALL_WORLD: "${INSTALL_WORLD:-0}"
-    image: ghcr.io/liujh0729-jpg/dramaclaw-api:${DRAMACLAW_VERSION:-2.1.6}
+    image: ghcr.io/liujh0729-jpg/dramaclaw-api:${DRAMACLAW_VERSION:-2.1.7}
     # [aipdd fork delta] 固定容器名：MCP 栏目「本地 Agent 工具」写入的
     # aipdd-drama 条目以 docker exec 进本容器启动 MCP server，需要稳定可寻址的名字
     #（品牌改名前为 dramaclaw-api，外部已接入的配置在重新连接后迁移）。
@@ -89,6 +89,9 @@ services:
       # hermes worker 与 api 同容器，经容器网络访问 vectcut:9001；未启用 vectcut
       # profile 时连不通，工具会提示启动方式，不影响其他功能。
       VECTCUT_BASE_URL: "${VECTCUT_BASE_URL:-http://vectcut:9001}"
+      # [aipdd fork delta] HyperFrames 渲染服务地址（讲解视频/渠道短视频出片，引擎即服务）：
+      # hermes worker 与 api 同容器，经容器网络访问 renderer:9847（与 api 共享 ce-data:/data）。
+      DRAMACLAW_RENDERER_URL: "${DRAMACLAW_RENDERER_URL:-http://renderer:9847}"
       # [aipdd fork delta] 客户自带 Chrome 的调试端口（内置 Chrome MCP 与抖音
       # 文案提取共用）：Docker Desktop 经 host.docker.internal 访问宿主机 Chrome。
       ST_CHROME_CDP_URL: "${ST_CHROME_CDP_URL:-http://host.docker.internal:9222}"
@@ -134,7 +137,7 @@ services:
     build:
       context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
       dockerfile: Dockerfile
-    image: ghcr.io/liujh0729-jpg/dramaclaw-gateway:${DRAMACLAW_VERSION:-2.1.6}
+    image: ghcr.io/liujh0729-jpg/dramaclaw-gateway:${DRAMACLAW_VERSION:-2.1.7}
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
@@ -162,7 +165,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: ghcr.io/liujh0729-jpg/dramaclaw-web:${DRAMACLAW_VERSION:-2.1.6}
+    image: ghcr.io/liujh0729-jpg/dramaclaw-web:${DRAMACLAW_VERSION:-2.1.7}
     restart: unless-stopped
     environment:
       BACKEND_HOST: api
@@ -184,7 +187,7 @@ services:
     build:
       context: ./services/vectcut
       dockerfile: Dockerfile
-    image: ghcr.io/liujh0729-jpg/dramaclaw-vectcut:${DRAMACLAW_VERSION:-2.1.6}
+    image: ghcr.io/liujh0729-jpg/dramaclaw-vectcut:${DRAMACLAW_VERSION:-2.1.7}
     restart: unless-stopped
     profiles: ["vectcut"]
     environment:
@@ -208,6 +211,40 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+  # [aipdd fork delta] HyperFrames 渲染服务（引擎即服务，见 services/hyperframes-renderer/）：
+  # @hyperframes/producer 无头将 api 产出的讲解/短视频项目目录渲染成 MP4。与 api 同挂 ce-data:/data，
+  # 按 projectDir 读帧、产物写回同一卷；api 经 http://renderer:9847 调用。
+  # 渲染是重活（无头 Chrome + FFmpeg）：需更大 shm 与 seccomp:unconfined。
+  renderer:
+    build:
+      context: ./services/hyperframes-renderer
+      dockerfile: Dockerfile
+    image: ghcr.io/liujh0729-jpg/dramaclaw-renderer:${DRAMACLAW_VERSION:-2.1.7}
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      PRODUCER_PORT: "9847"
+      PRODUCER_DISABLE_HEALTH_WORKER: "1"
+      PRODUCER_RENDERS_DIR: /data/output/_hyperframes_renders
+      PRODUCER_MAX_CONCURRENT_RENDERS: "${RENDERER_MAX_CONCURRENT:-1}"
+    shm_size: "2g"
+    security_opt:
+      - seccomp:unconfined
+    expose:
+      - "9847"
+    volumes:
+      - ce-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:9847/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   ce-data:

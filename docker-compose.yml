@@ -33,6 +33,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+  renderer:
+    extends:
+      file: docker-compose.release.yml
+      service: renderer
+    image: aipdd/renderer
+    build:
+      context: ./services/hyperframes-renderer
+      dockerfile: Dockerfile
 
 # extends 不带顶层 volumes，需在此重申（名字与 release 文件一致，数据卷共用）。
 volumes:

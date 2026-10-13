@@ -5,10 +5,10 @@
 
 AIPDD-Agent-Claw 内置一个 [MCP](https://modelcontextprotocol.io) 服务器，把整条短剧管线
 —— 导入、角色、剧本、分镜、首帧、视频、音频、合成、导出、剪映 / CapCut
-剪辑草稿，工具页的批量处理（视频复刻 / 混剪短视频 / 白板动画视频 / 科普讲解视频 / 一句话生成短视频 /
-人声复刻 / 对口型 / 换人 / 去水印 / 抖音文案提取），一键自动化（故事→分镜步进
+剪辑草稿，工具页的批量处理（视频复刻 / 混剪短视频 / 白板动画视频 / 科普讲解视频 / 渠道短视频 / 一句话生成短视频 /
+公众号文章编写与发布 / 人声复刻 / 对口型 / 换人 / 去水印 / 抖音文案提取），一键自动化（故事→分镜步进
 驱动器、按分镜区间批量生视频），以及画布（freezone）的生图 /
-图片编辑 / 生视频 / 音频 / 文本脚本 / 资源目录读，以及环境自动安装（`aipdd_drama_env_setup`：探测运行依赖 → 待办计划 → 逐项安装）—— 共 101 个工具。
+图片编辑 / 生视频 / 音频 / 文本脚本 / 资源目录读，以及环境自动安装（`aipdd_drama_env_setup`：探测运行依赖 → 待办计划 → 逐项安装）—— 共 105 个工具。
 任何会说 MCP 的客户端（**Claude Code**、Codex 等）都能用它从头做完一部短剧。
 
 服务器（`src/novelvideo/chat/dramaclaw_mcp.py`）是 AIPDD-Agent-Claw REST API 之上的 薄
@@ -98,6 +98,9 @@ claude mcp list        # dramaclaw → ✓ connected
     ≤4 张共同作用于复刻）、`aipdd_drama_video_mix`
     （混剪短视频：素材池按序循环铺满 + 配音 + 字幕 + BGM）、`aipdd_drama_video_idea`
     （一句话生成短视频：创意 → 故事 / 角色 / 分镜 → 逐镜生成 → 拼接成片）、
+    `aipdd_drama_narration_smart_edit`（口播智能剪辑：一条口播视频 → 本地静音剪 +
+    网关 ASR/文本瑕疵剪与分镜/B-roll 判定 + 生图/BGM → 直出 MP4 或 VectCut 剪映草稿，
+    或两者；各阶段模型可留空走默认）、
     `aipdd_drama_voice_clone`、`aipdd_drama_lip_sync`、`aipdd_drama_replace_person`、
     `aipdd_drama_video_watermark`、`aipdd_drama_image_watermark` —— 产物默认自动登记进
     资产库「待分类资产」；另有 `aipdd_drama_douyin_copywrite`（抖音文案提取：分享

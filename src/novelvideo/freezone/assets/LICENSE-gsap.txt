@@ -1,0 +1,20 @@
+GSAP 3.15.0 (gsap.min.js) — vendored for offline HyperFrames rendering
+=====================================================================
+
+Why vendored: the HyperFrames producer renders each generated project headlessly
+with zero outbound network at runtime. Its own guidance (probeStage diagnostics)
+is to "bundle GSAP locally in your project instead of using a CDN <script src>".
+This is the exact GSAP version that `@hyperframes/core` depends on (gsap ^3.15.0)
+and that the HyperFrames registry vendors, so the composition runtime matches the
+engine's own baseline.
+
+Source:  https://gsap.com  (GreenSock)
+File:    gsap.min.js (72,927 bytes)
+
+License: GreenSock "Standard 'no charge' license"
+         https://gsap.com/standard-license/
+         Free to use in projects (including commercial), with redistribution
+         restrictions (may not resell/re-license the library itself or ship it
+         as part of a paid "starter/kit/template" product). Vendoring it as an
+         internal rendering dependency of this app is within those terms.
+         Recorded in the dependency license inventory / SBOM (Phase 3).

@@ -7,13 +7,16 @@
 // 安装不再是独立菜单，而是融入本页作为可选特性区块（复用 @/components/settings/world-section
 // 的 WorldSection）；本地 Agent 工具行继续复用 MCP 页的宿主 home 扫描
 // （见 @/lib/queries/agent 的 useAgentLocalTools）。
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   Bot,
   Check,
   Clapperboard,
   Code2,
+  Copy,
   ExternalLink,
   Globe,
   Hexagon,
@@ -56,6 +59,22 @@ const OPTIONAL_DEPENDENCY_IDS: ReadonlySet<string> = new Set(["chrome"]);
 /** 兜底图标：后端将来新增依赖时不至于没有图标。 */
 const FALLBACK_ICON: LucideIcon = Package;
 
+/**
+ * [aipdd fork delta 需求·环境安装补齐] 各运行依赖「容器内」的补齐命令（与 Dockerfile 内置口径一致）。
+ * 这不是运行期事实、而是产品级固定串（跟 DEPENDENCY_META / LOCAL_TOOL_LINKS 一样在前端维护）：
+ * 点「安装」时会被包成一条宿主终端命令 `docker compose exec -u root api bash -lc "<这里>"`，
+ * 连同一行 Docker 前提注释复制到剪贴板，用户按 Mac/Windows 粘进终端运行。
+ * chrome 是宿主机按需项、model_channel 走「设置 → 模型与渠道」，都不在装包范畴 → 不入表。
+ */
+const DEPENDENCY_INSTALL_COMMAND: Record<string, string> = {
+  ffmpeg: "apt-get update && apt-get install -y --no-install-recommends ffmpeg",
+  node: "apt-get update && apt-get install -y --no-install-recommends nodejs npm",
+  npm: "apt-get update && apt-get install -y --no-install-recommends nodejs npm",
+  uv: "pip install --no-cache-dir uv",
+  fonts: "apt-get update && apt-get install -y --no-install-recommends fonts-noto-cjk",
+  opencv: "uv pip install 'opencv-python-headless>=4.8.0,<5.0.0'",
+};
+
 /** 本地 Agent 工具的官方入口；null = 无公开下载地址（用渠道提示兜底）。 */
 const LOCAL_TOOL_LINKS: Record<string, string | null> = {
   workbuddy: null,
@@ -91,16 +110,50 @@ export function EnvSetupSection() {
 
       {/* 运行依赖：服务端容器的真实运行时清单。 */}
       <section className="px-5 py-5">
-        <div className="flex items-center gap-2">
-          <span className="size-1.5 rounded-full bg-emerald-400" />
-          <h3 className="font-heading text-sm font-medium text-foreground">
-            {t("settings.envSetup.title")}
-          </h3>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="size-1.5 rounded-full bg-emerald-400" />
+            <h3 className="font-heading text-sm font-medium text-foreground">
+              {t("settings.envSetup.title")}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => void envQuery.refetch()}
+            disabled={envQuery.isRefetching}
+            className={cn(
+              buttonVariants({ size: "xs", variant: "outline" }),
+              "h-6 shrink-0 gap-1 px-2 text-[11px]",
+            )}
+          >
+            <Loader2 className={cn("size-3", envQuery.isRefetching && "animate-spin")} aria-hidden />
+            {t("settings.envSetup.plan.refresh")}
+          </button>
         </div>
 
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
           {t("settings.envSetup.description")}
         </p>
+
+        {/* [aipdd fork delta 需求·环境安装补齐] 部署前提：本产品走 Docker 源码部署，Docker/Colima 是硬前提，附安装脚本入口。 */}
+        <div className="mt-3 rounded-[8px] border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2">
+          <p className="text-[11px] font-medium text-foreground">
+            {t("settings.envSetup.dockerRequire.title")}
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            {t("settings.envSetup.dockerRequire.body")}
+          </p>
+        </div>
+
+        {/* [aipdd fork delta] 操作说明：Docker 源码部署下依赖由镜像内置，缺什么就复制终端命令粘进去运行。 */}
+        <div className="mt-3 rounded-[8px] border border-border bg-white/[0.02] px-3 py-2">
+          <p className="text-[11px] font-medium text-foreground">
+            {t("settings.envSetup.howto.title")}
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            {t("settings.envSetup.howto.body")}
+          </p>
+        </div>
 
         <h4 className="mt-5 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
           {t("settings.envSetup.groups.runtime")}
@@ -330,6 +383,61 @@ function EnvPlanPanel() {
   );
 }
 
+/**
+ * 客户端平台：用于给出正确的终端名称（Mac 用「终端」、Windows 用 PowerShell）与 Docker 引导。
+ */
+function detectClientPlatform(): "mac" | "windows" | "linux" {
+  if (typeof navigator === "undefined") return "linux";
+  const sig = `${navigator.userAgent || ""} ${navigator.platform || ""}`;
+  if (/mac|iphone|ipad|ipod/i.test(sig)) return "mac";
+  if (/win/i.test(sig)) return "windows";
+  return "linux";
+}
+
+/**
+ * [aipdd fork delta 需求·环境安装补齐] 安装 / 重装按钮：复制一条可直接粘贴运行的终端命令——
+ * 把依赖的容器内补齐命令包成 `docker compose exec -u root api bash -lc "…"`，并带上一行
+ * Docker 前提注释。按客户端平台（Mac「终端」/ Windows PowerShell）提示去哪个终端粘贴运行；
+ * 本 fork 走 Docker 源码部署，不谎称一键装好。无对应命令的项（chrome / model_channel）不渲染按钮。
+ */
+function InstallCommandButton({ id, installed }: { id: string; installed: boolean }) {
+  const { t } = useTranslation();
+  const inner = DEPENDENCY_INSTALL_COMMAND[id] ?? null;
+  const [copied, setCopied] = useState(false);
+  const onCopy = useCallback(async () => {
+    if (!inner) return;
+    const terminal = t(`settings.envSetup.docker.terminal.${detectClientPlatform()}`);
+    const command = `docker compose exec -u root api bash -lc "${inner}"`;
+    const text =
+      `${t("settings.envSetup.docker.prereq")}\n` +
+      `${t("settings.envSetup.docker.pasteIn", { terminal })}\n` +
+      command;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success(t("settings.envSetup.action.copied", { terminal }));
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      toast.error(t("settings.envSetup.action.copyFailed"));
+    }
+  }, [inner, t]);
+  if (!inner) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => void onCopy()}
+      title={t("settings.envSetup.action.installHint")}
+      className={cn(
+        buttonVariants({ size: "xs", variant: "outline" }),
+        "h-6 shrink-0 gap-1 px-2 text-[11px]",
+      )}
+    >
+      {copied ? <Check className="size-3 text-primary" aria-hidden /> : <Copy className="size-3" aria-hidden />}
+      {t(installed ? "settings.envSetup.action.reinstall" : "settings.envSetup.action.install")}
+    </button>
+  );
+}
+
 function DependencyRow({
   item,
   last,
@@ -400,6 +508,7 @@ function DependencyRow({
           </p>
         ) : null}
       </div>
+      <InstallCommandButton id={item.id} installed={item.installed} />
     </div>
   );
 }

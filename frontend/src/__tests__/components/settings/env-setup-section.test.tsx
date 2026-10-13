@@ -355,4 +355,35 @@ describe("EnvSetupSection", () => {
     render(<EnvSetupSection />);
     expect(screen.getByText("settings.envSetup.plan.loading")).toBeInTheDocument();
   });
+
+  // [aipdd fork delta 需求·环境安装补齐] 每条运行依赖旁给一个安装 / 重装按钮（Docker 源码部署下
+  // 不谎称一键装好，而是复制一条含 Docker 前提的终端命令）；缺失=安装、已装=重装；chrome 按需项无命令不给按钮。
+  it("gives each runtime dependency an install / reinstall copy-command action", () => {
+    render(<EnvSetupSection />);
+    // 已装的 ffmpeg / node / uv / opencv → 重装。
+    expect(screen.getAllByText("settings.envSetup.action.reinstall")).toHaveLength(4);
+    // 缺失的 npm / fonts → 安装。
+    expect(screen.getAllByText("settings.envSetup.action.install")).toHaveLength(2);
+  });
+
+  it("shows a re-check control, a Docker prerequisite and an operation guide on the runtime panel", () => {
+    render(<EnvSetupSection />);
+    expect(screen.getAllByText("settings.envSetup.plan.refresh").length).toBeGreaterThan(0);
+    expect(screen.getByText("settings.envSetup.dockerRequire.title")).toBeInTheDocument();
+    expect(screen.getByText("settings.envSetup.dockerRequire.body")).toBeInTheDocument();
+    expect(screen.getByText("settings.envSetup.howto.title")).toBeInTheDocument();
+    expect(screen.getByText("settings.envSetup.howto.body")).toBeInTheDocument();
+  });
+
+  // 点「安装」复制的不是裸 apt 命令，而是包好的 `docker compose exec -u root api bash -lc "…"` 终端命令（带 Docker 前提注释）。
+  it("copies a runnable docker compose exec terminal command when an install action is clicked", () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => new Promise<void>(() => {}));
+    Object.defineProperty(window.navigator, "clipboard", { configurable: true, value: { writeText } });
+    render(<EnvSetupSection />);
+    fireEvent.click(screen.getAllByText("settings.envSetup.action.install")[0]);
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const copied = String(writeText.mock.calls[0][0]);
+    expect(copied).toContain("docker compose exec -u root api bash -lc");
+    expect(copied).toContain("apt-get install -y --no-install-recommends nodejs npm");
+  });
 });

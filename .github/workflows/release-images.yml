@@ -45,6 +45,9 @@ jobs:
           - svc: vectcut
             context: services/vectcut
             dockerfile: Dockerfile
+          - svc: renderer
+            context: services/hyperframes-renderer
+            dockerfile: Dockerfile
     steps:
       - uses: actions/checkout@v4
         with:

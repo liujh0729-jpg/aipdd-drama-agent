@@ -9,11 +9,20 @@ import { AlertTriangle, ExternalLink, Loader2, Wrench } from "lucide-react";
 
 import {
   fetchFreezoneAudioReferences,
+  // [aipdd fork delta] 公众号文章排版产物预览回读。
+  fetchFreezoneArticleResult,
   submitFreezoneAudioSpeech,
+  // [aipdd fork delta] 公众号文章编写/排版与发布提交。
+  submitFreezoneArticlePublish,
+  submitFreezoneArticleWrite,
+  // [aipdd fork delta] Phase 2B 渠道短视频提交（复用讲解视频渲染管线，按渠道定制）。
+  submitFreezoneChannelShortVideo,
   submitFreezoneEdit,
   // [aipdd fork delta] 科普讲解视频提交。
   submitFreezoneExplainerVideo,
   submitFreezoneMediaCopywrite,
+  // [aipdd fork delta] 口播智能剪辑提交（多阶段静音/瑕疵/分镜/B-roll + 直出/落草稿）。
+  submitFreezoneNarrationSmartEdit,
   // [aipdd fork delta req46] 音乐创作提交与两步翻唱预处理（抽歌词）。
   submitFreezoneMusicCoverPreprocess,
   submitFreezoneMusicCreate,
@@ -31,6 +40,8 @@ import {
   // [aipdd fork delta] 工具页「视频配音」提交。
   submitFreezoneVideoDubbing,
   uploadFreezoneImage,
+  type FreezoneArticlePublishResult,
+  type FreezoneArticleResult,
   type FreezoneAudioVoiceRef,
   // [aipdd fork delta req46] 音乐创作模式（与后端 Literal 同名）。
   type FreezoneMusicMode,
@@ -1147,6 +1158,9 @@ function WhiteboardAnimationPanel({ project }: { project: string }) {
 // 的文本与音频两类能力；成片固定 16:9 横屏，一次提交只产出一条成片（run(1)）。
 type ExplainerBackground = "dots" | "stars";
 type ExplainerResolution = "720p" | "1080p";
+// [aipdd fork delta] HyperFrames 引擎：设计预设 / 画幅 / 字幕开关（仅 hyperframes 生效）。
+type ExplainerStylePreset = "ink" | "ocean" | "sunset" | "paper" | "mono";
+type ExplainerFormat = "landscape" | "portrait" | "square";
 
 function ExplainerVideoPanel({ project }: { project: string }) {
   const { t } = useTranslation();
@@ -1161,6 +1175,9 @@ function ExplainerVideoPanel({ project }: { project: string }) {
   const [emotionPrompt, setEmotionPrompt] = useState("");
   const [background, setBackground] = useState<ExplainerBackground>("dots");
   const [resolution, setResolution] = useState<ExplainerResolution>("720p");
+  const [stylePreset, setStylePreset] = useState<ExplainerStylePreset>("ink");
+  const [format, setFormat] = useState<ExplainerFormat>("landscape");
+  const [captions, setCaptions] = useState(true);
   const [bgmUrl, setBgmUrl] = useState<string | null>(null);
   const [bgmVolume, setBgmVolume] = useState("");
 
@@ -1189,6 +1206,9 @@ function ExplainerVideoPanel({ project }: { project: string }) {
         model: voiceModel?.apiModel || undefined,
         background,
         resolution,
+        stylePreset,
+        format,
+        captions,
         emotionPrompt: emotionPrompt.trim(),
         voiceRef: voice,
         bgmUrl: bgmUrl ?? "",
@@ -1351,6 +1371,46 @@ function ExplainerVideoPanel({ project }: { project: string }) {
           </select>
         </label>
       </div>
+      {/* [aipdd fork delta] HyperFrames 引擎能力：设计预设 + 画幅 + 字幕开关。 */}
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.explainerVideo.stylePreset")}</span>
+          <select
+            value={stylePreset}
+            onChange={(e) =>
+              setStylePreset(e.target.value as ExplainerStylePreset)
+            }
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="ink">{t("tools.explainerVideo.styleInk")}</option>
+            <option value="ocean">{t("tools.explainerVideo.styleOcean")}</option>
+            <option value="sunset">{t("tools.explainerVideo.styleSunset")}</option>
+            <option value="paper">{t("tools.explainerVideo.stylePaper")}</option>
+            <option value="mono">{t("tools.explainerVideo.styleMono")}</option>
+          </select>
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.explainerVideo.format")}</span>
+          <select
+            value={format}
+            onChange={(e) => setFormat(e.target.value as ExplainerFormat)}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="landscape">{t("tools.explainerVideo.formatLandscape")}</option>
+            <option value="portrait">{t("tools.explainerVideo.formatPortrait")}</option>
+            <option value="square">{t("tools.explainerVideo.formatSquare")}</option>
+          </select>
+        </label>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={captions}
+          onChange={(e) => setCaptions(e.target.checked)}
+          className="h-4 w-4 rounded border-border"
+        />
+        <span>{t("tools.explainerVideo.captions")}</span>
+      </label>
       <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
         <span>{t("tools.explainerVideo.emotionPrompt")}</span>
         <input
@@ -1385,6 +1445,936 @@ function ExplainerVideoPanel({ project }: { project: string }) {
       <SubmitButton busy={busy} disabled={!reference.trim()} onClick={onSubmit}>
         {t("tools.explainerVideo.submit")}
       </SubmitButton>
+    </div>
+  );
+}
+
+// [aipdd fork delta] Phase 2B 渠道短视频（内容创作族第二步）：文章/素材 → 走讲解
+// 视频同一 HyperFrames 渲染管线，但按渠道定制成片规格（画幅/时长/字幕/封面）。源可为
+// 参考正文或直接指向一篇已排版文章（article_job_id）。渠道只改画幅与时长上下限，
+// 渲染链与出网口径与讲解视频逐字相同（文本叶×2 + 音频叶×1）；不自动上传。
+type ChannelKey =
+  | "douyin"
+  | "kuaishou"
+  | "xiaohongshu"
+  | "shipinhao"
+  | "bilibili"
+  | "tiktok";
+
+const CHANNEL_KEYS: ChannelKey[] = [
+  "douyin",
+  "kuaishou",
+  "xiaohongshu",
+  "shipinhao",
+  "bilibili",
+  "tiktok",
+];
+
+const CHANNEL_LABEL_KEYS: Record<ChannelKey, string> = {
+  douyin: "tools.channelShortVideo.channelDouyin",
+  kuaishou: "tools.channelShortVideo.channelKuaishou",
+  xiaohongshu: "tools.channelShortVideo.channelXiaohongshu",
+  shipinhao: "tools.channelShortVideo.channelShipinhao",
+  bilibili: "tools.channelShortVideo.channelBilibili",
+  tiktok: "tools.channelShortVideo.channelTiktok",
+};
+
+function ChannelShortVideoPanel({ project }: { project: string }) {
+  const { t } = useTranslation();
+  const { busy, run } = useSubmitting();
+  const [reference, setReference] = useState("");
+  const [articleJobId, setArticleJobId] = useState("");
+  const [channel, setChannel] = useState<ChannelKey>("douyin");
+  const [title, setTitle] = useState("");
+  // 0 = 渠道默认档；上下限由后端按渠道夹，故不预设固定 min/max。
+  const [durationS, setDurationS] = useState(0);
+  const [textModel, setTextModel] = useState("");
+  const [voiceModel, setVoiceModel] = useState<ModelOption | null>(null);
+  const [voice, setVoice] = useState<FreezoneAudioVoiceRef | null>(null);
+  const [emotionPrompt, setEmotionPrompt] = useState("");
+  const [resolution, setResolution] = useState<ExplainerResolution>("720p");
+  const [stylePreset, setStylePreset] = useState<ExplainerStylePreset>("ink");
+  const [captions, setCaptions] = useState(true);
+  const [bgmUrl, setBgmUrl] = useState<string | null>(null);
+  const [bgmVolume, setBgmVolume] = useState("");
+
+  const { data: refs } = useQuery({
+    queryKey: ["tools", "freezone-audio-references", project],
+    enabled: Boolean(project),
+    queryFn: async () => (await fetchFreezoneAudioReferences(project)).available,
+  });
+  const textModels = useFreezoneTextModels(project);
+  const defaultTextModel =
+    textModels.models.find((m) => m.isDefault) ?? textModels.models[0];
+
+  const onSubmit = () => {
+    if (!reference.trim() && !articleJobId.trim()) {
+      toast.error(t("tools.channelShortVideo.needSource"));
+      return;
+    }
+    // 一条源 -> 一条成片：run(1) 只包一层提交通知，不逐镜拆任务。
+    void run(1, () =>
+      submitFreezoneChannelShortVideo(project, {
+        channel,
+        referenceContent: reference.trim(),
+        articleJobId: articleJobId.trim(),
+        title: title.trim(),
+        durationS,
+        modelText: textModel || undefined,
+        model: voiceModel?.apiModel || undefined,
+        resolution,
+        stylePreset,
+        captions,
+        emotionPrompt: emotionPrompt.trim(),
+        voiceRef: voice,
+        bgmUrl: bgmUrl ?? "",
+        bgmVolume: bgmVolume.trim() === "" ? null : Number(bgmVolume),
+        archiveToLibrary: true,
+        sourceTool: "channel-short-video",
+      }),
+    ).then((ok) => {
+      if (ok) {
+        setReference("");
+        setArticleJobId("");
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.channelShortVideo.channel")}</Label>
+        <select
+          value={channel}
+          onChange={(e) => setChannel(e.target.value as ChannelKey)}
+          className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+        >
+          {CHANNEL_KEYS.map((key) => (
+            <option key={key} value={key}>
+              {t(CHANNEL_LABEL_KEYS[key])}
+            </option>
+          ))}
+        </select>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.channelShortVideo.channelHint")}
+        </p>
+      </div>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.channelShortVideo.reference")}</Label>
+        <Textarea
+          rows={6}
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+          placeholder={t("tools.channelShortVideo.referencePlaceholder")}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.channelShortVideo.referenceHint")}
+        </p>
+      </div>
+      <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+        <span>{t("tools.channelShortVideo.articleJobLabel")}</span>
+        <input
+          value={articleJobId}
+          onChange={(e) => setArticleJobId(e.target.value)}
+          placeholder={t("tools.channelShortVideo.articleJobPlaceholder")}
+          className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.channelShortVideo.titleLabel")}</span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t("tools.channelShortVideo.titlePlaceholder")}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.channelShortVideo.duration")}</span>
+          <input
+            type="number"
+            min={0}
+            step={5}
+            value={durationS}
+            onChange={(e) => setDurationS(Number(e.target.value))}
+            placeholder={t("tools.channelShortVideo.durationPlaceholder")}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        {t("tools.channelShortVideo.durationHint")}
+      </p>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.channelShortVideo.textModel")}</Label>
+        <ModelSelect
+          value={textModel}
+          onChange={setTextModel}
+          ariaLabel={t("tools.channelShortVideo.textModel")}
+          groups={[
+            {
+              options: [
+                {
+                  value: "",
+                  label: defaultTextModel
+                    ? t("tools.common.modelDefault", {
+                        model: displayModelName(
+                          defaultTextModel.label,
+                          defaultTextModel.channel,
+                        ),
+                      })
+                    : t("tools.channelShortVideo.textModelAuto"),
+                  ...(defaultTextModel
+                    ? { channel: channelForDisplay(defaultTextModel) }
+                    : {}),
+                },
+                ...textModels.models.map((m) => ({
+                  value: m.id,
+                  label: displayModelName(m.label, m.channel),
+                  channel: channelForDisplay(m),
+                })),
+              ],
+            },
+          ]}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.channelShortVideo.textModelHint")}
+        </p>
+      </div>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.channelShortVideo.voiceModel")}</Label>
+        <ModelPicker
+          project={project}
+          kind="audio"
+          value={voiceModel?.id ?? null}
+          onChange={setVoiceModel}
+          ariaLabel={t("tools.channelShortVideo.voiceModel")}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.channelShortVideo.voiceModelHint")}
+        </p>
+      </div>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.channelShortVideo.voice")}</Label>
+        <select
+          className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          value={voice ? `${voice.scope}::${voice.characterName ?? ""}::${voice.voiceId ?? ""}` : ""}
+          onChange={(e) => {
+            const picked = (refs ?? []).find(
+              (r) =>
+                `${r.scope}::${(r.character_name as string) ?? ""}::${(r.voice_id as string) ?? ""}` ===
+                e.target.value,
+            );
+            if (!picked) {
+              setVoice(null);
+              return;
+            }
+            setVoice({
+              scope: picked.scope,
+              characterName: (picked.character_name as string) || undefined,
+              identityId: (picked.identity_id as string) || undefined,
+              slot: (picked.slot as string) || undefined,
+              voiceId: (picked.voice_id as string) || undefined,
+            });
+          }}
+        >
+          <option value="">{t("tools.channelShortVideo.voiceDefault")}</option>
+          {(refs ?? []).map((r, i) => (
+            <option
+              key={i}
+              value={`${r.scope}::${(r.character_name as string) ?? ""}::${(r.voice_id as string) ?? ""}`}
+            >
+              {(r.label as string) || r.character_name || r.scope}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.channelShortVideo.stylePreset")}</span>
+          <select
+            value={stylePreset}
+            onChange={(e) =>
+              setStylePreset(e.target.value as ExplainerStylePreset)
+            }
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="ink">{t("tools.channelShortVideo.styleInk")}</option>
+            <option value="ocean">{t("tools.channelShortVideo.styleOcean")}</option>
+            <option value="sunset">{t("tools.channelShortVideo.styleSunset")}</option>
+            <option value="paper">{t("tools.channelShortVideo.stylePaper")}</option>
+            <option value="mono">{t("tools.channelShortVideo.styleMono")}</option>
+          </select>
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.channelShortVideo.resolution")}</span>
+          <select
+            value={resolution}
+            onChange={(e) =>
+              setResolution(e.target.value as ExplainerResolution)
+            }
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
+          </select>
+        </label>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={captions}
+          onChange={(e) => setCaptions(e.target.checked)}
+          className="h-4 w-4 rounded border-border"
+        />
+        <span>{t("tools.channelShortVideo.captions")}</span>
+      </label>
+      <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+        <span>{t("tools.channelShortVideo.emotionPrompt")}</span>
+        <input
+          value={emotionPrompt}
+          onChange={(e) => setEmotionPrompt(e.target.value)}
+          placeholder={t("tools.channelShortVideo.emotionPlaceholder")}
+          className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+      </label>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.channelShortVideo.bgm")}</Label>
+        <SingleRefInput
+          project={project}
+          accept="audio/*"
+          value={bgmUrl}
+          onChange={(url) => setBgmUrl(url)}
+        />
+      </div>
+      <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+        <span>{t("tools.channelShortVideo.bgmVolume")}</span>
+        <input
+          type="number"
+          min={0}
+          max={1}
+          step={0.05}
+          value={bgmVolume}
+          onChange={(e) => setBgmVolume(e.target.value)}
+          placeholder={t("tools.channelShortVideo.bgmVolumePlaceholder")}
+          className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+      </label>
+      <SubmitButton
+        busy={busy}
+        disabled={!reference.trim() && !articleJobId.trim()}
+        onClick={onSubmit}
+      >
+        {t("tools.channelShortVideo.submit")}
+      </SubmitButton>
+    </div>
+  );
+}
+
+// [aipdd fork delta] 口播智能剪辑：一条口播视频→本地静音剪 + 网关 ASR/文本
+// 瑕疵剪与分镜/B-roll 判定 + 生图/生乐→直出 MP4（本地 ffmpeg 基底）或 VectCut
+// 剪映草稿（多轨：正片切段 + B-roll + 字幕 + BGM），或两者。每阶段模型可配、留空走默认。
+function NarrationSmartEditPanel({ project }: { project: string }) {
+  const { t } = useTranslation();
+  const { busy, run } = useSubmitting();
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [outputMode, setOutputMode] = useState<"draft" | "video" | "both">("both");
+  const [aspect, setAspect] = useState("9:16");
+  const [cutSilence, setCutSilence] = useState(true);
+  const [cutFillers, setCutFillers] = useState(true);
+  const [planBroll, setPlanBroll] = useState(true);
+  const [genBgm, setGenBgm] = useState(false);
+  const [captions, setCaptions] = useState(true);
+  const [noiseDb, setNoiseDb] = useState("-35");
+  const [minSilenceS, setMinSilenceS] = useState("0.4");
+  const [brollMax, setBrollMax] = useState("8");
+  const [textModel, setTextModel] = useState("");
+  const [imageModel, setImageModel] = useState<ModelOption | null>(null);
+  const [musicModel, setMusicModel] = useState<ModelOption | null>(null);
+  const [bgmPrompt, setBgmPrompt] = useState("");
+  const [bgmGain, setBgmGain] = useState("0.2");
+  const [title, setTitle] = useState("");
+
+  const textModels = useFreezoneTextModels(project);
+  const defaultTextModel =
+    textModels.models.find((m) => m.isDefault) ?? textModels.models[0];
+
+  const onSubmit = () => {
+    if (!sourceUrl) {
+      toast.error(t("tools.narrationSmartEdit.needSource"));
+      return;
+    }
+    void run(1, () =>
+      submitFreezoneNarrationSmartEdit(project, {
+        videoUrl: sourceUrl,
+        outputMode,
+        aspect,
+        cutSilence,
+        cutFillers,
+        planBroll,
+        genBgm,
+        captions,
+        noiseDb: noiseDb.trim() === "" ? null : Number(noiseDb),
+        minSilenceS: minSilenceS.trim() === "" ? null : Number(minSilenceS),
+        brollMax: brollMax.trim() === "" ? 8 : Number(brollMax),
+        textModel: textModel || undefined,
+        imageModel: imageModel?.catalogId ?? imageModel?.id ?? undefined,
+        musicModel: musicModel?.apiModel || undefined,
+        bgmPrompt: bgmPrompt.trim(),
+        bgmGain: bgmGain.trim() === "" ? null : Number(bgmGain),
+        title: title.trim(),
+        archiveToLibrary: true,
+        sourceTool: "narration-smart-edit",
+      }),
+    ).then((ok) => {
+      if (ok) setSourceUrl(null);
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.narrationSmartEdit.source")}</Label>
+        <SingleRefInput
+          project={project}
+          accept="video/*"
+          value={sourceUrl}
+          onChange={(url) => setSourceUrl(url)}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.narrationSmartEdit.sourceHint")}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.narrationSmartEdit.outputMode")}</span>
+          <select
+            value={outputMode}
+            onChange={(e) => setOutputMode(e.target.value as "draft" | "video" | "both")}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="both">{t("tools.narrationSmartEdit.outputBoth")}</option>
+            <option value="video">{t("tools.narrationSmartEdit.outputVideo")}</option>
+            <option value="draft">{t("tools.narrationSmartEdit.outputDraft")}</option>
+          </select>
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.narrationSmartEdit.aspect")}</span>
+          <select
+            value={aspect}
+            onChange={(e) => setAspect(e.target.value)}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="9:16">{t("tools.narrationSmartEdit.aspectPortrait")}</option>
+            <option value="16:9">{t("tools.narrationSmartEdit.aspectLandscape")}</option>
+            <option value="1:1">{t("tools.narrationSmartEdit.aspectSquare")}</option>
+          </select>
+        </label>
+      </div>
+      <div className="space-y-2">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.narrationSmartEdit.stages")}</Label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={cutSilence} onChange={(e) => setCutSilence(e.target.checked)} className="h-4 w-4 rounded border-border" />
+          <span>{t("tools.narrationSmartEdit.cutSilence")}</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={cutFillers} onChange={(e) => setCutFillers(e.target.checked)} className="h-4 w-4 rounded border-border" />
+          <span>{t("tools.narrationSmartEdit.cutFillers")}</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={planBroll} onChange={(e) => setPlanBroll(e.target.checked)} className="h-4 w-4 rounded border-border" />
+          <span>{t("tools.narrationSmartEdit.planBroll")}</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={genBgm} onChange={(e) => setGenBgm(e.target.checked)} className="h-4 w-4 rounded border-border" />
+          <span>{t("tools.narrationSmartEdit.genBgm")}</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} className="h-4 w-4 rounded border-border" />
+          <span>{t("tools.narrationSmartEdit.captions")}</span>
+        </label>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.narrationSmartEdit.noiseDb")}</span>
+          <input type="number" step={1} value={noiseDb} onChange={(e) => setNoiseDb(e.target.value)} className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary" />
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.narrationSmartEdit.minSilence")}</span>
+          <input type="number" min={0} max={5} step={0.1} value={minSilenceS} onChange={(e) => setMinSilenceS(e.target.value)} className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary" />
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.narrationSmartEdit.brollMax")}</span>
+          <input type="number" min={0} max={20} step={1} value={brollMax} onChange={(e) => setBrollMax(e.target.value)} className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary" />
+        </label>
+      </div>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.narrationSmartEdit.textModel")}</Label>
+        <ModelSelect
+          value={textModel}
+          onChange={setTextModel}
+          ariaLabel={t("tools.narrationSmartEdit.textModel")}
+          groups={[
+            {
+              options: [
+                {
+                  value: "",
+                  label: defaultTextModel
+                    ? t("tools.common.modelDefault", {
+                        model: displayModelName(defaultTextModel.label, defaultTextModel.channel),
+                      })
+                    : t("tools.narrationSmartEdit.textModelAuto"),
+                  ...(defaultTextModel ? { channel: channelForDisplay(defaultTextModel) } : {}),
+                },
+                ...textModels.models.map((m) => ({
+                  value: m.id,
+                  label: displayModelName(m.label, m.channel),
+                  channel: channelForDisplay(m),
+                })),
+              ],
+            },
+          ]}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.narrationSmartEdit.textModelHint")}
+        </p>
+      </div>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.narrationSmartEdit.imageModel")}</Label>
+        <ModelPicker
+          project={project}
+          kind="image"
+          value={imageModel?.id ?? null}
+          onChange={setImageModel}
+          ariaLabel={t("tools.narrationSmartEdit.imageModel")}
+        />
+      </div>
+      {genBgm ? (
+        <div className="space-y-1">
+          <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.narrationSmartEdit.musicModel")}</Label>
+          <ModelPicker
+            project={project}
+            kind="music"
+            value={musicModel?.id ?? null}
+            onChange={setMusicModel}
+            ariaLabel={t("tools.narrationSmartEdit.musicModel")}
+          />
+          <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            <span>{t("tools.narrationSmartEdit.bgmPrompt")}</span>
+            <input value={bgmPrompt} onChange={(e) => setBgmPrompt(e.target.value)} placeholder={t("tools.narrationSmartEdit.bgmPromptPlaceholder")} className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary" />
+          </label>
+          <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            <span>{t("tools.narrationSmartEdit.bgmGain")}</span>
+            <input type="number" min={0} max={1} step={0.05} value={bgmGain} onChange={(e) => setBgmGain(e.target.value)} className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary" />
+          </label>
+        </div>
+      ) : null}
+      <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+        <span>{t("tools.narrationSmartEdit.titleLabel")}</span>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("tools.narrationSmartEdit.titlePlaceholder")} className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary" />
+      </label>
+      <SubmitButton busy={busy} disabled={!sourceUrl} onClick={onSubmit}>
+        {t("tools.narrationSmartEdit.submit")}
+      </SubmitButton>
+    </div>
+  );
+}
+
+// [aipdd fork delta] 公众号文章编写与排版（内容创作族 Phase 2A）：主题/素材 → 写作
+// 风格化 Markdown → 本地确定性排版生成公众号合规 HTML → validate 强门禁。写作只走
+// 网关文本模型一处出网，排版与校验纯本地。产物在面板内预览（HTML iframe + Markdown），
+// 「发布到公众号」为可选后续动作：凭证缺失不阻塞，内联返回配置指引。
+type ArticleStyle =
+  | "viewpoint"
+  | "tutorial"
+  | "emotional"
+  | "data"
+  | "story"
+  | "rational";
+type ArticleTheme =
+  | "moyu-green"
+  | "graphite-minimal"
+  | "red-white"
+  | "amber-orange"
+  | "terminal-geek"
+  | "zen-whitespace";
+
+function ArticleVideoPanel({ project }: { project: string }) {
+  const { t } = useTranslation();
+  const { busy, run } = useSubmitting();
+  const [topic, setTopic] = useState("");
+  const [material, setMaterial] = useState("");
+  const [style, setStyle] = useState<ArticleStyle>("viewpoint");
+  const [theme, setTheme] = useState<ArticleTheme>("moyu-green");
+  const [targetWords, setTargetWords] = useState(1500);
+  const [audience, setAudience] = useState("");
+  const [tone, setTone] = useState("");
+  const [introQuote, setIntroQuote] = useState("");
+  const [author, setAuthor] = useState("");
+  const [textModel, setTextModel] = useState("");
+  const [lastJobId, setLastJobId] = useState("");
+  const [article, setArticle] = useState<FreezoneArticleResult | null>(null);
+  const [previewMsg, setPreviewMsg] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  // 发布（可选后续）：开关内联展示「公众号侧需配置」提示 + 发布控件。
+  const [doPublish, setDoPublish] = useState(false);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [publishNow, setPublishNow] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<FreezoneArticlePublishResult | null>(null);
+
+  const textModels = useFreezoneTextModels(project);
+  const defaultTextModel =
+    textModels.models.find((m) => m.isDefault) ?? textModels.models[0];
+
+  const onSubmit = () => {
+    if (!topic.trim() && !material.trim()) {
+      toast.error(t("tools.articleVideo.needTopicOrMaterial"));
+      return;
+    }
+    void run(1, async () => {
+      const ref = await submitFreezoneArticleWrite(project, {
+        topic: topic.trim(),
+        material: material.trim(),
+        style,
+        theme,
+        targetWords,
+        audience: audience.trim(),
+        tone: tone.trim(),
+        introQuote: introQuote.trim(),
+        author: author.trim(),
+        modelText: textModel || undefined,
+        archiveToLibrary: true,
+        sourceTool: "article-video",
+      });
+      setLastJobId(ref.job_id);
+      setArticle(null);
+      setPreviewMsg(null);
+      setPublishResult(null);
+      return ref;
+    });
+  };
+
+  const loadPreview = async () => {
+    if (!lastJobId) return;
+    setLoadingPreview(true);
+    setPreviewMsg(null);
+    try {
+      const res = await fetchFreezoneArticleResult(project, lastJobId);
+      if (res && res.html_url) {
+        setArticle(res);
+      } else {
+        setArticle(null);
+        setPreviewMsg(t("tools.articleVideo.previewNotReady"));
+      }
+    } catch {
+      setArticle(null);
+      setPreviewMsg(t("tools.articleVideo.previewNotReady"));
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  const onPublish = async () => {
+    if (!lastJobId) return;
+    setPublishing(true);
+    setPublishResult(null);
+    try {
+      const res = await submitFreezoneArticlePublish(project, {
+        articleJobId: lastJobId,
+        title: article?.title ?? "",
+        author: author.trim(),
+        coverUrl: coverUrl ?? "",
+        publishNow,
+      });
+      setPublishResult(res);
+      if (res.published_ok) {
+        toast.success(res.message || t("tools.articleVideo.statusDraft"));
+      } else {
+        toast.error(res.message || t("tools.articleVideo.statusNeedsConfig"));
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const publishStatusText = (status: string): string => {
+    switch (status) {
+      case "published":
+        return t("tools.articleVideo.statusPublished");
+      case "draft":
+        return t("tools.articleVideo.statusDraft");
+      case "needs_config":
+        return t("tools.articleVideo.statusNeedsConfig");
+      case "dry_run":
+        return t("tools.articleVideo.statusDryRun");
+      default:
+        return t("tools.articleVideo.statusError");
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.articleVideo.topicLabel")}</Label>
+        <input
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder={t("tools.articleVideo.topicPlaceholder")}
+          className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.articleVideo.materialLabel")}</Label>
+        <Textarea
+          rows={5}
+          value={material}
+          onChange={(e) => setMaterial(e.target.value)}
+          placeholder={t("tools.articleVideo.materialPlaceholder")}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.articleVideo.materialHint")}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.articleVideo.styleLabel")}</span>
+          <select
+            value={style}
+            onChange={(e) => setStyle(e.target.value as ArticleStyle)}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="viewpoint">{t("tools.articleVideo.styleViewpoint")}</option>
+            <option value="tutorial">{t("tools.articleVideo.styleTutorial")}</option>
+            <option value="emotional">{t("tools.articleVideo.styleEmotional")}</option>
+            <option value="data">{t("tools.articleVideo.styleData")}</option>
+            <option value="story">{t("tools.articleVideo.styleStory")}</option>
+            <option value="rational">{t("tools.articleVideo.styleRational")}</option>
+          </select>
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.articleVideo.themeLabel")}</span>
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as ArticleTheme)}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="moyu-green">{t("tools.articleVideo.themeMoyuGreen")}</option>
+            <option value="graphite-minimal">{t("tools.articleVideo.themeGraphite")}</option>
+            <option value="red-white">{t("tools.articleVideo.themeRedWhite")}</option>
+            <option value="amber-orange">{t("tools.articleVideo.themeAmber")}</option>
+            <option value="terminal-geek">{t("tools.articleVideo.themeTerminal")}</option>
+            <option value="zen-whitespace">{t("tools.articleVideo.themeZen")}</option>
+          </select>
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.articleVideo.targetWordsLabel")}</span>
+          <input
+            type="number"
+            min={300}
+            max={6000}
+            step={100}
+            value={targetWords}
+            onChange={(e) => setTargetWords(Number(e.target.value))}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.articleVideo.authorLabel")}</span>
+          <input
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            placeholder={t("tools.articleVideo.authorPlaceholder")}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.articleVideo.audienceLabel")}</span>
+          <input
+            value={audience}
+            onChange={(e) => setAudience(e.target.value)}
+            placeholder={t("tools.articleVideo.audiencePlaceholder")}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.articleVideo.toneLabel")}</span>
+          <input
+            value={tone}
+            onChange={(e) => setTone(e.target.value)}
+            placeholder={t("tools.articleVideo.tonePlaceholder")}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+      </div>
+      <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+        <span>{t("tools.articleVideo.introQuoteLabel")}</span>
+        <input
+          value={introQuote}
+          onChange={(e) => setIntroQuote(e.target.value)}
+          placeholder={t("tools.articleVideo.introQuotePlaceholder")}
+          className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+      </label>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.articleVideo.textModelLabel")}</Label>
+        <ModelSelect
+          value={textModel}
+          onChange={setTextModel}
+          ariaLabel={t("tools.articleVideo.textModelLabel")}
+          groups={[
+            {
+              options: [
+                {
+                  value: "",
+                  label: defaultTextModel
+                    ? t("tools.common.modelDefault", {
+                        model: displayModelName(
+                          defaultTextModel.label,
+                          defaultTextModel.channel,
+                        ),
+                      })
+                    : t("tools.articleVideo.textModelAuto"),
+                  ...(defaultTextModel
+                    ? { channel: channelForDisplay(defaultTextModel) }
+                    : {}),
+                },
+                ...textModels.models.map((m) => ({
+                  value: m.id,
+                  label: displayModelName(m.label, m.channel),
+                  channel: channelForDisplay(m),
+                })),
+              ],
+            },
+          ]}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.articleVideo.textModelHint")}
+        </p>
+      </div>
+      <SubmitButton
+        busy={busy}
+        disabled={!topic.trim() && !material.trim()}
+        onClick={onSubmit}
+      >
+        {t("tools.articleVideo.submit")}
+      </SubmitButton>
+      {lastJobId ? (
+        <div className="space-y-2 rounded-lg border border-border bg-background/30 p-3">
+          <div className="flex items-center justify-between">
+            <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.articleVideo.resultTitle")}</Label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={loadPreview}
+              disabled={loadingPreview}
+            >
+              {loadingPreview ? <Loader2 className="size-3.5 animate-spin" /> : null}
+              {t("tools.articleVideo.previewLoad")}
+            </Button>
+          </div>
+          {previewMsg ? (
+            <p className="text-xs text-muted-foreground">{previewMsg}</p>
+          ) : null}
+          {article ? (
+            <div className="space-y-2">
+              <a
+                href={article.html_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <ExternalLink className="size-3.5" />
+                {t("tools.articleVideo.previewOpen")}
+              </a>
+              <iframe
+                title={article.title || t("tools.articleVideo.resultTitle")}
+                src={article.html_url}
+                className="h-[420px] w-full rounded-lg border border-border bg-white"
+              />
+              <details className="text-xs text-muted-foreground">
+                <summary className="cursor-pointer">
+                  {t("tools.articleVideo.markdownLabel")}
+                </summary>
+                <pre className="mt-1 max-h-[240px] overflow-auto whitespace-pre-wrap rounded bg-background/50 p-2 text-[11px] text-foreground">
+                  {article.markdown}
+                </pre>
+              </details>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {lastJobId ? (
+        <div className="space-y-2 rounded-lg border border-border bg-background/30 p-3">
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={doPublish}
+              onChange={(e) => setDoPublish(e.target.checked)}
+              className="h-4 w-4 rounded border-border"
+            />
+            <span>{t("tools.articleVideo.publishToggle")}</span>
+          </label>
+          {doPublish ? (
+            <div className="space-y-2">
+              <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                <span>{t("tools.articleVideo.publishSetupNotice")}</span>
+              </p>
+              <div className="space-y-1">
+                <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.articleVideo.publishCoverLabel")}</Label>
+                <SingleRefInput
+                  project={project}
+                  accept="image/*"
+                  value={coverUrl}
+                  onChange={(url) => setCoverUrl(url)}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={publishNow}
+                  onChange={(e) => setPublishNow(e.target.checked)}
+                  className="h-4 w-4 rounded border-border"
+                />
+                <span>{t("tools.articleVideo.publishNowLabel")}</span>
+              </label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onPublish}
+                disabled={publishing || !article}
+              >
+                {publishing ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                {t("tools.articleVideo.publishButton")}
+              </Button>
+              {publishResult ? (
+                <p
+                  className={cn(
+                    "text-xs",
+                    publishResult.published_ok
+                      ? "text-emerald-600"
+                      : "text-amber-600",
+                  )}
+                >
+                  {publishStatusText(publishResult.status)}
+                  {publishResult.message ? ` — ${publishResult.message}` : ""}
+                  {publishResult.guidance ? ` ${publishResult.guidance}` : ""}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3346,6 +4336,16 @@ export function ToolsPage({ project }: { project: string }) {
             ) : null}
             {active === "explainer-video" ? (
               <ExplainerVideoPanel project={project} />
+            ) : null}
+            {/* [aipdd fork delta] 内容创作：公众号文章编写与排版（+ 可选发布）。 */}
+            {active === "article-video" ? <ArticleVideoPanel project={project} /> : null}
+            {/* [aipdd fork delta] Phase 2B 渠道短视频：复用讲解视频渲染管线，按渠道定制成片规格。 */}
+            {active === "channel-short-video" ? (
+              <ChannelShortVideoPanel project={project} />
+            ) : null}
+            {/* [aipdd fork delta] 口播智能剪辑：多阶段静音/瑕疵/分镜/B-roll + 直出/落草稿。 */}
+            {active === "narration-smart-edit" ? (
+              <NarrationSmartEditPanel project={project} />
             ) : null}
             {active === "video-idea" ? <IdeaVideoPanel project={project} /> : null}
             {active === "voice-clone" ? <VoiceClonePanel project={project} /> : null}

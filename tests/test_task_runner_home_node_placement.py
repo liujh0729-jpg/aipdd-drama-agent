@@ -27,10 +27,15 @@ PLACEMENT_FREE_TASKS = {
     "freezone_analyze",
     "freezone_audio_eleven_music",
     "freezone_audio_separate",
+    "freezone_article_write",
     "freezone_audio_speech",
     "freezone_douyin_copywrite",
     "freezone_edit",
     "freezone_explainer_video",
+    # [aipdd fork delta] Phase 2B 渠道短视频：与讲解视频同构（payload 自带 project_dir），同属免放置集。
+    "freezone_channel_short_video",
+    # [aipdd fork delta] 口播智能剪辑：与渠道短视频同构（payload 自带 project_dir），同属免放置集。
+    "freezone_narration_smart_edit",
     "freezone_extract",
     "freezone_gen",
     "freezone_image_reverse_prompt",

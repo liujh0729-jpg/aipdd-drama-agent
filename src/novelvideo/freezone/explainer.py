@@ -104,20 +104,25 @@ def normalize_explainer_background(value: object) -> str:
     return clean if clean in {"dots", "stars"} else "dots"
 
 
-def normalize_explainer_duration_s(value: object) -> int:
-    """目标时长归一化并夹到 [90, 330] 秒；非法值回默认档。"""
+def normalize_explainer_duration_s(value: object, *, min_s: int | None = None) -> int:
+    """目标时长归一化并夹到 [min_s, 330] 秒；非法值回默认档。
+
+    [aipdd fork delta] ``min_s`` 让渠道短视频把下限压到比讲解片（90s）更短；
+    留空即沿用讲解片的 ``MIN_DURATION_S``，既有调用方行为逐字不变。
+    """
+    floor = MIN_DURATION_S if min_s is None else max(1, int(min_s))
     try:
         seconds = int(float(value))  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return DEFAULT_DURATION_S
     if seconds <= 0:
         return DEFAULT_DURATION_S
-    return max(MIN_DURATION_S, min(MAX_DURATION_S, seconds))
+    return max(floor, min(MAX_DURATION_S, seconds))
 
 
-def narration_char_budget(duration_s: object) -> int:
+def narration_char_budget(duration_s: object, *, min_s: int | None = None) -> int:
     """目标时长 -> 解说词字数预算（含停留预算，不是净朗读字数）。"""
-    seconds = normalize_explainer_duration_s(duration_s)
+    seconds = normalize_explainer_duration_s(duration_s, min_s=min_s)
     return int(round(seconds * NARRATION_CHARS_PER_SECOND))
 
 
@@ -151,10 +156,16 @@ def build_explainer_narration_prompt(
     *,
     duration_s: object = DEFAULT_DURATION_S,
     title_hint: str = "",
+    min_s: int | None = None,
+    orientation_label: str = "横屏 MG 科普讲解视频",
 ) -> str:
-    """参考资料 -> 解说词 prompt（分章标记随文本一起产出）。"""
-    seconds = normalize_explainer_duration_s(duration_s)
-    budget = narration_char_budget(seconds)
+    """参考资料 -> 解说词 prompt（分章标记随文本一起产出）。
+
+    [aipdd fork delta] ``min_s`` / ``orientation_label`` 供渠道短视频复用本链：
+    把时长下限压到比讲解片更短，并按渠道画幅改写片种提示；留空即沿用讲解片原样。
+    """
+    seconds = normalize_explainer_duration_s(duration_s, min_s=min_s)
+    budget = narration_char_budget(seconds, min_s=min_s)
     low = int(budget * 0.85)
     high = int(budget * 1.15)
     chapters = chapter_count_hint(seconds)
@@ -169,7 +180,7 @@ def build_explainer_narration_prompt(
         f"【片名提示】{str(title_hint or '').strip()}\n" if str(title_hint or "").strip() else ""
     )
     return (
-        "你是横屏 MG 科普讲解视频的编导。请把下面的参考资料改写成一条讲解视频的解说词。\n"
+        f"你是{orientation_label}的编导。请把下面的参考资料改写成一条讲解视频的解说词。\n"
         f"【目标成片时长】约 {seconds} 秒（按 {NARRATION_CHARS_PER_SECOND} 字/秒的成片密度计，"
         f"正文总字数请落在 {low}-{high} 字）\n"
         "【输出格式】严格如下，不要 Markdown 代码块、不要说明文字、不要序号：\n"

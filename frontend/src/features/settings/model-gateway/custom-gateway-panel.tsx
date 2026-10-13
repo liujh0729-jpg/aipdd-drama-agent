@@ -31,6 +31,7 @@ function CustomGatewayPanel({
   const { t } = useTranslation();
   const initCustom = useInitCustomNewApi();
   const enableHybrid = useEnableHybrid();
+  const [setupUsername, setSetupUsername] = useState("root");
   const [setupPassword, setSetupPassword] = useState("");
   const [setupConfirmPassword, setSetupConfirmPassword] = useState("");
   const [initError, setInitError] = useState("");
@@ -54,6 +55,7 @@ function CustomGatewayPanel({
   const handleInit = async () => {
     setInitError("");
     setInitNotice("");
+    const trimmedSetupUsername = setupUsername.trim();
     const trimmedSetupPassword = setupPassword.trim();
     const trimmedSetupConfirmPassword = setupConfirmPassword.trim();
     const hasSetupPassword = Boolean(
@@ -83,7 +85,7 @@ function CustomGatewayPanel({
         ...(baseUrl.trim() ? { newApiBaseUrl: baseUrl.trim() } : {}),
         ...(hasSetupPassword
           ? {
-              setupUsername: "root",
+              setupUsername: trimmedSetupUsername || "root",
               setupPassword: trimmedSetupPassword,
               setupConfirmPassword: trimmedSetupConfirmPassword,
             }
@@ -174,6 +176,16 @@ function CustomGatewayPanel({
             {t("settings.modelConfig.custom.setupAdminDescription")}
           </p>
           <div className="mt-3 space-y-2.5">
+            <FieldRow
+              name="newapi-setup-username"
+              autoComplete="username"
+              label={t("settings.modelConfig.custom.setupUsername")}
+              value={setupUsername}
+              onChange={setSetupUsername}
+              placeholder={t(
+                "settings.modelConfig.custom.setupUsernamePlaceholder",
+              )}
+            />
             <FieldRow
               secret
               name="newapi-setup-password"

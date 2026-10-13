@@ -2341,6 +2341,26 @@ class FreezoneExplainerVideoRequest(BaseModel):
         default="720p",
         description="成片清晰度档位：720p（默认）/ 1080p（横屏 16:9 固定）",
     )
+    style_preset: str = Field(
+        default="ink",
+        description=(
+            "[aipdd fork delta] HyperFrames 渲染的设计预设（配色/字体/底纹）："
+            "ink 黑底 MG（默认）/ ocean / sunset / paper / mono；仅 hyperframes 引擎生效，"
+            "未知值归一化为 ink"
+        ),
+    )
+    format: str = Field(
+        default="landscape",
+        description=(
+            "[aipdd fork delta] 成片画幅：landscape 横屏 16:9（默认，1920x1080）/ "
+            "portrait 竖屏 9:16（1080x1920）/ square 方形 1:1（1080x1080）；"
+            "未知值按 landscape"
+        ),
+    )
+    captions: bool = Field(
+        default=True,
+        description="[aipdd fork delta] 是否叠加同步字幕带；默认开",
+    )
     bgm_url: str = Field(
         default="",
         description="可选背景音乐静态地址（资产库音频）；留空不加 BGM",
@@ -2355,6 +2375,317 @@ class FreezoneExplainerVideoRequest(BaseModel):
         default=False,
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 工具页任务归属标识：提交来自哪个功能（取工具 "
+            "kind）；写入任务 metadata.source_tool。"
+        ),
+    )
+
+
+# [aipdd fork delta] 「文章编写与排版」：主题/素材 → 网关文本模型按写作风格产出
+# 结构化 Markdown → 程序化拼公众号合规 HTML → validate 门禁（ERROR=0）。可选发布
+# 到公众号草稿箱（凭证由用户配置，未配置不阻塞排版）。照讲解视频的注册模式各注册一处。
+class FreezoneArticleWriteRequest(BaseModel):
+    """公众号文章编写与排版请求。"""
+
+    topic: str = Field(
+        default="",
+        description="文章主题（如「RAG 检索增强生成」）；与素材至少填一项",
+    )
+    material: str = Field(
+        default="",
+        description=(
+            "参考素材（文章 / 文档正文）；写作只在这份资料范围内取材改写，"
+            "不补资料里没有的事实。0-12000 字"
+        ),
+    )
+    style: str = Field(
+        default="viewpoint",
+        description=(
+            "写作风格：viewpoint 观点深度（默认）/ tutorial 教程清单 / emotional 情绪共鸣"
+            " / data 数据复盘 / story 叙事特稿 / rational 理性干货；未知值归一化为 viewpoint"
+        ),
+    )
+    theme: str = Field(
+        default="moyu-green",
+        description=(
+            "排版主题：moyu-green 摸鱼绿（默认）/ graphite-minimal 石墨极简 /"
+            " red-white 红白深度 / amber-orange 琥珀暖阳 / terminal-geek 终端极客 /"
+            " zen-whitespace 留白禅意；未知值归一化为 moyu-green"
+        ),
+    )
+    target_words: int = Field(
+        default=1500,
+        description="正文目标字数，自动夹到 300-6000；默认 1500",
+    )
+    audience: str = Field(
+        default="",
+        description="可选目标读者画像（如「一线工程师」）；留空由模型判断",
+    )
+    tone: str = Field(
+        default="",
+        description="可选语气提示（如「克制、专业」）；留空跟随所选风格",
+    )
+    intro_quote: str = Field(
+        default="",
+        description="可选开头引言金句；留空由排版层省略引言卡",
+    )
+    author: str = Field(
+        default="",
+        description="可选作者署名（用于引言卡右下与签名区）；留空不署名",
+    )
+    model_text: str = Field(
+        default="",
+        description=(
+            "文本（LLM）模型或模型选项 id；留空走系统默认文本模型链；"
+            "请传 /model-gateway/text-models 返回值之一"
+        ),
+    )
+    archive_to_library: bool = Field(
+        default=False,
+        description=(
+            "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 工具页任务归属标识：提交来自哪个功能（取工具 "
+            "kind）；写入任务 metadata.source_tool。"
+        ),
+    )
+
+
+class FreezoneArticlePublishRequest(BaseModel):
+    """把已排版好的公众号文章发布到草稿箱 / 可选直发（凭证缺失则不阻塞，返回配置指引）。"""
+
+    article_job_id: str = Field(
+        default="",
+        description=(
+            "来源 freezone_article_write 任务的 job_id；后端读取其排版 HTML 作为发布正文"
+        ),
+    )
+    html_url: str = Field(
+        default="",
+        description=(
+            "或直接指定要发布的排版 HTML 静态地址（同源 /static/...）；优先于 article_job_id"
+        ),
+    )
+    title: str = Field(
+        default="",
+        description="文章标题（缺省从产物 / 正文推断）",
+    )
+    author: str = Field(default="", description="作者名（缺省留空）")
+    digest: str = Field(default="", description="摘要（缺省取正文前 120 字）")
+    cover_url: str = Field(
+        default="",
+        description="封面图静态地址（图文草稿封面必填，自动上传为永久素材）",
+    )
+    publish_now: bool = Field(
+        default=False,
+        description="建草稿后是否直接发布（仅认证服务号，订阅号每日群发 1 次，慎用）",
+    )
+
+
+# [aipdd fork delta] Phase 2B「渠道短视频」：文章主题/正文或用户输入为源 →
+# 走讲解视频的同一渲染管线（explainer_frames + renderer），但按渠道定制成片规格
+# （画幅/时长档/字幕/封面），产出该渠道规格 MP4 + 封面 + 文案建议；**不自动上传**。
+class FreezoneChannelShortVideoRequest(BaseModel):
+    """渠道短视频生成请求（复用讲解视频渲染引擎，按渠道定制成片规格）。"""
+
+    channel: str = Field(
+        default="douyin",
+        description=(
+            "目标渠道：douyin 抖音（默认，竖屏 9:16）/ kuaishou 快手 / xiaohongshu 小红书 /"
+            " shipinhao 视频号 / bilibili B站（横屏 16:9）/ tiktok；未知值归一化为 douyin"
+        ),
+    )
+    reference_content: str = Field(
+        default="",
+        description=(
+            "参考资料（主题说明 / 文章 / 文档正文）；与 article_job_id 至少一项。"
+            "解说词由文本模型在这份资料范围内改写，0-12000 字"
+        ),
+    )
+    article_job_id: str = Field(
+        default="",
+        description=(
+            "或直接指定来源 freezone_article_write 任务的 job_id：后端读取其 Markdown 正文作为视频源"
+        ),
+    )
+    title: str = Field(
+        default="",
+        description="可选片名提示（如「RAG 检索增强生成」）；留空由模型自拟",
+    )
+    duration_s: int = Field(
+        default=0,
+        description=(
+            "目标成片时长（秒）；留空（0）用渠道默认档，非零自动夹到该渠道时长上下限"
+        ),
+    )
+    model_text: str = Field(
+        default="",
+        description=(
+            "文本（LLM）模型或模型选项 id（解说词与分镜共用）；留空走系统默认文本模型链；"
+            "请传 /model-gateway/text-models 返回值之一"
+        ),
+    )
+    model: str = Field(
+        default="",
+        description=(
+            "配音音频模型目录 id（后台媒体模型目录 mediaType=audio 的条目）；留空使用默认语音引擎"
+        ),
+    )
+    voice_ref: Optional[FreezoneAudioVoiceRef] = Field(
+        default=None,
+        description="可选声线引用；为空时使用项目默认解说声线",
+    )
+    emotion_prompt: str = Field(
+        default="",
+        description="可选配音情绪提示词，如「沉稳、克制」；留空用项目解说风格",
+    )
+    style_preset: str = Field(
+        default="ink",
+        description=(
+            "HyperFrames 渲染设计预设：ink 黑底 MG（默认）/ ocean / sunset / paper / mono；"
+            "未知值归一化为 ink"
+        ),
+    )
+    captions: Optional[bool] = Field(
+        default=None,
+        description=(
+            "是否叠加同步字幕带；留空（null）用渠道默认（均为开），显式 true/false 覆盖"
+        ),
+    )
+    resolution: str = Field(
+        default="720p",
+        description="成片清晰度档位：720p（默认）/ 1080p",
+    )
+    bgm_url: str = Field(
+        default="",
+        description="可选背景音乐静态地址（资产库音频）；留空不加 BGM",
+    )
+    bgm_volume: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="背景音乐音量 0-1；留空自动：与配音混音为 0.2",
+    )
+    archive_to_library: bool = Field(
+        default=False,
+        description=(
+            "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 工具页任务归属标识：提交来自哪个功能（取工具 "
+            "kind）；写入任务 metadata.source_tool。"
+        ),
+    )
+
+
+# [aipdd fork delta] 口播智能剪辑：一条口播视频 → 本地静音剪 + 网关 ASR/文本
+# 瑕疵剪与分镜/B-roll 判定 + 生图/生乐 → 直出 MP4 或 VectCut 剪映草稿（或两者）。
+class FreezoneNarrationSmartEditRequest(BaseModel):
+    """口播智能剪辑请求（多阶段流水线，各阶段开关与模型可配）。"""
+
+    video_url: str = Field(
+        default="",
+        description=(
+            "待剪口播源的同源引用：上传文件路径或 /static 资产地址（前端选中项目"
+            "视频/资产后回填其同源 URL）；后端解析为本地路径。必填"
+        ),
+    )
+    output_mode: str = Field(
+        default="both",
+        description=(
+            "输出通道：draft 只出剪映草稿（需配 VectCut）/ video 只直出 MP4 /"
+            " both 两者都出（默认）"
+        ),
+    )
+    aspect: str = Field(
+        default="9:16",
+        description="成片画幅：9:16 竖屏（默认）/ 16:9 横屏 / 1:1 方屏",
+    )
+    cut_silence: bool = Field(
+        default=True,
+        description="是否剪空白/停顿（本地 ffmpeg silencedetect，借鉴 auto-editor 方法论）",
+    )
+    cut_fillers: bool = Field(
+        default=True,
+        description="是否剪口误/废话/重复（ASR + 文本模型挑可剪区间，借鉴 video-use）",
+    )
+    plan_broll: bool = Field(
+        default=True,
+        description="是否理解内容拆镜头并判定/生成 B-roll（仅在剪映草稿里落轨）",
+    )
+    gen_bgm: bool = Field(
+        default=False,
+        description="是否经模型网关生成背景音乐作 BGM（无可用音乐通道时自动降级）",
+    )
+    captions: bool = Field(
+        default=True,
+        description="草稿是否导入剪后转录字幕（直出 MP4 不烧字幕，字幕只在草稿里）",
+    )
+    noise_db: Optional[float] = Field(
+        default=-35.0,
+        description="silencedetect 静音阈值 dB，越负越保守（默认 -35）",
+    )
+    min_silence_s: Optional[float] = Field(
+        default=0.4,
+        ge=0.0,
+        le=5.0,
+        description="判为静音的最短时长（秒，默认 0.4）",
+    )
+    broll_max: int = Field(
+        default=8,
+        ge=0,
+        le=20,
+        description="单次 B-roll 生图槽位上限（防长视频爆炸式调用网关，默认 8）",
+    )
+    asr_model: str = Field(
+        default="",
+        description="转写 ASR 模型候选 id；留空走「豆包语音 → 网关 ASR」自动选择",
+    )
+    text_model: str = Field(
+        default="",
+        description="文本模型 id（瑕疵剪与分镜共用）；留空走系统默认文本模型链",
+    )
+    image_model: str = Field(
+        default="",
+        description="B-roll 生图模型 id；留空走图片槽位默认",
+    )
+    music_model: str = Field(
+        default="",
+        description="音乐生成模型 id（BGM）；留空走默认音乐渠道",
+    )
+    bgm_prompt: str = Field(
+        default="",
+        description="BGM 提示词；留空用内置「轻快、低强度无人声垫乐」默认",
+    )
+    bgm_gain: Optional[float] = Field(
+        default=0.2,
+        ge=0.0,
+        le=1.0,
+        description="BGM 垫底音量 0-1（默认 0.2，压低在人声下）",
+    )
+    title: str = Field(
+        default="",
+        description="可选草稿/成片标题；留空自动取任务号",
+    )
+    archive_to_library: bool = Field(
+        default=False,
+        description=(
+            "[aipdd fork delta] 工具页任务用：为 true 时直出成片产出后会把结果自动"
             "登记进资产库「待分类资产」。"
         ),
     )

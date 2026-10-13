@@ -90,6 +90,10 @@ _TASK_TYPE_LABELS = {
     "freezone_whiteboard_animation": "白板动画",
     # [aipdd fork delta] 科普讲解视频：参考资料 → 解说词 → 逐帧 MG 成片。
     "freezone_explainer_video": "科普讲解视频",
+    # [aipdd fork delta] Phase 2B 渠道短视频：复用讲解视频引擎，按渠道定制画幅/时长/封面。
+    "freezone_channel_short_video": "渠道短视频",
+    # [aipdd fork delta] 口播智能剪辑：静音剪 + ASR/文本瑕疵剪 + 分镜/B-roll + 直出/落草稿。
+    "freezone_narration_smart_edit": "口播智能剪辑",
     "freezone_video_idea": "一句话短视频",
     "freezone_video_erase": "视频擦除",
     "freezone_video_upscale": "视频放大",
@@ -98,6 +102,8 @@ _TASK_TYPE_LABELS = {
     "freezone_text_translate": "字幕翻译",
     "freezone_text_generate": "AI 文本生成",
     "freezone_story_script": "生成故事脚本",
+    # [aipdd fork delta] 公众号文章编写与排版：风格 → Markdown → 合规 HTML。
+    "freezone_article_write": "公众号文章排版",
     "freezone_script_to_video_plan": "脚本转视频计划",
     "freezone_audio_speech": "生成语音",
     "freezone_audio_eleven_music": "生成音乐",

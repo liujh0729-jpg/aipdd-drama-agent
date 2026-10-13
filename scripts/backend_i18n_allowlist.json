@@ -47,7 +47,7 @@
   "src/novelvideo/task_backend/runners/auto_scene_headers.py": 1,
   "src/novelvideo/task_backend/runners/character_image.py": 7,
   "src/novelvideo/task_backend/runners/episode_assets.py": 4,
-  "src/novelvideo/task_backend/runners/freezone.py": 59,
+  "src/novelvideo/task_backend/runners/freezone.py": 72,
   "src/novelvideo/task_backend/runners/identity.py": 3,
   "src/novelvideo/task_backend/runners/prop_reference.py": 1,
   "src/novelvideo/task_backend/runners/render.py": 19,

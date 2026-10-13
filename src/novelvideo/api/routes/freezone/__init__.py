@@ -462,6 +462,9 @@ from .media_jobs import (
     _enqueue_or_start_freezone_video_mix,
     _enqueue_or_start_freezone_whiteboard_animation,
     _enqueue_or_start_freezone_explainer_video,
+    _enqueue_or_start_freezone_channel_short_video,
+    _enqueue_or_start_freezone_narration_smart_edit,
+    _enqueue_or_start_freezone_article_write,
     _enqueue_or_start_freezone_video_idea,
     _enqueue_or_start_freezone_douyin_copywrite,
     _enqueue_or_start_freezone_media_copywrite,
@@ -794,6 +797,13 @@ from .gen_ops import router as _router_gen_ops
 from .image_ops import router as _router_image_ops
 from .video_ops import router as _router_video_ops
 from .text_ops import router as _router_text_ops
+from .article_ops import (
+    _article_write_output_path,
+    _article_html_path,
+    freezone_article_write,
+    freezone_article_publish,
+)
+from .article_ops import router as _router_article_ops
 from .audio_ops import router as _router_audio_ops
 from .catalog import router as _router_catalog
 from .library import router as _router_library
@@ -860,6 +870,7 @@ router.include_router(_router_gen_ops)
 router.include_router(_router_image_ops)
 router.include_router(_router_video_ops)
 router.include_router(_router_text_ops)
+router.include_router(_router_article_ops)
 router.include_router(_router_audio_ops)
 router.include_router(_router_catalog)
 router.include_router(_router_library)

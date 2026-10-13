@@ -20,52 +20,75 @@ import {
 } from "@/features/tools/core";
 
 describe("tools core TOOLS", () => {
-  it("exposes the fifteen batch tools with video-clone first and the explainer class last", () => {
+  it("orders the batch tools with content creation first and music creation last", () => {
     expect(TOOLS.map((t) => t.kind)).toEqual([
+      // [aipdd fork delta] 内容创作组置顶（菜单首项），成员 article-video → channel-short-video。
+      "article-video",
+      "channel-short-video",
+      // [aipdd fork delta] 音视频提取文案：菜单第二项。
+      "media-copywrite",
       "video-clone",
       "video-mix",
+      // [aipdd fork delta] 口播智能剪辑：独立条目，紧邻混剪之后，不并入分组。
+      "narration-smart-edit",
       "video-idea",
       "voice-clone",
       // [aipdd fork delta] 视频配音同属音频族，紧跟人声复刻之后。
       "video-dubbing",
-      // [aipdd fork delta req46] 音乐创作属音频族，排在配音之后。
-      "music-create",
       "lip-sync",
       "replace-person",
       "replace-product",
       "video-watermark",
       "image-watermark",
-      "media-copywrite",
       "video-reverse-script",
       "whiteboard-animation",
       "explainer-video",
+      // [aipdd fork delta req46] 音乐创作：菜单最后一项。
+      "music-create",
     ]);
   });
 
-  it("collapses the explainer class into one nav entry at the bottom of the menu", () => {
-    // 菜单入口由 TOOLS 现算：同组两个类型只占一条，且排在最后。
+  it("collapses the explainer class into one nav entry and puts content creation first", () => {
+    // 菜单入口由 TOOLS 现算：同组类型只占一条；内容创作组占菜单首项，音乐创作收尾。
     expect(TOOL_NAV.map((entry) => (entry.type === "tool" ? entry.kind : entry.id))).toEqual([
+      "content-creation",
+      "media-copywrite",
       "video-clone",
       "video-mix",
+      // [aipdd fork delta] 口播智能剪辑：独立入口，紧随混剪。
+      "narration-smart-edit",
       "video-idea",
       "voice-clone",
       // [aipdd fork delta] 视频配音同属音频族，紧跟人声复刻之后。
       "video-dubbing",
-      // [aipdd fork delta req46] 音乐创作属音频族，排在配音之后。
-      "music-create",
       "lip-sync",
       "replace-person",
       "replace-product",
       "video-watermark",
       "image-watermark",
-      "media-copywrite",
       "video-reverse-script",
       "explainer-class",
+      // [aipdd fork delta req46] 音乐创作收尾。
+      "music-create",
     ]);
-    const group = TOOL_NAV[TOOL_NAV.length - 1];
-    expect(group.type).toBe("group");
-    expect(group.titleKey).toBe("tools.explainerClass.title");
+    const firstEntry = TOOL_NAV[0];
+    expect(firstEntry.type).toBe("group");
+    expect(firstEntry.type === "group" ? firstEntry.id : null).toBe("content-creation");
+    const lastEntry = TOOL_NAV[TOOL_NAV.length - 1];
+    expect(lastEntry.type).toBe("tool");
+    expect(lastEntry.type === "tool" ? lastEntry.kind : null).toBe("music-create");
+    const explainer = TOOL_NAV.find(
+      (entry) => entry.type === "group" && entry.id === "explainer-class",
+    );
+    expect(explainer?.type).toBe("group");
+    expect(explainer && explainer.type === "group" ? explainer.titleKey : null).toBe(
+      "tools.explainerClass.title",
+    );
     expect(toolGroupMembers("explainer-class")).toEqual(["whiteboard-animation", "explainer-video"]);
+    expect(toolGroupMembers("content-creation")).toEqual([
+      "article-video",
+      "channel-short-video",
+    ]);
   });
 
   it("keeps merged entry's members owning their own task types", () => {
@@ -99,6 +122,13 @@ describe("tools core TOOLS", () => {
     expect(toolByKind("video-mix").modelKind).toBe("audio");
     expect(toolByKind("video-mix").accept).toBe("video-or-image");
     expect(toolByKind("video-mix").taskTypes).toEqual(["freezone_video_mix"]);
+    // [aipdd fork delta] 口播智能剪辑：独立条目，源为单条视频（面板自管上传/项目视频），
+    // 无共享批量素材入口（accept=video 仅作源提示），任务类型独立，不并入分组。
+    expect(toolByKind("narration-smart-edit").modelKind).toBe("video");
+    expect(toolByKind("narration-smart-edit").accept).toBe("video");
+    expect(toolByKind("narration-smart-edit").taskTypes).toEqual(["freezone_narration_smart_edit"]);
+    expect(toolByKind("narration-smart-edit").titleKey).toBe("tools.narrationSmartEdit.title");
+    expect(toolGroupOf("narration-smart-edit")).toBeNull();
     // 白板动画 / 科普讲解两个类型的归属断言在上面的分组用例里（它们共用一个菜单入口）。
     // [aipdd fork delta req46] 音乐创作：模型不经网关（候选来自「音乐」目录），
     // 任务类型独立，参考音频在面板内自管 → 不占批量素材入口。

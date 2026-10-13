@@ -118,6 +118,13 @@ if [[ -d "$ROOT_DIR/services/vectcut" ]]; then
   ( cd "$ROOT_DIR/services/vectcut" && uv pip install --python "$PYBIN" --no-cache -r requirements.txt ) || \
     log "VectCut 依赖安装失败：将作为 optional 服务在运行期优雅降级"
 fi
+# [aipdd fork delta] HyperFrames 渲染服务（引擎即服务）源：Dockerfile/package.json/README。
+# 后端渲染客户端（novelvideo/renderer）已随上面的 src/novelvideo 一并打入；这里只额外
+# 落地服务侧清单（固定 @hyperframes/producer 版本），供本地 producer 子进程与体积审计溯源。
+if [[ -d "$ROOT_DIR/services/hyperframes-renderer" ]]; then
+  mkdir -p "$APP/services"
+  cp -R "$ROOT_DIR/services/hyperframes-renderer" "$APP/services/hyperframes-renderer"
+fi
 
 # ------------------------------------------------------ 5) Go 网关静态编译
 log "5/6 编译 newapi 网关（先 bun 构建内嵌 web/dist，再 CGO_ENABLED=0 go build）→ resources/bin/new-api${EXE}"
@@ -194,5 +201,64 @@ else
 fi
 fi
 
-log "完成。下一步： cd desktop && cargo tauri build --target $TAURI_TARGET --bundles app,dmg"
+# ---------------------------------------------------------------------------
+# HyperFrames 本地 producer（引擎即服务，讲解视频 / 渠道短视频的渲染底座）。
+# 与 Docker 侧同源：构建期固定 @hyperframes/producer 版本、运行期零外联，api 只按
+# DRAMACLAW_RENDERER_URL 连它（服务地址只认配置，绝不猜本机，见 novelvideo/renderer/client.py）。
+#
+# 体积很大（便携 Node 运行时 + producer 依赖 + puppeteer 的 Chromium），故默认**不装**，
+# 显式 INSTALL_RENDERER=1 才打。未装时后端竖屏/方形讲解与渠道短视频会因
+# renderer_configured()==False 直接报错（横屏 MG 仍可回退 Pillow），桌面侧按需在 README 接线。
+if [[ "${INSTALL_RENDERER:-0}" == "1" ]]; then
+  log "附加 本地 HyperFrames producer（便携 Node + @hyperframes/producer，体积显著增大）"
+  need node
+  need npm
+  RENDERER_SRC="$ROOT_DIR/services/hyperframes-renderer"
+  [[ -d "$RENDERER_SRC" ]] || { echo "缺少渲染服务源：$RENDERER_SRC" >&2; exit 7; }
+  PRODUCER_DIR="$APP/services/hyperframes-renderer"
+  mkdir -p "$PRODUCER_DIR"
+  # 只带 package.json 里的固定版本依赖进资源目录，不拷 Dockerfile（桌面走子进程不起镜像）。
+  cp "$RENDERER_SRC/package.json" "$RENDERER_SRC/README.md" "$PRODUCER_DIR/"
+  # 用打包机现成 node/npm 预装依赖（离线锁定同 Docker）；postinstall 会拉 puppeteer 的 Chrome。
+  ( cd "$PRODUCER_DIR" && npm install --omit=dev --no-audit --no-fund ) || \
+    { echo "@hyperframes/producer 依赖安装失败（检查打包机 node/npm 与网络镜像）" >&2; exit 7; }
+  # 便携 Node 运行时：桌面运行期不能假设用户装了 node，需随包一份同架构 node 二进制。
+  # 默认复用打包机当前 node 主版本，取官方 install-only 归档；NODE_URL 可直链覆盖。
+  NODE_VER="${NODE_VER:-$(node -v | sed -E 's/^v//')}"
+  case "$TARGET" in
+    mac-arm64) NODE_PLATFORM="darwin-arm64" ;;
+    mac-x64)   NODE_PLATFORM="darwin-x64" ;;
+    win-x64)   NODE_PLATFORM="win-x64" ;;
+  esac
+  NODE_BASE="https://nodejs.org/dist/v${NODE_VER}"
+  if [[ "$GOOS" == windows ]]; then
+    NODE_ASSET="node-v${NODE_VER}-${NODE_PLATFORM}.zip"; NODE_EXT=zip
+  else
+    NODE_ASSET="node-v${NODE_VER}-${NODE_PLATFORM}.tar.gz"; NODE_EXT=targz
+  fi
+  NODE_URL="${NODE_URL:-$NODE_BASE/$NODE_ASSET}"
+  log "下载便携 Node：$NODE_URL"
+  if [[ "$NODE_EXT" == zip ]]; then
+    curl -fL --retry 3 -o /tmp/node.zip "$NODE_URL"
+    unzip -oq /tmp/node.zip -d /tmp/nodepkg
+    mkdir -p "$RES/bin/node"
+    cp -R "/tmp/nodepkg/node-v${NODE_VER}-${NODE_PLATFORM}/." "$RES/bin/node/"
+  else
+    curl -fL --retry 3 -o /tmp/node.tar.gz "$NODE_URL"
+    mkdir -p "$RES/bin/node"
+    tar -xzf /tmp/node.tar.gz -C "$RES/bin/node" --strip-components=1
+  fi
+  # 运行期：编排器（Rust 侧）以 `node <PRODUCER_DIR>/node_modules/@hyperframes/producer/dist/public-server.js`
+  # 拉起子进程（端口 PRODUCER_PORT，默认 9847），并把 http://127.0.0.1:<port> 注入
+  # 后端的 DRAMACLAW_RENDERER_URL。该接线属 desktop/README「本地渲染」TODO，本脚本只备齐物料。
+  log "本地 producer 已内置：node → resources/bin/node，producer → resources/app/services/hyperframes-renderer"
+else
+  log "跳过本地 HyperFrames producer（INSTALL_RENDERER=1 才打包；体积大）"
+fi
+
+if [[ "$GOOS" == windows ]]; then
+  log "完成。下一步： cd desktop && cargo tauri build --target $TAURI_TARGET --bundles nsis"
+else
+  log "完成。下一步： cd desktop && cargo tauri build --target $TAURI_TARGET --bundles app,dmg"
+fi
 echo "资源目录：$RES"

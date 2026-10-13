@@ -168,6 +168,78 @@ async def _enqueue_or_start_freezone_explainer_video(
     _freezone._raise_project_context_required("freezone_explainer_video")
 
 
+async def _enqueue_or_start_freezone_channel_short_video(
+    *,
+    ctx: ProjectContext | None,
+    username: str,
+    project: str,
+    project_dir: Path,
+    output_dir: str,
+    job_id: str,
+    payload: dict,
+) -> dict:
+    """[aipdd fork delta] Phase 2B 渠道短视频：与讲解视频同源，画面渲染是长任务，走 video 队列。"""
+    if ctx is not None:
+        return await _freezone._enqueue_freezone_background_job(
+            ctx=ctx,
+            project_dir=project_dir,
+            task_type="freezone_channel_short_video",
+            job_id=job_id,
+            payload=payload,
+            queue_kind="video",
+        )
+
+    _freezone._raise_project_context_required("freezone_channel_short_video")
+
+
+async def _enqueue_or_start_freezone_narration_smart_edit(
+    *,
+    ctx: ProjectContext | None,
+    username: str,
+    project: str,
+    project_dir: Path,
+    output_dir: str,
+    job_id: str,
+    payload: dict,
+) -> dict:
+    """[aipdd fork delta] 口播智能剪辑：多阶段剪辑 + 生成 + 落草稿是长任务，走 video 队列。"""
+    if ctx is not None:
+        return await _freezone._enqueue_freezone_background_job(
+            ctx=ctx,
+            project_dir=project_dir,
+            task_type="freezone_narration_smart_edit",
+            job_id=job_id,
+            payload=payload,
+            queue_kind="video",
+        )
+
+    _freezone._raise_project_context_required("freezone_narration_smart_edit")
+
+
+async def _enqueue_or_start_freezone_article_write(
+    *,
+    ctx: ProjectContext | None,
+    username: str,
+    project: str,
+    project_dir: Path,
+    output_dir: str,
+    job_id: str,
+    payload: dict,
+) -> dict:
+    """[aipdd fork delta] 公众号文章编写与排版：单次文本生成 + 本地排版，走 default 队列。"""
+    if ctx is not None:
+        return await _freezone._enqueue_freezone_background_job(
+            ctx=ctx,
+            project_dir=project_dir,
+            task_type="freezone_article_write",
+            job_id=job_id,
+            payload=payload,
+            queue_kind="default",
+        )
+
+    _freezone._raise_project_context_required("freezone_article_write")
+
+
 async def _enqueue_or_start_freezone_video_idea(
     *,
     ctx: ProjectContext | None,

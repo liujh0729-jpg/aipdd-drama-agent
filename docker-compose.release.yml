@@ -51,6 +51,9 @@ services:
       # 一起去掉），本编排只透传对外地址这一项部署数据：留空时由代码按请求 Host 推导。
       # 本编排不写死模型名 / 主机名 —— 那些是部署方的数据。
       NEWAPI_PUBLIC_BASE_URL: "${NEWAPI_PUBLIC_BASE_URL:-}"
+      # [aipdd fork delta] HyperFrames 渲染服务地址（讲解视频/渠道短视频出片，引擎即服务）：
+      # compose 注入容器内网地址；未起 renderer 时出片任务报「渲染服务不可达」，不影响其余功能。
+      DRAMACLAW_RENDERER_URL: "${DRAMACLAW_RENDERER_URL:-http://renderer:9847}"
     # 宿主发布端口可配，便于一机多套（每套换 ST_API_PORT + 换 -p 项目名）。
     # 冒号右侧 8780 是容器内端口，固定不变（web 经内部网络访问它）。
     ports:
@@ -106,6 +109,41 @@ services:
       - "${ST_WEB_PORT:-8080}:80"
     depends_on:
       - api
+
+  # [aipdd fork delta] HyperFrames 渲染服务（引擎即服务，见 services/hyperframes-renderer/README.md）：
+  # @hyperframes/producer 无头把 api 产出的讲解视频/渠道短视频项目目录渲染成 MP4。
+  # 与 api 共享 ce-data:/data，按 projectDir 读帧、产物写回同一卷；api 经容器网络 http://renderer:9847 调用。
+  renderer:
+    build:
+      context: ./services/hyperframes-renderer
+      dockerfile: Dockerfile
+    image: aipdd/renderer
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      PRODUCER_PORT: "9847"
+      PRODUCER_DISABLE_HEALTH_WORKER: "1"
+      PRODUCER_RENDERS_DIR: /data/output/_hyperframes_renders
+      PRODUCER_MAX_CONCURRENT_RENDERS: "${RENDERER_MAX_CONCURRENT:-1}"
+    # 渲染是重活（无头 Chrome + FFmpeg）：容器内需更大 /dev/shm 与放宽 seccomp。
+    shm_size: "2g"
+    security_opt:
+      - seccomp:unconfined
+    # 只在内网可达（api 调用），不发布到宿主机端口。
+    expose:
+      - "9847"
+    volumes:
+      - ce-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:9847/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   ce-data:

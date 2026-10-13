@@ -156,6 +156,10 @@ async def freezone_job_result(
         "freezone_whiteboard_animation",
         # [aipdd fork delta] 科普讲解视频成片（逐帧代码绘制的横屏 MG），同走通用产物解析。
         "freezone_explainer_video",
+        # [aipdd fork delta] Phase 2B 渠道短视频成片（复用讲解视频链，渠道画幅 MP4）。
+        "freezone_channel_short_video",
+        # [aipdd fork delta] 口播智能剪辑：直出 MP4 / 剪映草稿产物，同走通用产物解析。
+        "freezone_narration_smart_edit",
         "freezone_video_idea",
         "freezone_video_gen",
         "freezone_mask_edit",
@@ -174,6 +178,8 @@ async def freezone_job_result(
         "freezone_text_generate",
         "freezone_text_translate",
         "freezone_story_script",
+        # [aipdd fork delta] 公众号文章编写与排版（产物 JSON + HTML）。
+        "freezone_article_write",
     ],
     job_id: str,
     user: dict = Depends(get_api_user),
@@ -340,6 +346,8 @@ async def freezone_job_result(
         out = _freezone._text_generate_output_path(project_dir, job_id)
     if task_type == "freezone_story_script":
         out = _freezone._story_script_output_path(project_dir, job_id)
+    if task_type == "freezone_article_write":
+        out = _freezone._article_write_output_path(project_dir, job_id)
     if task_type in {"freezone_analyze", "freezone_video_story"}:
         if task is not None:
             if task.status == "failed":
@@ -395,6 +403,7 @@ async def freezone_job_result(
         "freezone_text_generate",
         "freezone_text_translate",
         "freezone_story_script",
+        "freezone_article_write",
     }:
         return {"ok": True, "data": json.loads(out.read_text(encoding="utf-8"))}
     rel = out.relative_to(project_dir).as_posix()

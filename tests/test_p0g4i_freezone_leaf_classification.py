@@ -503,7 +503,19 @@ def test_every_dispatch_site_names_a_classified_leaf() -> None:
     # 单一叶：叶内 MiniMax Music 3.0 直连 + hex 落盘，只有本叶走分发器）。
     # 42 → 43：视频配音 runner（[aipdd fork delta]，`run_freezone_video_dubbing`，
     # 单一叶：叶内解封装→ASR→零样本合成→本地音轨回填，只有本叶走分发器）。
-    assert len(named) == 43
+    # 43 → 44：公众号文章写作 runner（[aipdd fork delta]，`run_freezone_article_write`，
+    # 单一叶：一次 generate_freezone_text 出 Markdown；排版/校验/落盘是纯本地直接调用，
+    # 不经分发器（publish 是同步 route，用户自带凭证公开 API 直连，不在 runner 里））。
+    # 44 → 47：渠道短视频 runner（[aipdd fork delta]，`run_freezone_channel_short_video`，
+    # 与讲解视频同构：解说词 + 分镜两次 generate_freezone_text + 一次
+    # generate_freezone_audio_speech 三个调用点，均为已登记叶；渲染/混音/封面
+    # 抽帧是纯本地直接调用，不经分发器）。
+    # 47 → 52：口播智能剪辑 runner（[aipdd fork delta]，`run_freezone_narration_smart_edit`，
+    # 五个分发点：转写叶 transcribe_freezone_clone_dialogue（EG-15c）+ 瑕疵剪与分镜两次
+    # generate_freezone_text（EG-18a）+ B-roll 生图叶 run_freezone_gen（EG-18b）+ BGM 音乐叶
+    # run_freezone_music_generate（EG-15d），均为已登记叶；静音检测/裁接/混音/封面与
+    # VectCut 草稿组装都在 narration_edit / narration_draft 新模块里纯本地直调，不经分发器）。
+    assert len(named) == 52
     assert set(named) <= set(FREEZONE_LEAF_EGRESS)
 
 

@@ -9,10 +9,19 @@
 export type ToolKind =
   | "video-clone"
   | "video-mix"
+  // [aipdd fork delta] 口播智能剪辑：一条口播视频→本地静音剪 + 网关 ASR/文本瑕疵剪
+  // 与分镜/B-roll 判定 + 生图/生乐→直出 MP4 或 VectCut 剪映草稿（或两者）。
+  | "narration-smart-edit"
   // [aipdd fork delta] 白板动画：口播文案→分镜→逐幕线稿→逐笔揭示成片（纯本地渲染）。
   | "whiteboard-animation"
   // [aipdd fork delta] 科普讲解视频：参考资料→分章解说词→分镜 DSL→逐帧 MG 成片。
   | "explainer-video"
+  // [aipdd fork delta] 内容创作·公众号文章：主题/素材→风格化 Markdown→公众号合规 HTML（+ 可选发布）。
+  // 该工具是「文章编写 + 渠道短视频」组合面板的第一步（Phase 2A 只做文章）。
+  | "article-video"
+  // [aipdd fork delta] 内容创作·渠道短视频：文章/素材→复用讲解视频渲染管线，按渠道
+  // 定制画幅/时长/字幕/封面（Phase 2B）；产出该渠道规格 MP4 + 封面 + 文案建议，不自动上传。
+  | "channel-short-video"
   | "video-idea"
   | "voice-clone"
   // [aipdd fork delta] 视频配音：源视频→原语言重声（参考音色）→回填替换整条音轨。
@@ -131,7 +140,7 @@ export interface ToolDef {
  * 只有「同类不同产物」的功能才进来 —— 组内每种类型仍是独立 kind、独立任务类型、
  * 独立提交端点，合并的只是入口位置与命名层级；不是把两套参数并成一套表单。
  */
-export type ToolGroupId = "explainer-class";
+export type ToolGroupId = "explainer-class" | "content-creation";
 
 export interface ToolGroupDef {
   id: ToolGroupId;
@@ -153,9 +162,56 @@ export const TOOL_GROUPS: Record<ToolGroupId, ToolGroupDef> = {
     typeLabelKey: "tools.explainerClass.typeLabel",
     defaultKind: "whiteboard-animation",
   },
+  "content-creation": {
+    id: "content-creation",
+    titleKey: "tools.contentCreation.title",
+    descKey: "tools.contentCreation.desc",
+    typeLabelKey: "tools.contentCreation.typeLabel",
+    defaultKind: "article-video",
+  },
 };
 
+// [aipdd fork delta] 菜单顺序即本数组顺序（TOOL_NAV 由此现算）：内容创作组置顶、
+// 音视频提取文案次之，音乐创作摆在最后，其余保持原有相对顺序。
 export const TOOLS: ToolDef[] = [
+  // [aipdd fork delta] 内容创作族（菜单首项）：公众号文章编写与排版（Phase 2A）与
+  // 后续渠道短视频（Phase 2B）共用一个「内容创作」菜单入口。文章产物为结果 JSON +
+  // 公众号合规 HTML（可选发布到草稿箱）；面板内自管文本模型（modelKind=audio 不适用，
+  // 走面板自管 LLM 下拉），无媒体批量输入，故 accept 置 null。
+  {
+    kind: "article-video",
+    titleKey: "tools.articleVideo.title",
+    descKey: "tools.articleVideo.desc",
+    modelKind: "audio",
+    accept: null,
+    taskTypes: ["freezone_article_write"],
+    group: "content-creation",
+  },
+  // [aipdd fork delta] Phase 2B 渠道短视频：与文章共用「内容创作」入口的第二步，
+  // 走讲解视频同一 HyperFrames 渲染管线但按渠道定制成片规格；面板自管文本模型下拉、
+  // 配音走 audio 目录，无媒体批量输入，accept 置 null。taskTypes/sourceTool 各自独立。
+  {
+    kind: "channel-short-video",
+    titleKey: "tools.channelShortVideo.title",
+    descKey: "tools.channelShortVideo.desc",
+    modelKind: "audio",
+    accept: null,
+    taskTypes: ["freezone_channel_short_video"],
+    group: "content-creation",
+  },
+  {
+    kind: "media-copywrite",
+    titleKey: "tools.mediaCopywrite.title",
+    descKey: "tools.mediaCopywrite.desc",
+    // [aipdd fork delta] req21 音视频提取文案（菜单第二项）：由抖音文案提取泛化而来。
+    // 输入是链接或上传的视频/音频（非批量素材），ASR 模型来自专用候选端点（网关模型
+    // list 过滤 + 内置 FunASR / 豆包），不走 ModelPicker 目录，也不拆批量任务——
+    // 一次提交解析一条媒体。上传控件在面板内自管（按来源模式选 video/audio），
+    // 不走共享批量输入，故 accept 置 null（与旧抖音卡一致）。
+    modelKind: "audio",
+    accept: null,
+    taskTypes: ["freezone_media_copywrite", "freezone_douyin_copywrite"],
+  },
   {
     kind: "video-clone",
     titleKey: "tools.videoClone.title",
@@ -173,6 +229,17 @@ export const TOOLS: ToolDef[] = [
     modelKind: "audio",
     accept: "video-or-image",
     taskTypes: ["freezone_video_mix"],
+  },
+  // [aipdd fork delta] 口播智能剪辑：一条口播视频→多阶段流水线。
+  // 静音剪本地、瑕疵剪与分镜/B-roll 走网关 ASR/文本、B-roll 生图与 BGM 生乐走网关，
+  // 输出直出 MP4 / VectCut 剪映草稿。源为单条上传/项目视频（面板自管），无批量素材输入。
+  {
+    kind: "narration-smart-edit",
+    titleKey: "tools.narrationSmartEdit.title",
+    descKey: "tools.narrationSmartEdit.desc",
+    modelKind: "video",
+    accept: "video",
+    taskTypes: ["freezone_narration_smart_edit"],
   },
   {
     kind: "video-idea",
@@ -202,18 +269,6 @@ export const TOOLS: ToolDef[] = [
     modelKind: "audio",
     accept: null,
     taskTypes: ["freezone_video_dubbing"],
-  },
-  // [aipdd fork delta req46] 音乐创作：摆在音频族（人声复刻）之后。
-  // 模型不经网关——候选来自设置页 mediaType=music 的目录，产物 mp3/wav 走
-  // freezone_music_generate 任务并入库「待分类资产」。参考音频在面板内自管
-  // （上传或素材库单条），不是批量素材，故 accept 置 null（与 voice-clone 同口径）。
-  {
-    kind: "music-create",
-    titleKey: "tools.musicCreate.title",
-    descKey: "tools.musicCreate.desc",
-    modelKind: "music",
-    accept: null,
-    taskTypes: ["freezone_music_generate"],
   },
   {
     kind: "lip-sync",
@@ -263,19 +318,6 @@ export const TOOLS: ToolDef[] = [
     taskTypes: ["freezone_edit"],
   },
   {
-    kind: "media-copywrite",
-    titleKey: "tools.mediaCopywrite.title",
-    descKey: "tools.mediaCopywrite.desc",
-    // [aipdd fork delta] req21 音视频提取文案：由抖音文案提取泛化而来。输入是
-    // 链接或上传的视频/音频（非批量素材），ASR 模型来自专用候选端点（网关模型
-    // list 过滤 + 内置 FunASR / 豆包），不走 ModelPicker 目录，也不拆批量任务——
-    // 一次提交解析一条媒体。上传控件在面板内自管（按来源模式选 video/audio），
-    // 不走共享批量输入，故 accept 置 null（与旧抖音卡一致）。
-    modelKind: "audio",
-    accept: null,
-    taskTypes: ["freezone_media_copywrite", "freezone_douyin_copywrite"],
-  },
-  {
     kind: "video-reverse-script",
     titleKey: "tools.videoReverseScript.title",
     descKey: "tools.videoReverseScript.desc",
@@ -289,7 +331,8 @@ export const TOOLS: ToolDef[] = [
   },
   // [aipdd fork delta] 讲解类视频：白板手绘逐笔揭示 与 分章 MG 动画是同一类讲解
   // 成片的两种画面方案，共用一个菜单入口（TOOL_GROUPS.explainer-class）、摆在菜单
-  // 最后；两者 taskTypes / sourceTool 依旧各自独立，历史任务过滤与命名不受合并影响。
+  // 靠后（仅音乐创作在后）；两者 taskTypes / sourceTool 依旧各自独立，历史任务
+  // 过滤与命名不受合并影响。
   {
     kind: "whiteboard-animation",
     titleKey: "tools.whiteboardAnimation.title",
@@ -313,6 +356,18 @@ export const TOOLS: ToolDef[] = [
     accept: null,
     taskTypes: ["freezone_explainer_video"],
     group: "explainer-class",
+  },
+  // [aipdd fork delta req46] 音乐创作：菜单最后一项。模型不经网关——候选来自设置页
+  // mediaType=music 的目录，产物 mp3/wav 走 freezone_music_generate 任务并入库
+  // 「待分类资产」。参考音频在面板内自管（上传或素材库单条），不是批量素材，
+  // 故 accept 置 null（与 voice-clone 同口径）。
+  {
+    kind: "music-create",
+    titleKey: "tools.musicCreate.title",
+    descKey: "tools.musicCreate.desc",
+    modelKind: "music",
+    accept: null,
+    taskTypes: ["freezone_music_generate"],
   },
 ];
 
@@ -400,8 +455,9 @@ export function firstMediaUrlInResult(result: unknown): string | null {
   const seen = new Set<unknown>();
   const isUrl = (value: string): boolean => {
     if (!/^(https?:)?\/\//.test(value) && !value.startsWith("/static/")) return false;
-    // [aipdd fork delta] txt = 抖音文案提取的文本产物（任务列表「打开结果」用）。
-    return /\.(mp4|mov|webm|mp3|wav|m4a|png|jpe?g|webp|gif|txt)(\?|$)/i.test(value);
+    // [aipdd fork delta] txt = 抖音文案提取的文本产物；html = 公众号文章排版产物
+    // （任务列表「打开结果」直接打开合规 HTML 预览）。
+    return /\.(mp4|mov|webm|mp3|wav|m4a|png|jpe?g|webp|gif|txt|html)(\?|$)/i.test(value);
   };
   const walk = (node: unknown): string | null => {
     if (node == null || seen.has(node)) return null;
