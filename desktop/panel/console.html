@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIPDD DramaClaw · 服务状态</title>
+  <style>
+    /* 运行期诊断窗口（「详细信息」）：服务卡片 + 日志 + 单服务重启。
+       启动流程不展示这里——启动卡见 index.html，两者共用 app.js。 */
+    :root {
+      --bg: #0f1115; --panel: #171a21; --line: #262b36; --fg: #e6e9ef;
+      --muted: #9aa4b2; --accent: #4f8cff;
+      --ok: #2ecc71; --warn: #f5a623; --err: #ff5c5c; --idle: #566073;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      display: flex; flex-direction: column;
+    }
+    header {
+      padding: 14px 16px; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 10px;
+    }
+    header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+    header .ver { color: var(--muted); font-size: 12px; margin-left: auto; }
+    .boot {
+      margin: 12px 16px; padding: 10px 12px; border: 1px solid var(--line);
+      border-radius: 10px; background: var(--panel);
+    }
+    .boot.hidden { display: none; }
+    .boot .msg { font-size: 13px; }
+    .boot .bar { height: 6px; border-radius: 3px; background: #222732; overflow: hidden; margin-top: 8px; }
+    .boot .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+    .boot.error { border-color: var(--err); }
+    .boot.error .msg { color: var(--err); }
+    .boot .tips { margin-top: 8px; color: var(--muted); font-size: 12px; white-space: pre-wrap; }
+    .services { padding: 4px 16px 8px; display: grid; gap: 8px; }
+    .svc {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+      padding: 10px 12px; display: flex; align-items: center; gap: 10px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--idle); flex: none; }
+    .dot[data-s="ready"] { background: var(--ok); }
+    .dot[data-s="starting"], .dot[data-s="restarting"] { background: var(--warn); animation: pulse 1s infinite; }
+    .dot[data-s="crashed"] { background: var(--err); }
+    @keyframes pulse { 50% { opacity: .35; } }
+    .svc .name { font-weight: 600; }
+    .svc .meta { color: var(--muted); font-size: 12px; }
+    .svc .grow { flex: 1; min-width: 0; }
+    .badge { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+    button {
+      background: #222834; color: var(--fg); border: 1px solid var(--line);
+      border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 12px;
+    }
+    button:hover { border-color: var(--accent); }
+    button:disabled { opacity: .45; cursor: default; }
+    .logwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 16px 12px; }
+    .loghead { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+    .loghead select { background: #222834; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+    .loghead .grow { flex: 1; }
+    pre.log {
+      flex: 1; min-height: 0; overflow: auto; margin: 0;
+      background: #0b0d11; border: 1px solid var(--line); border-radius: 10px;
+      padding: 10px 12px; font: 12px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      color: #cdd6e2; white-space: pre-wrap; word-break: break-all;
+    }
+    pre.log .stderr { color: #ffb4b4; }
+    pre.log .sys { color: var(--accent); }
+    .models { padding: 0 16px 10px; display: grid; gap: 6px; }
+    .models.hidden { display: none; }
+    .model .m-bar { height: 5px; border-radius: 3px; background: #222732; overflow: hidden; }
+    .model .m-bar > i { display: block; height: 100%; width: 0; background: var(--ok); }
+    footer { padding: 8px 16px 14px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AIPDD DramaClaw 桌面服务</h1>
+    <span class="ver" id="ver">v…</span>
+  </header>
+
+  <div class="boot hidden" id="boot">
+    <div class="msg" id="bootMsg">正在启动本地服务…</div>
+    <div class="bar"><i id="bootBar"></i></div>
+    <div class="tips" id="bootTips"></div>
+  </div>
+
+  <div class="services" id="services"></div>
+
+  <div class="models hidden" id="models"></div>
+
+  <div class="logwrap">
+    <div class="loghead">
+      <label>日志</label>
+      <select id="logFilter">
+        <option value="*">全部</option>
+        <option value="nginx">nginx</option>
+        <option value="gateway">gateway</option>
+        <option value="vectcut">vectcut</option>
+        <option value="api">api</option>
+      </select>
+      <span class="grow"></span>
+      <button id="clearLog">清空</button>
+    </div>
+    <pre class="log" id="log"></pre>
+  </div>
+
+  <footer>
+    <button id="openApp" disabled>打开主界面</button>
+    <span class="grow"></span>
+    <button id="copyLogs">复制日志目录路径</button>
+  </footer>
+
+  <script>window.PANEL_VIEW = "console";</script>
+  <script src="app.js"></script>
+</body>
+</html>

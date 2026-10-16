@@ -11,12 +11,24 @@ pub fn port_open(port: u16) -> bool {
 
 /// 轮询直到端口可连或超时。
 pub fn wait_port_open(port: u16, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
+    wait_port_open_cb(port, timeout, &mut |_| {})
+}
+
+/// 同 `wait_port_open`，但每轮探活未命中后回调一次累计耗时，供启动卡把百分比
+/// 在段内平滑推上去（否则端口要等 30 秒才开的服务会让进度条整段僵住）。
+pub fn wait_port_open_cb(
+    port: u16,
+    timeout: Duration,
+    on_wait: &mut dyn FnMut(Duration),
+) -> bool {
+    let started = Instant::now();
+    let deadline = started + timeout;
     while Instant::now() < deadline {
         if port_open(port) {
             return true;
         }
         std::thread::sleep(Duration::from_millis(300));
+        on_wait(started.elapsed());
     }
     false
 }

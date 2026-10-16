@@ -13,7 +13,8 @@ macOS `.app/.dmg`（及后续 Windows `.exe`），**弃用 Docker/Colima**：用
 ```
 ┌─────────────────────────── Tauri App (Rust) ───────────────────────────┐
 │  进程编排 orchestrator：按序启动 / 端口探活 / 崩溃自愈 / 日志采集 / 逆序退出     │
-│  状态面板窗口 (panel)          主窗口 → http://127.0.0.1:8080 (加载前端)      │
+│  启动卡窗口 (panel)            主窗口 → http://127.0.0.1:8080 (加载前端)      │
+│  诊断窗口 (console，仅失败时由启动卡「查看详细信息」打开)                       │
 │  模型下载器 (tokio+reqwest, 断点续传/sha256/进度)                             │
 └──────────────┬───────────────────┬──────────────────┬──────────────────┘
    std::process│         std::process│        std::process│
@@ -44,8 +45,10 @@ macOS `.app/.dmg`（及后续 Windows `.exe`），**弃用 Docker/Colima**：用
 
 ```
 desktop/
-  panel/                 服务状态面板（无构建静态页；也是启动/加载窗）
-    index.html  app.js
+  panel/                 无构建静态页：启动卡 + 诊断窗口（两个 HTML 共用 app.js）
+    index.html           启动卡（Photoshop 式 splash）：品牌 + 版本 + 百分比 + 一行阶段文字 + 平台网址
+    console.html         运行期诊断：服务卡片 + 日志 + 单服务重启（启动失败时打开）
+    app.js  logo.png
   scripts/
     prepare-resources.sh      三架构便携运行时准备（Python/Go/nginx/ffmpeg/Chromium）
     build-macos-dmg.sh        产出 .app + .dmg
@@ -83,7 +86,11 @@ desktop/
 | VectCut（可选） | 9001 | 便携 `python` | `python aipdd_server.py`；失败降级不阻断 |
 | 换脸直播边车（可选，按需自装） | 18899 | 独立 venv 的 python + `resources/app/services/faceswap/server.py` | **不在 Rust 受管服务列表内**：由后端 `novelvideo/faceswap/faceswap_install.py` 在用户点「下载并部署」后用随包的 `resources/bin/uv` 建 `<状态目录>/faceswap/venv` 再 `Popen` 拉起；只绑 `127.0.0.1`，AGPL 隔离靠进程边界 |
 
-启动顺序（串行 + 探活）：`环境自检 → nginx → gateway → VectCut(可选) → FastAPI → 打开主窗口`。
+启动顺序（串行 + 探活）：`环境自检 → nginx → gateway → VectCut(可选) → FastAPI → 打开主窗口 → 关闭启动卡`。
+启动期间界面上只有启动卡：品牌 + 版本号 + 一行阶段文字 + 百分比进度条 + 平台网址（`AIPDD算力平台：www.aipdd.work`），
+**不显示日志**。百分比完全按实际：各服务按实测耗时分段、段内随探活轮次缓动推进（只前进不回退），
+就绪后补到 100% 并自动进入主界面，启动卡随即关闭、不做额外停留。只有启动失败时才会在卡片上露出「查看详细信息」，
+点开诊断窗口看服务卡片与日志。
 退出（关闭所有窗口触发 `RunEvent::Exit`）：**逆序**终止；Unix 对独立进程组 `killpg`，
 Windows 给**每个服务单建一个 Job Object**（`KILL_ON_JOB_CLOSE`）——单服务重启只结束顶层 pid 时，
 其 nginx worker / uvicorn 子进程 / ffmpeg / chrome 后代也随作业一起回收，不会留着占端口。
@@ -169,6 +176,9 @@ cargo tauri icon assets/app-icon-source.png
 
 # 2) 准备便携运行时资源（大下载/编译，按目标架构各跑一次）
 scripts/prepare-resources.sh mac-arm64        # 或 mac-x64 / win-x64
+#   脚本开头会 `rm -rf resources/{bin,python,app}`，所以哪怕从 Windows 机器整目录拷过来、
+#   里面还躺着 2.4GB 的 win 版便携 Python 与 .exe，也会在 mac 上被换成本机架构，不会混进 .dmg。
+#   启动卡不在这一步：它在 ../panel 里，编译期进二进制，改卡片不需要重跑资源准备。
 #   可选： INSTALL_WORLD=1 装 torch（3DGS/SHARP，体积大，Mac 无 GPU）
 #         FFMPEG_BIN=<静态ffmpeg> NGINX_BIN=<自包含nginx> 提供自包含二进制
 
@@ -204,7 +214,8 @@ cd desktop
 cargo tauri dev
 ```
 - dev 不签名；子进程用系统真实路径，逻辑与 prod 一致。
-- 面板窗口即启动窗，可实时看各服务日志与状态，定位冷启动失败最方便。
+- 启动期界面只有启动卡（无日志）。要看实时日志/状态：启动失败时点卡片上的「查看详细信息」打开诊断窗口，
+  其底部「复制日志目录路径」给出的就是 `app-data/logs/`。
 
 ---
 
@@ -219,21 +230,73 @@ cargo tauri dev
   ```
 - 留空 `models: []` = 不下载（安全默认，当前仓库状态）。
 - 首启后台下载到 `app-data/models/<dest>`，**断点续传**（HTTP Range + `.part`）、**sha256 校验**、
-  进度上报面板、失败退避重试 3 次。
+  进度上报诊断窗口、失败退避重试 3 次。
 - **未决**：`url`/`sha256` 清单需对接后端既有下载源（`feature_provisioner` / `catalog`），见 §12。
 
 ---
 
-## 9. 服务状态面板 & IPC 契约
+## 9. 启动卡 / 诊断窗口 & IPC 契约
 
-命令（Rust→`#[tauri::command]`，面板 `invoke`）：`get_status`、`restart_service{id}`、
-`open_app_window`、`logs_dir_path`、`app_version`。
+两块 UI 都在 `desktop/panel/`（无构建静态页，`build.frontendDist` 直接内嵌进包），共用 `app.js`，
+用 `window.PANEL_VIEW` 区分：`index.html` = 启动卡（label `panel`），`console.html` = 诊断窗口（label `console`）。
 
-事件（Rust `emit`→面板 `listen`）：
+命令（Rust `#[tauri::command]`，Web 侧 `invoke`）：
+
+| 命令 | 用途 | 调用方 |
+|---|---|---|
+| `app_version` | 版本号（启动卡拼成 `Version x · Windows`） | 两者 |
+| `quit_app` | 无边框启动卡唯一的手动退出入口（走 `app.exit` 才会回收子进程） | panel |
+| `open_console_window` | 创建/聚焦诊断窗口 | panel |
+| `get_status` | 全服务状态快照 | console |
+| `get_boot_state` | 最后一条 `boot://progress`（窗口建得晚于事件时用它补历史） | 两者 |
+| `recent_logs{limit}` | 内存日志尾巴（上限 2000 行），同上 | console |
+| `restart_service{id}` | 单服务重启 | console |
+| `open_app_window` | 打开/聚焦主窗口 | console |
+| `splash_finished` | 启动卡自报「百分比已跑满并停留完毕」，壳收到才开主窗口、关卡 | panel |
+| `logs_dir_path` | 复制日志目录路径 | console |
+
+事件（Rust `emit`→Web 侧 `listen`）：
+- `boot://progress` `{stage,message,progress}` — 启动卡的全部数据来源：`check` / `start:<svc>` /
+  `wait:<svc>` / `ready` / `error`；`progress` 为 0~1，按服务实测耗时分段（`orchestrator.rs` 的
+  `BOOT_STAGES` + `boot_progress()`），段内随探活轮次缓动。启动卡显示的就是这条真实进度：限速连续爬、
+  单调不回退，`ready` 后补到 100%。`error` 时启动卡转琥珀色并露出「查看详细信息」。
+
+Web 侧取桥：`withGlobalTauri` 注入的全局名是 **`window.__TAURI__`**（前后各两个下划线，见
+`tauri/scripts/bundle.global.js` 末行），写成 v1 的 `__TAURI` 会拿到 `undefined`，`invoke`/`listen`
+静默退化成桩——表现就是启动卡收不到任何阶段事件。`app.js` 两个名字都读，且启动卡额外用
+`get_boot_state` 补一次历史，避免只依赖事件时序。
+
+换屏时机不靠固定 sleep：`start_all` 返回后 Rust 先 `wait_splash_finished()`（轮询 `SPLASH_DONE`，
+上限 `SPLASH_FINISH_WAIT=1.5s`，桥不通时兜底），再 `open_main_window` → `close_splash`。
+前端在 100% 原地停 0.35s 才发 `splash_finished`，所以「跑满」那一帧一定看得见，不会被主窗口盖掉。
+
+### 9.1 启动卡：macOS 与 Windows 是同一份实现
+
+不需要为 mac 再做一张卡，也不该做：`panel/` 由 `build.frontendDist` 直接编进二进制，
+mac 的 `.app/.dmg` 与 win 的 `setup.exe` 内嵌的是同一份 HTML/CSS/JS 和同一个 `main.rs`。
+`src-tauri/src/` 里带 `#[cfg(windows)]`/`#[cfg(unix)]` 的只有 `proc.rs`、`env.rs`、`logs.rs`
+三处（进程树、便携 Python 布局、日志代码页），启动卡这条链路（`boot_sequence` →
+`splash_finished` → `DARK_BG` → `BOOT_STAGES` 分段进度）零平台分支。
+
+已经按 mac 对齐过的四处细节：
+
+- 底色：`background_color` 在 mac 落到 `NSWindow` 底色（Windows 忽略 alpha 通道），同样不闪白帧。
+- 字体：`-apple-system, "PingFang SC", "Microsoft YaHei"`，mac 上落 PingFang，Windows 上落雅黑。
+- 版本行：`osLabel()` 在 mac 显示 `Version 2.2.0 · macOS`。
+- 换屏顺序：mac 与 win 一样「最后一个窗口关闭即退出」，所以必须先开主窗口再关启动卡，
+  顺序反了进程会自己把自己杀掉，服务也就跟着没了。
+
+mac 侧验收口径与 `scripts/build-windows.md` 的窗口行一致，出包后 `open` 那个 `.app`，看四件事：
+① 首帧不闪白；② 卡上只有品牌 + 版本 + 百分比 + 一行阶段文字 + `AIPDD算力平台：www.aipdd.work`，
+没有日志；③ 百分比随真实阶段爬（如 `正在启动 FastAPI 主服务 (Python)… 48%`）；
+④ 跑到 100% 并原地停约 0.35s 才出现主界面。要留证据就连拍 8s（启动卡固定 660×380 居中）：
+
+```bash
+mkdir -p /tmp/splash && for i in $(seq -w 0 79); do screencapture -x /tmp/splash/$i.png; sleep 0.1; done
+```
 - `svc://state`   单服务状态快照（含 status/pid/restarts/last_error）
-- `log://line`    `{lines:[{service,stream,line,ts}]}` 批量日志
-- `boot://progress` `{stage,message,progress}`（含 `stage:"error"` 时附排障提示）
-- `model://progress` 下载进度
+- `log://line`    `{lines:[{service,stream,line,ts}]}` 批量日志（仅诊断窗口消费）
+- `model://progress` 下载进度（仅诊断窗口消费）
 
 status 取值：`stopped/starting/ready/crashed/restarting`。
 
@@ -242,7 +305,8 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
 ## 10. 权限与安全
 
 - **Web 侧零 shell 能力**：进程编排全在 Rust 用 `std::process`，前端 JS 无法触发任何命令执行。
-- `capabilities/default.json` 仅授予窗口/事件等最小权限；不注册 shell/updater 插件。
+- `capabilities/default.json` 仅授予 `main` / `panel`（启动卡）/ `console`（诊断窗口）三个窗口的
+  窗口/事件最小权限；不注册 shell/updater 插件。
 - 资源目录只读；业务只写 `app-data`。
 - `entitlements.plist` 放开 `disable-library-validation` 等，便携 Python 才能 dlopen 第三方 `.so`。
 - 密钥/凭据只经环境或钥匙串读取，绝不入库（`gitleaks` pre-commit 兜底）。
@@ -342,10 +406,13 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
   「更多信息 → 仍要运行」；对外分发必须按 `win-sign.ps1` 两段式签名（先内嵌 PE、后安装包）。
 - **装机目录过长导致 Python 依赖找不到**：`python\Lib\site-packages` 深层路径叠加长安装目录会顶到
   260 字符上限；用短目录（如 `D:\DramaClaw`）或开启「Win32 长路径」组策略。
-- **「端口 8080/8780/3000/9001 已被占用」**：多为仍在运行的 Docker/Colima 旧栈占用，先 `docker-compose -f docker-compose.aipdd.yml down` 或关掉占用进程。面板会红条提示。
-- **某服务一直「启动中/异常」**：看面板日志（红色为 stderr）。FastAPI 首次冷启动（import 依赖）可能较慢，就绪超时 180s。
-- **日志位置**：`app-data/logs/{nginx,gateway,vectcut,api}.log` + `app-data/nginx/{access,error}.log`；面板底部「复制日志目录路径」。
-- **主窗口打不开**：服务未全就绪时主窗口不会出现，先解决面板所示失败服务；就绪后可点面板「打开主界面」。
+- **「端口 8080/8780/3000/9001 已被占用」**：多为仍在运行的 Docker/Colima 旧栈占用，先 `docker-compose -f docker-compose.aipdd.yml down` 或关掉占用进程。启动卡会转琥珀色错误态并给出该行提示。
+- **某服务一直「启动中/异常」**：启动卡在 180s 超时后报错，点「查看详细信息」进诊断窗口看该服务日志（红色为 stderr）。FastAPI 首次冷启动（import 依赖）可能较慢。
+- **日志位置**：`app-data/logs/{nginx,gateway,vectcut,api}.log` + `app-data/nginx/{access,error}.log`；诊断窗口底部「复制日志目录路径」。
+- **主窗口打不开**：服务未全就绪时主窗口不会出现，启动卡也就不会自动关闭；先按卡上提示解决失败服务，
+  或在诊断窗口点「打开主界面」/单服务「重启」。
+- **启动卡没有「×」以外的关闭方式**：它是无边框窗口，右上角「×」即整程序退出（走 `app.exit`，
+  会逆序回收已拉起的子进程，不留端口）。
 
 ---
 

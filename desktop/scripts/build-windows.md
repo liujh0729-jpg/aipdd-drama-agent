@@ -262,7 +262,7 @@ signtool verify /pa /v "…\AIPDD DramaClaw_2.1.7_x64-setup.exe"
 | 包内关键件 | `dramaclaw-desktop.exe`、`resources\python\python.exe`、`bin\{nginx,new-api,ffmpeg,ffprobe}.exe`、**`bin\chrome\chrome.exe`（4,537,856 B）**、`app\dist\index.html` 全在——§3.2 那条 `resources/bin/chrome/**/*` 在真包里验证生效 |
 | 桌面集成 | 快捷方式、开始菜单 `AIPDD` 目录、HKCU 卸载项均生成 |
 | **起服（真件）** | 启动后约 10s 内四端口全开：`:8080`→200、`:3000`→200、`:9001`→404、`:8780`→404（后两个根路径本就无路由，就绪判定走 TCP 探活；`/api/v1/config` 实测 200） |
-| 面板窗口 | WebView2 正常渲染，窗口标题 `AIPDD DramaClaw` / `AIPDD DramaClaw · 服务状态` |
+| 窗口 | WebView2 正常渲染：启动卡（标题 `AIPDD DramaClaw`，无边框 660×380，只有品牌+版本+百分比+阶段文字+`AIPDD算力平台：www.aipdd.work`，窗口底色与页面一致不闪白）→ 百分比按真实阶段进度爬，就绪后自动开主窗口并关掉启动卡；诊断窗口（标题 `AIPDD DramaClaw · 服务状态`）仅在启动失败、点「查看详细信息」时出现 |
 | 强杀桌面壳（`Stop-Process -Force`，等价崩溃） | 安装目录派生进程 **0 残留**，8080/3000/9001/8780 全部释放；宿主上另一套宝塔 nginx 的 21 个进程**没被误杀** |
 | 卸载 `uninstall.exe /S` | 退出码 0，9s。快捷方式/开始菜单/HKCU 项全部移除，app-data 按设计保留（§7） |
 | **卸载残骸** | 只剩 **1 个文件**：`resources\app\services\vectcut\config.json`（VectCut 首启往自己包里写配置，见 §7）。上一轮的 4 057 个 `__pycache__` 残骸已归零——`PYTHONPYCACHEPREFIX` 生效后运行期 4 736 个 `.pyc` 全落在 `app-data\pycache` |

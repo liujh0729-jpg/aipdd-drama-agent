@@ -25,6 +25,8 @@ use crate::{probe, proc};
 const START_TIMEOUT: Duration = Duration::from_secs(180);
 /// 崩溃自愈的最大连续重启次数，超过则放弃并置 Crashed，等待人工在面板点“重启”。
 const MAX_RESTARTS: u32 = 5;
+/// 内存日志尾巴的容量上限，与面板侧缓冲同量级（约 2000 行 ≈ 几百 KB）。
+const LOG_TAIL_MAX: usize = 2000;
 
 // 事件名（状态面板监听这些）。
 pub const EVT_STATE: &str = "svc://state";
@@ -43,6 +45,11 @@ struct Supervisor {
     services: HashMap<ServiceId, Managed>,
     shutting_down: bool,
     booted: bool,
+    /// 最近若干行日志的内存尾巴。诊断窗口是按需才创建的，事件在那之前就流过去了，
+    /// 没有这份缓冲的话「查看详细信息」打开时会是空白。
+    log_tail: Vec<LogLine>,
+    /// 最后一条启动阶段事件，同样供后创建的诊断窗口回看（进度/失败原因 + 排错提示）。
+    last_boot: Option<BootEvent>,
 }
 
 /// Tauri 托管状态。命令（面板/主窗口）通过它驱动编排。
@@ -60,6 +67,8 @@ impl Orchestrator {
             services: HashMap::new(),
             shutting_down: false,
             booted: false,
+            log_tail: Vec::new(),
+            last_boot: None,
         }));
         let orc = Arc::new(Self {
             app: app.clone(),
@@ -81,6 +90,9 @@ impl Orchestrator {
 
     /// 串行启动全套服务。全部非可选服务就绪返回 Ok；否则带结构化错误返回。
     pub fn start_all(&self) -> Result<()> {
+        // 0) 给启动卡一个起点，别让窗口空着像卡死。
+        self.emit_boot("check", "正在检查运行环境与端口…", 0.02);
+
         // 1) 环境自检：内置二进制齐全。
         let missing = crate::env::missing_required_bins(&self.paths);
         if !missing.is_empty() {
@@ -93,19 +105,20 @@ impl Orchestrator {
                 return Err(DesktopError::PortOccupied(spec.port));
             }
         }
+        self.emit_boot("check", "环境自检通过，正在启动本地服务…", 0.08);
 
         let ordered = ordered_specs();
-        for (idx, spec) in ordered.iter().enumerate() {
+        for spec in &ordered {
             self.emit_boot(
                 &format!("start:{}", spec.id.as_str()),
                 format!("正在启动 {}…", spec.id.display()),
-                idx as f32 / ordered.len() as f32,
+                boot_window(spec.id).0,
             );
             match self.start_one(spec) {
                 Ok(()) => {}
                 Err(e) => {
                     if spec.optional {
-                        // 可选服务失败：记录但不阻断，面板标红可手动重试。
+                        // 可选服务失败：记录但不阻断，诊断窗口标红可手动重试。
                         self.note_optional_failure(spec.id, &e);
                         continue;
                     }
@@ -115,7 +128,7 @@ impl Orchestrator {
         }
 
         self.shared.lock().unwrap().booted = true;
-        self.emit_boot("ready", "全部服务已就绪".into(), 1.0);
+        self.emit_boot("ready", "全部服务已就绪", 1.0);
         Ok(())
     }
 
@@ -141,7 +154,15 @@ impl Orchestrator {
         }
         self.emit_state_of(spec.id);
 
-        if probe::wait_port_open(spec.port, START_TIMEOUT) {
+        if probe::wait_port_open_cb(spec.port, START_TIMEOUT, &mut |elapsed| {
+            // 探活期间按「已耗时 / 该服务期望耗时」渐近推进：端口要等几秒才开的服务
+            // （api 冷启动要 import 整套 Python 依赖）不能让百分比整段僵住。
+            self.emit_boot(
+                &format!("wait:{}", spec.id.as_str()),
+                format!("正在启动 {}…", spec.id.display()),
+                boot_progress(spec.id, elapsed.as_secs_f32()),
+            );
+        }) {
             if let Some(m) = self.shared.lock().unwrap().services.get_mut(&spec.id) {
                 m.status = ServiceStatus::Ready;
             }
@@ -313,6 +334,23 @@ impl Orchestrator {
             .collect()
     }
 
+    /// 最近 `limit` 行日志（时间升序）。诊断窗口打开时用它补齐此前错过的实时事件。
+    pub fn recent_logs(&self, limit: usize) -> Vec<LogLine> {
+        let sup = self.shared.lock().unwrap();
+        let n = sup.log_tail.len().min(limit);
+        sup.log_tail[sup.log_tail.len() - n..].to_vec()
+    }
+
+    /// 最后一条启动阶段事件（进度或失败原因）；还没发过事件时为 None。
+    pub fn last_boot(&self) -> Option<BootEvent> {
+        self.shared.lock().unwrap().last_boot.clone()
+    }
+
+    /// 启动失败：以 boot 事件的形式报给界面（启动卡转错误态），同时留档给诊断窗口。
+    pub fn report_boot_error(&self, message: &str) {
+        self.emit_boot("error", message, 0.0);
+    }
+
     /// 是否已完成整套启动（预留：面板/主窗口可据此 gating；当前无调用方）。
     #[allow(dead_code)]
     pub fn is_booted(&self) -> bool {
@@ -346,11 +384,11 @@ impl Orchestrator {
         }
     }
 
-    fn emit_boot(&self, stage: &str, message: String, progress: f32) {
-        let _ = self.app.emit(
-            EVT_BOOT,
-            BootEvent { stage: stage.into(), message, progress },
-        );
+    fn emit_boot(&self, stage: &str, message: impl Into<String>, progress: f32) {
+        let ev = BootEvent { stage: stage.into(), message: message.into(), progress };
+        // 留一份：诊断窗口是失败后才创建的，实时事件那一刻它还不存在。
+        self.shared.lock().unwrap().last_boot = Some(ev.clone());
+        let _ = self.app.emit(EVT_BOOT, ev);
     }
 
     fn note_optional_failure(&self, id: ServiceId, err: &DesktopError) {
@@ -405,6 +443,98 @@ fn ordered_specs() -> Vec<ServiceSpec> {
     v
 }
 
+/// 自检阶段的进度上限（还没开始起服务时也该让条动一下）。
+const BOOT_CHECK_TOP: f32 = 0.08;
+
+/// 启动卡进度分段：`(服务, 区间上限, 暖启动实测期望耗时秒)`。
+/// 权重按「到这里应该完成什么」给；段内进度按 `已耗时 / 期望耗时` 渐近推进——
+/// 服务提前就绪时百分比已经爬到接近上限，而不是整段卡在 45% 等超时再跳 100%。
+const BOOT_STAGES: [(ServiceId, f32, f32); 4] = [
+    (ServiceId::Nginx, 0.14, 0.4),
+    (ServiceId::Gateway, 0.30, 1.5),
+    (ServiceId::Vectcut, 0.40, 2.5),
+    (ServiceId::Api, 0.97, 10.0),
+];
+
+/// 段内渐近系数：耗时=期望值时爬到该区间的 ~70%，2 倍期望时 ~91%，永远不越界。
+const BOOT_EASE_K: f32 = 2.2;
+
+/// 某个服务的进度区间 `(起点, 终点)`。
+fn boot_window(id: ServiceId) -> (f32, f32) {
+    let i = BOOT_STAGES
+        .iter()
+        .position(|(s, _, _)| *s == id)
+        .unwrap_or(0);
+    let prev_top = if i == 0 { BOOT_CHECK_TOP } else { BOOT_STAGES[i - 1].1 };
+    (prev_top, BOOT_STAGES[i].1)
+}
+
+/// 某个服务的期望耗时；未登记的服务给一个中庸值。
+fn boot_expectation(id: ServiceId) -> f32 {
+    BOOT_STAGES
+        .iter()
+        .find(|(s, _, _)| *s == id)
+        .map(|(_, _, e)| *e)
+        .unwrap_or(5.0)
+}
+
+/// 已等待 `elapsed` 秒后的绝对进度，钉在区间内。
+fn boot_progress(id: ServiceId, elapsed: f32) -> f32 {
+    let win = boot_window(id);
+    let ratio = (elapsed / boot_expectation(id)).max(0.0);
+    let eased = (1.0 - (-BOOT_EASE_K * ratio).exp()).clamp(0.0, 1.0);
+    (win.0 + (win.1 - win.0) * eased).clamp(0.0, 1.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn boot_windows_are_ordered_and_bounded() {
+        let nginx = boot_window(ServiceId::Nginx);
+        let gateway = boot_window(ServiceId::Gateway);
+        let vectcut = boot_window(ServiceId::Vectcut);
+        let api = boot_window(ServiceId::Api);
+        // 区间首尾相接、单调递增、终点给 ready 留位置。
+        assert_eq!(nginx.0, BOOT_CHECK_TOP);
+        assert_eq!(nginx.1, gateway.0);
+        assert_eq!(gateway.1, vectcut.0);
+        assert_eq!(vectcut.1, api.0);
+        assert!(api.1 < 1.0);
+        // 最慢的那段（api 冷启动）应占最大权重。
+        assert!(api.1 - api.0 > gateway.1 - gateway.0);
+    }
+
+    #[test]
+    fn boot_progress_rather_than_stalls_before_the_timeout() {
+        // 旧模型按「离 180s 超时多久」算，服务 2s 就就绪时百分比只爬到区间底。
+        // 新模型按各服务期望耗时爬：耗时=1×期望就该走完区间的六成以上。
+        for sid in [
+            ServiceId::Nginx,
+            ServiceId::Gateway,
+            ServiceId::Vectcut,
+            ServiceId::Api,
+        ] {
+            let win = boot_window(sid);
+            let exp = boot_expectation(sid);
+            assert_eq!(boot_progress(sid, 0.0), win.0);
+            let at_expect = boot_progress(sid, exp);
+            assert!(
+                at_expect > win.0 + (win.1 - win.0) * 0.6,
+                "{:?} 在期望耗时时进度过慢：{}（区间 {:?}）",
+                sid,
+                at_expect,
+                win
+            );
+            // 单调、不越界、负数不往回拉。
+            assert!(boot_progress(sid, exp * 3.0) < win.1);
+            assert!(boot_progress(sid, exp * 3.0) > boot_progress(sid, exp));
+            assert!(boot_progress(sid, -5.0) >= win.0);
+        }
+    }
+}
+
 fn exe(name: &str) -> String {
     if cfg!(windows) {
         format!("{name}.exe")
@@ -450,6 +580,15 @@ fn monitor_loop(orc: Arc<Orchestrator>, log_rx: Receiver<LogLine>) {
             }
         }
         if !batch.is_empty() {
+            {
+                // 先入内存尾巴（诊断窗口按需创建，事件不会回放），再广播。
+                let mut sup = orc.shared.lock().unwrap();
+                let over = sup.log_tail.len() + batch.len();
+                sup.log_tail.extend(batch.iter().cloned());
+                if over > LOG_TAIL_MAX {
+                    sup.log_tail.drain(0..over - LOG_TAIL_MAX);
+                }
+            }
             let _ = orc.app.emit(EVT_LOG, LogBatch { lines: batch });
         }
 

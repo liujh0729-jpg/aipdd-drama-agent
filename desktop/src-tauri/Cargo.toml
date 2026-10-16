@@ -1,6 +1,6 @@
 [package]
 name = "dramaclaw-desktop"
-version = "2.1.9"
+version = "2.2.0"
 description = "AIPDD DramaClaw 桌面壳（Tauri v2）—— 多进程后端编排器"
 authors = ["ClaymoreLab"]
 license = "Elastic-2.0"
