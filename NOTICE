@@ -44,7 +44,7 @@ CE source releases and Docker images must not bundle Apple model weights.
 FaceSwap Live (换脸直播)
 The optional face-swap live feature ships a self-developed local sidecar engine
 under services/faceswap (Elastic License 2.0). It uses only permissively-licensed
-libraries (insightface Apache-2.0, onnxruntime MIT, opencv Apache-2.0, pyvirtualcam
+libraries (insightface MIT, onnxruntime MIT, opencv Apache-2.0, pyvirtualcam
 MIT, fastapi/uvicorn MIT), installed at runtime into a SEPARATE venv under
 <STATE_DIR>/faceswap/venv that is NOT part of this repository's dependency tree
 (pyproject/uv.lock) and is NOT distributed in CE source or Docker images. The

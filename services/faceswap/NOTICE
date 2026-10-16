@@ -9,7 +9,9 @@ AGPL isolation (important)
   This engine is a clean, self-contained reimplementation of the "face-swap over
   a live camera → virtual camera" data flow. It uses only permissively-licensed
   libraries:
-    - insightface  (Apache-2.0)  -> face detection/alignment + INSwapper swap
+    - insightface  (MIT)         -> face detection/alignment + INSwapper swap
+      (upstream states the Python library code is MIT; pinned to 1.0.1 because the
+       0.7.x line ships no wheel and must be compiled on the user's machine)
     - onnxruntime  (MIT)
     - opencv-python (Apache-2.0) -> camera capture / frame handling
     - pyvirtualcam (MIT)         -> virtual camera output

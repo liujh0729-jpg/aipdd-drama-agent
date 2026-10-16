@@ -13,7 +13,7 @@ DramaClaw「换脸直播」功能的**本机引擎**。这是一个**独立进�
 ## 重要：许可与来源声明（AGPL 隔离）
 
 - 本引擎为 **自研实现**，许可证 **Elastic-2.0**（与主项目一致），仅使用**宽松许可**依赖：
-  insightface（Apache-2.0）、onnxruntime（MIT）、opencv（Apache-2.0）、pyvirtualcam（MIT）、
+  insightface（MIT）、onnxruntime（MIT）、opencv（Apache-2.0）、pyvirtualcam（MIT）、
   fastapi/uvicorn（MIT）。换脸算法即 insightface 官方 `model_zoo.INSwapper.get()` 的调用。
 - **不引用、不链接、不复制** 上游 [Deep-Live-Cam](https://github.com/hacksider/Deep-Live-Cam)
   的 **AGPL-3.0** 源码。上游项目仅作**行为参考**（数据流与参数语义），其代码不进本仓、不进本引擎。
@@ -42,7 +42,8 @@ Docker Web 容器无宿主摄像头、注册不了 vcam，此能力在该形态�
 python -m venv <STATE_DIR>/faceswap/venv
 <STATE_DIR>/faceswap/venv/bin/pip install -r services/faceswap/requirements.txt
 
-# 模型先落到 <STATE_DIR>/faceswap/models（inswapper + buffalo_l），由主后端下载或手动放置
+# 模型先落到 <STATE_DIR>/faceswap/models：inswapper_128_fp16.onnx 在根，buffalo_l 检测包必须
+# 落在 <models>/models/buffalo_l（边车把 --models 目录当 insightface 的 root，它只认这一层）
 <STATE_DIR>/faceswap/venv/bin/python services/faceswap/server.py \
     --port 18899 --models <STATE_DIR>/faceswap/models \
     [--camera 0] [--width 1280 --height 720 --fps 30] \

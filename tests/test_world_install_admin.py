@@ -270,6 +270,32 @@ def test_start_install_failure_marks_failed(wdir, monkeypatch):
     assert world_install.load_settings()["install_state"] == world_install.STATE_FAILED
 
 
+def test_start_install_falls_back_to_official_pypi(wdir, monkeypatch):
+    """镜像源装失败 → 必须摘掉镜像直连官方 PyPI 再跑一趟（清华源对 uv 整站 403）。"""
+    calls: list = []
+
+    class _FlakyPopen:
+        def __init__(self, *args, **kwargs):
+            cmd = list(args[0]) if args else []
+            calls.append(cmd)
+            self.stdout = iter(["Resolved 120 packages\n", "Installed 90 packages\n"])
+
+        def wait(self) -> int:
+            return 1 if len(calls) == 1 else 0
+
+    monkeypatch.setattr(world_install.subprocess, "Popen", _FlakyPopen)
+    monkeypatch.setattr(world_install, "is_installed", lambda: True)
+    monkeypatch.setattr(world_install, "_INSTALL_THREAD", None)
+
+    world_install.start_install()
+    world_install._INSTALL_THREAD.join(timeout=10)
+
+    assert len(calls) == 2
+    assert "--default-index" in " ".join(calls[0])  # 第一趟带镜像
+    assert "--default-index" not in " ".join(calls[1])  # 兜底这趟必须甩开镜像
+    assert world_install.load_settings()["install_state"] == world_install.STATE_READY
+
+
 # --------------------------------------------------------------- 权限门
 
 

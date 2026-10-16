@@ -27,9 +27,21 @@ out on the Settings page and in the tool panel, with status viewing only.
 
 ## Per-platform virtual-camera prerequisites
 
-The engine writes to a system virtual camera via `pyvirtualcam`; that device must exist first:
+The settings page probes the virtual camera automatically; when it is missing the panel says so
+and keeps "Start" disabled.
 
-| Platform | Prerequisite |
+## Desktop installer form
+
+- The installer **bundles the sidecar engine itself** (`resources/app/services/faceswap/`:
+  `server.py` + `requirements.txt`) **and a copy of `uv`** (`resources/bin/uv.exe` / `bin/uv`) —
+  "Download & deploy" uses that uv to build an isolated venv inside your **state directory**, so
+  you do **not** have to install uv or Python yourself.
+- Dependencies and model weights still **stay out of the package**: they are downloaded at runtime
+  into `<state dir>/faceswap/{venv,models}` (see the next section).
+- Network egress is required (PyPI + HuggingFace mirror); on restricted networks set an alternate
+  pip index / HF endpoint / proxy in the settings card.
+- Windows desktop builds ship unsigned, so the first install shows one SmartScreen "More info →
+  Run anyway" prompt.
 |---|---|
 | **Windows** | Install OBS Studio (ships the "OBS Virtual Camera" driver) |
 | **macOS** | Install OBS Studio (provides the `obs-mac-virtualcam` device) |
@@ -46,10 +58,13 @@ the installer**; like the 3D world, they are downloaded on demand:
 1. Open **Settings → Environment → Face Swap Live**.
 2. (Optional) Configure download sources: pip index / HuggingFace endpoint (default `hf-mirror`) / proxy.
 3. Toggle **Enable**, then click **Download & Deploy** — in the background it installs permissive
-   dependencies (insightface / onnxruntime / opencv / pyvirtualcam / fastapi) into an **isolated
-   venv** (`<state dir>/faceswap/venv`) and downloads the swap models (`inswapper_128_fp16` + the
-   `buffalo_l` detection pack) from HuggingFace into `faceswap/models`. Progress and the log tail
+   dependencies (insightface 1.0.1 / onnxruntime / opencv / pyvirtualcam / fastapi) into an **isolated
+   venv** (`<state dir>/faceswap/venv`) and downloads the swap models from HuggingFace:
+   `inswapper_128_fp16.onnx` lands in `faceswap/models`, the `buffalo_l` detection pack in
+   `faceswap/models/models/buffalo_l` (the layout insightface reads). Progress and the log tail
    appear in the card; **Re-deploy** and **Uninstall** (drop the venv + models to free disk) are supported.
+   The pip index is only a primary source — **a failed install automatically retries against the
+   official PyPI** (Tsinghua's mirror answers uv with a site-wide 403, which otherwise installs nothing).
 4. The page shows a hardware-probed recommended execution provider (CPU / CoreML / CUDA).
 
 ## 2. Operate the Tools → Face Swap Live panel
@@ -73,7 +88,7 @@ held exclusively by the local engine (expected behavior).
 ## License & compliance (read this)
 
 - The local sidecar engine is DramaClaw-**authored**, licensed **Elastic-2.0**, and uses only
-  permissively-licensed dependencies (insightface=Apache-2.0, onnxruntime=MIT, opencv=Apache-2.0,
+  permissively-licensed dependencies (insightface=MIT, onnxruntime=MIT, opencv=Apache-2.0,
   pyvirtualcam=MIT, fastapi/uvicorn=MIT).
 - The upstream [Deep-Live-Cam](https://github.com/hacksider/Deep-Live-Cam) project is **AGPL-3.0**.
   This project does **not link, vendor, or copy** any of its source — it served only as behavioral
@@ -93,5 +108,7 @@ held exclusively by the local engine (expected behavior).
 - **Virtual camera unavailable**: install the OBS virtual camera / `v4l2loopback` per the table and
   retry; the Settings probe will update.
 - **Low FPS**: CPU inference is slow — prefer GPU (CoreML / CUDA) and lower the detection size (e.g. 128/160).
-- **Dependency / model download failed**: network egress is required; offline environments surface
-  the failure reason in the status card (same constraint as the 3D world).
+- **Dependency / model download failed**: network egress is required. A failing pip mirror is already
+  retried against the official PyPI, so an error means both attempts failed — switch the pip index,
+  set a proxy, or clear it entirely; for models, point the HF endpoint at `https://huggingface.co`
+  if `hf-mirror` is unreachable (same constraint as the 3D world).

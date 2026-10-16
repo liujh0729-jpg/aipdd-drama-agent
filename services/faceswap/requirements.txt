@@ -4,7 +4,8 @@
 # 实际「下载并部署」由主后端用 uv pip install 装进独立 venv，不进主 pyproject/uv.lock。
 numpy>=2.0,<3
 opencv-python
-insightface==0.7.3
+# 必须是 1.0 以上：0.7.3 在 PyPI 只有 sdist，装它要在用户机上现编 Cython 扩展（要 MSVC）。
+insightface==1.0.1
 onnx
 pillow
 tqdm

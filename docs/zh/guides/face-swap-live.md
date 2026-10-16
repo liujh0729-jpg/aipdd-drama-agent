@@ -34,6 +34,15 @@
 
 设置页会自动探测虚拟摄像头是否可用；不可用时给出提示且「启动」按钮禁用。
 
+## 桌面安装包形态
+
+- 安装包**内置边车引擎本体**（`resources/app/services/faceswap/`：`server.py` + `requirements.txt`）
+  与**一份 `uv`**（`resources/bin/uv.exe` / `bin/uv`）——「下载并部署」就是用它在你机器的
+  **状态目录**里建独立 venv 并装依赖，所以**不需要**你另外安装 uv 或 python。
+- 依赖与模型仍然**不进安装包**：运行时才下载到 `<状态目录>/faceswap/{venv,models}`（见下一节）。
+- 需要能出网（PyPI + HuggingFace 镜像）；公司网络受限可在设置页改 pip 镜像 / HF 端点 / 代理。
+- Windows 桌面版发布前未做代码签名，首次安装会有一次 SmartScreen「仍要运行」提示。
+
 ## 一、在「设置 → 环境安装」部署引擎（仿 3D 世界的自助下载）
 
 换脸引擎依赖与模型**不进主依赖、不进安装包**，与 3D 世界一样按需自助下载：
@@ -41,9 +50,12 @@
 1. 打开 **设置 → 环境安装 → 换脸直播**。
 2. （可选）配置下载源：pip 镜像 / HuggingFace 端点（默认 `hf-mirror`）/ 代理。
 3. 打开「启用」开关，点「下载并部署」——后台会在**独立 venv**（`<状态目录>/faceswap/venv`）
-   安装宽松许可依赖（insightface / onnxruntime / opencv / pyvirtualcam / fastapi），并从
-   HuggingFace 下载换脸模型（`inswapper_128_fp16` + `buffalo_l` 检测包）到 `faceswap/models`。
+   安装宽松许可依赖（insightface 1.0.1 / onnxruntime / opencv / pyvirtualcam / fastapi），并从
+   HuggingFace 下载换脸模型：`inswapper_128_fp16.onnx` 落在 `faceswap/models`，`buffalo_l`
+   检测包按其识别布局落在 `faceswap/models/models/buffalo_l`。
    进度与日志尾部在该卡片内展示；支持「重新部署」与「卸载」（删 venv + 模型省磁盘）。
+   pip 镜像只做主索引，**装不上会自动改连官方 PyPI 重试**（清华源对 uv 会整站 403，
+   只认镜像时一颗都装不上），无需你手动换源。
 4. 页面会显示硬件探测建议的执行后端（CPU / CoreML / CUDA）。
 
 ## 二、在「工具 → 换脸直播」控制面板操作
@@ -64,7 +76,7 @@
 ## 许可与合规（务必阅读）
 
 - 本机边车引擎为 DramaClaw **自研**，许可证 **Elastic-2.0**，仅使用宽松许可依赖
-  （insightface=Apache-2.0、onnxruntime=MIT、opencv=Apache-2.0、pyvirtualcam=MIT、
+  （insightface=MIT、onnxruntime=MIT、opencv=Apache-2.0、pyvirtualcam=MIT、
   fastapi/uvicorn=MIT）。
 - 上游 [Deep-Live-Cam](https://github.com/hacksider/Deep-Live-Cam) 为 **AGPL-3.0**，本项目
   **不链接、不内嵌、不复制** 其任何源码，仅作行为参考；主后端只经 **127.0.0.1 HTTP** 控制边车、
@@ -80,4 +92,6 @@
 - **打不开摄像头**：设备可能被其它程序占用或权限不足；关闭占用程序，或在系统隐私设置里授权。
 - **虚拟摄像头不可用**：按上表装好 OBS 虚拟摄像头 / `v4l2loopback` 后重试；设置页的探测结果会更新。
 - **帧率低**：CPU 推理较慢，优先选 GPU（CoreML / CUDA），并把检测尺寸调小（如 128/160）。
-- **装依赖 / 下模型失败**：需可出网；离线环境状态卡片会给出失败原因（与 3D 世界同源约束）。
+- **装依赖 / 下模型失败**：需可出网；镜像源失败会自动回退官方 PyPI 再试一次，两趟都失败才报错，
+  此时可在下载源里换镜像、填代理，或清空 pip 镜像。模型侧默认走 `hf-mirror`，不可达就在下载源
+  里把 HF 端点改成 `https://huggingface.co`（与 3D 世界同源约束）。

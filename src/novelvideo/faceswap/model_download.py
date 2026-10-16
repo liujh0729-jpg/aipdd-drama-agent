@@ -27,13 +27,17 @@ HF_MIRROR_RESOLVE_PATH = f"https://hf-mirror.com/{HF_REPO_ID}/resolve/main/"
 
 # 换脸直播所需的最小模型集：inswapper 换脸核 + buffalo_l 人脸检测/对齐包（5 个 onnx）。
 # 增强器（gfpgan / GPEN）可选，默认不强制下载，用户开启增强时再取。
+#
+# 这里的名字是**落盘相对路径**，不是仓库路径：边车用
+# ``FaceAnalysis(root=<models_dir>)`` 加载，insightface 只认 ``<root>/models/<pack>/*.onnx``
+# 这一层布局。原先直接落到 ``<models_dir>/buffalo_l`` 时它找不到，会静默地去 GitHub 再下一份。
 REQUIRED_MODELS: tuple[str, ...] = (
     "inswapper_128_fp16.onnx",
-    "buffalo_l/1k3d68.onnx",
-    "buffalo_l/2d106det.onnx",
-    "buffalo_l/det_10g.onnx",
-    "buffalo_l/genderage.onnx",
-    "buffalo_l/w600k_r50.onnx",
+    "models/buffalo_l/1k3d68.onnx",
+    "models/buffalo_l/2d106det.onnx",
+    "models/buffalo_l/det_10g.onnx",
+    "models/buffalo_l/genderage.onnx",
+    "models/buffalo_l/w600k_r50.onnx",
 )
 
 OPTIONAL_MODELS: tuple[str, ...] = (
@@ -42,17 +46,23 @@ OPTIONAL_MODELS: tuple[str, ...] = (
     "GPEN-BFR-512.onnx",
 )
 
+# 上游 hacksider/deep-live-cam 仓库里 buffalo_l 套了两层同名目录
+# （``buffalo_l/buffalo_l/*.onnx``），照落盘名直取会 404。
+_LOCAL_TO_REPO_PREFIX: dict[str, str] = {
+    "models/buffalo_l/": "buffalo_l/buffalo_l/",
+}
+
 MODEL_SIZES: dict[str, int] = {
     "inswapper_128.onnx": 554253681,
     "inswapper_128_fp16.onnx": 277680638,
     "gfpgan-1024.onnx": 365875079,
     "GPEN-BFR-256.onnx": 75715262,
     "GPEN-BFR-512.onnx": 284244491,
-    "buffalo_l/1k3d68.onnx": 143607619,
-    "buffalo_l/2d106det.onnx": 5030888,
-    "buffalo_l/det_10g.onnx": 16923827,
-    "buffalo_l/genderage.onnx": 1322532,
-    "buffalo_l/w600k_r50.onnx": 174383860,
+    "models/buffalo_l/1k3d68.onnx": 143607619,
+    "models/buffalo_l/2d106det.onnx": 5030888,
+    "models/buffalo_l/det_10g.onnx": 16923827,
+    "models/buffalo_l/genderage.onnx": 1322532,
+    "models/buffalo_l/w600k_r50.onnx": 174383860,
 }
 
 _CHUNK = 1024 * 256
@@ -79,9 +89,18 @@ def _ssl_context() -> ssl.SSLContext:
         return ssl.create_default_context()
 
 
+def remote_path(name: str) -> str:
+    """落盘相对名 → 上游仓库内的路径（buffalo_l 在仓库里多套了一层同名目录）。"""
+    rel = name.replace(os.sep, "/").lstrip("/")
+    for local_prefix, repo_prefix in _LOCAL_TO_REPO_PREFIX.items():
+        if rel.startswith(local_prefix):
+            return repo_prefix + rel[len(local_prefix) :]
+    return rel
+
+
 def resolve_url(name: str, hf_endpoint: Optional[str] = None) -> str:
     """按（可覆盖的）HF 端点拼下载地址；默认走 hf-mirror 以适配国内可达。"""
-    rel = name.replace(os.sep, "/")
+    rel = remote_path(name)
     endpoint = (hf_endpoint or "").strip().rstrip("/")
     if endpoint:
         if endpoint.endswith(".com") and "hf-mirror" in endpoint:

@@ -4,7 +4,7 @@
 """[aipdd fork delta] 换脸直播边车引擎（独立进程 / 独立 venv / 仅本机控制）。
 
 这是 DramaClaw「换脸直播」的本机引擎：**自研**实现，用宽松许可的库
-（insightface=Apache-2.0、onnxruntime=MIT、opencv、pyvirtualcam=MIT、fastapi/uvicorn=MIT）
+（insightface=MIT、onnxruntime=MIT、opencv、pyvirtualcam=MIT、fastapi/uvicorn=MIT）
 直接完成 摄像头抓帧 → inswapper 换脸 → 写系统虚拟摄像头，**不引用上游 Deep-Live-Cam 的
 AGPL 源码**（算法即 insightface 官方 `model_zoo.INSwapper.get()` 调用）。
 

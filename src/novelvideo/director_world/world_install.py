@@ -325,6 +325,8 @@ def _build_child_env(sources: dict[str, str]) -> dict[str, str]:
 def _build_uv_command(
     sources: dict[str, str],
     profile: dict[str, Any] | None = None,
+    *,
+    index_url: str | None = None,
 ) -> list[str]:
     # 目标 venv 靠子进程 env 里的 UV_PROJECT_ENVIRONMENT 指定（见 _run_install），
     # 不能把 --python 指向尚未创建的 venv/bin/python（uv 会报 No interpreter found）。
@@ -346,13 +348,42 @@ def _build_uv_command(
         "--python",
         sys.executable,
     ]
-    pip_index = (sources.get("pip_index_url") or "").strip()
+    if index_url is None:
+        pip_index = (sources.get("pip_index_url") or "").strip()
+    else:
+        pip_index = index_url.strip()
     if pip_index:
         cmd += ["--default-index", pip_index]
     torch_index = resolve_torch_index(sources, profile)
     if torch_index:
         cmd += ["--index", torch_index]
     return cmd
+
+
+def _stream_uv_sync(cmd: list[str], env: dict[str, str], logf) -> int:
+    proc = subprocess.Popen(
+        cmd,
+        cwd=_project_root(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env,
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        logf.write(line)
+        logf.flush()
+        low = line.lower()
+        if "resolved" in low:
+            _set_progress(0.1, "解析依赖…")
+        elif "downloading" in low or "fetch" in low:
+            _set_progress(0.45, "下载依赖（torch/sharp/da2，体积大）…")
+        elif "built" in low or "building" in low:
+            _set_progress(0.75, "构建源码包…")
+        elif "installed" in low or "prepared" in low:
+            _set_progress(0.92, "写入环境…")
+    return proc.wait()
 
 
 def _project_root() -> str:
@@ -457,31 +488,16 @@ def _run_install() -> None:
         cmd = _build_uv_command(sources, profile)
         with _LOCK:
             logf = install_log_path().open("w", encoding="utf-8")
-        proc = subprocess.Popen(
-            cmd,
-            cwd=_project_root(),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env=env,
-            bufsize=1,
-        )
-        tail = ""
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            logf.write(line)
+        rc = _stream_uv_sync(cmd, env, logf)
+        if rc != 0 and (sources.get("pip_index_url") or "").strip():
+            # 镜像整站拒绝/不可达（清华源对 uv 就 403）时，摘掉镜像直连官方 PyPI 再跑一趟，
+            # 而不是把用户卡在「自己去换镜像」。
+            _set_progress(0.05, "下载源安装失败，改连官方 PyPI 重试…")
+            logf.write("\n[aipdd] 镜像源失败，回退官方 PyPI 重试\n")
             logf.flush()
-            tail = (tail + line)[-2000:]
-            low = line.lower()
-            if "resolved" in low:
-                _set_progress(0.1, "解析依赖…")
-            elif "downloading" in low or "fetch" in low:
-                _set_progress(0.45, "下载依赖（torch/sharp/da2，体积大）…")
-            elif "built" in low or "building" in low:
-                _set_progress(0.75, "构建源码包…")
-            elif "installed" in low or "prepared" in low:
-                _set_progress(0.92, "写入环境…")
-        rc = proc.wait()
+            rc = _stream_uv_sync(
+                _build_uv_command(sources, profile, index_url=""), env, logf
+            )
         logf.close()
         if rc == 0 and is_installed():
             save_settings(
@@ -497,7 +513,10 @@ def _run_install() -> None:
                 {
                     "install_state": STATE_FAILED,
                     "install_progress": 0.0,
-                    "install_message": f"安装失败（退出码 {rc}）。多为网络/镜像源问题，可在下载源里换镜像或填代理后重试。",
+                    "install_message": (
+                        f"安装失败（退出码 {rc}）。镜像源与官方 PyPI 都没装上，多为网络/代理问题："
+                        "可在下载源里换镜像、填代理，或清空 pip 镜像后重试。"
+                    ),
                 }
             )
     except Exception as exc:  # noqa: BLE001

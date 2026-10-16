@@ -37,9 +37,28 @@ def test_resolve_url_defaults_to_mirror():
 
 def test_resolve_url_honors_huggingface_endpoint():
     url = model_download.resolve_url(
-        "buffalo_l/det_10g.onnx", hf_endpoint="https://huggingface.co"
+        "models/buffalo_l/det_10g.onnx", hf_endpoint="https://huggingface.co"
     )
     assert "huggingface.co/hacksider/deep-live-cam/resolve/main/" in url
+
+
+def test_buffalo_l_repo_path_is_double_nested():
+    # 回归：上游仓库里 buffalo_l 套了两层（buffalo_l/buffalo_l/*.onnx），照落盘名直取会 404，
+    # 「下载并部署」会在第一个检测模型上失败。
+    assert (
+        model_download.remote_path("models/buffalo_l/det_10g.onnx")
+        == "buffalo_l/buffalo_l/det_10g.onnx"
+    )
+    url = model_download.resolve_url("models/buffalo_l/1k3d68.onnx")
+    assert url.endswith("/buffalo_l/buffalo_l/1k3d68.onnx")
+    # 边车传 root=<models_dir>，insightface 只认 <root>/models/<pack>，落错一层它就自己重下。
+    assert model_download.local_path("models/buffalo_l/1k3d68.onnx", "/m").replace(
+        "\\", "/"
+    ).endswith("/m/models/buffalo_l/1k3d68.onnx")
+    for name in model_download.REQUIRED_MODELS:
+        if "buffalo_l" in name:
+            assert name.replace("\\", "/").startswith("models/buffalo_l/")
+        assert model_download.expected_size(name)
 
 
 def test_expected_size_known_and_unknown():
@@ -49,7 +68,7 @@ def test_expected_size_known_and_unknown():
 
 def test_is_present_size_gate(tmp_path):
     md = str(tmp_path)
-    name = "buffalo_l/det_10g.onnx"
+    name = "models/buffalo_l/det_10g.onnx"
     os.makedirs(os.path.dirname(model_download.local_path(name, md)), exist_ok=True)
     path = model_download.local_path(name, md)
     # 空文件 → 未就绪

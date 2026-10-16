@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import sys
 import threading
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -106,6 +107,8 @@ def test_build_pip_install_command_no_frozen_and_permissive_only(fdir):
     # 遵循记忆：uv 装依赖绝不 --frozen（那会照锁文件装、架空镜像源）。
     assert "--frozen" not in cmd
     assert "--index-url https://p/simple" in joined
+    # 镜像只做主索引，官方 PyPI 必须做兜底：清华源对 uv 整站 403，只认镜像时一颗都装不上。
+    assert f"--extra-index-url {faceswap_install._FALLBACK_INDEX}" in joined
     # 目标 venv 的 python 作为 --python。
     assert str(faceswap_install.venv_python()) in cmd
     lower = joined.lower()
@@ -117,9 +120,23 @@ def test_build_pip_install_command_no_frozen_and_permissive_only(fdir):
     assert "torch" not in lower
 
 
-def test_build_pip_install_skips_empty_index(fdir):
-    cmd = faceswap_install._build_pip_install_command({"pip_index_url": ""})
-    assert "--index-url" not in cmd
+def test_engine_packages_pin_wheel_bearing_insightface(fdir):
+    # 回归：0.7.3 在 PyPI 只有 sdist，装它要在用户机上现编 Cython 扩展（实测产出 .pyd），
+    # 没装 MSVC 的普通 Windows 必然「依赖安装失败」。必须是发纯 Python 轮子的版本。
+    joined = " ".join(faceswap_install._ENGINE_PACKAGES)
+    pin = next(p for p in faceswap_install._ENGINE_PACKAGES if p.startswith("insightface"))
+    assert pin != "insightface==0.7.3"
+    assert "insightface==" in joined
+    # 与边车随包清单保持一致（两份清单必须同步改）。
+    req = Path(faceswap_install._project_root()) / "services" / "faceswap" / "requirements.txt"
+    if req.is_file():
+        assert pin in req.read_text(encoding="utf-8")
+
+
+def test_build_pip_install_empty_index_uses_official_pypi(fdir):
+    joined = " ".join(faceswap_install._build_pip_install_command({"pip_index_url": ""}))
+    assert f"--index-url {faceswap_install._FALLBACK_INDEX}" in joined
+    assert joined.count("--index-url") == 1
 
 
 def test_build_child_env_sets_cache_proxy_and_index(fdir):
@@ -169,6 +186,43 @@ def test_start_install_transitions_to_ready(fdir, monkeypatch):
     assert final["install_state"] == faceswap_install.STATE_READY
     assert final["installed_at"]
     assert final["models_ready"] is True
+
+
+def test_start_install_falls_back_to_official_pypi(fdir, monkeypatch):
+    """镜像源装失败 → 必须自动直连官方 PyPI 再试一次，而不是把用户卡在「换镜像/填代理」。"""
+
+    class _FlakyPopen:
+        calls: list = []
+
+        def __init__(self, *args, **kwargs):
+            cmd = list(args[0]) if args else []
+            type(self).calls.append((cmd, dict(kwargs.get("env") or {})))
+            is_pip = len(cmd) > 1 and cmd[1] == "pip"
+            pip_so_far = sum(1 for c, _ in type(self).calls if len(c) > 1 and c[1] == "pip")
+            self._fail = is_pip and pip_so_far == 1
+            self.stdout = iter(["Resolved 40 packages\n", "Installed 40 packages\n"])
+
+        def wait(self) -> int:
+            return 1 if self._fail else 0
+
+    _FlakyPopen.calls = []
+    monkeypatch.setattr(faceswap_install.subprocess, "Popen", _FlakyPopen)
+    monkeypatch.setattr(faceswap_install, "is_installed", lambda: True)
+    monkeypatch.setattr(faceswap_install, "_INSTALL_THREAD", None)
+    monkeypatch.setattr(model_download, "download_required", lambda *a, **k: (True, None))
+
+    faceswap_install.start_install()
+    faceswap_install._INSTALL_THREAD.join(timeout=10)
+
+    pip_calls = [(c, e) for c, e in _FlakyPopen.calls if len(c) > 1 and c[1] == "pip"]
+    assert len(pip_calls) == 2
+    second_cmd, second_env = pip_calls[1]
+    joined = " ".join(second_cmd)
+    assert faceswap_install._FALLBACK_INDEX in joined
+    # 兜底这一趟必须彻底甩开镜像：既不再叠镜像，也不留镜像类环境变量。
+    assert "--extra-index-url" not in joined
+    assert "UV_INDEX_URL" not in second_env
+    assert faceswap_install.load_settings()["install_state"] == faceswap_install.STATE_READY
 
 
 def test_start_install_model_failure_marks_failed(fdir, monkeypatch):

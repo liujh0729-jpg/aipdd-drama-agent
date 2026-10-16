@@ -48,10 +48,14 @@ DEFAULT_CONTROL_PORT = 18899
 # 边车引擎所需依赖（全部宽松许可：insightface=Apache-2.0, opencv, onnxruntime(MIT),
 # pyvirtualcam(MIT), numpy(BSD), fastapi/uvicorn(MIT) 等）。**不含** PySide6（那是上游
 # GUI，我们自研 Web 控制面板，不需要桌面 GUI），也**不含** torch（推理走 onnxruntime）。
+# insightface 只能取 1.0 以上的版本：0.7.3（边车最初对着写的版本）在 PyPI 上**只有 sdist**，
+# 装它要在用户机上现编 Cython 扩展（实测产出 .cp312-win_amd64.pyd），没有 MSVC 的普通 Windows
+# 必装失败；1.0.1 起发纯 Python 轮子，且 FaceAnalysis(root=…, allowed_modules=…)/
+# model_zoo.get_model 的调用面与边车一致（已在装机版便携 Python 3.12 上实跑验证）。
 _ENGINE_PACKAGES: tuple[str, ...] = (
     "numpy>=2.0,<3",
     "opencv-python",
-    "insightface==0.7.3",
+    "insightface==1.0.1",
     "onnx",
     "pillow",
     "tqdm",
@@ -66,10 +70,14 @@ _ENGINE_PACKAGES: tuple[str, ...] = (
 
 DEFAULT_SOURCES: dict[str, str] = {
     # 换脸引擎不需要 torch/npm，下载源保留 pip 镜像 / HF / 代理三项即可。
+    # 镜像只当加速用，官方 PyPI 永远兜底（见 _FALLBACK_INDEX）：清华源对 uv 会整站 403。
     "pip_index_url": "https://pypi.tuna.tsinghua.edu.cn/simple",
     "hf_endpoint": "https://hf-mirror.com",
     "https_proxy": "",
 }
+
+# 镜像缺包 / 拒绝服务时的兜底索引，也是用户把镜像清空后的默认索引。
+_FALLBACK_INDEX = "https://pypi.org/simple"
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "enabled": False,  # 是否在「工具」开放换脸直播入口
@@ -320,8 +328,11 @@ def _project_root() -> str:
     if env_root:
         return env_root
     here = Path(__file__).resolve()
+    # 认「能找到边车本体」的那一层，而不是认 pyproject.toml：桌面安装包里没有
+    # pyproject.toml，布局是 <资源根>/app/{src,services}，只按 pyproject 找就会一路
+    # 落到 "/app"，Windows 上那是个不存在的目录 → 引擎脚本永远探不到、拉起也必炸。
     for parent in here.parents:
-        if (parent / "pyproject.toml").exists() and (parent / "services").is_dir():
+        if (parent / "services" / "faceswap" / "server.py").exists():
             return str(parent)
     return "/app"
 
@@ -479,13 +490,54 @@ def _build_venv_command() -> list[str]:
     return [_uv(), "venv", str(venv_dir()), "--python", sys.executable]
 
 
-def _build_pip_install_command(sources: dict[str, str]) -> list[str]:
+def _build_pip_install_command(
+    sources: dict[str, str], *, index_url: str | None = None
+) -> list[str]:
     cmd = [_uv(), "pip", "install", "--python", str(venv_python())]
-    pip_index = (sources.get("pip_index_url") or "").strip()
+    if index_url is None:
+        pip_index = (sources.get("pip_index_url") or "").strip()
+    else:
+        pip_index = index_url.strip()
     if pip_index:
-        cmd += ["--index-url", pip_index]
+        # 镜像做主索引，PyPI 做兜底：只认镜像时，镜像 403/缺包会让整套依赖一颗都装不上
+        # （清华源对 uv 就整站 403）。多索引下 uv 仍优先走镜像，速度不受影响。
+        cmd += ["--index-url", pip_index, "--extra-index-url", _FALLBACK_INDEX]
+    else:
+        cmd += ["--index-url", _FALLBACK_INDEX]
     cmd += list(_ENGINE_PACKAGES)
     return cmd
+
+
+def _pip_install_env(sources: dict[str, str], *, direct_pypi: bool = False) -> dict[str, str]:
+    env = _build_child_env(sources)
+    if direct_pypi:
+        # 兜底重试必须把镜像类环境变量摘掉，否则子进程里的库仍可能去撞同一个坏镜像。
+        for key in ("UV_INDEX_URL", "PIP_INDEX_URL", "UV_DEFAULT_INDEX"):
+            env.pop(key, None)
+    return env
+
+
+def _run_pip_install(cmd: list[str], env: dict[str, str], logf) -> int:
+    proc = subprocess.Popen(  # noqa: S603
+        cmd,
+        cwd=_project_root(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env,
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        logf.write(line)
+        low = line.lower()
+        if "resolved" in low:
+            _set_progress(0.25, "解析依赖…")
+        elif "downloading" in low or "fetch" in low:
+            _set_progress(0.4, "下载依赖…")
+        elif "installed" in low or "prepared" in low:
+            _set_progress(0.55, "写入环境…")
+    return proc.wait()
 
 
 def start_install() -> dict[str, Any]:
@@ -552,30 +604,23 @@ def _run_install() -> None:
                 raise RuntimeError(f"创建 venv 失败（退出码 {vrc}）。")
 
         _set_progress(0.15, "安装引擎依赖（insightface / onnxruntime / opencv / pyvirtualcam）…")
-        iproc = subprocess.Popen(  # noqa: S603
-            _build_pip_install_command(sources),
-            cwd=_project_root(),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env=env,
-            bufsize=1,
-        )
-        assert iproc.stdout is not None
-        for line in iproc.stdout:
-            logf.write(line)
-            low = line.lower()
-            if "resolved" in low:
-                _set_progress(0.25, "解析依赖…")
-            elif "downloading" in low or "fetch" in low:
-                _set_progress(0.4, "下载依赖…")
-            elif "installed" in low or "prepared" in low:
-                _set_progress(0.55, "写入环境…")
-        irc = iproc.wait()
+        irc = _run_pip_install(_build_pip_install_command(sources), env, logf)
+        if irc != 0:
+            # 镜像整站挂/拒绝（清华源对 uv 就 403）时兜底直连官方 PyPI 再试一次。
+            _set_progress(0.15, "下载源安装失败，改连官方 PyPI 重试…")
+            logf.write("\n[aipdd] 镜像源失败，回退官方 PyPI 重试\n")
+            fallback_env = _pip_install_env(sources, direct_pypi=True)
+            fallback_env["UV_CACHE_DIR"] = str(fd / "uv_cache")
+            irc = _run_pip_install(
+                _build_pip_install_command(sources, index_url=""),
+                fallback_env,
+                logf,
+            )
         logf.close()
         if irc != 0:
             raise RuntimeError(
-                f"依赖安装失败（退出码 {irc}）。多为网络/镜像源问题，可在下载源里换镜像或填代理后重试。"
+                f"依赖安装失败（退出码 {irc}）。镜像源与官方 PyPI 都没装上，"
+                "多为网络/代理问题：可在下载源里换镜像、填代理，或清空 pip 镜像后重试。"
             )
 
         # ── 第二步：下载换脸模型（用户自助，权重不进包）──
