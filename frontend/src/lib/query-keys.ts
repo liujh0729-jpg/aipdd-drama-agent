@@ -141,6 +141,9 @@ export const queryKeys = {
   styleGalleryImageModels: () => ["style-gallery", "image-models"] as const,
   // [aipdd fork delta] 设置 → 3D 世界（运行时按需安装）。
   worldStatus: () => ["admin", "world", "status"] as const,
+  // [aipdd fork delta] 设置 → 换脸直播（本机引擎按需部署 + 边车状态）。
+  faceswapStatus: () => ["admin", "faceswap", "status"] as const,
+  faceswapEngineState: () => ["admin", "faceswap", "engine", "state"] as const,
   // [aipdd fork delta] 设置 → 环境安装（部署环境运行依赖只读探测）。
   envStatus: () => ["admin", "env-setup", "status"] as const,
   // [aipdd fork delta req-automcp] 环境补齐：探测 → 待办计划 → 逐项安装。

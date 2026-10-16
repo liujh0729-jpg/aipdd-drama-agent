@@ -18,6 +18,7 @@
 | [产品使用手册](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) | 全功能 UI 操作手册（飞书） |
 | [自托管手册](guides/self-hosting.md) | 部署 / 升级 / 备份 |
 | [ffmpeg 指南](guides/ffmpeg.md) | 安装 / 定位 / 许可义务 |
+| [换脸直播指南](guides/face-swap-live.md) | 本机边车引擎 / 虚拟摄像头 / OBS / AGPL 隔离 |
 | [遥测说明](guides/telemetry.md) | 默认不收集数据 / 可选追踪 |
 | [排错](guides/troubleshooting.md) | 常见故障与排查 |
 | [用 AI 客户端驱动（MCP）](guides/mcp-claude-code.md) | 约 47 个 MCP 工具：全管线 + 画布 + 剪映 / CapCut 剪辑草稿，`st-` 统一密钥接入 |

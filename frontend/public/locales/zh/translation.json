@@ -2397,6 +2397,10 @@
       "copied": "剧本已复制到剪贴板",
       "openTxt": "打开 txt"
     },
+    "faceSwapLive": {
+      "title": "换脸直播",
+      "desc": "本机换脸引擎：物理摄像头经换脸后输出到系统虚拟摄像头，OBS/直播软件直接读取。本页仅上传人脸图、切换参数与启停，视频不经过浏览器。需在本机/桌面形态下先在 设置 → 环境安装 完成「下载并部署」并启用。"
+    },
     "contentCreation": {
       "title": "内容创作",
       "desc": "把主题或参考资料变成一篇可直接发布的公众号文章——选写作风格与排版主题，发布前过一道合规门禁。",
@@ -8557,6 +8561,90 @@
       },
       "hardware": {
         "title": "已检测到的环境"
+      }
+    },
+    "faceswap": {
+      "title": "换脸直播（本机）",
+      "description": "开启后可在「工具」使用换脸直播：物理摄像头→引擎换脸→写入系统虚拟摄像头，OBS/直播软件直接读该虚拟摄像头。引擎依赖与换脸模型不打进包，需点「下载并部署」由本机按需下载。视频不经过浏览器。",
+      "warningIconLabel": "引擎尚未部署",
+      "loading": "正在加载换脸直播状态…",
+      "loadFailed": "换脸直播状态加载失败",
+      "status": "当前状态",
+      "state": {
+        "ready": "已就绪",
+        "installing": "部署中",
+        "failed": "部署失败",
+        "notInstalled": "未安装"
+      },
+      "enabledOn": "已启用",
+      "enabledOff": "未启用",
+      "depsReady": "引擎依赖就绪",
+      "modelsReady": "换脸模型就绪",
+      "modelsMissing": "缺换脸模型",
+      "vcamReady": "虚拟摄像头可用",
+      "vcamMissing": "缺虚拟摄像头",
+      "localOnlyHint": "换脸直播仅在本机/桌面形态可用（需物理摄像头与系统虚拟摄像头设备）。",
+      "enableHint": "启用后，「工具」里才会出现换脸直播入口。需先完成下载部署、且系统虚拟摄像头可用，才能实际启动。",
+      "enable": "启用",
+      "disable": "停用",
+      "installing": "正在部署引擎与模型…",
+      "log": "查看安装日志",
+      "install": "下载并部署",
+      "reinstall": "重新部署",
+      "uninstall": "卸载",
+      "installStarted": "已开始下载部署，可在本页查看进度",
+      "installFailed": "启动部署失败",
+      "uninstalled": "已卸载换脸引擎与模型",
+      "uninstallFailed": "卸载失败",
+      "toggleFailed": "切换开关失败",
+      "startEngine": "启动换脸",
+      "stopEngine": "停止换脸",
+      "engineStarted": "换脸引擎已启动，请在 OBS 选择虚拟摄像头",
+      "engineStartFailed": "启动换脸引擎失败",
+      "engineStopped": "换脸引擎已停止",
+      "engineStopFailed": "停止换脸引擎失败",
+      "obsHint": "引擎运行中：打开 OBS/直播软件，视频采集设备选择「虚拟摄像头」即可看到换脸画面。",
+      "sources": {
+        "title": "下载源",
+        "description": "默认已填国内可用镜像，可自行替换。引擎依赖安装与换脸模型下载都走这里的源，需本机/容器能出网。",
+        "pip": "PyPI 镜像",
+        "pipHint": "如 https://pypi.tuna.tsinghua.edu.cn/simple",
+        "hf": "HuggingFace 镜像",
+        "hfHint": "inswapper / buffalo_l 权重下载，如 https://hf-mirror.com",
+        "proxy": "代理（可选）",
+        "proxyHint": "需要走代理时填 http://host:port，留空表示不用",
+        "save": "保存下载源",
+        "saved": "下载源已保存",
+        "saveFailed": "保存下载源失败",
+        "saveHint": "下次安装/下载时生效"
+      },
+      "hardware": {
+        "title": "已检测到的环境"
+      },
+      "panel": {
+        "title": "换脸直播控制面板",
+        "intro": "仅用于上传人脸图、切换参数与启停换脸。视频不经过本页面，请在 OBS 读取系统虚拟摄像头。",
+        "uploadFace": "上传人脸图",
+        "dropHint": "拖入或选择一张清晰正脸图作为换脸源",
+        "uploaded": "人脸源图已更新",
+        "uploadFailed": "上传人脸图失败",
+        "start": "启动换脸",
+        "stop": "停止换脸",
+        "status": "运行状态",
+        "running": "运行中",
+        "idle": "未运行",
+        "fps": "帧率 {{fps}}",
+        "params": "参数",
+        "manyFaces": "换所有人脸",
+        "mouthMask": "保留原嘴部",
+        "nsfw": "NSFW 过滤",
+        "enhancer": "面部增强",
+        "mirror": "镜像显示",
+        "detSize": "检测尺寸",
+        "provider": "推理后端",
+        "notReady": "请先在 设置 → 环境安装 完成「下载并部署」并启用换脸直播。",
+        "localOnly": "换脸直播仅在本机/桌面形态可用。",
+        "obsHint": "启动后，在 OBS/直播软件选择系统「虚拟摄像头」即可。"
       }
     },
     "users": {

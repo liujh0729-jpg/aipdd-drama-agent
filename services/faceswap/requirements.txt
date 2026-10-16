@@ -1,0 +1,17 @@
+# [aipdd fork delta] 换脸直播边车引擎依赖（安装进独立 venv：STATE_DIR/faceswap/venv）。
+# 全部宽松许可证：与主项目的 Elastic-2.0 兼容，且**不引用上游 Deep-Live-Cam 的 AGPL 源码**。
+# 该清单与 src/novelvideo/faceswap/faceswap_install.py 的 _ENGINE_PACKAGES 保持一致；
+# 实际「下载并部署」由主后端用 uv pip install 装进独立 venv，不进主 pyproject/uv.lock。
+numpy>=2.0,<3
+opencv-python
+insightface==0.7.3
+onnx
+pillow
+tqdm
+certifi
+psutil
+pyvirtualcam
+fastapi
+uvicorn[standard]
+python-multipart
+onnxruntime

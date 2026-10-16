@@ -41,6 +41,9 @@ describe("tools core TOOLS", () => {
       "video-watermark",
       "image-watermark",
       "video-reverse-script",
+      // [aipdd fork delta] 换脸直播：本机边车控制面板（非批量、无 freezone 任务），
+      // 作为独立入口插在讲解类之前，音乐创作仍收尾。
+      "face-swap-live",
       "whiteboard-animation",
       "explainer-video",
       // [aipdd fork delta req46] 音乐创作：菜单最后一项。
@@ -67,6 +70,8 @@ describe("tools core TOOLS", () => {
       "video-watermark",
       "image-watermark",
       "video-reverse-script",
+      // [aipdd fork delta] 换脸直播独立菜单入口（不属任何分组），插在讲解类之前。
+      "face-swap-live",
       "explainer-class",
       // [aipdd fork delta req46] 音乐创作收尾。
       "music-create",
@@ -111,7 +116,15 @@ describe("tools core TOOLS", () => {
   });
 
   it("each tool declares the task types it produces", () => {
+    // [aipdd fork delta] 例外：换脸直播是本机边车实时控制面板，不提交 freezone 批量
+    // 任务（视频走 摄像头→边车→虚拟摄像头→OBS，不进任务中心），故 taskTypes 允许为空。
+    const tasklessKinds = new Set<string>(["face-swap-live"]);
     for (const tool of TOOLS) {
+      if (tasklessKinds.has(tool.kind)) {
+        expect(tool.taskTypes).toEqual([]);
+        expect(tool.accept).toBeNull();
+        continue;
+      }
       expect(tool.taskTypes.length).toBeGreaterThan(0);
     }
     // 视频复刻：全自动成片专用任务类型（freezone_video_clone）。

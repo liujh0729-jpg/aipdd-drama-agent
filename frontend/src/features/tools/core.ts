@@ -37,6 +37,9 @@ export type ToolKind =
   | "media-copywrite"
   // [aipdd fork delta] 视频反推剧本：上传视频 → 视觉模型（用户可选）→ txt 剧本。
   | "video-reverse-script"
+  // [aipdd fork delta] 换脸直播：本机边车引擎（摄像头→inswapper 换脸→系统虚拟摄像头→OBS），
+  // 面板只做上传人脸/改参/启停的 localhost 控制，Web 不推流、无批量任务。
+  | "face-swap-live"
   // 旧 kind 常量保留：历史任务的 metadata.source_tool / 过滤仍可能引用。
   | "douyin-copywrite";
 
@@ -328,6 +331,17 @@ export const TOOLS: ToolDef[] = [
     modelKind: "vision",
     accept: null,
     taskTypes: ["freezone_video_script_reverse"],
+  },
+  // [aipdd fork delta] 换脸直播：本机边车引擎控制面板。无媒体批量输入、无后端 freezone
+  // 任务（视频走 摄像头→边车→系统虚拟摄像头→OBS，不经浏览器/任务中心），故 accept 置
+  // null、taskTypes 置空；modelKind 占位（面板不调 ModelPicker）。就绪门禁在面板内自管。
+  {
+    kind: "face-swap-live",
+    titleKey: "tools.faceSwapLive.title",
+    descKey: "tools.faceSwapLive.desc",
+    modelKind: "video",
+    accept: null,
+    taskTypes: [],
   },
   // [aipdd fork delta] 讲解类视频：白板手绘逐笔揭示 与 分章 MG 动画是同一类讲解
   // 成片的两种画面方案，共用一个菜单入口（TOOL_GROUPS.explainer-class）、摆在菜单

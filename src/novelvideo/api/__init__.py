@@ -51,6 +51,7 @@ from novelvideo.api.routes import (  # noqa: E402
     content,
     episodes,
     env_setup,
+    faceswap,
     files,
     freezone,
     generation,
@@ -129,6 +130,8 @@ api_router.include_router(files.router, tags=["files"])
 api_router.include_router(styles.router, tags=["styles"])
 # [aipdd fork delta] 设置 → 3D 世界：运行时按需安装 world 依赖 + 开关 + 下载源。
 api_router.include_router(world.router, tags=["admin-world"])
+# [aipdd fork delta] 设置 → 换脸直播：本机引擎按需部署 + 开关 + 控制转发（AGPL 边车隔离）。
+api_router.include_router(faceswap.router, tags=["admin-faceswap"])
 # [aipdd fork delta] 设置 → 环境安装：部署环境运行依赖的只读就绪探测。
 api_router.include_router(env_setup.router, tags=["admin-env-setup"])
 # [aipdd fork delta] 设置 → 配置备份 / 恢复：整盘 settings.db 的导出与回灌（仅超管）。

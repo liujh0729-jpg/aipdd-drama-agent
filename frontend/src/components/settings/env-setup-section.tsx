@@ -33,6 +33,7 @@ import {
 
 import { buttonVariants } from "@/components/ui/button";
 import { WorldSection } from "@/components/settings/world-section";
+import { FaceSwapSection } from "@/components/settings/faceswap-section";
 import { useAgentLocalTools } from "@/lib/queries/agent";
 import { useEnvStatus, useEnvPlan, useEnvInstall, type EnvDependency, type EnvPlanItem } from "@/lib/queries/env";
 import { cn } from "@/lib/utils";
@@ -209,6 +210,8 @@ export function EnvSetupSection() {
           </div>
         ) : null}
         <WorldSection />
+        {/* [aipdd fork delta] 换脸直播（本机引擎 + 模型自助下载，仿 3D 世界同一环块）。 */}
+        <FaceSwapSection />
       </div>
 
       {/* 本地 Agent 工具：宿主 home 实时扫描。 */}

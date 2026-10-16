@@ -2397,6 +2397,10 @@
       "copied": "Đã sao chép kịch bản vào clipboard",
       "openTxt": "Mở txt"
     },
+    "faceSwapLive": {
+      "title": "Đổi mặt trực tiếp",
+      "desc": "Công cụ đổi mặt trên máy cục bộ: camera được đổi mặt rồi xuất tới camera ảo của hệ thống để OBS/phần mềm phát trực tiếp đọc trực tiếp. Trang này chỉ tải ảnh khuôn mặt, chỉnh tham số và bật/tắt — video không đi qua trình duyệt. Trên máy tính để bàn/cục bộ, hãy hoàn tất “Tải và triển khai” rồi bật trong Cài đặt → Môi trường."
+    },
     "contentCreation": {
       "title": "Sáng tạo nội dung",
       "desc": "Biến một chủ đề hoặc tài liệu tham khảo thành bài viết WeChat Official Account sẵn sàng xuất bản — chọn phong cách viết và chủ đề dàn trang, rồi kiểm tra tính hợp lệ trước khi đăng.",
@@ -8557,6 +8561,90 @@
       },
       "hardware": {
         "title": "Môi trường đã phát hiện"
+      }
+    },
+    "faceswap": {
+      "title": "Đổi mặt trực tiếp (máy cục bộ)",
+      "description": "Khi bật, dùng Đổi mặt trực tiếp trong Công cụ: camera vật lý → engine đổi mặt → camera ảo hệ thống, OBS/phần mềm phát sóng đọc trực tiếp camera ảo đó. Phụ thuộc engine và mô hình đổi mặt không đóng gói; nhấn Tải & Triển khai để tải theo yêu cầu. Video không đi qua trình duyệt.",
+      "warningIconLabel": "Engine chưa triển khai",
+      "loading": "Đang tải trạng thái Đổi mặt trực tiếp…",
+      "loadFailed": "Không tải được trạng thái Đổi mặt trực tiếp",
+      "status": "Trạng thái hiện tại",
+      "state": {
+        "ready": "Sẵn sàng",
+        "installing": "Đang triển khai",
+        "failed": "Triển khai thất bại",
+        "notInstalled": "Chưa cài"
+      },
+      "enabledOn": "Đã bật",
+      "enabledOff": "Đã tắt",
+      "depsReady": "Phụ thuộc engine sẵn sàng",
+      "modelsReady": "Mô hình sẵn sàng",
+      "modelsMissing": "Thiếu mô hình",
+      "vcamReady": "Camera ảo khả dụng",
+      "vcamMissing": "Thiếu camera ảo",
+      "localOnlyHint": "Đổi mặt trực tiếp chỉ khả dụng ở dạng máy tính để bàn/cục bộ (cần camera vật lý và thiết bị camera ảo hệ thống).",
+      "enableHint": "Sau khi bật, mục Đổi mặt trực tiếp xuất hiện trong Công cụ. Cần hoàn tất Tải & Triển khai và có camera ảo hệ thống hoạt động mới khởi động được.",
+      "enable": "Bật",
+      "disable": "Tắt",
+      "installing": "Đang triển khai engine và mô hình…",
+      "log": "Xem nhật ký cài đặt",
+      "install": "Tải & Triển khai",
+      "reinstall": "Triển khai lại",
+      "uninstall": "Gỡ",
+      "installStarted": "Đã bắt đầu Tải & Triển khai, theo dõi tiến độ trên trang này",
+      "installFailed": "Không khởi động được triển khai",
+      "uninstalled": "Đã gỡ engine và mô hình",
+      "uninstallFailed": "Gỡ thất bại",
+      "toggleFailed": "Chuyển công tắc thất bại",
+      "startEngine": "Bắt đầu đổi mặt",
+      "stopEngine": "Dừng đổi mặt",
+      "engineStarted": "Engine đã khởi động — chọn camera ảo trong OBS",
+      "engineStartFailed": "Khởi động engine thất bại",
+      "engineStopped": "Engine đã dừng",
+      "engineStopFailed": "Dừng engine thất bại",
+      "obsHint": "Engine đang chạy: mở OBS/phần mềm phát sóng và chọn camera ảo làm thiết bị quay để thấy khuôn mặt đã đổi.",
+      "sources": {
+        "title": "Nguồn tải",
+        "description": "Mặc định đã điền mirror phù hợp trong nước, có thể tự thay. Cả cài phụ thuộc engine và tải mô hình đều dùng nguồn ở đây và cần kết nối mạng.",
+        "pip": "Mirror PyPI",
+        "pipHint": "vd https://pypi.tuna.tsinghua.edu.cn/simple",
+        "hf": "Mirror HuggingFace",
+        "hfHint": "trọng số inswapper / buffalo_l, vd https://hf-mirror.com",
+        "proxy": "Proxy (tuỳ chọn)",
+        "proxyHint": "Điền http://host:port nếu cần proxy; để trống nghĩa là không dùng",
+        "save": "Lưu nguồn tải",
+        "saved": "Đã lưu nguồn tải",
+        "saveFailed": "Lưu nguồn tải thất bại",
+        "saveHint": "Áp dụng ở lần cài đặt / tải tiếp theo"
+      },
+      "hardware": {
+        "title": "Môi trường đã phát hiện"
+      },
+      "panel": {
+        "title": "Bảng điều khiển Đổi mặt trực tiếp",
+        "intro": "Chỉ để tải ảnh khuôn mặt, chuyển tham số và bật/tắt đổi mặt. Video không đi qua trang này — hãy đọc camera ảo hệ thống trong OBS.",
+        "uploadFace": "Tải ảnh khuôn mặt",
+        "dropHint": "Kéo hoặc chọn một ảnh chính diện rõ ràng làm nguồn đổi mặt",
+        "uploaded": "Đã cập nhật nguồn khuôn mặt",
+        "uploadFailed": "Tải ảnh khuôn mặt thất bại",
+        "start": "Bắt đầu đổi mặt",
+        "stop": "Dừng đổi mặt",
+        "status": "Trạng thái chạy",
+        "running": "Đang chạy",
+        "idle": "Chạy rảnh",
+        "fps": "FPS {{fps}}",
+        "params": "Tham số",
+        "manyFaces": "Đổi tất cả khuôn mặt",
+        "mouthMask": "Giữ miệng gốc",
+        "nsfw": "Lọc NSFW",
+        "enhancer": "Tăng cường khuôn mặt",
+        "mirror": "Lật ngược",
+        "detSize": "Kích thước phát hiện",
+        "provider": "Backend suy luận",
+        "notReady": "Hãy hoàn tất Tải & Triển khai trong Cài đặt → Môi trường và bật Đổi mặt trực tiếp trước.",
+        "localOnly": "Đổi mặt trực tiếp chỉ khả dụng ở dạng máy tính để bàn/cục bộ.",
+        "obsHint": "Sau khi khởi động, chọn camera ảo hệ thống trong OBS/phần mềm phát sóng."
       }
     },
     "users": {

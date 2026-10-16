@@ -56,6 +56,8 @@ import { useQuery } from "@tanstack/react-query";
 import { BatchInputArea } from "@/features/tools/components/BatchInputArea";
 import { BatchTaskList } from "@/features/tools/components/BatchTaskList";
 import { BoxRegionEditor } from "@/features/tools/components/BoxRegionEditor";
+// [aipdd fork delta] 换脸直播控制面板（本机边车引擎 localhost 控制，Web 不推流）。
+import { FaceSwapLivePanel } from "@/features/tools/components/FaceSwapLivePanel";
 import { ModelPicker } from "@/features/tools/components/ModelPicker";
 import { ModelSelect } from "@/features/tools/components/ModelSelect";
 import {
@@ -4362,12 +4364,16 @@ export function ToolsPage({ project }: { project: string }) {
             {active === "video-reverse-script" ? (
               <VideoReverseScriptPanel project={project} />
             ) : null}
+            {/* [aipdd fork delta] 换脸直播：本机边车控制面板（无批量任务，不渲染下方任务列表）。 */}
+            {active === "face-swap-live" ? <FaceSwapLivePanel /> : null}
           </section>
 
-          <section className="rounded-[10px] border border-border bg-white/[0.02] p-4">
-            <h2 className="mb-3 font-heading text-sm font-medium text-foreground">{t("tools.common.tasks")}</h2>
-            <BatchTaskList project={project} kind={def.kind} />
-          </section>
+          {active === "face-swap-live" ? null : (
+            <section className="rounded-[10px] border border-border bg-white/[0.02] p-4">
+              <h2 className="mb-3 font-heading text-sm font-medium text-foreground">{t("tools.common.tasks")}</h2>
+              <BatchTaskList project={project} kind={def.kind} />
+            </section>
+          )}
         </div>
         </div>
       </div>

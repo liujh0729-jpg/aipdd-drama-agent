@@ -2397,6 +2397,10 @@
       "copied": "Script copied to clipboard",
       "openTxt": "Open txt"
     },
+    "faceSwapLive": {
+      "title": "Face Swap Live",
+      "desc": "Local face-swap engine: your camera is face-swapped and sent to a system virtual camera that OBS / streaming apps read directly. This page only uploads a face image, tweaks parameters and starts / stops — video never passes through the browser. On a desktop / local runtime, first finish “Download & Deploy” and enable it under Settings → Environment."
+    },
     "contentCreation": {
       "title": "Content creation",
       "desc": "Turn a topic or reference material into a publication-ready WeChat Official Account article - pick a writing style and a layout theme, then pass a compliance gate before you publish.",
@@ -8557,6 +8561,90 @@
       },
       "hardware": {
         "title": "Detected environment"
+      }
+    },
+    "faceswap": {
+      "title": "Face Swap Live (local)",
+      "description": "When enabled, use Face Swap Live from Tools: physical camera → engine face swap → system virtual camera, which OBS/streaming software reads directly. Engine dependencies and face-swap models are not bundled; click Download & Deploy to fetch them on demand. Video never passes through the browser.",
+      "warningIconLabel": "Engine not deployed yet",
+      "loading": "Loading Face Swap Live status…",
+      "loadFailed": "Failed to load Face Swap Live status",
+      "status": "Current status",
+      "state": {
+        "ready": "Ready",
+        "installing": "Deploying",
+        "failed": "Deployment failed",
+        "notInstalled": "Not installed"
+      },
+      "enabledOn": "Enabled",
+      "enabledOff": "Disabled",
+      "depsReady": "Engine deps ready",
+      "modelsReady": "Models ready",
+      "modelsMissing": "Models missing",
+      "vcamReady": "Virtual camera available",
+      "vcamMissing": "Virtual camera missing",
+      "localOnlyHint": "Face Swap Live is only available in the local/desktop form (requires a physical camera and a system virtual camera device).",
+      "enableHint": "Once enabled, the Face Swap Live entry appears under Tools. You must finish Download & Deploy and have a working system virtual camera before you can actually start it.",
+      "enable": "Enable",
+      "disable": "Disable",
+      "installing": "Deploying engine and models…",
+      "log": "View install log",
+      "install": "Download & Deploy",
+      "reinstall": "Redeploy",
+      "uninstall": "Uninstall",
+      "installStarted": "Download & deploy started, track progress on this page",
+      "installFailed": "Failed to start deployment",
+      "uninstalled": "Engine and models uninstalled",
+      "uninstallFailed": "Uninstall failed",
+      "toggleFailed": "Failed to toggle switch",
+      "startEngine": "Start swap",
+      "stopEngine": "Stop swap",
+      "engineStarted": "Engine started — select the virtual camera in OBS",
+      "engineStartFailed": "Failed to start engine",
+      "engineStopped": "Engine stopped",
+      "engineStopFailed": "Failed to stop engine",
+      "obsHint": "Engine running: open OBS/streaming software and pick the virtual camera as the video capture device to see the swapped face.",
+      "sources": {
+        "title": "Download sources",
+        "description": "China-friendly mirrors are preset; override as needed. Both engine dependency install and model download go through these sources and require network access.",
+        "pip": "PyPI mirror",
+        "pipHint": "e.g. https://pypi.tuna.tsinghua.edu.cn/simple",
+        "hf": "HuggingFace mirror",
+        "hfHint": "inswapper / buffalo_l weights, e.g. https://hf-mirror.com",
+        "proxy": "Proxy (optional)",
+        "proxyHint": "Fill http://host:port if a proxy is required; empty means none",
+        "save": "Save sources",
+        "saved": "Download sources saved",
+        "saveFailed": "Failed to save download sources",
+        "saveHint": "Applies on the next install / download"
+      },
+      "hardware": {
+        "title": "Detected environment"
+      },
+      "panel": {
+        "title": "Face Swap Live Control Panel",
+        "intro": "Only for uploading the face image, toggling parameters and starting/stopping the swap. Video does not pass through this page — read the system virtual camera in OBS.",
+        "uploadFace": "Upload face image",
+        "dropHint": "Drop or pick a clear front-facing photo as the swap source",
+        "uploaded": "Face source updated",
+        "uploadFailed": "Failed to upload face image",
+        "start": "Start swap",
+        "stop": "Stop swap",
+        "status": "Runtime status",
+        "running": "Running",
+        "idle": "Idle",
+        "fps": "FPS {{fps}}",
+        "params": "Parameters",
+        "manyFaces": "Swap all faces",
+        "mouthMask": "Keep original mouth",
+        "nsfw": "NSFW filter",
+        "enhancer": "Face enhancer",
+        "mirror": "Mirror view",
+        "detSize": "Detection size",
+        "provider": "Inference backend",
+        "notReady": "Please finish Download & Deploy under Settings → Environment and enable Face Swap Live first.",
+        "localOnly": "Face Swap Live is only available in the local/desktop form.",
+        "obsHint": "After starting, select the system virtual camera in OBS/streaming software."
       }
     },
     "users": {

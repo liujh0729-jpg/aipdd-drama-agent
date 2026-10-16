@@ -81,6 +81,12 @@ vi.mock("@/components/settings/world-section", () => ({
   WorldSection: () => <div>WORLD_SECTION_MARKER</div>,
 }));
 
+// 换脸直播区块同理以存根呈现（其自身逻辑由 faceswap-section 的测试覆盖），
+// 免得在 EnvSetupSection 用例里触发未 mock 的 react-query 钩子。
+vi.mock("@/components/settings/faceswap-section", () => ({
+  FaceSwapSection: () => <div>FACESWAP_SECTION_MARKER</div>,
+}));
+
 const DEFAULT_ITEMS = [
   { id: "ffmpeg", installed: true, version: "6.1.1", detail: "/usr/bin/ffmpeg" },
   { id: "node", installed: true, version: "20.11.0", detail: "/usr/bin/node" },
@@ -178,6 +184,12 @@ describe("EnvSetupSection", () => {
     render(<EnvSetupSection />);
     expect(screen.getByText("WORLD_SECTION_MARKER")).toBeInTheDocument();
     expect(screen.getByText("settings.envSetup.groups.features")).toBeInTheDocument();
+  });
+
+  // [aipdd fork delta] 换脸直播子块随「环境安装 · 特性」一并挂载（自身逻辑由 faceswap-section 测试覆盖）。
+  it("embeds the face-swap block within the page", () => {
+    render(<EnvSetupSection />);
+    expect(screen.getByText("FACESWAP_SECTION_MARKER")).toBeInTheDocument();
   });
 
   // [aipdd fork delta] Chrome（CDP 调试端口）是宿主机按需项：不再占据「运行依赖」，
