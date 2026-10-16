@@ -136,6 +136,15 @@ if [[ -d "$ROOT_DIR/services/hyperframes-renderer" ]]; then
   mkdir -p "$APP/services"
   cp -R "$ROOT_DIR/services/hyperframes-renderer" "$APP/services/hyperframes-renderer"
 fi
+# [aipdd fork delta] 换脸直播边车引擎（AGPL 隔离的那台独立进程）本体：server.py +
+# requirements + README/NOTICE。它**故意**不在打包期装依赖——依赖由用户点「下载并部署」
+# 时装进 STATE_DIR/faceswap/venv 的独立 venv（见 novelvideo/faceswap/faceswap_install.py，
+# 也是 AGPL 传染被进程边界阻断的前提）。少了这个目录，桌面形态 engine_script_path()
+# 指向不存在的文件，控制面板变成一条死路。
+if [[ -d "$ROOT_DIR/services/faceswap" ]]; then
+  mkdir -p "$APP/services"
+  cp -R "$ROOT_DIR/services/faceswap" "$APP/services/faceswap"
+fi
 
 # ------------------------------------------------------ 5) Go 网关静态编译
 if [[ -n "${NEWAPI_BIN:-}" ]]; then
@@ -252,6 +261,28 @@ else
   log "警告：未能确定 Chrome for Testing 版本；设 CFT_VER=<版本> 重跑以内置 Chromium。"
 fi
 fi
+
+# uv：可选引擎（换脸直播 / 3DGS 等）的「下载并部署」在运行期用 uv 建独立 venv 并装依赖
+# （uv venv / uv pip install，见 novelvideo/faceswap/faceswap_install.py）。随包一份，用户
+# 机器无需自装 uv；resources/bin 被 Rust base_env 前置进 PATH，所以 shutil.which("uv")
+# 命中的就是它。版本按发布标签写死（不跟 latest），保证构建可复现。
+UV_VER="${UV_VER:-0.10.9}"
+if [[ -n "${UV_BIN:-}" ]]; then
+  cp "$UV_BIN" "$RES/bin/uv$EXE"
+elif [[ "$GOOS" == windows ]]; then
+  curl -fL --retry 3 -o /tmp/uv.zip "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.zip"
+  rm -rf /tmp/uvpkg && mkdir -p /tmp/uvpkg
+  unzip -oq /tmp/uv.zip -d /tmp/uvpkg
+  [[ -f "/tmp/uvpkg/uv$EXE" ]] || { echo "uv 包内缺 uv$EXE：$(ls /tmp/uvpkg)" >&2; exit 8; }
+  cp "/tmp/uvpkg/uv$EXE" "$RES/bin/uv$EXE"
+else
+  curl -fL --retry 3 -o /tmp/uv.tar.gz "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.tar.gz"
+  rm -rf /tmp/uvpkg && mkdir -p /tmp/uvpkg
+  tar -xzf /tmp/uv.tar.gz -C /tmp/uvpkg
+  [[ -x "/tmp/uvpkg/uv-${TRIPLE}/uv" ]] || { echo "uv 包内缺 uv：$(ls /tmp/uvpkg)" >&2; exit 8; }
+  cp "/tmp/uvpkg/uv-${TRIPLE}/uv" "$RES/bin/uv"
+fi
+log "uv ${UV_VER} 已内置 resources/bin/uv$EXE（可选引擎的运行期安装器）"
 
 # ---------------------------------------------------------------------------
 # HyperFrames 本地 producer（引擎即服务，讲解视频 / 渠道短视频的渲染底座）。

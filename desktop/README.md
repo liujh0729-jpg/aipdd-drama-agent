@@ -81,6 +81,7 @@ desktop/
 | gateway(new-api) | 3000 | `resources/bin/new-api` | Go 静态二进制，内置 SQLite（工作目录 `app-data/gateway`）|
 | FastAPI | 8780 | 便携 `python` | `python -c "from novelvideo.cli import app; app()" api --host 127.0.0.1 --port 8780` |
 | VectCut（可选） | 9001 | 便携 `python` | `python aipdd_server.py`；失败降级不阻断 |
+| 换脸直播边车（可选，按需自装） | 18899 | 独立 venv 的 python + `resources/app/services/faceswap/server.py` | **不在 Rust 受管服务列表内**：由后端 `novelvideo/faceswap/faceswap_install.py` 在用户点「下载并部署」后用随包的 `resources/bin/uv` 建 `<状态目录>/faceswap/venv` 再 `Popen` 拉起；只绑 `127.0.0.1`，AGPL 隔离靠进程边界 |
 
 启动顺序（串行 + 探活）：`环境自检 → nginx → gateway → VectCut(可选) → FastAPI → 打开主窗口`。
 退出（关闭所有窗口触发 `RunEvent::Exit`）：**逆序**终止；Unix 对独立进程组 `killpg`，

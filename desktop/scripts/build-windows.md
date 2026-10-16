@@ -52,11 +52,18 @@ resources\
   python\python.exe              便携 Python（python-build-standalone win-x64 install_only）
   python\Lib\site-packages\      打包期离线预装的全部 CE 依赖（用户端零 pip）
   python\Scripts\                console script 入口
-  bin\{nginx.exe,new-api.exe,ffmpeg.exe,ffprobe.exe,chrome\}
+  bin\{nginx.exe,new-api.exe,ffmpeg.exe,ffprobe.exe,uv.exe,chrome\}
   app\dist\                      vite 产出的前端站点（nginx 托管）
   app\src\novelvideo\            后端源码副本（PYTHONPATH）
+  app\services\{vectcut,faceswap}\   随包服务本体（换脸边车引擎 server.py 在此）
   nginx\mime.types
 ```
+
+「用户端零 pip」只约束**主后端**依赖（上面那行 site-packages 预装）。换脸直播这类可选引擎按设计
+在**运行期**自助安装：用随包的 `bin\uv.exe` 在 `<状态目录>\faceswap\venv` 建独立 venv 再装依赖，
+既保住 AGPL 隔离的进程边界，也不污染主解释器。`build-windows.ps1` 的前置校验把
+`bin\uv.exe` 与 `app\services\faceswap\server.py` 列为必需资源，缺了就直接失败退出——否则会出一个
+「设置 → 环境安装」点了必炸的包。
 
 **与 macOS 的两个布局差异**（Rust 侧 `env.rs::python()` / `python_path_dirs()` 与
 `prepare-resources.sh` 使用同一套约定，改一处必须同时改两处）：

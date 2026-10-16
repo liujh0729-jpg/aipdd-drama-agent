@@ -79,8 +79,10 @@ if (-not $SkipChecks) {
         'python\python.exe',
         'bin\nginx.exe',
         'bin\new-api.exe',
+        'bin\uv.exe',
         'app\dist\index.html',
-        'app\src\novelvideo'
+        'app\src\novelvideo',
+        'app\services\faceswap\server.py'
     )
     foreach ($rel in $required) {
         if (-not (Test-Path (Join-Path $ResDir $rel))) {
