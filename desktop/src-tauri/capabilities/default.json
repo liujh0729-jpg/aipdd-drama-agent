@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "主窗口（加载 http://127.0.0.1:8080）、启动卡（panel）与诊断窗口（console）的默认权限。进程编排全部在 Rust 侧用 std::process 完成，Web 侧不授予任何 shell 能力。",
+  "description": "主窗口（加载内置 nginx 的动态端口站点，默认 8080、被占自动避让）、启动卡（panel）与诊断窗口（console）的默认权限。进程编排全部在 Rust 侧用 std::process 完成，Web 侧不授予任何 shell 能力。",
   "windows": ["main", "panel", "console"],
   "permissions": [
     "core:default",

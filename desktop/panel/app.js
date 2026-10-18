@@ -8,6 +8,7 @@
 //   command app_version / quit_app / open_console_window        （splash）
 //   command get_status / restart_service / open_app_window / logs_dir_path
 //   command get_boot_state -> BootEvent|null / recent_logs{limit} -> LogLine[]   （补订阅前的事件历史；recent_logs 给 console）
+//   command port_health -> PortStatus[] / release_ports -> ReleaseResult[] / restart_to_default   （console：端口健康 / 释放 / 重启回默认）
 "use strict";
 
 const VIEW = window.PANEL_VIEW === "console" ? "console" : "splash";
@@ -132,6 +133,10 @@ if (VIEW === "console") {
   const bootTips = document.getElementById("bootTips");
   const modelsEl = document.getElementById("models");
   const openAppBtn = document.getElementById("openApp");
+  const porthRows = document.getElementById("porthRows");
+  // 端口健康：状态文案与色点映射（复用 .dot 的 data-s 语义：ready=绿 / crashed=红 / stopped=灰）。
+  const PH_STATE = { free: "空闲", ours: "运行中", external: "被外部占用" };
+  const PH_DOT = { free: "stopped", ours: "ready", external: "crashed" };
 
   const cards = new Map();      // id -> {el, dot, meta, badge, btn}
   const lines = [];             // 缓冲的日志行 {service,stream,line,ts}
@@ -197,6 +202,42 @@ if (VIEW === "console") {
       if (btn) btn.disabled = false;
       refreshStatus();
     }
+  }
+
+  // ---------- 端口健康 ----------
+  function renderPortHealth(list) {
+    if (!porthRows) return;
+    porthRows.innerHTML = "";
+    for (const p of (list || [])) {
+      const row = document.createElement("div");
+      row.className = "ph-row " + p.state;
+      row.innerHTML =
+        `<span class="dot" data-s="${PH_DOT[p.state] || "stopped"}"></span>` +
+        `<span class="ph-name">:${p.port} ${p.service}</span>` +
+        `<span class="ph-state">${PH_STATE[p.state] || p.state}</span>` +
+        `<span class="ph-owner">${p.owner || ""}</span>`;
+      porthRows.appendChild(row);
+    }
+  }
+
+  async function refreshPortHealth() {
+    if (!porthRows) return;
+    try {
+      renderPortHealth(await invoke("port_health"));
+    } catch (e) {
+      porthRows.innerHTML = `<div class="ph-row free"><span class="ph-state">当前版本不支持端口检测</span></div>`;
+    }
+  }
+
+  function summarizeRelease(list) {
+    const killed = [], failed = [];
+    for (const r of (list || [])) {
+      (r.killed || []).forEach((x) => killed.push(x));
+      (r.failed || []).forEach((x) => failed.push(x));
+    }
+    let s = killed.length ? `已终止 ${killed.join(", ")}` : "无外部占用";
+    if (failed.length) s += `；失败 ${failed.join(", ")}`;
+    return s;
   }
 
   // ---------- 日志 ----------
@@ -317,6 +358,37 @@ if (VIEW === "console") {
     } catch (e) { /* 剪贴板可能受限 */ }
   });
 
+  // ---------- 端口健康控件 ----------
+  const phRefresh = document.getElementById("phRefresh");
+  const phRelease = document.getElementById("phRelease");
+  const phRestart = document.getElementById("phRestart");
+  if (phRefresh) phRefresh.addEventListener("click", () => refreshPortHealth());
+  if (phRelease) phRelease.addEventListener("click", async () => {
+    phRelease.disabled = true;
+    try {
+      const r = await invoke("release_ports");
+      appendLine({ service: "system", stream: "system", line: `释放端口：${summarizeRelease(r)}`, ts: Date.now() });
+    } catch (e) {
+      appendLine({ service: "system", stream: "system", line: `释放失败：${e}`, ts: Date.now() });
+    } finally {
+      phRelease.disabled = false;
+      refreshPortHealth();
+    }
+  });
+  if (phRestart) phRestart.addEventListener("click", async () => {
+    phRestart.disabled = true;
+    try {
+      await invoke("restart_to_default");
+      appendLine({ service: "system", stream: "system", line: "已释放占用并重启，站点回到默认端口 8080。", ts: Date.now() });
+    } catch (e) {
+      appendLine({ service: "system", stream: "system", line: `重启回默认失败：${e}`, ts: Date.now() });
+    } finally {
+      phRestart.disabled = false;
+      refreshStatus();
+      refreshPortHealth();
+    }
+  });
+
   // ---------- 初始化 ----------
   // 本窗口通常在启动失败之后才被打开，那一刻的实时事件已经过去了：
   // 先按命令把「最后一条启动事件 + 日志尾巴」补回来，再挂监听收增量。
@@ -331,7 +403,9 @@ if (VIEW === "console") {
       if (Array.isArray(list)) list.forEach(appendLine);
     } catch (e) { /* 同上 */ }
     await refreshStatus();
-    setInterval(refreshStatus, 2000); // 事件为主，轮询兜底
+    await refreshPortHealth();
+    setInterval(refreshStatus, 2000);        // 服务状态：事件为主，轮询兜底
+    setInterval(refreshPortHealth, 5000);    // 端口健康：会起 lsof/netstat，放慢节奏
   }
   bootstrap();
 }

@@ -61,12 +61,30 @@ command -v colima >/dev/null 2>&1 || abort "缺 colima（本项目的 Docker 引
 ensure_colima_running || abort "Colima 虚拟机起不来。看原因：colima status、colima start --verbose"
 wait_docker_daemon 120 || abort "Docker 守护进程连不上。看原因：docker context ls（应为 colima）、colima status"
 
-# 端口被人占了就先说清楚：占用人不是本项目容器时，up 会失败或站点打到别人的页面上。
-if lsof -nP -iTCP:"$web_port" -sTCP:LISTEN >/dev/null 2>&1 \
+# 端口被人占了就自动避让：目标 web 端口被外部进程监听（且不是本项目的 web 容器）时，
+# 从该端口起连续探 10 个取第一个空闲的，仅本次生效（export 的 ST_WEB_PORT 覆盖 .env 插值，
+# 不写回文件——下双击若原端口空了就自然回到默认）。gate_url / site_url 都引用 ${web_port}，自动跟随。
+if lsof -nP -iTCP:"${web_port}" -sTCP:LISTEN >/dev/null 2>&1 \
    && [ -z "$(docker ps -q --filter 'name=web' 2>/dev/null)" ]; then
-  warn "端口 ${web_port} 已被其它进程监听（${compose_cmd[*]} ps 里没有本项目 web 容器）："
-  lsof -nP -iTCP:"$web_port" -sTCP:LISTEN 2>/dev/null | tail -n +1 | sed 's/^/    /'
-  printf '    若那是上一套残留，执行：%s -f docker-compose.aipdd.yml down\n\n' "${compose_cmd[*]}"
+  orig_port="${web_port}"
+  last_port="$((orig_port + 9))"
+  occupier="$(lsof -nP -iTCP:"${orig_port}" -sTCP:LISTEN 2>/dev/null | tail -n +2 | head -n 1)"
+  new_port=""
+  for probe in $(seq "${orig_port}" "${last_port}"); do
+    if ! lsof -nP -iTCP:"${probe}" -sTCP:LISTEN >/dev/null 2>&1; then
+      new_port="${probe}"
+      break
+    fi
+  done
+  if [ -n "${new_port}" ]; then
+    warn "端口 ${orig_port} 已被其它进程监听（${occupier}），本次站点自动改用 ${new_port}（仅本次生效）。"
+    web_port="${new_port}"
+    export ST_WEB_PORT="${web_port}"
+  else
+    abort "端口 ${orig_port}–${last_port} 全部被占用，无法自动避让。
+请腾出其中之一（若是在跑的旧栈：${compose_cmd[*]} -f docker-compose.aipdd.yml down），
+或改 .env 的 ST_WEB_PORT=<空闲端口> 后重新双击。"
+  fi
 fi
 
 # ─────────────────────── [3/5] 镜像：缺则建，--rebuild 强建 ───────────────────────

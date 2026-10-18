@@ -73,6 +73,25 @@
     .model .m-bar { height: 5px; border-radius: 3px; background: #222732; overflow: hidden; }
     .model .m-bar > i { display: block; height: 100%; width: 0; background: var(--ok); }
     footer { padding: 8px 16px 14px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+    /* 端口健康区：受管端口逐个状态（空闲/运行中/被外部占用）+ 一键释放 + 重启回默认。 */
+    .porth { padding: 4px 16px 8px; display: grid; gap: 8px; }
+    .porth-head { display: flex; align-items: center; gap: 8px; }
+    .porth-head h2 { font-size: 13px; margin: 0; font-weight: 600; }
+    .porth-head .grow { flex: 1; }
+    .porth-rows { display: grid; gap: 6px; }
+    .ph-row {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+      padding: 8px 12px; display: flex; align-items: center; gap: 10px; font-size: 13px;
+    }
+    .ph-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ph-state { color: var(--muted); font-size: 12px; flex: none; }
+    .ph-owner {
+      color: var(--err); font-size: 12px; flex: none; max-width: 44%;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .ph-row.free .ph-owner { color: var(--muted); }
+    button.warn { border-color: var(--err); color: #ffd7d7; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #06070a; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -88,6 +107,17 @@
   </div>
 
   <div class="services" id="services"></div>
+
+  <div class="porth" id="porth">
+    <div class="porth-head">
+      <h2>端口健康</h2>
+      <span class="grow"></span>
+      <button id="phRefresh">重新检测</button>
+      <button id="phRelease" class="warn">释放占用端口</button>
+      <button id="phRestart" class="primary">重启回默认</button>
+    </div>
+    <div class="porth-rows" id="porthRows"></div>
+  </div>
 
   <div class="models hidden" id="models"></div>
 

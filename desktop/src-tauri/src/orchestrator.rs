@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::io::Write as _;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -27,6 +28,8 @@ const START_TIMEOUT: Duration = Duration::from_secs(180);
 const MAX_RESTARTS: u32 = 5;
 /// 内存日志尾巴的容量上限，与面板侧缓冲同量级（约 2000 行 ≈ 几百 KB）。
 const LOG_TAIL_MAX: usize = 2000;
+/// web（nginx）端口被占时往后避让的扫描宽度：8080→…→8089，全无空闲才报错。
+const WEB_PORT_SPAN: u16 = 10;
 
 // 事件名（状态面板监听这些）。
 pub const EVT_STATE: &str = "svc://state";
@@ -58,6 +61,10 @@ pub struct Orchestrator {
     paths: Arc<RuntimePaths>,
     shared: Arc<Mutex<Supervisor>>,
     log_tx: Sender<LogLine>,
+    /// 本次会话定格的 web 监听端口：start_all 解析一次（8080 被占则往后避让），
+    /// 之后 nginx 渲染/探活/重启/诊断展示全部跟随这个值，主窗口地址同源——
+    /// 运行期绝不重新扫描，否则重启后窗口会失联。
+    web_port: Arc<AtomicU16>,
 }
 
 impl Orchestrator {
@@ -70,11 +77,17 @@ impl Orchestrator {
             log_tail: Vec::new(),
             last_boot: None,
         }));
+        let default_web_port = SERVICE_SPECS
+            .iter()
+            .find(|s| s.id == ServiceId::Nginx)
+            .map(|s| s.port)
+            .unwrap_or(8080);
         let orc = Arc::new(Self {
             app: app.clone(),
             paths,
             shared: shared.clone(),
             log_tx: log_tx.clone(),
+            web_port: Arc::new(AtomicU16::new(default_web_port)),
         });
         // 监控线程持 Arc<Self>，复用完整 restart/shutdown 逻辑；随 shutting_down 退出循环释放。
         {
@@ -88,6 +101,59 @@ impl Orchestrator {
         &self.paths
     }
 
+    /// 本次会话的 web 监听端口（启动自检后定格）。
+    pub fn web_port(&self) -> u16 {
+        self.web_port.load(Ordering::SeqCst)
+    }
+
+    /// 当前受管子进程的 pid 集合（端口健康判定「我方 vs 外部」用）。
+    pub fn managed_pids(&self) -> Vec<u32> {
+        self.shared
+            .lock()
+            .unwrap()
+            .services
+            .values()
+            .map(|m| m.pid)
+            .collect()
+    }
+
+    /// 把 web 端口重置回默认（释放外部占用后「重启回默认」用：8080 一空就能重新 binds）。
+    fn reset_web_port(&self) {
+        let base = SERVICE_SPECS
+            .iter()
+            .find(|s| s.id == ServiceId::Nginx)
+            .map(|s| s.port)
+            .unwrap_or(8080);
+        self.web_port.store(base, Ordering::SeqCst);
+    }
+
+    /// 释放完默认端口后整套重启：按启动顺序逐个 restart_one（Nginx 会用重置后的
+    /// web_port 重新渲染 8080）。复用 restart_one，不走 shutdown，监控线程不受影响。
+    /// 非可选服务任一重启失败即中断；可选服务（VectCut）失败忽略。
+    pub fn restart_all(&self) -> Result<()> {
+        self.reset_web_port();
+        for spec in ordered_specs() {
+            if spec.optional {
+                let _ = self.restart_one(spec.id);
+                continue;
+            }
+            self.restart_one(spec.id)?;
+        }
+        Ok(())
+    }
+
+    /// Nginx 的端口是启动时动态解析的，其余服务照抄静态规格；
+    /// 探活/渲染/展示等所有消费方统一走这里拿「真实端口」。
+    fn resolve_spec(&self, spec: &ServiceSpec) -> ServiceSpec {
+        if spec.id == ServiceId::Nginx {
+            let mut s = spec.clone();
+            s.port = self.web_port();
+            s
+        } else {
+            spec.clone()
+        }
+    }
+
     /// 串行启动全套服务。全部非可选服务就绪返回 Ok；否则带结构化错误返回。
     pub fn start_all(&self) -> Result<()> {
         // 0) 给启动卡一个起点，别让窗口空着像卡死。
@@ -99,22 +165,43 @@ impl Orchestrator {
             return Err(DesktopError::MissingBinary(missing.join("; ")));
         }
 
-        // 2) 端口冲突自检（启动前，任何非可选端口被外部占用即拦下）。
-        for spec in SERVICE_SPECS.iter().filter(|s| !s.optional) {
+        // 2) 端口冲突自检（启动前）。web（nginx）允许自动避让：默认端口被占就
+        //    往后找第一个可绑定端口并定格本次会话；其余非可选服务仍「占用即拦停」
+        //    （它们的端口牵动 nginx upstream / 子进程 env，不在本轮改动范围）。
+        for spec in SERVICE_SPECS
+            .iter()
+            .filter(|s| !s.optional && s.id != ServiceId::Nginx)
+        {
             if probe::port_in_use(spec.port) {
                 return Err(DesktopError::PortOccupied(spec.port));
             }
         }
+        let base_web_port = SERVICE_SPECS
+            .iter()
+            .find(|s| s.id == ServiceId::Nginx)
+            .map(|s| s.port)
+            .unwrap_or(8080);
+        let port = probe::find_free_port(base_web_port, WEB_PORT_SPAN)
+            .ok_or(DesktopError::PortOccupied(base_web_port))?;
+        self.web_port.store(port, Ordering::SeqCst);
+        if port != base_web_port {
+            self.emit_boot(
+                "check",
+                format!("端口 {base_web_port} 被占用，站点本次改用 {port}…"),
+                0.04,
+            );
+        }
         self.emit_boot("check", "环境自检通过，正在启动本地服务…", 0.08);
 
         let ordered = ordered_specs();
-        for spec in &ordered {
+        for spec in ordered.iter() {
+            let spec = self.resolve_spec(spec);
             self.emit_boot(
                 &format!("start:{}", spec.id.as_str()),
                 format!("正在启动 {}…", spec.id.display()),
                 boot_window(spec.id).0,
             );
-            match self.start_one(spec) {
+            match self.start_one(&spec) {
                 Ok(()) => {}
                 Err(e) => {
                     if spec.optional {
@@ -193,7 +280,7 @@ impl Orchestrator {
         let p = &self.paths;
         let mut cmd = match id {
             ServiceId::Nginx => {
-                let conf = prepare_nginx_conf(p);
+                let conf = prepare_nginx_conf(p, self.web_port());
                 let prefix = p.app_data.join("nginx");
                 let mut c = Command::new(p.bin(&exe("nginx")));
                 c.current_dir(&prefix)
@@ -240,12 +327,14 @@ impl Orchestrator {
         cmd
     }
 
-    /// 单独重启某个服务（面板按钮 / 崩溃自愈都走这里）。
+    /// 单独重启某个服务（面板按钮 / 崩溃自愈都走这里）。Nginx 复用已定格的
+    /// web_port，绝不重新扫描——主窗口已经加载在旧解析值上，换端口会让窗口失联。
     pub fn restart_one(&self, id: ServiceId) -> Result<()> {
         let spec = ordered_specs()
             .into_iter()
             .find(|s| s.id == id)
             .ok_or_else(|| DesktopError::MissingBinary(format!("unknown service {id:?}")))?;
+        let spec = self.resolve_spec(&spec);
 
         // 先杀旧进程树；提前记下重启次数（old 随后被 terminate 移走）。
         let old = {
@@ -304,11 +393,12 @@ impl Orchestrator {
         }
     }
 
-    /// 全部服务的当前状态快照（按启动顺序）。
+    /// 全部服务的当前状态快照（按启动顺序，端口展示真实值）。
     pub fn snapshot(&self) -> Vec<ServiceState> {
         let sup = self.shared.lock().unwrap();
         ordered_specs()
             .into_iter()
+            .map(|s| self.resolve_spec(&s))
             .map(|spec| match sup.services.get(&spec.id) {
                 Some(m) => ServiceState {
                     id: spec.id.as_str().to_string(),
@@ -544,7 +634,9 @@ fn exe(name: &str) -> String {
 }
 
 /// 渲染桌面版 nginx 配置：把模板占位替换为 app-data 实际路径后落到 prefix。
-fn prepare_nginx_conf(p: &RuntimePaths) -> PathBuf {
+/// `listen_port` 用启动自检解析并定格的 web 端口（模板里 CSP 的 connect-src
+/// 共用同一占位符，端口变更后自动跟随，不存在第二处写死）。
+fn prepare_nginx_conf(p: &RuntimePaths, listen_port: u16) -> PathBuf {
     let prefix = p.app_data.join("nginx");
     let _ = std::fs::create_dir_all(prefix.join("logs"));
     let _ = std::fs::create_dir_all(prefix.join("temp"));
@@ -560,7 +652,7 @@ fn prepare_nginx_conf(p: &RuntimePaths) -> PathBuf {
             &crate::env::nginx_path_str(&p.rel_nginx_dir()),
         )
         .replace("__BACKEND_PORT__", "8780")
-        .replace("__LISTEN_PORT__", "8080");
+        .replace("__LISTEN_PORT__", &listen_port.to_string());
     let out = prefix.join("nginx.conf");
     if let Ok(mut f) = std::fs::File::create(&out) {
         let _ = f.write_all(rendered.as_bytes());

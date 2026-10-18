@@ -16,6 +16,7 @@ mod error;
 mod logs;
 mod models;
 mod orchestrator;
+mod portadmin;
 mod probe;
 mod proc;
 
@@ -27,8 +28,11 @@ use crate::env::RuntimePaths;
 use crate::models::{BootEvent, LogLine, ServiceId, ServiceState};
 use crate::orchestrator::Orchestrator;
 
-/// 主窗口加载地址：内置 nginx 托管的前端站点。
-const APP_URL: &str = "http://127.0.0.1:8080";
+/// 主窗口加载地址：内置 nginx 托管的前端站点。端口在启动自检里解析
+/// （8080 被占则往后避让并定格本次会话），从编排状态取真实值，不写死。
+fn app_url(port: u16) -> String {
+    format!("http://127.0.0.1:{port}")
+}
 
 /// 就绪后启动卡的收尾上限：等前端把百分比补满后由 `splash_finished` 通知，再开主窗口、关卡；
 /// 前端没起来/桥不通时最多兜底等这么久，不能让主窗口后面挂着一个已经跑完的启动卡。
@@ -84,7 +88,10 @@ fn main() {
             quit_app,
             splash_finished,
             logs_dir_path,
-            app_version
+            app_version,
+            port_health,
+            release_ports,
+            restart_to_default
         ])
         .build(tauri::generate_context!())
         .expect("初始化 AIPDD DramaClaw 桌面壳失败")
@@ -165,7 +172,8 @@ fn open_main_window(handle: &AppHandle) -> Result<(), String> {
         let _ = w.set_focus();
         return Ok(());
     }
-    let url: url::Url = APP_URL.parse().map_err(|_| format!("无效地址：{APP_URL}"))?;
+    let addr = app_url(handle.state::<Arc<Orchestrator>>().web_port());
+    let url: url::Url = addr.parse().map_err(|_| format!("无效地址：{addr}"))?;
     WebviewWindowBuilder::new(handle, "main", WebviewUrl::External(url))
         .title("AIPDD DramaClaw")
         .inner_size(1440.0, 900.0)
@@ -260,6 +268,98 @@ fn logs_dir_path(orc: State<'_, Arc<Orchestrator>>) -> String {
 #[tauri::command]
 fn app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// 诊断窗口：受管端口的健康状况（空闲 / 我方 / 外部占用 + 占用者）。
+#[tauri::command]
+fn port_health(orc: State<'_, Arc<Orchestrator>>) -> Vec<portadmin::PortStatus> {
+    let orc = orc.inner();
+    let managed = orc.managed_pids();
+    portadmin::WATCH_PORTS
+        .iter()
+        .map(|(name, port)| {
+            let ls = portadmin::find_listeners(*port);
+            let mut ours = false;
+            let mut ext: Vec<String> = Vec::new();
+            for l in &ls {
+                if managed.contains(&l.pid) {
+                    ours = true;
+                } else {
+                    ext.push(format!("{}({})", l.pid, if l.name.is_empty() { "?" } else { &l.name }));
+                }
+            }
+            let state = if !ext.is_empty() {
+                "external"
+            } else if ours {
+                "ours"
+            } else {
+                "free"
+            };
+            portadmin::PortStatus {
+                service: (*name).to_string(),
+                port: *port,
+                state: state.to_string(),
+                owner: if ext.is_empty() { None } else { Some(ext.join(", ")) },
+            }
+        })
+        .collect()
+}
+
+/// 诊断窗口：一键释放受管端口上的**外部**占用者（我方受管 pid 不动，留给 restart_all 处理）。
+#[tauri::command]
+fn release_ports(orc: State<'_, Arc<Orchestrator>>) -> Vec<portadmin::ReleaseResult> {
+    let orc = orc.inner();
+    let managed = orc.managed_pids();
+    portadmin::WATCH_PORTS
+        .iter()
+        .map(|(_n, port)| {
+            let mut killed = Vec::new();
+            let mut failed = Vec::new();
+            for l in portadmin::find_listeners(*port)
+                .iter()
+                .filter(|l| !managed.contains(&l.pid))
+            {
+                if portadmin::kill_pid(l.pid) {
+                    killed.push(l.pid);
+                } else {
+                    failed.push(l.pid);
+                }
+            }
+            portadmin::ReleaseResult {
+                port: *port,
+                killed,
+                failed,
+            }
+        })
+        .collect()
+}
+
+/// 诊断窗口：释放被占端口后整套重启回默认（web 端口回到 8080），并把主窗口指向新地址。
+#[tauri::command]
+fn restart_to_default(handle: AppHandle, orc: State<'_, Arc<Orchestrator>>) -> Result<(), String> {
+    let orc = orc.inner().clone();
+    // 1) 先释放外部占用者（我方受管 pid 交给 restart_all 逐个重启）。
+    let managed = orc.managed_pids();
+    for (_n, port) in portadmin::WATCH_PORTS.iter() {
+        for l in portadmin::find_listeners(*port)
+            .iter()
+            .filter(|l| !managed.contains(&l.pid))
+        {
+            portadmin::kill_pid(l.pid);
+        }
+    }
+    // 2) 重置 web 端口回默认并整套重启受管服务（Nginx 重新以 8080 渲染）。
+    orc.restart_all().map_err(|e| e.to_string())?;
+    // 3) 主窗口指向新地址（无主窗口则开一个）。
+    let addr = app_url(orc.web_port());
+    let url: url::Url = addr.parse().map_err(|_| format!("无效地址：{addr}"))?;
+    if let Some(w) = handle.get_webview_window("main") {
+        w.navigate(url).map_err(|e| e.to_string())?;
+        let _ = w.set_focus();
+    } else {
+        open_main_window(&handle)?;
+    }
+    Ok(())
 }
 
 fn parse_id(s: &str) -> Option<ServiceId> {

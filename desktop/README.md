@@ -80,7 +80,7 @@ desktop/
 
 | 服务 | 端口 | 可执行 | 说明 |
 |---|---|---|---|
-| nginx | 8080 | `resources/bin/nginx` | 托管前端 dist + 反代 `/api` `/gateway/v1` `/static`；`-g "daemon off;"` 前台 |
+| nginx | 8080（默认） | `resources/bin/nginx` | 托管前端 dist + 反代 `/api` `/gateway/v1` `/static`；`-g "daemon off;"` 前台。**8080 被外部占用时自动往后避让到 8081…8089 并定格本次会话**（主窗口地址、nginx `listen`/CSP 同步跟随），10 个全占才报错 |
 | gateway(new-api) | 3000 | `resources/bin/new-api` | Go 静态二进制，内置 SQLite（工作目录 `app-data/gateway`）|
 | FastAPI | 8780 | 便携 `python` | `python -c "from novelvideo.cli import app; app()" api --host 127.0.0.1 --port 8780` |
 | VectCut（可选） | 9001 | 便携 `python` | `python aipdd_server.py`；失败降级不阻断 |
@@ -406,7 +406,7 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
   「更多信息 → 仍要运行」；对外分发必须按 `win-sign.ps1` 两段式签名（先内嵌 PE、后安装包）。
 - **装机目录过长导致 Python 依赖找不到**：`python\Lib\site-packages` 深层路径叠加长安装目录会顶到
   260 字符上限；用短目录（如 `D:\DramaClaw`）或开启「Win32 长路径」组策略。
-- **「端口 8080/8780/3000/9001 已被占用」**：多为仍在运行的 Docker/Colima 旧栈占用，先 `docker-compose -f docker-compose.aipdd.yml down` 或关掉占用进程。启动卡会转琥珀色错误态并给出该行提示。
+- **端口被占用**：web 端口（默认 8080）被占时**会自动避让到 8081…8089**，无需手动处理；只有 8080–8089 全被占、或非 web 服务端口（8780/3000/9001）被占时才会报错。报错多为仍在运行的 Docker/Colima 旧栈占用，先 `docker-compose -f docker-compose.aipdd.yml down` 或关掉占用进程；启动卡会转琥珀色错误态并给出提示（诊断窗口另有「端口健康」一键释放与重启回默认，见下）。
 - **某服务一直「启动中/异常」**：启动卡在 180s 超时后报错，点「查看详细信息」进诊断窗口看该服务日志（红色为 stderr）。FastAPI 首次冷启动（import 依赖）可能较慢。
 - **日志位置**：`app-data/logs/{nginx,gateway,vectcut,api}.log` + `app-data/nginx/{access,error}.log`；诊断窗口底部「复制日志目录路径」。
 - **主窗口打不开**：服务未全就绪时主窗口不会出现，启动卡也就不会自动关闭；先按卡上提示解决失败服务，

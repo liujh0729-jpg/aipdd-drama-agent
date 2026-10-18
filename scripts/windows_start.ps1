@@ -66,18 +66,34 @@ if (-not $engineReady) {
 }
 Set-WindowsComposeEnv
 
-# 端口被人占了要先说清楚：本项目 web 容器不在跑却已有监听，起栈会失败或站点打到别的页面上。
+# 端口被人占了就自动避让：目标 web 端口被其它进程监听（且本项目 web 容器不在跑）时，
+# 从该端口起连探 10 个取第一个空闲的，仅本次生效（往子进程注入 ST_WEB_PORT 环境变量，
+# 覆盖 compose 的 .env 插值，不写回文件）。后续 $gateUrl / $siteUrl 都引用 $webPort，自动跟随。
 $listeners = @()
 try {
     $listeners = @(Get-NetTCPConnection -LocalPort $webPort -State Listen -ErrorAction SilentlyContinue)
-} catch { }   # 老版本没有 Get-NetTCPConnection 就跳过这项检查，不影响启动
+} catch { }   # 老版本没有 Get-NetTCPConnection 就跳过整个避让检测，保持现状直接 up
 $ourWebRunning = ((Invoke-NativeProbe -Exe 'docker' -NativeArgs @('ps', '--format', '{{.Names}}')).Output -split "`n") | Where-Object { $_ -match 'web' }
 if ($listeners.Count -gt 0 -and -not $ourWebRunning) {
     $owners = ($listeners | ForEach-Object { $_.OwningProcess } | Select-Object -Unique | ForEach-Object {
         try { (Get-Process -Id $_ -ErrorAction Stop).ProcessName } catch { "PID $_" }
     }) -join ', '
-    Write-Note "端口 $webPort 已被其它进程监听（$owners），本项目 web 容器又不在跑：起栈大概率会失败。"
-    Write-Note "  腾出入口：改 .env 的 ST_WEB_PORT=<别的端口> 后重新双击；或先结束占用进程。"
+    $lastPort = $webPort + 9
+    $free = $null
+    foreach ($c in $webPort..$lastPort) {
+        $busy = $true
+        try { $busy = (@(Get-NetTCPConnection -LocalPort $c -State Listen -ErrorAction SilentlyContinue).Count -gt 0) } catch { $busy = $true }
+        if (-not $busy) { $free = $c; break }
+    }
+    if ($null -ne $free) {
+        Write-Note "端口 ${webPort} 已被其它进程监听（${owners}），本次站点自动改用 ${free}（仅本次生效）。"
+        $webPort = [int]$free
+        $env:ST_WEB_PORT = "$webPort"
+    } else {
+        Wait-Here "端口 ${webPort}–${lastPort} 全部被占用，无法自动避让。
+请腾出其中之一（若是在跑的旧栈：docker-compose -f docker-compose.aipdd.yml down），
+或改 .env 的 ST_WEB_PORT=<空闲端口> 后重新双击。"
+    }
 }
 
 # ────────────────────── [3/5] 镜像：缺则建，--rebuild 强建 ──────────────────────
