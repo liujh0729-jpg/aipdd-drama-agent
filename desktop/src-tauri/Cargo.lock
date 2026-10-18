@@ -695,7 +695,7 @@ dependencies = [
 
 [[package]]
 name = "dramaclaw-desktop"
-version = "2.2.0"
+version = "2.2.1"
 dependencies = [
  "futures-util",
  "log",
