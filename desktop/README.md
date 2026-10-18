@@ -68,6 +68,7 @@ desktop/
       orchestrator.rs      进程编排（启停顺序/探活/自愈/退出）
       env.rs               路径与环境变量注入（APP_DATA_PATH/APP_RESOURCE_PATH → NOVELVIDEO_*）
       probe.rs             端口探活
+      portadmin.rs         端口占用者定位与释放（Windows: netstat+tasklist / Unix: lsof），只杀外部非受管 pid
       logs.rs              子进程 stdout/stderr tee 落盘 + 转发
       proc.rs / proc_unix.rs / proc_win.rs   进程树控制（killpg / Job Object）
       downloader.rs        模型下载器
@@ -254,6 +255,9 @@ cargo tauri dev
 | `open_app_window` | 打开/聚焦主窗口 | console |
 | `splash_finished` | 启动卡自报「百分比已跑满并停留完毕」，壳收到才开主窗口、关卡 | panel |
 | `logs_dir_path` | 复制日志目录路径 | console |
+| `port_health` | `WATCH_PORTS` 逐个给出 `free`/`ours`/`external` + 外部占用者 `pid(程序名)` | console |
+| `release_ports` | 一键释放：只终止受管端口上的**外部**监听进程，我方 pid 一律不动 | console |
+| `restart_to_default` | 先释放外部占用，再 `restart_all()`（内部 `reset_web_port()` 把站点收回 8080），最后把主窗口 `navigate` 到新地址 | console |
 
 事件（Rust `emit`→Web 侧 `listen`）：
 - `boot://progress` `{stage,message,progress}` — 启动卡的全部数据来源：`check` / `start:<svc>` /
@@ -282,7 +286,7 @@ mac 的 `.app/.dmg` 与 win 的 `setup.exe` 内嵌的是同一份 HTML/CSS/JS �
 
 - 底色：`background_color` 在 mac 落到 `NSWindow` 底色（Windows 忽略 alpha 通道），同样不闪白帧。
 - 字体：`-apple-system, "PingFang SC", "Microsoft YaHei"`，mac 上落 PingFang，Windows 上落雅黑。
-- 版本行：`osLabel()` 在 mac 显示 `Version 2.2.0 · macOS`。
+- 版本行：`osLabel()` 在 mac 显示 `Version <app_version> · macOS`（当前包为 `Version 2.2.1 · macOS`）。
 - 换屏顺序：mac 与 win 一样「最后一个窗口关闭即退出」，所以必须先开主窗口再关启动卡，
   顺序反了进程会自己把自己杀掉，服务也就跟着没了。
 
@@ -413,6 +417,31 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
   或在诊断窗口点「打开主界面」/单服务「重启」。
 - **启动卡没有「×」以外的关闭方式**：它是无边框窗口，右上角「×」即整程序退出（走 `app.exit`，
   会逆序回收已拉起的子进程，不留端口）。
+
+### 13.1 端口健康与一键释放（诊断窗口）
+
+诊断窗口（`panel/console.html`）里的「端口健康」块，数据来自 `port_health`，按 `portadmin::WATCH_PORTS`
+这份清单逐个端口列一行：`:8080 Nginx 反代 / 前端`、`:3000 newapi 网关`、`:8780 FastAPI 主服务`、
+`:9001 VectCut 剪辑`。每行三态：绿点 `运行中`（我方受管 pid 在监听）、灰点 `空闲`、红点 `被外部占用`
+并带占用者 `pid(程序名)`。占用者由 `netstat -ano` + `tasklist`（Windows）/ `lsof -nP -iTCP:<port> -sTCP:LISTEN`
+（Unix）解析而来，解析逻辑是纯函数（`parse_netstat` / `parse_lsof`）并有单测。
+
+三个动作按钮：
+
+- **重新检测** → `port_health`，只读。
+- **释放占用端口** → `release_ports`：对这四个端口上 LISTEN 的进程，**先剔除我方受管 pid**（`managed_pids()`），
+  剩下的外部进程才 `kill_pid`（Unix 先 SIGTERM 再 SIGKILL，进程已消失算成功）。返回每端口
+  `{port, killed[], failed[]}`，汇总成一行写进日志区。不会去杀受管服务，也不会碰这四个端口之外的进程。
+- **重启回默认** → `restart_to_default`：先做一遍上面的释放，再 `restart_all()`（其内部 `reset_web_port()`
+  重新从 8080 起选端口，站点因此收回 8080），最后把主窗口 `navigate` 到 `http://127.0.0.1:<新端口>`；
+  主窗口还没开时直接开一个。用于「避让到 8081 之后想把 8080 抢回来」。
+
+两个已知边界（都不影响启动，只影响提示与观测）：
+
+- 避让发生时，启动卡上那行「端口 8080 被占用，站点本次改用 8081…」会在同一个同步块里被紧随其后的
+  自检文案覆盖，用户实际看不到；功能正常，仅提示不可见。
+- `port_health` 列的是**默认端口**，不跟随避让后的实际端口：nginx 已跑到 8081 时，`:8080` 那行仍显示
+  真正的 8080 占用者为「被外部占用」，而 8081 上我方 nginx 不出现在清单里。
 
 ---
 
