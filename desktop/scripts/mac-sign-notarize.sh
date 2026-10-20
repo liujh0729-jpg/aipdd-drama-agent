@@ -23,6 +23,9 @@ DMG="${2:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENTITLEMENTS="${ENTITLEMENTS:-$SCRIPT_DIR/../src-tauri/entitlements.plist}"
 SIGN_IDENTITY="${SIGN_IDENTITY:-Developer ID Application}"
+# ⚠️ 公证开关：默认关闭，跑脚本只做本地签名，不会向 Apple 提交公证（防止误触发历史堆积）。
+#    需要对外分发包时显式开启：NOTARIZE=1 ./mac-sign-notarize.sh <App.app> [dmg]
+NOTARIZE="${NOTARIZE:-0}"
 
 log() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 is_macho() { file -b "$1" 2>/dev/null | grep -q 'Mach-O'; }
@@ -63,6 +66,12 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 # ------------------------------------------------ 3) 公证 + staple
 TARGET_FOR_NOTARY="$APP"
 if [[ -n "$DMG" ]]; then TARGET_FOR_NOTARY="$DMG"; fi
+
+if [[ "$NOTARIZE" != "1" ]]; then
+  log "3/3 已跳过公证（NOTARIZE!=1）：仅完成本地签名，产物勿对外分发。"
+  log "需要对外分发包时：NOTARIZE=1 $0 <App.app> [dmg]"
+  exit 0
+fi
 
 # 组装 notarytool 认证参数
 AUTH=()
