@@ -70,7 +70,13 @@ if [[ -z "${PBS_URL:-}" ]]; then
   [[ -n "$PBS_URL" ]] || { echo "无法从 GitHub 解析 PBS ${PY}/${TRIPLE} install_only 资源（可能触发 API 限流）；请设 PBS_URL=<直链> 或 PBS_RELEASE=<日期标签>+GITHUB_TOKEN 重试" >&2; exit 4; }
 fi
 log "下载 $PBS_URL"
-curl -fL --retry 3 -o /tmp/pbs.tar.gz "$PBS_URL"
+# GitHub release CDN（objects.githubusercontent.com）偶发「连上但不吐数据」的呆滞，--retry 3 顶不住；
+# 这里：若 /tmp/pbs.tar.gz 已下载且 tar 校验通过则直接复用；否则用 --retry-all-errors + speed 超时呆滞自愈。
+if [[ -s /tmp/pbs.tar.gz ]] && tar -tzf /tmp/pbs.tar.gz >/dev/null 2>&1; then
+  log "复用已下载的 /tmp/pbs.tar.gz（tar 校验通过，跳过重复下载）"
+else
+  curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 -o /tmp/pbs.tar.gz "$PBS_URL"
+fi
 tar -xzf /tmp/pbs.tar.gz -C "$RES/python" --strip-components=1
 # 解释器位置按平台不同：install_only 包在 Unix 是 python/bin/python3，
 # Windows 没有 bin/ 这一层，是 python/python.exe + python/Lib/site-packages（env.rs::python() 同源）。
@@ -91,6 +97,17 @@ EXTRA_ARGS=()
 [[ "${INSTALL_WORLD:-0}" == "1" ]] && EXTRA_ARGS+=(--extra world) && log "启用 [world] extra（含 torch，体积显著增大）"
 REQS="/tmp/aipdd-desktop-reqs.txt"
 ( cd "$ROOT_DIR" && uv export --frozen --no-dev --no-hashes --no-emit-project ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} -o "$REQS" )
+# mac-x64：部分包在较新版本里停止了 macOS Intel（x86_64/universal2）轮，锁里的新 pin
+# 在 Intel 上既无轮、源码编译又缺本机 x86_64 原生依赖（如 cryptography 需 x86_64 OpenSSL）。
+# 把导出的 requirements 里这些包钉到「仍提供 macOS Intel 轮」的最近版本；可用同名 env 覆盖。
+if [[ "$TRIPLE" == "x86_64-apple-darwin" ]]; then
+  _x64_pin_pkg() {  # $1=包名 $2=钉到的版本 $3=备注
+    sed -i.bak -E "s/^${1}==[^ ;]+/${1}==${2}/" "$REQS"
+    log "mac-x64：${1} 钉到 ${2}（${3}）"
+  }
+  _x64_pin_pkg lancedb      "${LANCEDB_X64_PIN:-0.25.3}"  "cognee>=0.24,<1.0；0.25.3 有 macosx x86_64 轮"
+  _x64_pin_pkg cryptography "${CRYPTO_X64_PIN:-48.0.1}"   "48.0.1 是仍发 universal2(含 x86_64) 的最后版本"
+fi
 uv pip install --python "$PYBIN" --no-cache -r "$REQS"
 # 项目本体（novelvideo 入口）单独装；--no-deps 不触发版本重解。
 uv pip install --python "$PYBIN" --no-cache --no-deps "$ROOT_DIR"
