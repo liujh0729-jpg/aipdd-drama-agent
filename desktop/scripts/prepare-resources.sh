@@ -76,13 +76,18 @@ if [[ -z "${PBS_URL:-}" ]]; then
 fi
 log "下载 $PBS_URL"
 # GitHub release CDN（objects.githubusercontent.com）偶发「连上但不吐数据」的呆滞，--retry 3 顶不住；
-# 这里：若 /tmp/pbs.tar.gz 已下载且 tar 校验通过则直接复用；否则用 --retry-all-errors + speed 超时呆滞自愈。
-if [[ -s /tmp/pbs.tar.gz ]] && tar -tzf /tmp/pbs.tar.gz >/dev/null 2>&1; then
-  log "复用已下载的 /tmp/pbs.tar.gz（tar 校验通过，跳过重复下载）"
+# 这里用 --retry-all-errors + speed 超时呆滞自愈，且边下边写 .part、校验通过再原子改名。
+# 关键：缓存键必须带 $TRIPLE —— 便携 Python 不可跨架构，若共用 /tmp/pbs.tar.gz，
+# 在 Apple Silicon 上跑过 mac-x64 后缓存里就是 x86_64 包，再跑 mac-arm64 会把 x86_64 解释器打进 ARM 包。
+PBS_CACHE="/tmp/pbs-${TRIPLE}-$(basename "$PBS_URL")"
+if [[ -s "$PBS_CACHE" ]] && tar -tzf "$PBS_CACHE" >/dev/null 2>&1; then
+  log "复用已下载的 ${PBS_CACHE}（tar 校验通过，跳过重复下载）"
 else
-  curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 -o /tmp/pbs.tar.gz "$PBS_URL"
+  curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 -o "$PBS_CACHE.part" "$PBS_URL"
+  tar -tzf "$PBS_CACHE.part" >/dev/null 2>&1 || { echo "下载的便携 Python 包 tar 校验失败：$PBS_CACHE.part" >&2; rm -f "$PBS_CACHE.part"; exit 4; }
+  mv -f "$PBS_CACHE.part" "$PBS_CACHE"
 fi
-tar -xzf /tmp/pbs.tar.gz -C "$RES/python" --strip-components=1
+tar -xzf "$PBS_CACHE" -C "$RES/python" --strip-components=1
 # 解释器位置按平台不同：install_only 包在 Unix 是 python/bin/python3，
 # Windows 没有 bin/ 这一层，是 python/python.exe + python/Lib/site-packages（env.rs::python() 同源）。
 if [[ "$GOOS" == windows ]]; then
@@ -92,6 +97,10 @@ else
 fi
 [[ -f "$PYBIN" ]] || { echo "便携 Python 解压后找不到解释器：$PYBIN" >&2; exit 4; }
 "$PYBIN" -V || { echo "便携 Python 无法执行：$PYBIN" >&2; exit 4; }
+# mac-x64 硬校验：解释器必须是 x86_64——防止缓存/下载拿到错架构的包（尤其 Apple Silicon 交叉出 Intel 包）。
+if [[ "$IS_MAC_X64" == 1 ]]; then
+  lipo -archs "$PYBIN" | grep -q x86_64 || { echo "mac-x64：便携 Python 非 x86_64（实为 $(lipo -archs "$PYBIN" 2>/dev/null)），缓存或下载架构不符" >&2; exit 4; }
+fi
 
 # --------------------------------------------------- 2) 离线预装 CE 后端依赖
 log "2/7 按 uv.lock 冻结预装 CE 后端依赖（无 pip 暴露给用户）"
@@ -108,6 +117,9 @@ REQS="/tmp/aipdd-desktop-reqs.txt"
 if [[ "$TRIPLE" == "x86_64-apple-darwin" ]]; then
   _x64_pin_pkg() {  # $1=包名 $2=钉到的版本 $3=备注
     sed -i.bak -E "s/^${1}==[^ ;]+/${1}==${2}/" "$REQS"
+    # 断钉必须命中：若导出里没有 `${pkg}==` 这一行（改名/合并约束变化），sed 会静默无匹配，
+    # 继续装会拉到无 x86_64 轮的新版→回退源码编译失败。钉后回读确认。
+    grep -qE "^${1}==${2}( |$)" "$REQS" || { echo "mac-x64：${1} 钉版本未命中（期望行 ${1}==${2}）——导出格式可能变了，请人工核对 $REQS" >&2; exit 4; }
     log "mac-x64：${1} 钉到 ${2}（${3}）"
   }
   _x64_pin_pkg lancedb      "${LANCEDB_X64_PIN:-0.25.3}"  "cognee>=0.24,<1.0；0.25.3 有 macosx x86_64 轮"
@@ -116,6 +128,8 @@ fi
 uv pip install --python "$PYBIN" --no-cache -r "$REQS"
 # 项目本体（novelvideo 入口）单独装；--no-deps 不触发版本重解。
 uv pip install --python "$PYBIN" --no-cache --no-deps "$ROOT_DIR"
+# 钉完重装后跑一次一致性检查：mac-x64 钉版本可能与其他包的版本约束冲突，提前暴露避免装出坏包。
+uv pip check --python "$PYBIN" || { echo "依赖一致性检查未通过（uv pip check）——可能有钉版本引发的约束冲突" >&2; exit 4; }
 # 依赖装进 $RES/python/lib/python*/site-packages，随包只读分发。
 
 # ----------------------------------------------------------- 3) 前端 dist
@@ -217,6 +231,8 @@ elif [[ "$IS_MAC_X64" == 1 ]]; then
   # mime.types 是随包提交的静态文件（resources/nginx/），本步不清它，无需再取。
   log "mac-x64：交叉编译最小 x86_64 nginx"
   bash "$SCRIPT_DIR/build-nginx-x64.sh" "$RES/bin/nginx"
+  # 进包后再硬校验一遍：构建脚本本身会校验，但防其内部缓存/误改导致交出的二进制非 x86_64。
+  lipo -archs "$RES/bin/nginx" | grep -q x86_64 || { echo "mac-x64：进包 $RES/bin/nginx 不含 x86_64（实为 $(lipo -archs "$RES/bin/nginx" 2>/dev/null)）" >&2; exit 8; }
 elif [[ "$GOOS" == darwin ]]; then
   # Apple Silicon（mac-arm64）：走 Homebrew。
   need brew
@@ -255,7 +271,7 @@ copy_ffprobe_sibling() {
 if [[ -n "${FFMPEG_BIN:-}" ]]; then
   cp "$FFMPEG_BIN" "$RES/bin/ffmpeg$EXE"
   copy_ffprobe_sibling "$(dirname "$FFMPEG_BIN")" \
-    || log "警告：$FFMPEG_BIN 同目录未找到 ffprobe$EXE，请另设含 ffprobe 的构建。"
+    || log "警告：$FFMPEG_BIN 同目录未找到 ffprobe${EXE}，请另设含 ffprobe 的构建。"
 elif [[ "$IS_MAC_X64" == 1 ]]; then
   # Intel mac：不能走系统 PATH（Apple Silicon 上是 arm64）。取仍发 darwin-x64 的静态件：
   #  ffmpeg 来自 eugeneware/ffmpeg-static release 的 ffmpeg-darwin-x64.gz（仅依赖系统库）；
@@ -263,14 +279,27 @@ elif [[ "$IS_MAC_X64" == 1 ]]; then
   FFMPEG_X64_RELEASE="${FFMPEG_X64_RELEASE:-b6.1.1}"
   FFPROBE_STATIC_VER="${FFPROBE_STATIC_VER:-3.1.0}"
   log "mac-x64：取 ffmpeg-darwin-x64（${FFMPEG_X64_RELEASE}）+ ffprobe-static（${FFPROBE_STATIC_VER}）"
-  [[ -s /tmp/ffmpeg-darwin-x64.gz ]] || curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 \
-    -o /tmp/ffmpeg-darwin-x64.gz "https://github.com/eugeneware/ffmpeg-static/releases/download/${FFMPEG_X64_RELEASE}/ffmpeg-darwin-x64.gz"
-  gunzip -kf /tmp/ffmpeg-darwin-x64.gz
-  install -m 0755 /tmp/ffmpeg-darwin-x64 "$RES/bin/ffmpeg"
-  [[ -s /tmp/ffprobe-static.tgz ]] || curl -fL --retry 8 --retry-all-errors --speed-limit 2000 --speed-time 60 \
-    -o /tmp/ffprobe-static.tgz "https://registry.npmjs.org/ffprobe-static/-/ffprobe-static-${FFPROBE_STATIC_VER}.tgz"
+  # 缓存文件名必须带 release/版本，且复用前先校完整性（gzip -t / tar -tzf）；下载写 .part 原子改名。
+  FF_GZ="/tmp/ffmpeg-darwin-x64-${FFMPEG_X64_RELEASE}.gz"
+  if [[ -s "$FF_GZ" ]] && gzip -t "$FF_GZ" 2>/dev/null; then
+    log "复用已下载的 ${FF_GZ}（gzip 校验通过）"
+  else
+    curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 -o "$FF_GZ.part" "https://github.com/eugeneware/ffmpeg-static/releases/download/${FFMPEG_X64_RELEASE}/ffmpeg-darwin-x64.gz"
+    gzip -t "$FF_GZ.part" >/dev/null 2>&1 || { echo "下载的 ffmpeg .gz 完整性校验失败：$FF_GZ.part" >&2; rm -f "$FF_GZ.part"; exit 8; }
+    mv -f "$FF_GZ.part" "$FF_GZ"
+  fi
+  gunzip -kf "$FF_GZ"
+  install -m 0755 "${FF_GZ%.gz}" "$RES/bin/ffmpeg"
+  FFP_TGZ="/tmp/ffprobe-static-${FFPROBE_STATIC_VER}.tgz"
+  if [[ -s "$FFP_TGZ" ]] && tar -tzf "$FFP_TGZ" >/dev/null 2>&1; then
+    log "复用已下载的 ${FFP_TGZ}（tar 校验通过）"
+  else
+    curl -fL --retry 8 --retry-all-errors --speed-limit 2000 --speed-time 60 -o "$FFP_TGZ.part" "https://registry.npmjs.org/ffprobe-static/-/ffprobe-static-${FFPROBE_STATIC_VER}.tgz"
+    tar -tzf "$FFP_TGZ.part" >/dev/null 2>&1 || { echo "下载的 ffprobe-static .tgz tar 校验失败：$FFP_TGZ.part" >&2; rm -f "$FFP_TGZ.part"; exit 8; }
+    mv -f "$FFP_TGZ.part" "$FFP_TGZ"
+  fi
   rm -rf /tmp/ffprobe-static-extract; mkdir -p /tmp/ffprobe-static-extract
-  tar -xzf /tmp/ffprobe-static.tgz -C /tmp/ffprobe-static-extract package/bin/darwin/x64/ffprobe
+  tar -xzf "$FFP_TGZ" -C /tmp/ffprobe-static-extract package/bin/darwin/x64/ffprobe
   install -m 0755 /tmp/ffprobe-static-extract/package/bin/darwin/x64/ffprobe "$RES/bin/ffprobe"
   xattr -c "$RES/bin/ffmpeg" "$RES/bin/ffprobe" 2>/dev/null || true
   # 硬校验：两者都必须含 x86_64，否则 Intel 机必 Bad CPU type。
@@ -309,15 +338,32 @@ if [[ -z "$CFT_VER" ]]; then
   CFT_VER="$(curl -fsSL "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE" || true)"
 fi
 if [[ -n "$CFT_VER" ]]; then
-  curl -fL -o /tmp/chrome.zip "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VER}/${CFT}/chrome-${CFT}.zip"
+  # 与便携 Python/ffmpeg 同一套纪律：缓存名带 $CFT_VER（换版本不会误用旧件），
+  # 下载写 .part、unzip -t 完整性校验通过再原子改名；复用约 170MB 的大下载。
+  CFT_ZIP="/tmp/chrome-${CFT}-${CFT_VER}.zip"
+  if [[ -s "$CFT_ZIP" ]] && unzip -tq "$CFT_ZIP" >/dev/null 2>&1; then
+    log "复用已下载的 ${CFT_ZIP}（zip 校验通过，跳过重复下载）"
+  else
+    curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 \
+      -o "$CFT_ZIP.part" "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VER}/${CFT}/chrome-${CFT}.zip"
+    unzip -tq "$CFT_ZIP.part" >/dev/null 2>&1 || { echo "下载的 Chromium zip 完整性校验失败：$CFT_ZIP.part" >&2; rm -f "$CFT_ZIP.part"; exit 8; }
+    mv -f "$CFT_ZIP.part" "$CFT_ZIP"
+  fi
   # 包内顶层是 chrome-<平台>/ 一层，剥掉它让 exe 直接落在 bin/chrome/ 下
   # （Windows: bin/chrome/chrome.exe；mac: bin/chrome/Google Chrome for Testing.app）。
   # 直接解到 bin/ 再同级改名：Git Bash 自带 unzip 6.00 没有 --strip-components，
   # 而「解到临时目录 + cp -R 跨盘搬运」在这套 MSYS cp 下要十几分钟（Chromium 约 700 文件）。
   rm -rf "$RES/bin/chrome" "$RES/bin/chrome-${CFT}"
-  unzip -oq /tmp/chrome.zip -d "$RES/bin"
+  unzip -oq "$CFT_ZIP" -d "$RES/bin"
   [[ -d "$RES/bin/chrome-${CFT}" ]] || { echo "Chromium 包内未找到 chrome-${CFT}/：$(ls "$RES/bin")" >&2; exit 8; }
   mv "$RES/bin/chrome-${CFT}" "$RES/bin/chrome"
+  # 解压后立即把 Chrome framework 归一化成「标准 versioned 布局 + 签名友好」：
+  #   删顶层 Info.plist、Libraries/ 与 Helpers 裸件并入 Resources/——否则后续
+  #   codesign --deep 会报「unsealed contents present in the root directory」，公证反复 Invalid。
+  #   单一事实源见 normalize-chrome-framework.sh；mac 侧签名脚本会再幂等调一次。
+  if [[ "$GOOS" == darwin ]]; then
+    bash "$SCRIPT_DIR/normalize-chrome-framework.sh" "$RES/bin/chrome"
+  fi
   # 运行期后端连 CDP：需由编排器以 --remote-debugging-port 启动该 Chrome，并把它的路径
   # 通过环境变量交给后端。见 desktop/README「Chromium/CDP 接线」TODO。
   log "Chromium $CFT_VER 已内置 resources/bin/chrome（CDP 接线见 README）"
@@ -334,19 +380,36 @@ UV_VER="${UV_VER:-0.10.9}"
 if [[ -n "${UV_BIN:-}" ]]; then
   cp "$UV_BIN" "$RES/bin/uv$EXE"
 elif [[ "$GOOS" == windows ]]; then
-  curl -fL --retry 3 -o /tmp/uv.zip "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.zip"
+  # 缓存名带版本 + .part 原子落盘 + zip 完整性校验 + GitHub CDN 呆滞重试（同 pbs/ffmpeg 纪律）。
+  UV_ZIP="/tmp/uv-${TRIPLE}-${UV_VER}.zip"
+  if [[ -s "$UV_ZIP" ]] && unzip -tq "$UV_ZIP" >/dev/null 2>&1; then
+    log "复用已下载的 ${UV_ZIP}（zip 校验通过）"
+  else
+    curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 \
+      -o "$UV_ZIP.part" "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.zip"
+    unzip -tq "$UV_ZIP.part" >/dev/null 2>&1 || { echo "下载的 uv zip 完整性校验失败：$UV_ZIP.part" >&2; rm -f "$UV_ZIP.part"; exit 8; }
+    mv -f "$UV_ZIP.part" "$UV_ZIP"
+  fi
   rm -rf /tmp/uvpkg && mkdir -p /tmp/uvpkg
-  unzip -oq /tmp/uv.zip -d /tmp/uvpkg
-  [[ -f "/tmp/uvpkg/uv$EXE" ]] || { echo "uv 包内缺 uv$EXE：$(ls /tmp/uvpkg)" >&2; exit 8; }
+  unzip -oq "$UV_ZIP" -d /tmp/uvpkg
+  [[ -f "/tmp/uvpkg/uv$EXE" ]] || { echo "uv 包内缺 uv${EXE}：$(ls /tmp/uvpkg)" >&2; exit 8; }
   cp "/tmp/uvpkg/uv$EXE" "$RES/bin/uv$EXE"
 else
-  curl -fL --retry 3 -o /tmp/uv.tar.gz "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.tar.gz"
+  UV_TGZ="/tmp/uv-${TRIPLE}-${UV_VER}.tar.gz"
+  if [[ -s "$UV_TGZ" ]] && tar -tzf "$UV_TGZ" >/dev/null 2>&1; then
+    log "复用已下载的 ${UV_TGZ}（tar 校验通过）"
+  else
+    curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 \
+      -o "$UV_TGZ.part" "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.tar.gz"
+    tar -tzf "$UV_TGZ.part" >/dev/null 2>&1 || { echo "下载的 uv tar.gz 完整性校验失败：$UV_TGZ.part" >&2; rm -f "$UV_TGZ.part"; exit 8; }
+    mv -f "$UV_TGZ.part" "$UV_TGZ"
+  fi
   rm -rf /tmp/uvpkg && mkdir -p /tmp/uvpkg
-  tar -xzf /tmp/uv.tar.gz -C /tmp/uvpkg
+  tar -xzf "$UV_TGZ" -C /tmp/uvpkg
   [[ -x "/tmp/uvpkg/uv-${TRIPLE}/uv" ]] || { echo "uv 包内缺 uv：$(ls /tmp/uvpkg)" >&2; exit 8; }
   cp "/tmp/uvpkg/uv-${TRIPLE}/uv" "$RES/bin/uv"
 fi
-log "uv ${UV_VER} 已内置 resources/bin/uv$EXE（可选引擎的运行期安装器）"
+log "uv ${UV_VER} 已内置 resources/bin/uv${EXE}（可选引擎的运行期安装器）"
 
 # ------------------------------------------------------- 7) Hermes Agent 运行时
 # 不用 venv：venv 的 pyvenv.cfg 记录 base 解释器绝对路径，安装包挪目录/改名即失效。
@@ -365,7 +428,7 @@ HERMES_SITE_PACKAGES="$RES/hermes/site-packages" PYTHONDONTWRITEBYTECODE=1 \
   "$PYBIN" -c "import os, sys; sys.path.insert(0, os.environ['HERMES_SITE_PACKAGES']); import hermes_cli.main, acp_adapter.entry, acp; print('hermes runtime ok')" \
   || { echo "Hermes 运行时导入自检失败（检查 HERMES_AGENT_SPEC 与网络/镜像）" >&2; exit 10; }
 find "$RES/hermes" -type d -name __pycache__ -prune -exec rm -rf {} +
-log "Hermes 运行时已内置 resources/hermes/site-packages（$HERMES_AGENT_SPEC）"
+log "Hermes 运行时已内置 resources/hermes/site-packages（${HERMES_AGENT_SPEC}）"
 
 # ---------------------------------------------------------------------------
 # HyperFrames 本地 producer（引擎即服务，讲解视频 / 渠道短视频的渲染底座）。

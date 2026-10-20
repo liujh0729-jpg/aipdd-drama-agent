@@ -9,6 +9,7 @@
 #
 #   环境变量：
 #     SIGN_IDENTITY   默认 "Developer ID Application"（需已在钥匙串导入证书）
+#     NOTARIZE        公证开关：默认 0 仅本地签名；NOTARIZE=1 才向 Apple 提交公证
 #     ENTITLEMENTS    默认 src-tauri/entitlements.plist（含 disable-library-validation 等，
 #                     便携 Python 才能 dlopen 第三方 .so/.dylib）
 #     公证凭据（二选一）：
@@ -32,26 +33,70 @@ is_macho() { file -b "$1" 2>/dev/null | grep -q 'Mach-O'; }
 
 [[ -d "$APP" ]] || { echo "App 不存在：$APP" >&2; exit 2; }
 [[ -f "$ENTITLEMENTS" ]] || { echo "缺少授权清单：$ENTITLEMENTS" >&2; exit 2; }
+# 签名身份快速失败：缺证书就在最开始说清楚，而不是签第 200 个文件时报一句难懂的 codesign 错。
+security find-identity -v -p codesigning | grep -qF -- "$SIGN_IDENTITY" \
+  || { echo "钥匙串中没有可用的签名身份：${SIGN_IDENTITY}（请先导入 Developer ID 证书，或用 SIGN_IDENTITY 覆盖）" >&2; exit 3; }
 
 # ------------------------------------------------ 1) 由内向外签所有嵌套 Mach-O
 log "1/3 遍历并签名 App 内所有可执行文件 / .dylib / .so"
 # 先签依赖库（.dylib/.so），再签可执行文件；App 本体在下一步最后签。
-codesign_one() {
-  codesign --force --options runtime --timestamp \
-           --entitlements "$ENTITLEMENTS" \
-           --sign "$SIGN_IDENTITY" \
-           "$1"
+# 批量并行签名：便携 Python 子树有数百个 Mach-O，串行 codesign 是出包耗时大头 → 按核数并行。
+# 用法：find ... -print0 | sign_files_parallel（stdin 收 NUL 分隔清单，非 Mach-O 自动跳过）。
+NPROC="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+sign_files_parallel() {
+  xargs -0 -P "$NPROC" -n1 /bin/bash -c '
+    file -b "$2" 2>/dev/null | grep -q "Mach-O" || exit 0
+    codesign --force --options runtime --timestamp --entitlements "$0" --sign "$1" "$2"
+  ' "$ENTITLEMENTS" "$SIGN_IDENTITY"
 }
 # 1a) 动态库（含便携 Python 的 .so 扩展、framework 内 dylib）
-while IFS= read -r -d '' f; do
-  is_macho "$f" || continue
-  codesign_one "$f"
-done < <(find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) -print0)
-# 1b) 可执行文件（MacOS 主程序、bin/ 下 nginx/ffmpeg/new-api、Chrome 等）
-while IFS= read -r -d '' f; do
-  is_macho "$f" || continue
-  codesign_one "$f"
-done < <(find "$APP" -type f -perm -u+x ! -name '*.dylib' ! -name '*.so' ! -name '*.so.*' -print0)
+#     Chrome for Testing 子树单独在下面 1c) 用 --deep 一次性重签——这里从循环里排除以免与深签冲突。
+CHROME_EXCL=(-not -path '*/Google Chrome for Testing.app/*')
+find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) "${CHROME_EXCL[@]}" -print0 \
+  | sign_files_parallel \
+  || { echo "批量签名动态库（.dylib/.so）失败" >&2; exit 1; }
+# 1b) 可执行文件（MacOS 主程序、bin/ 下 nginx/ffmpeg/new-api；同样排除 Chrome 子树，交给 1c 深签）
+find "$APP" -type f -perm -u+x ! -name '*.dylib' ! -name '*.so' ! -name '*.so.*' "${CHROME_EXCL[@]}" -print0 \
+  | sign_files_parallel \
+  || { echo "批量签名可执行文件失败" >&2; exit 1; }
+# 1c) Chrome for Testing 子树：Google chrome-for-testing zip 里的 helpers/framework 主件都是 ad-hoc
+#     linker-signed（无 Team ID、无时间戳、无 hardened runtime），Apple 公证对每个 Mach-O 都要求
+#     Developer ID + 时间戳 + 硬化运行时，ad-hoc 一律拒绝。必须整棵子树重签。
+#     归一化（见 1c-i）后 framework 变成标准 versioned 布局，可安全用 --force --deep 深签；未归一化前直接 --deep 会报「bundle format is ambiguous」/「unsealed contents」。
+#     entitlements 用我们已有的（allow-jit / allow-unsigned-executable-memory / disable-library-validation
+#     / allow-dyld-environment-variables）覆盖 Chrome 渲染进程 JIT 需求。
+#
+#     正确顺序（归一化由 normalize-chrome-framework.sh 提供单一事实源；本处仅防御性再调一次）：
+#       1c-i)   调 normalize-chrome-framework.sh 把 framework 整理成标准 versioned 布局
+#                （幂等：prepare-resources.sh 已在解压后就地整理过，这里近乎空操作）。
+#       1c-ii)  签 Chrome 子树内的「松散 Mach-O」：所有 .dylib/.so，以及被归一化移入
+#                Resources/** 的裸可执行件（app_mode_loader / chrome_crashpad_handler /
+#                web_app_shortcut_copier 等）。★ 这些既不在 --deep 递归的代码位置、又不是任何
+#                bundle 的 CFBundleExecutable，必须显式签，否则全新构建会漏签导致公证 Invalid。
+#       1c-iii) 签 Chrome 顶层 .app（--force --deep）：在 bundle 上下文签 chrome 主件、framework
+#                主件（versioned bundle seal）与 framework/Helpers 内的 helper .app，并把 1c-ii
+#                签好的松散件哈希进 seal。顺序「先内后外、先签后 seal」由 --deep 自动完成。
+#       1c-iv)  显式 --verify --deep --strict 校验 Chrome 子树（外层 .app 的 --deep 不会递归进
+#                Contents/Resources/**/Chrome.app，必须单独验，否则白跑一轮公证）。
+while IFS= read -r -d '' chrome_root; do
+  log "1c) 重签 Chrome 子树：$chrome_root"
+  # 1c-i) 归一化 framework（幂等，单一事实源在 normalize-chrome-framework.sh）
+  bash "$SCRIPT_DIR/normalize-chrome-framework.sh" "$chrome_root"
+  # 1c-ii) 签松散 Mach-O：dylib/.so 全域 + 任何 Resources/** 下的 Mach-O（含被移入的裸件）。
+  #        bundle 主件（chrome/framework/helper .app）留给下面 --force --deep 在 bundle 上下文签。
+  { find "$chrome_root" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) -print0
+    find "$chrome_root" -type f -path '*/Resources/*' -print0
+  } | sort -zu | sign_files_parallel \
+    || { echo "Chrome 子树松散 Mach-O 批量签名失败：$chrome_root" >&2; exit 1; }
+  # 1c-iii) 签 Chrome 顶层 .app（--force --deep，在 bundle 上下文签主件并 seal 全部子件）
+  codesign --force --deep --options runtime --timestamp \
+           --entitlements "$ENTITLEMENTS" \
+           --sign "$SIGN_IDENTITY" "$chrome_root"
+  # 1c-iv) ★ 显式校验 Chrome 子树：外层 .app 的 --verify --deep 不会递归进
+  #         Contents/Resources/**/Chrome.app，故 Chrome 的 seal/签名问题必须这里单独验一遍。
+  codesign --verify --deep --strict --verbose=2 "$chrome_root" \
+    || { echo "Chrome 子树签名校验未通过：${chrome_root}（不要提交公证，先修此处）" >&2; exit 11; }
+done < <(find "$APP" -type d -name 'Google Chrome for Testing.app' -print0)
 
 # ------------------------------------------------ 2) 签 App 本体
 log "2/3 对 App 本体签名（硬化运行时 + 授权清单）"
@@ -62,6 +107,26 @@ codesign --force --options runtime --timestamp \
          "$APP"
 
 codesign --verify --deep --strict --verbose=2 "$APP"
+
+# ------------------------------------------------ 2b) 提交前漏签预扫
+# 把 App 内每个 Mach-O 单独验一遍：漏签 / seal 损坏 / 仍是 ad-hoc 的，全在本地一次性报出来，
+# 不让「本地可发现」的问题进 Apple 队列（一轮公证 Invalid 要几小时才发现，等于重签重打包重提交整轮白跑）。
+log "2b) 公证前漏签预扫（App 内全量 Mach-O）"
+BAD=()
+while IFS= read -r -d '' f; do
+  is_macho "$f" || continue
+  if ! codesign --verify --strict "$f" 2>/dev/null; then
+    BAD+=("$f  （未签名或 seal 校验失败）")
+  elif codesign -dvv "$f" 2>&1 | grep -q 'Signature=adhoc'; then
+    BAD+=("$f  （仍是 ad-hoc 签名，公证必拒）")
+  fi
+done < <(find "$APP" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) -print0)
+if [[ "${#BAD[@]}" -gt 0 ]]; then
+  printf '  %s\n' "${BAD[@]}" >&2
+  echo "漏签预扫未通过：${#BAD[@]} 个文件。先修复签名，再提交公证。" >&2
+  exit 12
+fi
+log "漏签预扫通过"
 
 # ------------------------------------------------ 3) 公证 + staple
 TARGET_FOR_NOTARY="$APP"
@@ -95,12 +160,43 @@ else
   SUBMIT="$TARGET_FOR_NOTARY"
 fi
 
-xcrun notarytool submit "$SUBMIT" "${AUTH[@]}" --wait
+# --output-format json 拿回结果：状态非 Valid 时按 id 自动拉公证日志打印，
+# 闭环「Invalid 后还要手动找 ID 再查 log」的排错回路。
+SUBMIT_OUT="$(xcrun notarytool submit "$SUBMIT" "${AUTH[@]}" --wait --output-format json 2>/tmp/notary-submit.err || true)"
+[[ -n "$SUBMIT_OUT" ]] || SUBMIT_OUT='{}'
+NOTARY_META="$(printf '%s' "$SUBMIT_OUT" | /usr/bin/python3 -c 'import json,sys
+try:
+    r = json.load(sys.stdin).get("result", {}) or {}
+    print("%s\t%s" % (r.get("id", ""), r.get("status", "")))
+except Exception:
+    print("\t")')"
+NOTARY_ID="${NOTARY_META%%$'\t'*}"
+NOTARY_STATUS="${NOTARY_META#*$'\t'}"
+if [[ "$NOTARY_STATUS" != "Valid" ]]; then
+  echo "公证未通过（status=${NOTARY_STATUS:-提交失败}）：$SUBMIT" >&2
+  [[ -s /tmp/notary-submit.err ]] && { echo '--- notarytool stderr ---' >&2; cat /tmp/notary-submit.err >&2; }
+  if [[ -n "$NOTARY_ID" ]]; then
+    log "自动拉取公证日志：$NOTARY_ID"
+    xcrun notarytool log "$NOTARY_ID" "${AUTH[@]}" 2>/dev/null \
+      || echo "（日志拉取失败；可手动重试：xcrun notarytool log ${NOTARY_ID}）" >&2
+  fi
+  exit 13
+fi
 
 xcrun stapler staple "$TARGET_FOR_NOTARY"
 [[ "$TARGET_FOR_NOTARY" != "$APP" ]] && xcrun stapler staple "$APP"
-xcrun stapler validate "$TARGET_FOR_NOTARY" || true
-spctl --assess --type execute --verbose "$APP" || true
+# 终检失败不再无声吞掉：打印明确 WARNING，让「能否离线首启」在退出信息里可见。
+xcrun stapler validate "$TARGET_FOR_NOTARY" 2>/dev/null \
+  || echo "⚠️ WARNING：staple 终检未过——票据未钉入产物，离线首启仍会被 Gatekeeper 拦截；联网后可重试 stapler。" >&2
+spctl --assess --type execute --verbose "$APP" 2>/dev/null \
+  || echo "⚠️ WARNING：spctl 评估未过——对外分发前请在干净机器复核公证+staple 是否生效。" >&2
+
+# 终检闭环：给了 dmg 就跑出厂终检（挂卷实测包内 App 的 Gatekeeper/签名/架构/版本），
+# 让「本脚本跑绿」等价于「产物可分发」——dmg 里装的是不是刚公证的 App，在这里验而不是分发后才发现。
+if [[ -n "$DMG" ]]; then
+  bash "$SCRIPT_DIR/verify-release-dmg.sh" "$DMG" \
+    || { echo "出厂终检未过：${DMG}（见上方 ✗ 项，修复后再分发）" >&2; exit 14; }
+fi
 
 log "完成：签名 + 公证 + staple 结束。"
 [[ "${KEEP_NOTARY_ZIP:-0}" == "1" ]] || rm -f "${APP%.app}-notary.zip" 2>/dev/null || true

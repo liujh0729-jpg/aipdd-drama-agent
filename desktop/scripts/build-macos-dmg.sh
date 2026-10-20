@@ -39,6 +39,9 @@ find "$BUNDLE_DIR" -maxdepth 2 \( -name '*.app' -o -name '*.dmg' \) -print
 cat <<'EOF'
 
 下一步（对外分发前，二选一）：
-  A. 已有 Apple Developer ID：  ./mac-sign-notarize.sh <path/to/*.dmg 或 .app>
+  A. 已有 Apple Developer ID：  NOTARIZE=1 ./mac-sign-notarize.sh <path/to/*.app> <path/to/*.dmg>
+     （公证开关 NOTARIZE 默认关闭，不加只会本地签名、不向 Apple 提交；结尾会自动跑出厂终检）
   B. 仅本机自测：直接 open 生成的 .dmg，拖入 Applications。
+已公证过的 dmg 无需重复公证（公证记录绑 cdhash、永久有效）；只要产物字节变了才需重新提交。
+随时复核存量产物： ./verify-release-dmg.sh <path/to/*.dmg> ...
 EOF

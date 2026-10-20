@@ -55,7 +55,8 @@ desktop/
     prepare-resources.sh      三架构便携运行时准备（Python/Go/nginx/ffmpeg/Chromium/Hermes）
     build-nginx-x64.sh        mac-x64 专用：源码交叉编最小自包含 x86_64 nginx（纯 HTTP、静态 PCRE）
     build-macos-dmg.sh        产出 .app + .dmg
-    mac-sign-notarize.sh      批量内嵌二进制签名 + notarytool 公证 + staple
+    mac-sign-notarize.sh      批量内嵌二进制签名 + notarytool 公证 + staple（结尾自动对 dmg 跑出厂终检）
+    verify-release-dmg.sh     发布产物出厂终检：钉票/包内 App Gatekeeper/deep 校验/架构/版本一致性
     build-windows.ps1         产出 NSIS .exe 安装包（前置自检 → cargo tauri build --bundles nsis → 产物 sha256）
     win-sign.ps1              Windows 代码签名（-Stage Resources 签内嵌 PE / -Stage Installer 签安装包）
     build-windows.md          Windows NSIS 打包 + 代码签名说明
@@ -214,9 +215,18 @@ scripts/prepare-resources.sh mac-arm64        # 或 mac-x64 / win-x64
 scripts/build-macos-dmg.sh arm64              # 开发/本机自测：不签名（ad-hoc）
 
 # 5) 对外分发前：签名 + 公证 + staple（需 Apple Developer ID）
-scripts/mac-sign-notarize.sh \
+#    ⚠️ 公证开关 NOTARIZE 默认关闭——不加则只做本地签名、不向 Apple 提交；对外分发必须显式 NOTARIZE=1。
+NOTARIZE=1 scripts/mac-sign-notarize.sh \
   "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/AIPDD DramaClaw.app" \
   "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/AIPDD DramaClaw_<ver>_aarch64.dmg"
+#    凭据二选一：NOTARY_PROFILE=<store-credentials 存好的凭据名>，或 APPLE_ID + APPLE_APP_PWD + TEAM_ID。
+#    脚本内置防线：缺签名身份开头即败；内嵌 Mach-O 按核数并行批量签；提交公证前做「全量漏签预扫」
+#    （漏签/seal 坏/仍 ad-hoc 当场列出 exit 12，不进 Apple 队列）；公证非 Valid 自动按 id 拉公证日志（exit 13）；
+#    公证+钉票后自动对 dmg 跑出厂终检（exit 14）——脚本跑绿即「产物可分发」。
+
+# 6) 存量产物随时复核（不改动产物，只读挂卷实测）：
+scripts/verify-release-dmg.sh "dist/AIPDD DramaClaw_<ver>_aarch64.dmg" "dist/AIPDD DramaClaw_<ver>_x64.dmg"
+#    公证记录绑 cdhash、永久有效：已公证的 dmg 无需重复公证；只有产物字节变了（重新构建/签名）才需重新提交。
 ```
 
 ### 6.1 产出 Intel（x86_64）macOS 包
@@ -238,6 +248,10 @@ rustup target add x86_64-apple-darwin                 # Rust x86_64 标准库
 出包与签名/公证与 arm 一致，只是 target 换成 `x86_64-apple-darwin`：
 ```bash
 scripts/build-macos-dmg.sh x64      # 产物在 target/x86_64-apple-darwin/release/bundle
+# 对外分发同样必须显式开公证：
+NOTARIZE=1 scripts/mac-sign-notarize.sh \
+  "src-tauri/target/x86_64-apple-darwin/release/bundle/macos/AIPDD DramaClaw.app" \
+  "src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/AIPDD DramaClaw_<ver>_x64.dmg"
 ```
 > 手上有自包含 x86_64 二进制时，也可 `NGINX_BIN=/… FFMPEG_BIN=/…`（`FFMPEG_BIN` 同目录需含 ffprobe）显式注入，跳过自动取件。
 > 验收：出包后全包 Mach-O 里「纯 arm64」应为 0 ——
@@ -511,7 +525,7 @@ macOS 的安装逻辑同源（`prepare-resources.sh mac-arm64|mac-x64`），但*
 ## 13. 故障排查（Gatekeeper / SmartScreen / 启动失败）
 
 - **「已损坏 / 无法验证开发者」**（macOS）：未签名或未公证。本机自测可 `xattr -dr com.apple.quarantine "<App>"`；
-  对外分发必须走 `mac-sign-notarize.sh` 完成签名 + 公证 + staple。
+  对外分发必须走 `mac-sign-notarize.sh` 完成签名 + 公证 + staple（脚本公证默认关闭，需显式 `NOTARIZE=1`才会向 Apple 提交）。
 - **「Windows 已保护你的电脑 / 未知发布者」**（Windows）：未签名安装包的 SmartScreen 拦截。本机自测点
   「更多信息 → 仍要运行」；对外分发必须按 `win-sign.ps1` 两段式签名（先内嵌 PE、后安装包）。
 - **装机目录过长导致 Python 依赖找不到**：`python\Lib\site-packages` 深层路径叠加长安装目录会顶到
