@@ -53,6 +53,7 @@ desktop/
     app.js  logo.png
   scripts/
     prepare-resources.sh      三架构便携运行时准备（Python/Go/nginx/ffmpeg/Chromium/Hermes）
+    build-nginx-x64.sh        mac-x64 专用：源码交叉编最小自包含 x86_64 nginx（纯 HTTP、静态 PCRE）
     build-macos-dmg.sh        产出 .app + .dmg
     mac-sign-notarize.sh      批量内嵌二进制签名 + notarytool 公证 + staple
     build-windows.ps1         产出 NSIS .exe 安装包（前置自检 → cargo tauri build --bundles nsis → 产物 sha256）
@@ -217,6 +218,30 @@ scripts/mac-sign-notarize.sh \
   "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/AIPDD DramaClaw.app" \
   "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/AIPDD DramaClaw_<ver>_aarch64.dmg"
 ```
+
+### 6.1 产出 Intel（x86_64）macOS 包
+
+三套产物互不复用，便携 Python 不能跨架构 —— **Intel 包必须单独出一份**（universal 因
+Python 及其 C 扩展 wheel 无法合并而不可行）。在 Apple Silicon 本机即可交叉产出，前置：
+```bash
+softwareupdate --install-rosetta --agree-to-license   # 构建期用 Rosetta 跑 x64 python/uv 装 wheel
+rustup target add x86_64-apple-darwin                 # Rust x86_64 标准库
+```
+
+`scripts/prepare-resources.sh mac-x64` 已内置 Intel 专属处理，正常一键即可：
+- **依赖钉版本**：`lancedb→0.25.3`、`cryptography→48.0.1`（较新版停发 macOS Intel 轮；env `LANCEDB_X64_PIN`/`CRYPTO_X64_PIN` 覆盖）
+- **nginx**：调 `scripts/build-nginx-x64.sh` 源码交叉编一个**最小 x86_64**（纯 HTTP、静态 PCRE、无 OpenSSL —— Homebrew 已停 macOS Intel 瓶，`brew install nginx` 只会给 arm64）
+- **ffmpeg/ffprobe**：取 `ffmpeg-static` 的 `ffmpeg-darwin-x64.gz` + `ffprobe-static` tarball 内 `bin/darwin/x64/ffprobe`（均只依赖系统库）
+- **new-api**：`go build GOARCH=amd64`（模块代理网络差时 `GOPROXY=https://goproxy.cn,direct GOSUMDB=off`）
+- **uv**：从 PyPI 的 `macosx_*_x86_64` wheel 取
+
+出包与签名/公证与 arm 一致，只是 target 换成 `x86_64-apple-darwin`：
+```bash
+scripts/build-macos-dmg.sh x64      # 产物在 target/x86_64-apple-darwin/release/bundle
+```
+> 手上有自包含 x86_64 二进制时，也可 `NGINX_BIN=/… FFMPEG_BIN=/…`（`FFMPEG_BIN` 同目录需含 ffprobe）显式注入，跳过自动取件。
+> 验收：出包后全包 Mach-O 里「纯 arm64」应为 0 ——
+> `find "…/AIPDD DramaClaw.app" -type f -print0 | xargs -0 -I{} sh -c 'lipo -archs "{}" 2>/dev/null' | grep -c arm64`
 
 Windows x64（PowerShell，与 mac 分属独立流水线；细节见 `scripts/build-windows.md`）：
 

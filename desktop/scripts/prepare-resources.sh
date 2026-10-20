@@ -36,6 +36,11 @@ esac
 
 EXE=""; [[ "$GOOS" == windows ]] && EXE=".exe"
 
+# Intel macOS 走单独的原生件取法（nginx 交叉编译、ffmpeg/ffprobe 取 darwin-x64）：
+# brew 已停 macOS 的 Intel 瓶、系统 PATH 在 Apple Silicon 上是 arm64，两者都不能直接进 x64 包。
+IS_MAC_X64=0
+[[ "$GOOS" == darwin && "$TRIPLE" == x86_64-apple-darwin ]] && IS_MAC_X64=1
+
 log() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 need() { command -v "$1" >/dev/null 2>&1 || { echo "缺少命令：$1（见 desktop/README 构建机准备）" >&2; exit 3; }; }
 # win-x64 的 nginx/ffmpeg/Chromium 都以 zip 分发（Git Bash 自带 unzip；MSYS 缺失时提前报错）。
@@ -206,7 +211,14 @@ log "6/7 随附 nginx / ffmpeg / Chromium（官方预编译，注意可重定位
 # nginx：优先用现有静态二进制；否则 macOS 走 Homebrew、Windows 走官方 zip。
 if [[ -n "${NGINX_BIN:-}" && -x "${NGINX_BIN%/*}/$NGINX_BIN" ]]; then
   cp "$NGINX_BIN" "$RES/bin/nginx$EXE"
+elif [[ "$IS_MAC_X64" == 1 ]]; then
+  # Intel mac：Homebrew 已停 macOS 的 Intel 瓶、brew 只会给 arm64（或没有），
+  # 故本机源码交叉编一个最小 x86_64 nginx（纯 HTTP、静态 PCRE、无 OpenSSL 依赖）。
+  # mime.types 是随包提交的静态文件（resources/nginx/），本步不清它，无需再取。
+  log "mac-x64：交叉编译最小 x86_64 nginx"
+  bash "$SCRIPT_DIR/build-nginx-x64.sh" "$RES/bin/nginx"
 elif [[ "$GOOS" == darwin ]]; then
+  # Apple Silicon（mac-arm64）：走 Homebrew。
   need brew
   brew list nginx >/dev/null 2>&1 || brew install nginx
   NGPREFIX="$(brew --prefix nginx)"
@@ -244,6 +256,27 @@ if [[ -n "${FFMPEG_BIN:-}" ]]; then
   cp "$FFMPEG_BIN" "$RES/bin/ffmpeg$EXE"
   copy_ffprobe_sibling "$(dirname "$FFMPEG_BIN")" \
     || log "警告：$FFMPEG_BIN 同目录未找到 ffprobe$EXE，请另设含 ffprobe 的构建。"
+elif [[ "$IS_MAC_X64" == 1 ]]; then
+  # Intel mac：不能走系统 PATH（Apple Silicon 上是 arm64）。取仍发 darwin-x64 的静态件：
+  #  ffmpeg 来自 eugeneware/ffmpeg-static release 的 ffmpeg-darwin-x64.gz（仅依赖系统库）；
+  #  ffprobe 来自 npm 包 ffprobe-static 的 tarball 内 bin/darwin/x64/ffprobe。
+  FFMPEG_X64_RELEASE="${FFMPEG_X64_RELEASE:-b6.1.1}"
+  FFPROBE_STATIC_VER="${FFPROBE_STATIC_VER:-3.1.0}"
+  log "mac-x64：取 ffmpeg-darwin-x64（${FFMPEG_X64_RELEASE}）+ ffprobe-static（${FFPROBE_STATIC_VER}）"
+  [[ -s /tmp/ffmpeg-darwin-x64.gz ]] || curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 \
+    -o /tmp/ffmpeg-darwin-x64.gz "https://github.com/eugeneware/ffmpeg-static/releases/download/${FFMPEG_X64_RELEASE}/ffmpeg-darwin-x64.gz"
+  gunzip -kf /tmp/ffmpeg-darwin-x64.gz
+  install -m 0755 /tmp/ffmpeg-darwin-x64 "$RES/bin/ffmpeg"
+  [[ -s /tmp/ffprobe-static.tgz ]] || curl -fL --retry 8 --retry-all-errors --speed-limit 2000 --speed-time 60 \
+    -o /tmp/ffprobe-static.tgz "https://registry.npmjs.org/ffprobe-static/-/ffprobe-static-${FFPROBE_STATIC_VER}.tgz"
+  rm -rf /tmp/ffprobe-static-extract; mkdir -p /tmp/ffprobe-static-extract
+  tar -xzf /tmp/ffprobe-static.tgz -C /tmp/ffprobe-static-extract package/bin/darwin/x64/ffprobe
+  install -m 0755 /tmp/ffprobe-static-extract/package/bin/darwin/x64/ffprobe "$RES/bin/ffprobe"
+  xattr -c "$RES/bin/ffmpeg" "$RES/bin/ffprobe" 2>/dev/null || true
+  # 硬校验：两者都必须含 x86_64，否则 Intel 机必 Bad CPU type。
+  for _b in ffmpeg ffprobe; do
+    lipo -archs "$RES/bin/$_b" | grep -q x86_64 || { echo "mac-x64：$RES/bin/$_b 不含 x86_64" >&2; exit 8; }
+  done
 elif [[ "$GOOS" == windows ]]; then
   # BtbN/FFmpeg-Builds 的 win64 **LGPL** 变体（单文件静态，无外部 DLL）；
   # 选 LGPL 而非默认 GPL，避免 x264 等 GPL 组件带来的额外源码分发义务（见 licenses/README.md）。
