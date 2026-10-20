@@ -28,10 +28,12 @@ import json
 import logging
 import os
 import re
+import shutil
 import sys
 import uuid
 from contextlib import AsyncExitStack
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -39,7 +41,7 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 
 from novelvideo.agent import store
-from novelvideo.utils.chrome_cdp import browsable_cdp_url
+from novelvideo.utils.chrome_cdp import browsable_cdp_url, default_cdp_url, in_container
 
 logger = logging.getLogger("novelvideo.agent.mcp")
 
@@ -71,15 +73,80 @@ BUILTIN_SERVER_IDS: tuple[str, ...] = (
     BLENDER_SERVER_ID,
 )
 CHROME_CDP_URL_ENV = "ST_CHROME_CDP_URL"
-DEFAULT_CHROME_CDP_URL = "http://host.docker.internal:9222"
 BLENDER_HOST_ENV = "ST_BLENDER_HOST"
 BLENDER_PORT_ENV = "ST_BLENDER_PORT"
-DEFAULT_BLENDER_HOST = "host.docker.internal"
 DEFAULT_BLENDER_PORT = "9876"
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 TOOL_NAME_MAX_LEN = 64  # OpenAI 工具名长度上限
 CONNECT_TIMEOUT_SECONDS = 25.0
 CALL_TIMEOUT_SECONDS = 180.0
 _ID_RE = re.compile(r"[^a-z0-9_-]+")
+
+
+# 用户自装 stdio 服务器只继承运行所需的基础变量，不把本进程的模型 Key、
+# 数据库口令等环境变量传给第三方子进程；需要额外变量时在服务器配置的 env 里显式写。
+_CHILD_ENV_ALLOWLIST = frozenset(
+    {
+        "PATH", "PATHEXT", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA",
+        "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "TEMP", "TMP", "TMPDIR",
+        "LANG", "LC_ALL", "LC_CTYPE", "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV",
+        "CONDA_PREFIX", "NODE_PATH", "NODE_OPTIONS", "NPM_CONFIG_PREFIX",
+        "LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "XDG_CONFIG_HOME", "XDG_DATA_HOME",
+        "XDG_CACHE_HOME",
+    }
+)
+
+
+def _child_env(server: dict[str, Any]) -> dict[str, str]:
+    """stdio 子进程环境：内置服务器继承全量（要读本系统配置），自定义只给基础变量。"""
+    if server.get("builtin"):
+        return dict(os.environ)
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key.upper() in _CHILD_ENV_ALLOWLIST
+    }
+
+
+def _resolve_launch(command: str) -> tuple[str, list[str], bool]:
+    """解析 stdio 启动命令 →（可执行文件、前缀参数、是否可用）。
+
+    Windows 上 npm 全局安装的是 ``chrome-devtools-mcp.cmd``（uv 的 ``uvx`` 也可能
+    是批处理包装）；``CreateProcess`` 不能直接拉起 ``.cmd/.bat``，必须经
+    ``cmd.exe /d /c``，否则子进程起不来、每轮只报一个含糊的连接失败。
+    POSIX 下 ``shutil.which`` 的结果原样作为可执行文件。
+    """
+    if not command:
+        return command, [], False
+    resolved = shutil.which(command)
+    if not resolved:
+        return command, [], False
+    if os.name == "nt" and resolved.lower().endswith((".cmd", ".bat")):
+        comspec = os.environ.get("COMSPEC", "").strip() or "cmd.exe"
+        return comspec, ["/d", "/c", resolved], True
+    return resolved, [], True
+
+
+def _loopback_url(url: str) -> str:
+    """把内部 API 地址收敛到回环主机（保留端口与路径）。
+
+    内置 MCP 以 ``DRAMACLAW_CE_OWNER=1`` 无令牌回访平台，子进程侧
+    ``_enforce_ce_owner_target`` 只接受回环地址；若把 LAN 地址原样传下去，
+    每次工具调用都会被拒。端口跟着原地址走，不假设 8780。
+    """
+    cleaned = (url or "").strip()
+    if not cleaned:
+        return cleaned
+    try:
+        parsed = urlsplit(cleaned)
+        host = (parsed.hostname or "").strip().lower()
+        port = parsed.port
+    except ValueError:
+        return cleaned
+    if host in _LOOPBACK_HOSTS:
+        return cleaned
+    netloc = f"127.0.0.1:{port}" if port is not None else "127.0.0.1"
+    return urlunsplit((parsed.scheme or "http", netloc, parsed.path, parsed.query, parsed.fragment))
 
 
 class McpConfigError(ValueError):
@@ -115,6 +182,7 @@ def _internal_api_url() -> str:
 
 def _builtin_server() -> dict[str, Any]:
     """内置 AIPDD Drama 服务器定义（运行时字段随当前进程动态生成）。"""
+    api_url = _loopback_url(_internal_api_url())
     return {
         "id": BUILTIN_SERVER_ID,
         "name": "AIPDD Drama MCP",
@@ -123,14 +191,16 @@ def _builtin_server() -> dict[str, Any]:
         "command": sys.executable or "python",
         "args": ["-m", "novelvideo.chat.aipdd_drama_mcp"],
         "env": {
-            "AIPDD_DRAMA_API_URL": _internal_api_url(),
-            "DRAMACLAW_API_URL": _internal_api_url(),
+            "AIPDD_DRAMA_API_URL": api_url,
+            "DRAMACLAW_API_URL": api_url,
             "DRAMACLAW_CE_OWNER": "1",
         },
         "url": "",
         "headers": {},
         "enabled": True,
         "builtin": True,
+        "available": True,
+        "unavailable_reason": "",
         "created_at": "",
         "updated_at": "",
     }
@@ -138,7 +208,7 @@ def _builtin_server() -> dict[str, Any]:
 
 def _chrome_cdp_url() -> str:
     """客户自带 Chrome 的调试端口地址（Chrome MCP 与抖音文案提取共用）。"""
-    raw = os.environ.get(CHROME_CDP_URL_ENV, "").strip() or DEFAULT_CHROME_CDP_URL
+    raw = os.environ.get(CHROME_CDP_URL_ENV, "").strip() or default_cdp_url()
     # [aipdd fork delta] Chrome 只接受 IP / localhost 的 Host 头，容器里
     # host.docker.internal 这类主机名会被直接拒（HTTP 500），统一解析成 IP。
     return browsable_cdp_url(raw)
@@ -148,8 +218,11 @@ def _chrome_server() -> dict[str, Any]:
     """内置 Chrome MCP 服务器定义（运行时地址随当前进程动态生成）。
 
     连接客户本机已安装的 Chrome（需以 --remote-debugging-port=9222 启动），
-    地址按 ST_CHROME_CDP_URL 解析，缺省为 host.docker.internal:9222。
+    地址按 ST_CHROME_CDP_URL 解析；容器缺省 host.docker.internal:9222，
+    本机部署缺省 127.0.0.1:9222。
     """
+    command = "chrome-devtools-mcp"
+    executable, prefix_args, available = _resolve_launch(command)
     return {
         "id": CHROME_SERVER_ID,
         "name": "Chrome MCP",
@@ -159,13 +232,20 @@ def _chrome_server() -> dict[str, Any]:
             "启动 Chrome；连接地址可用环境变量 ST_CHROME_CDP_URL 覆盖。"
         ),
         "transport": "stdio",
-        "command": "chrome-devtools-mcp",
-        "args": ["--browserUrl", _chrome_cdp_url()],
+        "command": executable,
+        "args": [*prefix_args, "--browserUrl", _chrome_cdp_url()],
         "env": {},
         "url": "",
         "headers": {},
         "enabled": True,
         "builtin": True,
+        "available": available,
+        "unavailable_reason": ""
+        if available
+        else (
+            "未检测到 chrome-devtools-mcp 命令：请先安装 Node.js 20+，"
+            "再执行 npm install -g chrome-devtools-mcp"
+        ),
         "created_at": "",
         "updated_at": "",
     }
@@ -206,15 +286,20 @@ def _comfy_server() -> dict[str, Any]:
         "headers": {},
         "enabled": True,
         "builtin": True,
+        "available": True,
+        "unavailable_reason": "",
         "created_at": "",
         "updated_at": "",
     }
 
 
 def _blender_connection() -> tuple[str, str]:
-    """本机 Blender socket 地址：ST_BLENDER_HOST / ST_BLENDER_PORT 覆盖，默认
-    host.docker.internal:9876（Docker）；本机部署可设 localhost。"""
-    host = os.environ.get(BLENDER_HOST_ENV, "").strip() or DEFAULT_BLENDER_HOST
+    """本机 Blender socket 地址：ST_BLENDER_HOST / ST_BLENDER_PORT 覆盖。
+
+    容器默认 host.docker.internal:9876；本机部署（exe/dmg）默认 127.0.0.1:9876。
+    """
+    default_host = "host.docker.internal" if in_container() else "127.0.0.1"
+    host = os.environ.get(BLENDER_HOST_ENV, "").strip() or default_host
     port = os.environ.get(BLENDER_PORT_ENV, "").strip() or DEFAULT_BLENDER_PORT
     return host, port
 
@@ -222,6 +307,8 @@ def _blender_connection() -> tuple[str, str]:
 def _blender_server() -> dict[str, Any]:
     """内置 Blender MCP 服务器定义（连接本机 Blender，地址随环境动态生成）。"""
     host, port = _blender_connection()
+    command = "uvx"
+    executable, prefix_args, available = _resolve_launch(command)
     return {
         "id": BLENDER_SERVER_ID,
         "name": "Blender MCP",
@@ -234,13 +321,20 @@ def _blender_server() -> dict[str, Any]:
             "localhost）。本系统不代管 Blender 的安装与启动。"
         ),
         "transport": "stdio",
-        "command": "uvx",
-        "args": ["mcp-for-blender"],
+        "command": executable,
+        "args": [*prefix_args, "mcp-for-blender"],
         "env": {"BLENDER_HOST": host, "BLENDER_PORT": port},
         "url": "",
         "headers": {},
         "enabled": True,
         "builtin": True,
+        "available": available,
+        "unavailable_reason": ""
+        if available
+        else (
+            "未检测到 uvx 命令：请先安装 uv（https://docs.astral.sh/uv/），"
+            "mcp-for-blender 由 uvx 启动"
+        ),
         "created_at": "",
         "updated_at": "",
     }
@@ -352,7 +446,15 @@ def get_server(username: str, server_id: str) -> dict[str, Any] | None:
 
 
 def enabled_servers(username: str) -> list[dict[str, Any]]:
-    return [item for item in list_servers(username) if item.get("enabled")]
+    """本轮实际要连接的服务器：启用且本机可用（不可用者不白起子进程）。
+
+    不可用状态随每次调用重新探测，用户装好外部命令后无需改配置即可生效。
+    """
+    return [
+        item
+        for item in list_servers(username)
+        if item.get("enabled") and item.get("available", True)
+    ]
 
 
 def upsert_server(username: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -479,6 +581,15 @@ class McpToolHub:
         for server in self._servers:
             if not server.get("enabled", True):
                 continue
+            if not server.get("available", True):
+                # 可用性门控（直接构造 hub 的调用方也走同一闸门）。
+                self.errors.append(
+                    {
+                        "server_id": str(server.get("id")),
+                        "error": str(server.get("unavailable_reason") or "本机缺少启动命令"),
+                    }
+                )
+                continue
             stack = AsyncExitStack()
             try:
                 # [aipdd fork delta] 连接超时用 asyncio.timeout（当前任务内取消），
@@ -523,7 +634,7 @@ class McpToolHub:
         server_id = str(server.get("id"))
         transport = str(server.get("transport") or "stdio")
         if transport == "stdio":
-            env = dict(os.environ)
+            env = _child_env(server)
             env.update(server.get("env") or {})
             env.update(self._env_overrides.get(server_id) or {})
             params = StdioServerParameters(
@@ -571,12 +682,22 @@ class McpToolHub:
             len(listing.tools),
         )
 
+    def resolve_tool(self, name: str) -> dict[str, Any] | None:
+        """按全名或唯一裸名解析工具。
+
+        注入模型的工具名带 ``mcp__<server>__`` 前缀，而技能文档/用户习惯写裸名
+        （``aipdd_drama_get_plan``）。裸名只在恰好命中一个工具时放行，避免不同
+        服务器同名工具被误调。
+        """
+        tool = next((item for item in self.tools if item["qualified_name"] == name), None)
+        if tool is not None:
+            return tool
+        matches = [item for item in self.tools if item["remote_name"] == name]
+        return matches[0] if len(matches) == 1 else None
+
     async def call(self, qualified_name: str, arguments: dict[str, Any] | None) -> str:
         """调用一个 MCP 工具，返回文本结果（错误抛 McpServerError）。"""
-        tool = next(
-            (item for item in self.tools if item["qualified_name"] == qualified_name),
-            None,
-        )
+        tool = self.resolve_tool(qualified_name)
         if tool is None:
             raise McpServerError(f"未知的 MCP 工具：{qualified_name}")
         session = self._sessions.get(tool["server_id"])

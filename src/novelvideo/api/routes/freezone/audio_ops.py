@@ -36,6 +36,7 @@ from novelvideo.freezone.audio_node import VoicePrerequisiteError
 from novelvideo.freezone.audio_node import create_user_audio_voice
 from novelvideo.freezone.audio_node import is_readable_audio_file
 from novelvideo.freezone.route_helpers import accepted_job_response as _accepted_job_response
+from novelvideo.utils.async_ops import spawn_background
 
 from ._common import (TAG_FREEZONE_AUDIO, TAG_FREEZONE_VIDEO, logger)
 
@@ -104,7 +105,7 @@ def _start_freezone_video_compose_task(
                 logs=[f"错误: {exc}"],
             )
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())
 
 
 def _start_freezone_video_erase_task(
@@ -173,7 +174,7 @@ def _start_freezone_video_erase_task(
                 logs=[f"错误: {exc}"],
             )
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())
 
 
 def _start_freezone_video_upscale_task(
@@ -246,7 +247,7 @@ def _start_freezone_video_upscale_task(
                 logs=[f"错误: {exc}"],
             )
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())
 
 
 def _start_freezone_audio_separate_task(
@@ -314,7 +315,7 @@ def _start_freezone_audio_separate_task(
                 logs=[f"错误: {exc}"],
             )
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())
 
 
 def _start_freezone_audio_speech_task(
@@ -435,7 +436,7 @@ def _start_freezone_audio_speech_task(
             if close:
                 await close()
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())
 
 
 FREEZONE_AUDIO_AGE_GROUP_LABELS = {
@@ -1490,7 +1491,7 @@ def _start_freezone_music_generate_task(
                 ]
             )
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())
 
 
 @router.post(

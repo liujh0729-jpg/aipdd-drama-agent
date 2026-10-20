@@ -12,6 +12,7 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -22,7 +23,11 @@ from novelvideo.agent import mcp as agent_mcp
 from novelvideo.agent import memory as agent_memory
 from novelvideo.agent import skills as agent_skills
 from novelvideo.agent import store as agent_store
-from novelvideo.agent.routes import require_api_user
+from novelvideo.agent.routes import (
+    require_api_user,
+    require_interactive_user,
+    require_owner_user,
+)
 
 USER = {"id": "u-alice", "username": "alice"}
 
@@ -40,6 +45,8 @@ description: 分镜草图相关的创作建议
 @pytest.fixture()
 def agent_env(tmp_path, monkeypatch):
     monkeypatch.setenv("NOVELVIDEO_AGENT_DATA_DIR", str(tmp_path / "agent-data"))
+    # 隔离仓库内置技能：默认空目录，内置技能用例自行往 builtin-skills 写入。
+    monkeypatch.setenv("AGENT_BUILTIN_SKILLS_DIR", str(tmp_path / "builtin-skills"))
     return tmp_path
 
 
@@ -141,7 +148,7 @@ def test_skill_install_from_markdown_and_toggle(agent_env) -> None:
     summary = agent_skills.build_skills_summary(username)
     assert "storyboard-helper" in summary
     body = agent_skills.read_skill_body(username, "storyboard-helper")
-    assert body is not None and body[0] == "storyboard-helper"
+    assert body is not None and body[0] == "storyboard-helper" and body[3] is False
 
     disabled = agent_skills.set_skill_enabled(username, "storyboard-helper", False)
     assert disabled is not None and disabled["enabled"] is False
@@ -172,6 +179,38 @@ def test_skill_install_from_zip_with_attachment(agent_env) -> None:
         agent_store.skills_root("alice") / "storyboard-helper" / "reference" / "storyboard.md"
     )
     assert attachment.read_text(encoding="utf-8") == "附件正文"
+
+    files = agent_skills.skill_files("alice", "storyboard-helper")
+    assert "reference/storyboard.md" in files
+    loaded = agent_skills.read_skill_file("alice", "storyboard-helper", "reference/storyboard.md")
+    assert loaded == ("storyboard-helper", "附件正文")
+    assert agent_skills.read_skill_file("alice", "storyboard-helper", "missing.md") is None
+    with pytest.raises(agent_skills.SkillError, match="路径非法"):
+        agent_skills.read_skill_file("alice", "storyboard-helper", "../outside.md")
+
+
+def test_mcp_tool_resolves_unique_bare_name() -> None:
+    hub = agent_mcp.McpToolHub([])
+    get_plan = {
+        "server_id": "aipdd-drama",
+        "server_name": "AIPDD Drama",
+        "remote_name": "aipdd_drama_get_plan",
+        "qualified_name": "mcp__aipdd-drama__aipdd_drama_get_plan",
+    }
+    other = {
+        "server_id": "other",
+        "server_name": "Other",
+        "remote_name": "other_tool",
+        "qualified_name": "mcp__other__other_tool",
+    }
+    hub.tools = [get_plan, other]
+    assert hub.resolve_tool("mcp__aipdd-drama__aipdd_drama_get_plan") is get_plan
+    assert hub.resolve_tool("aipdd_drama_get_plan") is get_plan
+    assert hub.resolve_tool("missing") is None
+
+    # 两个服务器暴露同名工具时不猜，必须用全名。
+    hub.tools = [get_plan, {**other, "remote_name": "aipdd_drama_get_plan"}]
+    assert hub.resolve_tool("aipdd_drama_get_plan") is None
 
 
 def test_skill_install_rejects_bad_input(agent_env) -> None:
@@ -205,6 +244,214 @@ def test_skill_name_normalization(agent_env) -> None:
     )
     assert result["name"] == "my-skill-note"
     assert agent_skills.resolve_skill("alice", "MY-SKILL-NOTE") == "my-skill-note"
+
+
+def test_skill_name_normalization_preserves_other_frontmatter(agent_env) -> None:
+    content = (
+        "---\n"
+        "name: Weird Skill Name\n"
+        "title: 奇怪技能\n"
+        "agent: true\n"
+        "requires:\n"
+        "  - storyboard\n"
+        "description: d\n"
+        "---\nbody"
+    )
+    result = agent_skills.install_skill(
+        "alice", filename="weird.md", content=content.encode()
+    )
+    assert result["name"] == "weird-skill-name"
+    stored = (
+        agent_store.skills_root("alice") / "weird-skill-name" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "name: weird-skill-name" in stored
+    assert "title: 奇怪技能" in stored
+    assert "agent: true" in stored
+    assert "requires:\n  - storyboard" in stored
+
+
+def test_skill_zip_name_falls_back_to_directory_then_filename(agent_env) -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("bundle-two/SKILL.md", "---\ndescription: d\n---\nbody")
+    result = agent_skills.install_skill(
+        "alice", filename="ignored.zip", content=buffer.getvalue()
+    )
+    assert result["name"] == "bundle-two"
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("SKILL.md", "---\ndescription: d\n---\nbody")
+    result = agent_skills.install_skill(
+        "alice", filename="My Pack.zip", content=buffer.getvalue()
+    )
+    assert result["name"] == "my-pack"
+
+
+def test_skill_zip_normalizes_name_and_keeps_frontmatter(agent_env) -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(
+            "pkg/SKILL.md",
+            "---\nname: Pkg Skill\ntitle: 包技能\nagent: true\n---\n正文",
+        )
+    result = agent_skills.install_skill(
+        "alice", filename="pkg.zip", content=buffer.getvalue()
+    )
+    assert result["name"] == "pkg-skill"
+    stored = (
+        agent_store.skills_root("alice") / "pkg-skill" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "name: pkg-skill" in stored
+    assert "title: 包技能" in stored and "agent: true" in stored
+
+
+def test_skill_zip_failure_keeps_existing_version(agent_env, monkeypatch) -> None:
+    agent_skills.install_skill("alice", filename="note.md", content=SKILL_MD.encode())
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("bundle/SKILL.md", SKILL_MD.replace("按照镜头语言", "新版本"))
+        archive.writestr("bundle/broken.md", "附件")
+    original_read = zipfile.ZipFile.read
+
+    def broken_read(self, name, pwd=None):
+        filename = getattr(name, "filename", name)
+        if str(filename).endswith("broken.md"):
+            raise zipfile.BadZipFile("Bad CRC-32 for file")
+        return original_read(self, name, pwd)
+
+    monkeypatch.setattr(zipfile.ZipFile, "read", broken_read)
+    with pytest.raises(agent_skills.SkillError, match="解压失败"):
+        agent_skills.install_skill("alice", filename="bundle.zip", content=buffer.getvalue())
+
+    detail = agent_skills.get_skill("alice", "storyboard-helper")
+    assert detail is not None and "按照镜头语言" in detail["body"]
+    skill_root = agent_store.skills_root("alice")
+    assert not (skill_root / "storyboard-helper" / "broken.md").exists()
+    assert [path.name for path in skill_root.iterdir() if path.name.startswith(".")] == []
+
+
+def test_skill_export_and_install_share_member_cap(agent_env, monkeypatch) -> None:
+    skill_dir = agent_store.skills_root("alice") / "many-files"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(SKILL_MD, encoding="utf-8")
+    (skill_dir / "a.md").write_text("a", encoding="utf-8")
+    (skill_dir / "b.md").write_text("b", encoding="utf-8")
+
+    monkeypatch.setattr(agent_skills, "ZIP_MAX_MEMBERS", 2)
+    with pytest.raises(agent_skills.SkillTooLargeError, match="文件数过多"):
+        agent_skills.skill_zip_bytes("alice", "many-files")
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("bundle/SKILL.md", SKILL_MD)
+        archive.writestr("bundle/a.md", "a")
+        archive.writestr("bundle/b.md", "b")
+    with pytest.raises(agent_skills.SkillError, match="文件数过多"):
+        agent_skills.install_skill("alice", filename="bundle.zip", content=buffer.getvalue())
+
+
+def test_skill_oversize_uses_specific_error(agent_env, monkeypatch) -> None:
+    monkeypatch.setattr(agent_skills, "ZIP_MAX_BYTES", 10)
+    with pytest.raises(agent_skills.SkillTooLargeError, match="技能包过大"):
+        agent_skills.install_skill("alice", filename="big.zip", content=b"x" * 11)
+
+    monkeypatch.setattr(agent_skills, "SKILL_TEXT_MAX_BYTES", 5)
+    with pytest.raises(agent_skills.SkillTooLargeError, match="技能文件过大"):
+        agent_skills.install_skill("alice", filename="big.md", content=b"x" * 6)
+
+
+def test_skill_body_truncation_is_reported(agent_env) -> None:
+    from novelvideo.agent import tools as agent_tools
+
+    body = "长" * (agent_skills.SKILL_BODY_PROMPT_MAX_CHARS + 10)
+    content = f"---\nname: long-skill\ndescription: d\n---\n{body}"
+    agent_skills.install_skill("alice", filename="long.md", content=content.encode())
+
+    loaded = agent_skills.read_skill_body("alice", "long-skill")
+    assert loaded is not None and loaded[3] is True
+
+    result = agent_tools._run_load_skill(
+        {"name": "long-skill"}, agent_tools.ToolContext(username="alice")
+    )
+    assert result.ok is True
+    assert "已截断" in result.content
+
+
+def _write_builtin_skill(
+    root: Path, name: str, *, agent: bool = True, attachment: str = ""
+) -> Path:
+    skill_dir = root / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    header = ["---", f"name: {name}"]
+    if agent:
+        header.append("agent: true")
+    header += ["description: 内置技能说明", "---"]
+    (skill_dir / "SKILL.md").write_text(
+        "\n".join(header) + "\n\n# 内置\n\n正文\n", encoding="utf-8"
+    )
+    if attachment:
+        target = skill_dir / "references" / attachment
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("附件正文", encoding="utf-8")
+    return skill_dir
+
+
+def test_builtin_skill_requires_agent_flag(agent_env) -> None:
+    root = agent_env / "builtin-skills"
+    _write_builtin_skill(root, "exposed-skill", agent=True)
+    _write_builtin_skill(root, "hermes-only", agent=False)
+
+    listed = agent_skills.list_skills("alice")
+    assert [item["name"] for item in listed] == ["exposed-skill"]
+    assert listed[0]["source"] == "builtin"
+    assert listed[0]["files"] == ["SKILL.md"]
+
+    # 未声明 agent:true 的内置技能对 Agent 不可见、也不可加载。
+    assert agent_skills.get_skill("alice", "hermes-only") is None
+    assert agent_skills.read_skill_body("alice", "hermes-only") is None
+
+
+def test_user_skill_overrides_builtin_and_builtin_is_read_only(agent_env) -> None:
+    root = agent_env / "builtin-skills"
+    _write_builtin_skill(root, "storyboard-helper", agent=True)
+
+    agent_skills.install_skill("alice", filename="note.md", content=SKILL_MD.encode())
+    listed = agent_skills.list_skills("alice")
+    assert len(listed) == 1
+    assert listed[0]["source"] == "user"
+    assert listed[0]["description"] == "分镜草图相关的创作建议"
+
+    # 用户版本可删；删完后内置版本重新出现，但内置版本只读。
+    assert agent_skills.delete_skill("alice", "storyboard-helper") is True
+    listed = agent_skills.list_skills("alice")
+    assert [(item["name"], item["source"]) for item in listed] == [
+        ("storyboard-helper", "builtin")
+    ]
+    assert agent_skills.delete_skill("alice", "storyboard-helper") is False
+
+
+def test_skill_zip_export_roundtrip(agent_env) -> None:
+    root = agent_env / "builtin-skills"
+    _write_builtin_skill(root, "packaged-skill", agent=True, attachment="guide.md")
+
+    name, payload = agent_skills.skill_zip_bytes("alice", "packaged-skill")
+    assert name == "packaged-skill"
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        assert sorted(archive.namelist()) == [
+            "packaged-skill/SKILL.md",
+            "packaged-skill/references/guide.md",
+        ]
+
+    # 导出的包与安装器格式一致：换个用户重新安装可完整还原（含附件）。
+    result = agent_skills.install_skill("bob", filename="packaged-skill.zip", content=payload)
+    assert result["name"] == "packaged-skill"
+    restored = agent_store.skills_root("bob") / "packaged-skill" / "references" / "guide.md"
+    assert restored.read_text(encoding="utf-8") == "附件正文"
+
+    with pytest.raises(agent_skills.SkillError, match="技能不存在"):
+        agent_skills.skill_zip_bytes("alice", "missing")
 
 
 # ---------------------------------------------------------------------------
@@ -250,8 +497,11 @@ def test_mcp_config_builtin_and_servers(agent_env) -> None:
     chrome = servers[1]
     assert chrome["id"] == agent_mcp.CHROME_SERVER_ID
     assert chrome["builtin"] is True and chrome["enabled"] is True
-    assert chrome["command"] == "chrome-devtools-mcp"
-    assert chrome["args"][0] == "--browserUrl" and chrome["args"][1].startswith("http")
+    # 启动命令是解析后的可执行路径（Windows 的 .cmd 会包成 cmd.exe /c <path>）。
+    assert "chrome-devtools-mcp" in " ".join(
+        [chrome["command"], *chrome["args"]]
+    ).lower()
+    assert chrome["args"][-2] == "--browserUrl" and chrome["args"][-1].startswith("http")
 
     # [aipdd fork delta] 第三内置：本地 ComfyUI MCP（参考官方 comfy-mcp 的工具语义
     # 自建，只打渠道 baseUrl；同样默认写入、不可编辑/删除，只可启停）。
@@ -268,8 +518,8 @@ def test_mcp_config_builtin_and_servers(agent_env) -> None:
     assert blender["id"] == agent_mcp.BLENDER_SERVER_ID
     assert blender["builtin"] is True and blender["enabled"] is True
     assert blender["transport"] == "stdio"
-    assert blender["command"] == "uvx"
-    assert blender["args"] == ["mcp-for-blender"]
+    assert "uvx" in " ".join([blender["command"], *blender["args"]]).lower()
+    assert blender["args"][-1] == "mcp-for-blender"
     assert set(blender["env"]) == {"BLENDER_HOST", "BLENDER_PORT"}
 
     with pytest.raises(agent_mcp.McpConfigError, match="内置服务器不可编辑"):
@@ -303,7 +553,17 @@ def test_mcp_config_builtin_and_servers(agent_env) -> None:
         {"id": "remote", "transport": "streamable_http", "url": "http://127.0.0.1:9999/mcp"},
     )
     assert remote["transport"] == "http"
-    assert len(agent_mcp.enabled_servers(username)) == 6
+    # 内置服务器受本机可用性门控（chrome-devtools-mcp / uvx 未必装在本机），
+    # 这里只断言所有启用的内置项都实际可用，且用户新增的两条一定在连接清单里。
+    enabled_ids = [item["id"] for item in agent_mcp.enabled_servers(username)]
+    assert {"filesystem", "remote"} <= set(enabled_ids)
+    assert agent_mcp.BUILTIN_SERVER_ID in enabled_ids
+    assert set(enabled_ids) <= {*agent_mcp.BUILTIN_SERVER_IDS, "filesystem", "remote"}
+    assert all(
+        item.get("available", True)
+        for item in agent_mcp.enabled_servers(username)
+        if item["builtin"]
+    )
 
     toggled = agent_mcp.set_server_enabled(username, "filesystem", False)
     assert toggled is not None and toggled["enabled"] is False
@@ -499,6 +759,26 @@ def test_api_status_and_settings(agent_client) -> None:
     assert data["text_model"] == "gw-text-1" and data["image_model"] == "gw-image-1"
     assert data["video_model"] == "gw-video-1"
     assert agent_client.get("/api/v1/agent/status").json()["data"]["text_model"] == "gw-text-1"
+
+
+def test_api_status_counts_only_available_enabled_mcp(agent_client, monkeypatch) -> None:
+    """不可用的内置服务器（缺外部命令）不算「已启用」，与 Agent 实际连接数一致。"""
+    from novelvideo.agent import routes as agent_routes
+
+    monkeypatch.setattr(
+        agent_routes.agent_mcp,
+        "list_servers",
+        lambda _username: [
+            {"id": "ok", "enabled": True, "available": True},
+            {"id": "missing", "enabled": True, "available": False},
+            {"id": "off", "enabled": False, "available": True},
+        ],
+    )
+
+    data = agent_client.get("/api/v1/agent/status").json()["data"]
+
+    assert data["mcp_servers_total"] == 3
+    assert data["mcp_servers_enabled"] == 1
 
 
 def test_api_turn_forwards_dialog_options(agent_client, monkeypatch) -> None:
@@ -727,7 +1007,67 @@ def test_api_skills_install_toggle_delete(agent_client) -> None:
     assert agent_client.delete("/api/v1/agent/skills/storyboard-helper").status_code == 404
 
 
+def test_api_skill_view_and_download(agent_client, agent_env) -> None:
+    _write_builtin_skill(
+        agent_env / "builtin-skills", "builtin-pack", agent=True, attachment="guide.md"
+    )
+
+    listed = agent_client.get("/api/v1/agent/skills").json()["data"]
+    item = next(entry for entry in listed if entry["name"] == "builtin-pack")
+    assert item["source"] == "builtin"
+    assert item["files"] == ["SKILL.md", "references/guide.md"]
+
+    detail = agent_client.get("/api/v1/agent/skills/builtin-pack")
+    assert detail.status_code == 200
+    assert detail.json()["data"]["source"] == "builtin"
+    assert detail.json()["data"]["title"] == "builtin-pack"
+
+    download = agent_client.get("/api/v1/agent/skills/builtin-pack/download")
+    assert download.status_code == 200
+    assert download.headers["content-type"] == "application/zip"
+    assert 'filename="builtin-pack.zip"' in download.headers["content-disposition"]
+    with zipfile.ZipFile(io.BytesIO(download.content)) as archive:
+        assert "builtin-pack/SKILL.md" in archive.namelist()
+        assert "builtin-pack/references/guide.md" in archive.namelist()
+
+    assert agent_client.delete("/api/v1/agent/skills/builtin-pack").status_code == 400
+    assert agent_client.get("/api/v1/agent/skills/missing/download").status_code == 404
+
+
+def test_api_skill_upload_and_download_status_mapping(agent_client, monkeypatch) -> None:
+    # 上传超限提前拒绝（413），不进入 zip/markdown 解析。
+    monkeypatch.setattr(agent_skills, "ZIP_MAX_BYTES", 10)
+    response = agent_client.post(
+        "/api/v1/agent/skills/install",
+        files={"file": ("big.md", b"x" * 64, "text/markdown")},
+    )
+    assert response.status_code == 413
+
+    monkeypatch.setattr(agent_skills, "ZIP_MAX_BYTES", 8 * 1024 * 1024)
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("bundle/SKILL.md", SKILL_MD)
+        archive.writestr("bundle/a.md", "a")
+    installed = agent_client.post(
+        "/api/v1/agent/skills/install",
+        files={"file": ("bundle.zip", buffer.getvalue(), "application/zip")},
+    )
+    assert installed.status_code == 200
+
+    # 导出超过安装上限是 413，不能误报成「技能不存在」（404）。
+    monkeypatch.setattr(agent_skills, "ZIP_MAX_MEMBERS", 1)
+    download = agent_client.get("/api/v1/agent/skills/storyboard-helper/download")
+    assert download.status_code == 413
+    assert "文件数过多" in download.json()["detail"]
+
+
 def test_api_mcp_servers_management(agent_client) -> None:
+    # MCP 写操作在路由内直接转调 require_api_user，绕过 dependency_overrides
+    # 对 require_api_user 的替换，因此这里显式放行交互式依赖；鉴权边界本身
+    # 由 test_agent_local_tools.py 的路由单元测试覆盖。
+    agent_client.app.dependency_overrides[require_interactive_user] = lambda: dict(USER)
+    agent_client.app.dependency_overrides[require_owner_user] = lambda: dict(USER)
+
     servers = agent_client.get("/api/v1/agent/mcp/servers").json()["data"]
     assert [item["id"] for item in servers] == list(agent_mcp.BUILTIN_SERVER_IDS)
 

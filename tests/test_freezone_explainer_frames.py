@@ -102,7 +102,6 @@ def test_build_spec_maps_frames_to_seconds_and_flattens_cues() -> None:
 
 
 def test_build_spec_normalizes_unknown_vocabulary() -> None:
-    tl = _timeline()
     # 造一个非法图元/动效的镜头，验证归一到默认词表。
     bad_shot = plan.ExplainerShot(
         chapter_index=0,

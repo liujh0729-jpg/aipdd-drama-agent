@@ -90,6 +90,12 @@ _TASK_TYPE_LABELS = {
     "freezone_whiteboard_animation": "白板动画",
     # [aipdd fork delta] 科普讲解视频：参考资料 → 解说词 → 逐帧 MG 成片。
     "freezone_explainer_video": "科普讲解视频",
+    # [aipdd fork delta] 动效大片：案例契约页面 → 随包 Chrome 逐帧截图 → MG 成片。
+    "freezone_motion_render": "动效大片",
+    # [aipdd fork delta] 动效大片拍点预检：按拍点各出一张静帧，先检查再精修整片。
+    "freezone_motion_stills": "动效拍点静帧",
+    # [aipdd fork delta] 动效大片交付：逐镜成片 + 拍点 → 一盘剪映草稿（纯本地落盘）。
+    "freezone_motion_draft": "动效剪映草稿",
     # [aipdd fork delta] Phase 2B 渠道短视频：复用讲解视频引擎，按渠道定制画幅/时长/封面。
     "freezone_channel_short_video": "渠道短视频",
     # [aipdd fork delta] 口播智能剪辑：静音剪 + ASR/文本瑕疵剪 + 分镜/B-roll + 直出/落草稿。

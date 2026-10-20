@@ -2387,6 +2387,317 @@ class FreezoneExplainerVideoRequest(BaseModel):
     )
 
 
+# [aipdd fork delta] 动效大片（MG）渲染：一页按图册渲染契约写好的自包含 HTML →
+# 随包 Chrome 逐帧钉住时间截图 → 随包 ffmpeg 编码成片。纯本地任务，不出网、不调
+# 任何生成模型（页面由上一步的文本节点产出），因此与讲解视频共用 video 队列。
+class FreezoneMotionRenderRequest(BaseModel):
+    """动效大片渲染请求。"""
+
+    html: str = Field(
+        default="",
+        description=(
+            "MG 页面源码（单文件自包含 HTML）：必须定义 window.render(t) 与 window.DUR，"
+            "可选 window.EV 拍点；上限 400000 字符。留空时改由 case_id + subject "
+            "让网关文本模型按同一份渲染契约先产出页面再渲染"
+        ),
+    )
+    case_id: str = Field(
+        default="",
+        description=(
+            "来源案例 id（动效大片图册）：贴了 html 时只用于产物命名与追溯；"
+            "html 留空时它是必需的——由它取图册那份渲染契约提示词去生成页面"
+        ),
+    )
+    style_id: str = Field(
+        default="",
+        description=(
+            "来源风格 id（画风图册，66 条）：与 case_id 二选一。html 留空时由它取"
+            "那条风格的规格 + 同一份渲染契约去生成页面；两者同时给会被拒——"
+            "两套规格拼进一条提示词只会互相稀释"
+        ),
+    )
+    subject: str = Field(
+        default="",
+        description="本镜头内容（画面描述/文案）：只在 html 留空时参与生成提示词",
+    )
+    model_text: str = Field(
+        default="",
+        description=(
+            "生成 MG 页面用的文本模型（注册表 model id）；留空走 env 默认模型链。"
+            "请传 /model-gateway/text-models 返回值之一"
+        ),
+    )
+    title: str = Field(
+        default="",
+        description="可选片名，用于资产库条目名；留空回退 case_id",
+    )
+    aspect_ratio: str = Field(
+        default="16:9",
+        description="成片画幅：16:9（默认）/ 9:16 / 1:1；未知值按 9:16",
+    )
+    resolution: str = Field(
+        default="720p",
+        description="清晰度档位：720p（默认）/ 1080p",
+    )
+    fps: int = Field(
+        default=30,
+        ge=1,
+        le=60,
+        description="帧率 1-60；默认 30。帧数 = 时长 × 帧率，调低可显著加快渲染",
+    )
+    duration_seconds: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description=(
+            "可选成片时长上限（秒）：页面 window.DUR 更长就截断，更短则以页面为准，"
+            "不靠重复末帧凑时长"
+        ),
+    )
+    node_id: str = Field(
+        default="",
+        description="画布发起时的节点 id：非空时把成片写进该节点的生成历史",
+    )
+    canvas_id: str = Field(
+        default="",
+        description="画布发起时的画布 id；留空按 default",
+    )
+    archive_to_library: bool = Field(
+        default=False,
+        description=(
+            "工具页任务用：为 true 时任务产出后会把成片自动登记进资产库「待分类资产」。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description="工具页任务归属标识（取工具 kind），写入任务 metadata.source_tool。",
+    )
+    episode: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "分镜工作台发起时带上集号，落进渲染元数据 sidecar；导出剪映草稿据此把成片"
+            "归位到对应镜头。画布/工具页发起留 0"
+        ),
+    )
+    beat_number: int = Field(
+        default=0,
+        ge=0,
+        description="发起时的镜号，口径同 episode；0 表示不是分镜工作台发起",
+    )
+    music: bool = Field(
+        default=True,
+        description=(
+            "是否按渲染契约第 3/6 条给成片配一段程序生成的配乐（拍点网格对齐 + 混到 "
+            "-14 LUFS）。本机没有可用 ffmpeg 或合成失败时会退回无声片并在结果里说明，"
+            "不会让整单渲染失败；只要画面就传 false"
+        ),
+    )
+
+
+# [aipdd fork delta] 动效大片拍点预检（freezone_motion_stills）：渲染契约第 4 条
+# 「先出静帧再出成片」。同一页 MG 脚本、同一个 CDP 截图通道，只是每个拍点截一张 PNG
+# 就收工——不编码、不配乐，所以只查本机 Chrome，不要求 ffmpeg。
+class FreezoneMotionStillsRequest(BaseModel):
+    """动效大片拍点静帧预检请求。"""
+
+    html: str = Field(
+        default="",
+        description=(
+            "MG 页面源码（单文件自包含 HTML）：与渲染任务同口径，必须定义 "
+            "window.render(t) 与 window.DUR，可选 window.EV 拍点；上限 400000 字符。"
+            "留空时改由 case_id + subject 让网关文本模型按同一份渲染契约先产出页面"
+        ),
+    )
+    case_id: str = Field(
+        default="",
+        description=(
+            "来源案例 id（动效大片图册）：贴了 html 时只用于产物追溯；"
+            "html 留空时它是必需的——由它取图册那份渲染契约提示词去生成页面"
+        ),
+    )
+    style_id: str = Field(
+        default="",
+        description=(
+            "来源风格 id（画风图册，66 条）：与 case_id 二选一，页面来源与渲染任务同口径；"
+            "两者同时给会被拒"
+        ),
+    )
+    subject: str = Field(
+        default="",
+        description="本镜头内容（画面描述/文案）：只在 html 留空时参与生成提示词",
+    )
+    model_text: str = Field(
+        default="",
+        description=(
+            "生成 MG 页面用的文本模型（注册表 model id）；留空走 env 默认模型链。"
+            "请传 /model-gateway/text-models 返回值之一"
+        ),
+    )
+    aspect_ratio: str = Field(
+        default="16:9",
+        description="静帧画幅：16:9（默认）/ 9:16 / 1:1；未知值按 9:16。与渲染传同值才有对照意义",
+    )
+    resolution: str = Field(
+        default="720p",
+        description="清晰度档位：720p（默认）/ 1080p",
+    )
+    max_stills: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=120,
+        description=(
+            "静帧张数上限 1-120：默认 24。拍点多于上限时等间隔抽样并保留最后一张；"
+            "页面没写 window.EV 时按等间隔网格出图。口径与引擎的 clamp_max_stills 一致"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description="工具页任务归属标识（取工具 kind），写入任务 metadata.source_tool。",
+    )
+
+
+class FreezoneMotionDraftAudio(BaseModel):
+    """[aipdd fork delta] 草稿里的旁白/BGM 引用。"""
+
+    source: str = Field(description="音频引用，口径同成片：本机路径 / 项目相对 / 同源静态 URL")
+    name: str = Field(default="", description="片段名，留空用文件名")
+    duration_seconds: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description="留空时整片旁白按全片垫满、逐镜旁白按该镜时长对齐",
+    )
+    gain: float = Field(default=1.0, ge=0, le=4, description="音量：0 静音，1 原音量，BGM 常用 0.2")
+
+
+class FreezoneMotionDraftClip(BaseModel):
+    """[aipdd fork delta] 草稿里的一条 MG 成片引用。"""
+
+    source: str = Field(
+        description=(
+            "MG 成片引用：本机绝对路径、项目内相对路径或同源静态 URL（``/static/...``）三选一。"
+            "外链会被拒——草稿里指向 http 的素材在剪映就是丢失。"
+            "同名 ``*.motion.json`` 若存在，画幅/时长/拍点以它为准"
+        ),
+    )
+    name: str = Field(default="", description="时间轴上显示的片段名，留空用文件名")
+    duration_seconds: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description="侧车缺失时的兜底时长（秒）；两处都取不到则该镜报错",
+    )
+    width: int = Field(default=0, ge=0, description="兜底画面宽，0 表示按画布画幅")
+    height: int = Field(default=0, ge=0, description="兜底画面高，0 表示按画布画幅")
+    beats: list[Any] = Field(
+        default_factory=list,
+        description=(
+            "兜底拍点：落成剪映时间轴上的打点。两种写法都收——纯秒数 "
+            "``[0.5, 1.2]``，或页面 ``window.EV`` 原样 ``[{\"t\": 0.5, \"type\": \"hit\"}]``"
+        ),
+    )
+    narration: Optional[FreezoneMotionDraftAudio] = Field(
+        default=None,
+        description=(
+            "该镜自己的旁白：从这条片段在时间轴上的起点开始铺，留空时长按该镜时长对齐。"
+            "逐镜旁白与整片旁白可以共存，各自占一段"
+        ),
+    )
+    caption: str = Field(
+        default="",
+        description=(
+            "该镜的字幕文本（可选）：贴在这条片段的窗口上起落，落成剪映文字轨的一段。"
+            "与请求级 ``subtitles`` 互斥——两者同给会让同一条文字轨上的片段交叠，"
+            "剪映打不开，任务会当场报错。样式（字号/加粗/竖直位置）统一走请求级 text_style"
+        ),
+    )
+
+
+class FreezoneMotionDraftSubtitle(BaseModel):
+    """[aipdd fork delta] 草稿里的一条整片字幕（手写时间轴，不跟镜头走）。"""
+
+    text: str = Field(description="字幕文本，留空则整条跳过")
+    start_seconds: float = Field(
+        ge=0,
+        description="该条字幕在时间轴上的起点（秒）；起点已超出全片时长则任务报错",
+    )
+    duration_seconds: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description=(
+            "留空时自动垫到下一条字幕的起点（最后一条垫到全片结束）；"
+            "给了又超过这段间隔的按间隔截短——交叠会让整盘草稿打不开"
+        ),
+    )
+
+
+class FreezoneMotionDraftTextStyle(BaseModel):
+    """[aipdd fork delta] 字幕样式（对整条文字轨生效）。"""
+
+    size: float = Field(
+        default=7.0,
+        ge=1,
+        le=40,
+        description="剪映字号档位（不是像素）：竖屏小字幕 6.5~7.5 够用，标题档可到 12",
+    )
+    bold: bool = Field(default=True, description="是否加粗，默认加粗（MG 背景在动，细字读不清）")
+    y_ratio: float = Field(
+        default=0.75,
+        ge=0,
+        le=1,
+        description=(
+            "字幕中心距画布顶部的高度占比：0.75 即下三分之一安全区，"
+            "再往下会被手机底部的进度条压住，往上 0.2 是上三分之一档"
+        ),
+    )
+
+
+class FreezoneMotionDraftRequest(BaseModel):
+    """[aipdd fork delta] 动效大片导出剪映草稿请求。"""
+
+    title: str = Field(default="", description="工程名（剪映工程列表里显示的那一列），留空自动起名")
+    clips: list[FreezoneMotionDraftClip] = Field(
+        default_factory=list,
+        description="按镜头顺序排列的 MG 成片，逐条顺次贴轨、不留空隙",
+    )
+    narration: Optional[FreezoneMotionDraftAudio] = Field(
+        default=None,
+        description=(
+            "整片旁白（可选），从 0 起垫一条音频轨；与逐镜旁白互斥——两者同给会让"
+            "同一条音频轨上的片段交叠，剪映打不开，任务会当场报错"
+        ),
+    )
+    bgm: Optional[FreezoneMotionDraftAudio] = Field(
+        default=None, description="背景音乐（可选），与旁白分轨",
+    )
+    subtitles: list[FreezoneMotionDraftSubtitle] = Field(
+        default_factory=list,
+        description=(
+            "整片字幕（可选，逐条给起点）：落成一条文字轨。与各镜的 caption 互斥——"
+            "同一条文字轨上的片段不能交叠，两者同给任务会当场报错"
+        ),
+    )
+    text_style: Optional[FreezoneMotionDraftTextStyle] = Field(
+        default=None,
+        description="字幕样式（字号/加粗/竖直位置），留空用竖屏字幕默认档 7.0 / 加粗 / 0.75 高度",
+    )
+    aspect_ratio: str = Field(default="16:9", description="画布画幅：16:9 / 9:16 / 1:1")
+    resolution: str = Field(default="720p", description="画布档位：720p / 1080p")
+    fps: int = Field(default=30, ge=1, le=60, description="草稿帧率，与剪映工程一致")
+    draft_dir: str = Field(
+        default="",
+        description=(
+            "草稿落盘根目录（绝对路径）；留空回退「设置 → 剪映草稿目录」，"
+            "仍未配置则落在项目输出目录，工程目录名取 job_id"
+        ),
+    )
+    deploy: bool = Field(
+        default=True,
+        description=(
+            "是否再整盘复制进本机剪映工程目录（Windows 探 JianyingPro/CapCut，"
+            "macOS 走容器目录）；本机没装剪映时不影响草稿已生成"
+        ),
+    )
+
+
 # [aipdd fork delta] 「文章编写与排版」：主题/素材 → 网关文本模型按写作风格产出
 # 结构化 Markdown → 程序化拼公众号合规 HTML → validate 门禁（ERROR=0）。可选发布
 # 到公众号草稿箱（凭证由用户配置，未配置不阻塞排版）。照讲解视频的注册模式各注册一处。

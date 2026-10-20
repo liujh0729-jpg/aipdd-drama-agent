@@ -46,6 +46,8 @@ def host_home(tmp_path, monkeypatch) -> Path:
 def client(tmp_path, monkeypatch) -> TestClient:
     """挂上 agent router 的测试客户端（交互式会话与用户名走依赖覆盖）。"""
     monkeypatch.setenv("NOVELVIDEO_AGENT_DATA_DIR", str(tmp_path / "agent-data"))
+    # 固定 docker 形态，避免测试结果随宿主是否为容器而变化。
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_TRANSPORT", "docker")
     reset_local_user_store_for_tests()
     app = FastAPI()
     app.include_router(agent_routes.router, prefix="/api/v1")
@@ -242,7 +244,8 @@ def test_toml_write_preserves_other_sections_and_remove_restores(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_connection_entry_wraps_docker_exec_with_credentials():
+def test_connection_entry_wraps_docker_exec_with_credentials(monkeypatch):
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_TRANSPORT", "docker")
     entry = agent_local_tools.connection_entry(raw_key="st-abc", project_id="p-1")
 
     assert entry["command"] == "docker"
@@ -259,6 +262,84 @@ def test_connection_entry_wraps_docker_exec_with_credentials():
     assert not any(
         str(item).startswith("DRAMACLAW_PROJECT_ID=") for item in without_project["args"]
     )
+
+
+def test_connection_entry_uses_bundled_python_on_desktop(monkeypatch, tmp_path):
+    """桌面版（native）：本机 Python 直启 MCP server，密钥走 env 而非 docker -e。"""
+    import sys
+
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_TRANSPORT", "native")
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path / "backend-src"))
+
+    entry = agent_local_tools.connection_entry(raw_key="st-abc", project_id="p-1")
+
+    assert entry["command"] == sys.executable
+    assert entry["args"] == ["-m", "novelvideo.chat.aipdd_drama_mcp"]
+    assert entry["env"]["AIPDD_DRAMA_AGENT_TOKEN"] == "st-abc"
+    assert entry["env"]["DRAMACLAW_AGENT_TOKEN"] == "st-abc"
+    assert entry["env"]["DRAMACLAW_PROJECT_ID"] == "p-1"
+    assert entry["env"]["PYTHONPATH"] == str(tmp_path / "backend-src")
+    assert "docker" not in entry["command"]
+
+
+def test_connection_entry_omits_empty_pythonpath(monkeypatch):
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_TRANSPORT", "native")
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+
+    entry = agent_local_tools.connection_entry(raw_key="st-abc")
+
+    assert "PYTHONPATH" not in entry["env"]
+    assert not any(key.startswith("DRAMACLAW_PROJECT_ID") for key in entry["env"])
+
+
+def test_container_name_env_overrides_default(monkeypatch):
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_TRANSPORT", "docker")
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_CONTAINER", "drama-prod")
+
+    entry = agent_local_tools.connection_entry(raw_key="st-abc")
+
+    assert entry["args"][-4] == "drama-prod"
+    assert agent_local_tools.container_name() == "drama-prod"
+
+
+def test_host_home_falls_back_to_real_home_outside_container(monkeypatch, tmp_path):
+    monkeypatch.delenv("HOST_HOME_PATH", raising=False)
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_TRANSPORT", "native")
+    monkeypatch.setattr(agent_local_tools.Path, "home", classmethod(lambda cls: tmp_path))
+
+    assert agent_local_tools.host_home() == tmp_path
+
+
+def test_toml_renders_and_removes_env_subtable(tmp_path):
+    """native 条目带 env：渲染成 [mcp_servers.aipdd-drama.env]，移除时一并清掉。"""
+    path = tmp_path / "config.toml"
+    path.write_text("[features]\nweb_search = true\n", encoding="utf-8")
+    entry = {
+        "command": "python",
+        "args": ["-m", "novelvideo.chat.aipdd_drama_mcp"],
+        "env": {"AIPDD_DRAMA_AGENT_TOKEN": "st-abc"},
+    }
+
+    agent_local_tools.toml_write_server(path, entry)
+
+    text = path.read_text(encoding="utf-8")
+    assert "[mcp_servers.aipdd-drama]" in text
+    assert "[mcp_servers.aipdd-drama.env]" in text
+    assert '"AIPDD_DRAMA_AGENT_TOKEN" = "st-abc"' in text
+    assert agent_local_tools.toml_has_server(path) is True
+
+    # 幂等重写：主段与 env 子段都只有一份。
+    agent_local_tools.toml_write_server(path, entry)
+    text = path.read_text(encoding="utf-8")
+    assert text.count("[mcp_servers.aipdd-drama]") == 1
+    assert text.count("[mcp_servers.aipdd-drama.env]") == 1
+
+    agent_local_tools.toml_remove_server(path)
+
+    text = path.read_text(encoding="utf-8")
+    assert "aipdd-drama" not in text
+    assert "AIPDD_DRAMA_AGENT_TOKEN" not in text
+    assert "[features]" in text
 
 
 def test_write_connection_guards_unknown_and_not_installed_tools(tmp_path):
@@ -306,6 +387,37 @@ async def test_require_interactive_user_rejects_machine_credentials(monkeypatch)
     assert user["id"] == "u-alice"
 
 
+async def test_require_owner_user_rejects_machine_credentials_and_members(monkeypatch):
+    # 机器凭证即使带 role=owner 也拒：agent 会话 / 统一密钥不承载管理员能力。
+    async def machine_user(request):
+        return {
+            "id": "u-alice",
+            "username": "alice",
+            "credential_kind": "api_key",
+            "role": "owner",
+        }
+
+    monkeypatch.setattr(agent_routes, "require_api_user", machine_user)
+    with pytest.raises(HTTPException) as excinfo:
+        await agent_routes.require_owner_user(object())
+    assert excinfo.value.status_code == 403
+
+    async def member_user(request):
+        return {"id": "u-bob", "username": "bob", "credential_kind": "", "role": "member"}
+
+    monkeypatch.setattr(agent_routes, "require_api_user", member_user)
+    with pytest.raises(HTTPException) as excinfo:
+        await agent_routes.require_owner_user(object())
+    assert excinfo.value.status_code == 403
+
+    async def owner_user(request):
+        return {"id": "u-alice", "username": "alice", "credential_kind": "", "role": "owner"}
+
+    monkeypatch.setattr(agent_routes, "require_api_user", owner_user)
+    user = await agent_routes.require_owner_user(object())
+    assert user["id"] == "u-alice"
+
+
 # ---------------------------------------------------------------------------
 # routes：local-tools 端点
 # ---------------------------------------------------------------------------
@@ -322,6 +434,21 @@ def test_local_tools_endpoint_reports_host_home_availability(client, host_home):
     assert data["hostHomePath"] == str(host_home)
     assert tool_by_id(data["tools"], "cursor")["installed"] is True
     assert tool_by_id(data["tools"], "claude")["installed"] is False
+    # 前端据此生成 mcp.json 片段（容器版 = docker exec 目标名）。
+    assert data["mcpRuntime"]["mode"] == "docker"
+    assert data["mcpRuntime"]["containerName"] == "aipdd-drama-api"
+
+
+def test_local_tools_endpoint_reports_native_runtime(client, host_home, monkeypatch):
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_TRANSPORT", "native")
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_CONTAINER", "ignored")
+
+    data = client.get("/api/v1/agent/local-tools").json()["data"]
+
+    runtime = data["mcpRuntime"]
+    assert runtime["mode"] == "native"
+    assert runtime["python"]
+    assert runtime["containerName"] == "ignored"
 
 
 def test_local_tools_endpoint_flags_missing_host_home(client, monkeypatch, tmp_path):

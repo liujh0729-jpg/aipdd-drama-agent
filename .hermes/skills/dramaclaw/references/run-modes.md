@@ -28,7 +28,7 @@ pipeline 步骤顺序与专用工具，只是「是否每步解释并确认」�
 
 1. **报下一步**（一句话，不展开）：
    - 要做什么（步骤中文名）+ 会调用的工具 + 前置是否已满足
-   - 例：「下一步：分集规划（`dramaclaw_plan_episodes`，目标 10 集）。原文与角色已就绪，可执行。」
+   - 例：「下一步：分集规划（`aipdd_drama_plan_episodes`，目标 10 集）。原文与角色已就绪，可执行。」
 2. **停下来问**：「执行这一步吗？（继续 / 跳过 / 调整参数 / 停）」
    —— 然后**结束本轮输出，等用户回复**。不要自动往下做。
 3. 用户回复后：
@@ -48,39 +48,39 @@ pipeline 步骤顺序与专用工具，只是「是否每步解释并确认」�
 
 当前项目准备（init.md Steps 1-7，项目已由前端/系统创建并绑定）：
 1. 上传小说 → 2. 摄入(ingest) → 3. 配置项目 →
-4. 角色提取 `dramaclaw_build_characters` →
-5. 角色 face_prompt 检查/补齐 `dramaclaw_update_character_face_prompt`（仅缺失角色） →
-6. 分集规划 `dramaclaw_plan_episodes` →
-7. 角色肖像 `dramaclaw_generate_portrait`（逐个核心角色）
+4. 角色提取 `aipdd_drama_build_characters` →
+5. 角色 face_prompt 检查/补齐 `aipdd_drama_update_character_face_prompt`（仅缺失角色） →
+6. 分集规划 `aipdd_drama_plan_episodes` →
+7. 角色肖像 `aipdd_drama_generate_portrait`（逐个核心角色）
 
 > Steps 1-2 是摄入准备动作，可合并成「准备阶段」一次确认；
 > 从 **Step 3 配置项目起**，每个写操作步骤都单独确认。
 
 每集制作（episode.md，对每一集 N 重复）：
-8. 身份规划 `dramaclaw_plan_identities`(ep=N) →
-9. 身份图生成 `dramaclaw_generate_identity_image`(逐身份) →
-10. 脚本生成 `dramaclaw_generate_script`(ep=N) →
-11. 场景规划 `dramaclaw_plan_scenes`(ep=N) →
-12. 道具规划 `dramaclaw_plan_props`(ep=N) →
-13. 场景参考图 `dramaclaw_generate_scene_master` / `dramaclaw_generate_scene_reverse`(按本集场景需要逐个生成) →
-14. 草图生成 `dramaclaw_generate_sketches`(ep=N) →
-15. AI 检测 `dramaclaw_detect_sketch_identities`(ep=N) →
-16. 全局视频优化 `dramaclaw_optimize_video_global`(ep=N) →
-17. 首帧生成 `dramaclaw_render_first_frames`(ep=N) →
-18. 音频生成 `dramaclaw_generate_audio`(ep=N) →
-19. 单 beat 视频 `dramaclaw_start_single_video`(逐 beat) →
-20. 合成导出 `dramaclaw_compose_episode`(ep=N) →
-21. 最终成片展示 `dramaclaw_get_final_video`(ep=N)
+8. 身份规划 `aipdd_drama_plan_identities`(ep=N) →
+9. 身份图生成 `aipdd_drama_generate_identity_image`(逐身份) →
+10. 脚本生成 `aipdd_drama_generate_script`(ep=N) →
+11. 场景规划 `aipdd_drama_plan_scenes`(ep=N) →
+12. 道具规划 `aipdd_drama_plan_props`(ep=N) →
+13. 场景参考图 `aipdd_drama_generate_scene_master` / `aipdd_drama_generate_scene_reverse`(按本集场景需要逐个生成) →
+14. 草图生成 `aipdd_drama_generate_sketches`(ep=N) →
+15. AI 检测 `aipdd_drama_detect_sketch_identities`(ep=N) →
+16. 全局视频优化 `aipdd_drama_optimize_video_global`(ep=N) →
+17. 首帧生成 `aipdd_drama_render_first_frames`(ep=N) →
+18. 音频生成 `aipdd_drama_generate_audio`(ep=N) →
+19. 单 beat 视频 `aipdd_drama_start_single_video`(逐 beat) →
+20. 合成导出 `aipdd_drama_compose_episode`(ep=N) →
+21. 最终成片展示 `aipdd_drama_get_final_video`(ep=N)
 
 > **可选创作入口（剧集工作台「故事」tab，替代 Step 10 直接生成）**：
-> `dramaclaw_get_episode_story`(ep=N) 读取故事 → `dramaclaw_optimize_episode_story`(ep=N) AI 优化（结果不落盘，用户确认后才需保存）→ `dramaclaw_save_episode_story`(ep=N) 保存 → `dramaclaw_story_to_script`(ep=N) 转剧本。
-> 转剧本成功后内容自动导入剧本模板并触发 `script_writer`（与 Step 10 同一任务），完成后直接继续 Step 11；无故事或用户要求直接生成时仍用 `dramaclaw_generate_script`。
+> `aipdd_drama_get_episode_story`(ep=N) 读取故事 → `aipdd_drama_optimize_episode_story`(ep=N) AI 优化（结果不落盘，用户确认后才需保存）→ `aipdd_drama_save_episode_story`(ep=N) 保存 → `aipdd_drama_story_to_script`(ep=N) 转剧本。
+> 转剧本成功后内容自动导入剧本模板并触发 `script_writer`（与 Step 10 同一任务），完成后直接继续 Step 11；无故事或用户要求直接生成时仍用 `aipdd_drama_generate_script`。
 
 每完成一集，问「继续做第 N+1 集吗？」再进入下一集。
 
 ### 状态回执（每步执行后）
 
-- 触发后最多做一次必要的 `dramaclaw_get_task(task_type=..., episode=...)` 状态查询
+- 触发后最多做一次必要的 `aipdd_drama_get_task(task_type=..., episode=...)` 状态查询
 - 若状态为 queued/running：告诉用户后台正在生成中，等待完成后再继续；不要轮询到 completed
 - 成功：按下表读取或展示完成数据；不要只说“完成”
 - 失败：报 `task.error` / `error_code`，**停在该步**，不要自动重试或跳过
@@ -91,28 +91,28 @@ pipeline 步骤顺序与专用工具，只是「是否每步解释并确认」�
 
 | 步骤 | 完成后读取 / 展示 |
 |------|-------------------|
-| 摄入 | `dramaclaw_pipeline_status` 汇总 ingested/configured 状态；不要展示原文全文 |
-| 配置项目 | `dramaclaw_get(path="/projects/{project}")` 汇总视觉风格、叙事方式、节奏、音频/视频配置 |
-| 角色提取 | `dramaclaw_get(path="/projects/{project}/characters")` 展示角色列表 |
-| 角色 face_prompt 检查/补齐 | `dramaclaw_get(path="/projects/{project}/characters")` 检查核心角色 `face_prompt`；缺失时先补齐并展示已补角色 |
-| 分集规划 | `dramaclaw_get(path="/projects/{project}/episodes")` 展示分集列表 |
-| 角色肖像 | `dramaclaw_get_character_media(media_kind="portrait")` 展示肖像 |
-| 身份规划 | `dramaclaw_get_character_media(media_kind="identity")` 或角色 identities 接口汇总身份列表；没有身份图时只列身份 |
-| 身份图生成 | `dramaclaw_get_character_media(media_kind="identity")` 展示身份图 |
-| 故事读取/优化/保存 | `dramaclaw_get_episode_story(episode=N)` 展示故事文本、风格与字数；优化结果需保存后才落盘 |
-| 故事转剧本 | 自动导入剧本模板并触发 `script_writer`；完成后按「脚本生成」行展示 `dramaclaw_get_episode_script(episode=N)` beat 摘要 |
-| 脚本生成 | `dramaclaw_get_episode_script(episode=N)` 展示 beat 摘要 |
-| 场景规划 | `dramaclaw_get(path="/projects/{project}/scenes")` 展示场景列表 |
-| 道具规划 | `dramaclaw_get(path="/projects/{project}/props")` 展示道具列表 |
-| 场景参考图 | `dramaclaw_get_scene_images()` 展示场景图 |
-| 草图生成 | `dramaclaw_get_sketches(episode=N)` 展示草图 |
-| AI 检测 | `dramaclaw_get_episode_script(episode=N)` 或 beats 接口汇总每个 beat 检测到的身份/道具；不要重复调用检测 |
-| 全局视频优化 | `dramaclaw_get_episode_script(episode=N)` 或 beats 接口汇总 video_mode / video_prompt 就绪情况 |
-| 首帧生成 | `dramaclaw_get_first_frames(episode=N)` 展示首帧 |
-| 音频生成 | `dramaclaw_get_episode_media(episode=N, media_type="audio")` 展示音频 |
-| 单 beat 视频 | `dramaclaw_get_episode_media(episode=N, media_type="video")` 展示视频片段 |
-| 合成导出 | `dramaclaw_get_final_video(episode=N)` 展示最终成片 |
-| 最终成片展示 | `dramaclaw_get_final_video(episode=N)`，若不存在则只说明暂无成片 |
+| 摄入 | `aipdd_drama_pipeline_status` 汇总 ingested/configured 状态；不要展示原文全文 |
+| 配置项目 | `aipdd_drama_get(path="/projects/{project}")` 汇总视觉风格、叙事方式、节奏、音频/视频配置 |
+| 角色提取 | `aipdd_drama_get(path="/projects/{project}/characters")` 展示角色列表 |
+| 角色 face_prompt 检查/补齐 | `aipdd_drama_get(path="/projects/{project}/characters")` 检查核心角色 `face_prompt`；缺失时先补齐并展示已补角色 |
+| 分集规划 | `aipdd_drama_get(path="/projects/{project}/episodes")` 展示分集列表 |
+| 角色肖像 | `aipdd_drama_get_character_media(media_kind="portrait")` 展示肖像 |
+| 身份规划 | `aipdd_drama_get_character_media(media_kind="identity")` 或角色 identities 接口汇总身份列表；没有身份图时只列身份 |
+| 身份图生成 | `aipdd_drama_get_character_media(media_kind="identity")` 展示身份图 |
+| 故事读取/优化/保存 | `aipdd_drama_get_episode_story(episode=N)` 展示故事文本、风格与字数；优化结果需保存后才落盘 |
+| 故事转剧本 | 自动导入剧本模板并触发 `script_writer`；完成后按「脚本生成」行展示 `aipdd_drama_get_episode_script(episode=N)` beat 摘要 |
+| 脚本生成 | `aipdd_drama_get_episode_script(episode=N)` 展示 beat 摘要 |
+| 场景规划 | `aipdd_drama_get(path="/projects/{project}/scenes")` 展示场景列表 |
+| 道具规划 | `aipdd_drama_get(path="/projects/{project}/props")` 展示道具列表 |
+| 场景参考图 | `aipdd_drama_get_scene_images()` 展示场景图 |
+| 草图生成 | `aipdd_drama_get_sketches(episode=N)` 展示草图 |
+| AI 检测 | `aipdd_drama_get_episode_script(episode=N)` 或 beats 接口汇总每个 beat 检测到的身份/道具；不要重复调用检测 |
+| 全局视频优化 | `aipdd_drama_get_episode_script(episode=N)` 或 beats 接口汇总 video_mode / video_prompt 就绪情况 |
+| 首帧生成 | `aipdd_drama_get_first_frames(episode=N)` 展示首帧 |
+| 音频生成 | `aipdd_drama_get_episode_media(episode=N, media_type="audio")` 展示音频 |
+| 单 beat 视频 | `aipdd_drama_get_episode_media(episode=N, media_type="video")` 展示视频片段 |
+| 合成导出 | `aipdd_drama_get_final_video(episode=N)` 展示最终成片 |
+| 最终成片展示 | `aipdd_drama_get_final_video(episode=N)`，若不存在则只说明暂无成片 |
 
 ---
 

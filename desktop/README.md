@@ -37,7 +37,9 @@ macOS `.app/.dmg`（及后续 Windows `.exe`），**弃用 Docker/Colima**：用
 3. **CE 基础依赖不含 torch**：torch 只在可选 `[world]` extra（3DGS/SHARP）。默认包体因此显著小于预估；
    需该特性时 `INSTALL_WORLD=1`。
 4. 额外去容器化依赖：**hermes-agent**（chat 后端）、**Chromium**（抖音 CDP）、**MCP servers**
-   （原走 `docker exec`）。Chromium/MCP 的运行期接线为**未决项**（见 §11/§12）。
+   （原走 `docker exec`）。内置 MCP 已改为本地 stdio 子进程并按部署形态取默认地址（见 §12）；
+   Hermes 运行时已随包分发（`resources/hermes/site-packages`，由随包 Python 以 `-c` 启动，见 §12.3）；
+   剩余未决项是 Chromium 的自动拉起。
 
 ---
 
@@ -50,7 +52,7 @@ desktop/
     console.html         运行期诊断：服务卡片 + 日志 + 单服务重启（启动失败时打开）
     app.js  logo.png
   scripts/
-    prepare-resources.sh      三架构便携运行时准备（Python/Go/nginx/ffmpeg/Chromium）
+    prepare-resources.sh      三架构便携运行时准备（Python/Go/nginx/ffmpeg/Chromium/Hermes）
     build-macos-dmg.sh        产出 .app + .dmg
     mac-sign-notarize.sh      批量内嵌二进制签名 + notarytool 公证 + staple
     build-windows.ps1         产出 NSIS .exe 安装包（前置自检 → cargo tauri build --bundles nsis → 产物 sha256）
@@ -123,6 +125,29 @@ Tauri 计算并注入两类目录，再派生后端既有的 env：
 
 > 引导口令：CE 多用户首次需要一个引导账户口令。可在打包时经 `.env` 的 `ST_LOCAL_PASSWORD`
 > 注入，或首启读取后端打印的随机口令。**不要把口令写进仓库**。
+
+### 4.1 动效大片（MG）链路的取物顺序
+
+`图册 → 逐帧渲染 → 代码编曲 → 剪映草稿`这条链**不需要编排器注入任何新变量**，三个需要外部
+二进制/资源的环节各自按「显式 env → 包内资源 → PATH」探，装机版默认三个都不设：
+
+| 环节 | 显式开关（可选） | 装机版怎么命中 |
+|---|---|---|
+| 逐帧浏览器（`motion_render/chrome.py`） | `ST_CHROME_CDP_URL` / `ST_CHROME_PATH` | `APP_RESOURCE_PATH` 下探 `resources/bin/chrome/`（与 `env.rs` 的 `rel()` 同一探法，mac 的 `.app` 再进一层），最后退 PATH |
+| 编码 + 响度归一 + 合轨（`novelvideo/video_encoder.py`、`motion_render/encoder.py`、`motion_audio/ffmpeg.py`） | `FFMPEG_PATH`、`VIDEO_CODEC` | 上面 §4 已前置的 `PATH` → `resources/bin/ffmpeg(.exe)`，`ffprobe` 同目录；`VIDEO_CODEC` 只在包内这台 build 真有那个编码器、且它是阶梯里的 H.264 实现时才生效，否则按阶梯另选 |
+| 剪映 10.2 草稿骨架（`motion_draft/writer.py`） | `MOTION_DRAFT_TEMPLATE_DIR` / `NOVELVIDEO_PROJECT_ROOT` | 随包 `resources/app/services/vectcut/template_jianying_10_2`（按「哪层找得到骨架」反推工程根） |
+
+指错不会静默回落：`ST_CHROME_PATH` 指不到文件、`FFMPEG_PATH` 既不是文件也不在 PATH 上时，
+当次任务直接报「找不到」并把变量名打出来（可用编码器清单是按这个二进制探的，悄悄换二进制会失真）。
+
+> **随包 ffmpeg 是 BtbN 的 LGPL 构建**（win-x64 默认，见 `desktop/scripts/prepare-resources.sh`），
+> 以 `--disable-libx264` 编译：实测包内那份没有 `libx264`，但有 `h264_mf`/`libopenh264`、原生 `aac`
+> 与 `loudnorm`/`alimiter`/`afade`。因此 `-c:v` 全系统不写死：`src/novelvideo/video_encoder.py`
+> 先探本机 `-encoders`，按 `libx264 → h264_videotoolbox → h264_mf → libopenh264` 取第一个可用的
+> （非 x264 时改码率模式，取 `VIDEO_BITRATE`），MG 渲染、整集合成、`jobs.py` 那批一键工具都走这一处。
+> 声音口径也不受影响（实测归一后 `-14.05 LUFS / -1.00 dBTP`）。装机版实测：`VideoComposer().codec`
+> 从 `libx264` 变成 `h264_mf`，同一条命令 `exit 0` 且 ffprobe 回读 `h264,320,30`。取舍与例外（老链路
+> argv 跑的是 PATH 上那台裸 `ffmpeg`）见 [ffmpeg 指南](../docs/zh/guides/ffmpeg.md)。
 
 ---
 
@@ -286,7 +311,7 @@ mac 的 `.app/.dmg` 与 win 的 `setup.exe` 内嵌的是同一份 HTML/CSS/JS �
 
 - 底色：`background_color` 在 mac 落到 `NSWindow` 底色（Windows 忽略 alpha 通道），同样不闪白帧。
 - 字体：`-apple-system, "PingFang SC", "Microsoft YaHei"`，mac 上落 PingFang，Windows 上落雅黑。
-- 版本行：`osLabel()` 在 mac 显示 `Version <app_version> · macOS`（当前包为 `Version 2.2.1 · macOS`）。
+- 版本行：`osLabel()` 在 mac 显示 `Version <app_version> · macOS`（当前包为 `Version 2.3.0 · macOS`）。
 - 换屏顺序：mac 与 win 一样「最后一个窗口关闭即退出」，所以必须先开主窗口再关启动卡，
   顺序反了进程会自己把自己杀掉，服务也就跟着没了。
 
@@ -337,10 +362,25 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
 1. **体积**：默认 CE 不含 torch，包体可控；`INSTALL_WORLD=1` 引入 torch 后可达数 GB。
 2. **可重定位性**：macOS 上 Homebrew 版 nginx/ffmpeg 链接 cellar/系统 dylib，跨机分发可能缺库——
    建议提供**自包含静态二进制**或在签名脚本一并 vendor + 重签依赖库。
-3. **Chromium/CDP 接线**：后端连抖音用的是 CDP；去容器后需由编排器以 `--remote-debugging-port`
-   启动内置 Chrome 并把路径交给后端（后端连接方式需适配）。**尚未接入 orchestrator**。
-4. **MCP servers / hermes-agent**：原 `docker exec` 起 MCP、`HERMES_CLI_PATH` 指 hermes；
-   桌面需改为本地子进程 + 正确 env。**后续里程碑**。
+3. **Chromium/CDP 接线**：**动效大片渲染这条链已经自备这套**（`freezone/motion_render/chrome.py`：
+   `ST_CHROME_CDP_URL` 连现成实例 → `ST_CHROME_PATH` 指可执行 → `APP_RESOURCE_PATH` 下内置
+   `resources/bin/chrome/` → 退 `PATH` 上的 `chrome`；都没有就吵）。它按作业自己以
+   `--remote-debugging-port` 拉起临时无头实例、用完连同后代回收，不依赖编排器常驻浏览器。
+   **抖音详情抽取**那条仍只「连」一个已经开着调试端口的 Chrome，但默认地址已按部署形态收敛：
+   本机/桌面为 `127.0.0.1:9222`，容器为 `host.docker.internal:9222`（`utils/chrome_cdp.default_cdp_url`，
+   内置 Chrome MCP、环境探测、抖音详情共用同一处）。装机版要么由用户自己起 Chrome，要么设
+   `ST_CHROME_CDP_URL`；复用上面 `chrome.py` 的拉起逻辑仍是留给 orchestrator 的未决项。
+   取物顺序与可选覆盖见 §4.1。
+4. **MCP servers / hermes-agent**：原 `docker exec` 起 MCP、`HERMES_CLI_PATH` 指 hermes。
+   四个内置 MCP 已改为本地 stdio 子进程：本机默认连 `127.0.0.1` 的 Chrome / Blender，容器才走
+   `host.docker.internal`；Windows 上 npm/uv 的 `.cmd/.bat` 包装经 `cmd.exe /c` 启动。
+   Hermes 运行时已随包：依赖用 `uv pip install --target` 落到 `resources/hermes/site-packages`
+   （**不是 venv**——`pyvenv.cfg` 记录 base 解释器绝对路径，安装包挪目录即失效），Rust 注入
+   `HERMES_CLI_PATH=<随包 python>` + `HERMES_CLI_ARGS=-c "from hermes_cli.main import main; main()"`
+   + `HERMES_SITE_PACKAGES`，由子进程 `PYTHONPATH` 加载。Windows 的 Hermes 子进程还会拿到
+   `SYSTEMROOT`/`USERPROFILE`（收敛到用户工作区）等基础变量，否则 `Path.home()` 直接抛错。
+   技能/插件在工作区的镜像优先建软链；Windows 无符号链接权限（WinError 1314）时退化为带内容
+   指纹的托管副本，源码升级后下次 spawn 自动刷新。
 5. **便携 Python 移动性**：console-script shim 写死构建机绝对路径——已规避（用 `python -c` 调 `app()`）；
    M0 实跑已确认打包后的便携 Python 能正常拉起 FastAPI（不依赖 `.venv`）。
 6. **AGPL 网关**：分发义务见 `licenses/README.md` §2。
@@ -401,6 +441,47 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
 - **运行期 `.pyc` 写进包内**：默认行为首次运行往 `site-packages` 生成 4 057 个 `__pycache__` 文件，
   卸载器不认得 → 装机目录留残骸（macOS 上更会破坏 `.app` 签名）。现注入
   `PYTHONPYCACHEPREFIX=<app-data>/pycache`，卸载残骸降到 1 个文件。
+
+### 12.3 Hermes 运行时随包（本轮闭环）
+
+`prepare-resources.sh` 第 7 步用随包 Python 把 `hermes-agent[acp]==0.19.0` 装进
+`resources/hermes/site-packages`（`HERMES_AGENT_SPEC` 可覆盖版本）。三个关键取舍：
+
+- **不用 venv**：`pyvenv.cfg` 的 `home` 是构建机上的绝对路径，安装包换目录/改名后解释器
+  基座即失效；`--target` 目录只靠运行时注入的 `PYTHONPATH` 定位，可随包移动。
+- **不用 console script**：`hermes.exe`/`hermes` 入口 shim 写死构建机绝对解释器路径
+  （与 API 服务 `python -c "... app()"` 同一种规避）。Rust `base_env()` 注入
+  `HERMES_CLI_PATH=<随包 python>`、`HERMES_CLI_ARGS=-c "from hermes_cli.main import main; main()"`、
+  `HERMES_SITE_PACKAGES`；Python 侧 `HermesSdkThread` 把 args 插在 `acp` 子命令之前。
+- **Windows 子进程 env 补齐**：Hermes 启动期解析默认数据目录会调 `Path.home()`；裸 env 下
+  直接 `RuntimeError: Could not determine home directory`。`_child_runtime_env()` 现补
+  `SYSTEMROOT` 等基础变量，并把 `USERPROFILE`/`LOCALAPPDATA`/`APPDATA`/`TEMP` 全部收敛到
+  该用户工作区（既满足解析，又保持多用户隔离）。
+- **技能/插件软链兜底**：Windows 非管理员/未开开发者模式建符号链接会 WinError 1314；旧实现
+  只打 warning，装机版 Hermes 会「启动正常但技能/插件全空」。现退化为带内容指纹的托管副本
+  （`.aipdd-managed-copy`），源升级后下次 spawn 自动刷新，用户自建同名目录仍不覆盖。
+
+本机（Win10 x64）验证：随包解释器 + `--target` 目录跑 `hermes acp --version` 输出 `0.19.0`，
+`acp --check` 输出 `Hermes ACP check OK`；以 `hermes_sdk` 相同的 argv/env 拉起真实 ACP
+`initialize` 握手，19.2s 返回 `agentInfo: {name: hermes-agent, version: 0.19.0}`。
+
+**真机装机验收（2026-10-20，Win10 x64，含 Hermes 的 2.2.1 重出包）**：
+
+- 安装包 738,525,546 B（704.3 MB），sha256 `407cc992c7d552debfaf13c59f19f6aa745f56cf7d9d9d5e4d1f11ef38505f0b`，
+  比不含 Hermes 的旧包大约 +21 MB。包内 `resources/hermes` 5,712 个文件 / 98.7 MiB；
+  资源总计 34,715 个文件，装机后 34,717（＋壳 exe、卸载器，不多不少）。
+- 静默安装 57.6s；启动后 11.6s 四端口全开（`:8080`/`:3000`→200，`:9001`/`:8780`→404 属预期）。
+- 用**装机目录内**的随包 Python + `resources/hermes/site-packages` 按桌面端注入的同一组 env
+  拉起 ACP `initialize`，13.0s 返回 `agentInfo: hermes-agent 0.19.0`；
+  `novelvideo.chat.hermes_pool.is_hermes_backend_available()` 在装机副本上判 `True`。
+- 真实浏览器打开 `http://127.0.0.1:8080`：`#root` 完整渲染落地页（标题与正文可见）；启动瞬间的一次
+  `/api/v1/config` 502 在 API 就绪后消失，匿名会话只剩媒体目录接口的 401（预期）。
+- 强杀桌面壳：安装目录派生进程 0、四端口全释放，宿主另一套 nginx 的 21 个进程未受影响。
+- 干净口径卸载（先清空历史残骸再装）：退出码 0，残骸仅
+  `resources/app/services/vectcut/config.json` 1 个文件（VectCut 首启运行期写入），
+  无 `__pycache__`、无 Hermes、无 dist 残骸。
+
+macOS 的安装逻辑同源（`prepare-resources.sh mac-arm64|mac-x64`），但**真机 dmg 验收仍需在 Mac 上执行**。
 
 ## 13. 故障排查（Gatekeeper / SmartScreen / 启动失败）
 

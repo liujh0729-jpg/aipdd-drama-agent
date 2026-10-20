@@ -20,9 +20,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
 
-from novelvideo import diagnostics, env_probe, env_setup_install
+from novelvideo import diagnostics, env_probe, env_setup_install, self_heal
 from novelvideo.api.auth import get_api_user, require_owner
 
 router = APIRouter()
@@ -69,4 +69,35 @@ async def install_env_setup_item(
     """
     item_id = str((payload or {}).get("item") or "").strip()
     data = await asyncio.to_thread(env_setup_install.install_item, item_id)
+    return {"ok": True, "data": data}
+
+
+@router.post("/admin/self-heal")
+async def post_self_heal(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    user: dict = Depends(get_api_user),
+):
+    """[aipdd fork delta] 环境与代码自愈：默认文本模型分析失败 + 白名单修复。
+
+    MCP 工具 ``aipdd_drama_self_heal`` 在任意 ``aipdd_drama_*`` 调用失败后调用本端点。
+    与 plan/install 同口径放行浏览器 owner 与 ``st-`` agent 密钥；``mode="repair"``
+    才会执行白名单动作（安装可自动装环境项、唯一匹配源码替换、建缺失目录）。
+    """
+    body = payload or {}
+    symptom = str(body.get("symptom") or "").strip()
+    if not symptom:
+        raise HTTPException(status_code=400, detail="symptom is required")
+    try:
+        data = await asyncio.to_thread(
+            self_heal.run_self_heal,
+            symptom=symptom,
+            tool_name=str(body.get("tool_name") or ""),
+            error=str(body.get("error") or ""),
+            scope=str(body.get("scope") or "auto"),
+            mode=str(body.get("mode") or "diagnose"),
+            model=str(body.get("model") or ""),
+            allow_heavy=body.get("allow_heavy", False),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True, "data": data}

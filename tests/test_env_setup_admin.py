@@ -441,3 +441,72 @@ def test_install_route_posts_item(monkeypatch):
     assert body["ok"] is True
     assert body["data"]["started"] is True
     assert seen == ["world"]
+
+
+# ------------------------------------------------------------- self-heal 路由
+def test_self_heal_route_returns_data(monkeypatch):
+    seen: list[dict] = []
+
+    def _fake_run(**kwargs):
+        seen.append(kwargs)
+        return {"ok": True, "degraded": False, "analysis": {"diagnosis": "网关不通"}}
+
+    monkeypatch.setattr(env_setup_routes.self_heal, "run_self_heal", _fake_run)
+    client = _build_plan_client({"id": "u", "username": "admin", "role": "owner"})
+    resp = client.post(
+        "/api/v1/admin/self-heal",
+        json={
+            "symptom": "生成草图 500",
+            "tool_name": "aipdd_drama_generate_sketches",
+            "error": "HTTP 500",
+            "mode": "repair",
+            "scope": "environment",
+            "allow_heavy": True,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["data"]["analysis"]["diagnosis"] == "网关不通"
+    assert seen == [
+        {
+            "symptom": "生成草图 500",
+            "tool_name": "aipdd_drama_generate_sketches",
+            "error": "HTTP 500",
+            "scope": "environment",
+            "mode": "repair",
+            "model": "",
+            "allow_heavy": True,
+        }
+    ]
+
+
+def test_self_heal_route_allows_agent_credential(monkeypatch):
+    monkeypatch.setattr(
+        env_setup_routes.self_heal,
+        "run_self_heal",
+        lambda **_: {"ok": True, "degraded": True},
+    )
+    client = _build_plan_client(
+        {"id": "u", "username": "admin", "role": "owner", "credential_kind": "agent_session"}
+    )
+    resp = client.post("/api/v1/admin/self-heal", json={"symptom": "失败"})
+    assert resp.status_code == 200
+
+
+def test_self_heal_route_requires_symptom():
+    client = _build_plan_client({"id": "u", "username": "admin", "role": "owner"})
+    resp = client.post("/api/v1/admin/self-heal", json={})
+    assert resp.status_code == 400
+    assert "symptom" in resp.json()["detail"]
+
+
+def test_self_heal_route_maps_value_error_to_400(monkeypatch):
+    def _fake_run(**_):
+        raise ValueError("mode must be 'diagnose' or 'repair'")
+
+    monkeypatch.setattr(env_setup_routes.self_heal, "run_self_heal", _fake_run)
+    client = _build_plan_client({"id": "u", "username": "admin", "role": "owner"})
+    resp = client.post("/api/v1/admin/self-heal", json={"symptom": "失败", "mode": "bogus"})
+    assert resp.status_code == 400
+    assert "mode" in resp.json()["detail"]

@@ -193,7 +193,7 @@ def test_encoder_command_without_audio_is_video_only() -> None:
     assert "pipe:0" in command
     assert "-s" in command and "1280x720" in command
     assert "-stream_loop" not in command
-    assert command[-1] == "/tmp/out.mp4"
+    assert Path(command[-1]) == Path("/tmp/out.mp4")
     assert "-t" in command
 
 

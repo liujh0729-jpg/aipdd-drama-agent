@@ -47,13 +47,13 @@ Body: {"visual_style": "...", "narration_style": "...", "ethnicity": "...", "rhy
 
 ### Step 4: 角色提取 [ASYNC -> build_characters, ep=0]
 
-**触发用专用工具 `dramaclaw_build_characters`（不要自己拼路径）**，它内部就是
+**触发用专用工具 `aipdd_drama_build_characters`（不要自己拼路径）**，它内部就是
 `POST /projects/$PID/characters/build`。
 
 ```
-dramaclaw_build_characters            # 触发提取（项目默认取 DRAMACLAW_PROJECT_ID）
+aipdd_drama_build_characters            # 触发提取（项目默认取 DRAMACLAW_PROJECT_ID）
 
-dramaclaw_get_task(task_type="build_characters", episode=0)   # 轮询状态
+aipdd_drama_get_task(task_type="build_characters", episode=0)   # 轮询状态
 SSE /projects/$PID/tasks/build_characters/0/stream            # 或流式
 ```
 
@@ -83,7 +83,7 @@ Body: {"face_prompt": "具体面部特征描述"}
 缺失时优先用专用工具：
 
 ```
-dramaclaw_update_character_face_prompt(name="$CHAR_NAME", face_prompt="...")
+aipdd_drama_update_character_face_prompt(name="$CHAR_NAME", face_prompt="...")
 ```
 
 `face_prompt` 只描述脸部，不写服装、场景、身份图。
@@ -301,7 +301,7 @@ compose 完成后，读取正式成片状态：
 GET /projects/$PID/episodes/$EP/final
 ```
 
-若返回 `data.exists=true` 且有 `data.video_url`，用 `dramaclaw_get_final_video` 展示成片。不要自己拼 host、下载地址或 `/files` 路径。
+若返回 `data.exists=true` 且有 `data.video_url`，用 `aipdd_drama_get_final_video` 展示成片。不要自己拼 host、下载地址或 `/files` 路径。
 
 用户明确要导出文件时，可结合：
 

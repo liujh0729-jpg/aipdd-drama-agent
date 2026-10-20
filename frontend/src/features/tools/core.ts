@@ -40,6 +40,9 @@ export type ToolKind =
   // [aipdd fork delta] 换脸直播：本机边车引擎（摄像头→inswapper 换脸→系统虚拟摄像头→OBS），
   // 面板只做上传人脸/改参/启停的 localhost 控制，Web 不推流、无批量任务。
   | "face-swap-live"
+  // [aipdd fork delta] 动效大片：案例图册/自贴页面 → 随包 Chrome 逐帧渲染 MG 成片 →
+  // 逐镜成片导出剪映 10.2 草稿。渲染与编码全在本机，不出网。
+  | "motion-blockbuster"
   // 旧 kind 常量保留：历史任务的 metadata.source_tool / 过滤仍可能引用。
   | "douyin-copywrite";
 
@@ -342,6 +345,24 @@ export const TOOLS: ToolDef[] = [
     modelKind: "video",
     accept: null,
     taskTypes: [],
+  },
+  // [aipdd fork delta] 动效大片：摆在讲解类视频之前（同一族「代码画出来的成片」，
+  // 但 MG 走随包 Chrome 逐帧 + ffmpeg，讲解类走 HyperFrames 管线，故不合并进分组）。
+  // 一次提交出一镜成片，面板内第二步把已渲染成片导成剪映草稿；页面由网关文本模型
+  // 按图册渲染契约产出，画幅档位与后端 FreezoneMotionRenderRequest 同一份集合。
+  // 无媒体批量输入（一次提交一条成片），modelKind 占位：文本模型由面板自管，
+  // 与 video-reverse-script 的 vision 占位同口径。
+  {
+    kind: "motion-blockbuster",
+    titleKey: "tools.motionBlockbuster.title",
+    descKey: "tools.motionBlockbuster.desc",
+    modelKind: "video",
+    accept: null,
+    taskTypes: [
+      "freezone_motion_stills",
+      "freezone_motion_render",
+      "freezone_motion_draft",
+    ],
   },
   // [aipdd fork delta] 讲解类视频：白板手绘逐笔揭示 与 分章 MG 动画是同一类讲解
   // 成片的两种画面方案，共用一个菜单入口（TOOL_GROUPS.explainer-class）、摆在菜单

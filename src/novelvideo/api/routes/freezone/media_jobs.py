@@ -168,6 +168,78 @@ async def _enqueue_or_start_freezone_explainer_video(
     _freezone._raise_project_context_required("freezone_explainer_video")
 
 
+async def _enqueue_or_start_freezone_motion_render(
+    *,
+    ctx: ProjectContext | None,
+    username: str,
+    project: str,
+    project_dir: Path,
+    output_dir: str,
+    job_id: str,
+    payload: dict,
+) -> dict:
+    """[aipdd fork delta] 动效大片渲染：逐帧截图 + 编码是长任务，与讲解视频同走 video 队列。"""
+    if ctx is not None:
+        return await _freezone._enqueue_freezone_background_job(
+            ctx=ctx,
+            project_dir=project_dir,
+            task_type="freezone_motion_render",
+            job_id=job_id,
+            payload=payload,
+            queue_kind="video",
+        )
+
+    _freezone._raise_project_context_required("freezone_motion_render")
+
+
+async def _enqueue_or_start_freezone_motion_stills(
+    *,
+    ctx: ProjectContext | None,
+    username: str,
+    project: str,
+    project_dir: Path,
+    output_dir: str,
+    job_id: str,
+    payload: dict,
+) -> dict:
+    """[aipdd fork delta] 动效大片拍点预检：占用的是同一个包内 Chrome，与渲染同走 video 队列。"""
+    if ctx is not None:
+        return await _freezone._enqueue_freezone_background_job(
+            ctx=ctx,
+            project_dir=project_dir,
+            task_type="freezone_motion_stills",
+            job_id=job_id,
+            payload=payload,
+            queue_kind="video",
+        )
+
+    _freezone._raise_project_context_required("freezone_motion_stills")
+
+
+async def _enqueue_or_start_freezone_motion_draft(
+    *,
+    ctx: ProjectContext | None,
+    username: str,
+    project: str,
+    project_dir: Path,
+    output_dir: str,
+    job_id: str,
+    payload: dict,
+) -> dict:
+    """[aipdd fork delta] 动效大片交付：逐镜成片落成剪映工程目录，与渲染同走 video 队列。"""
+    if ctx is not None:
+        return await _freezone._enqueue_freezone_background_job(
+            ctx=ctx,
+            project_dir=project_dir,
+            task_type="freezone_motion_draft",
+            job_id=job_id,
+            payload=payload,
+            queue_kind="video",
+        )
+
+    _freezone._raise_project_context_required("freezone_motion_draft")
+
+
 async def _enqueue_or_start_freezone_channel_short_video(
     *,
     ctx: ProjectContext | None,

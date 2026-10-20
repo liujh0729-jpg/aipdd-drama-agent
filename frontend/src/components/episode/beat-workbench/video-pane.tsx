@@ -97,6 +97,7 @@ import {
 } from "@/components/ui/select";
 import type { BeatStageState } from "@/types/beat-state";
 import type { Beat } from "@/types/episode";
+import { MotionRenderAction } from "./motion-render-action";
 import {
   MEDIA_PRIMARY_ACTION_BUTTON_CLASS,
   MEDIA_THUMB_ACTIVE_CLASS,
@@ -1896,6 +1897,15 @@ export function VideoPane({
                 {videoActionLabel}
               </Button>
             )}
+          </VideoParamField>
+          <VideoParamField label="" hiddenLabel>
+            <MotionRenderAction
+              beat={beat}
+              project={project}
+              episode={episode}
+              orientation={orientation}
+              buttonClassName={VIDEO_PARAM_ACTION_CLASS}
+            />
           </VideoParamField>
         </div>
       )}

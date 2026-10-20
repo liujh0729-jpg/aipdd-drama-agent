@@ -63,7 +63,7 @@ from novelvideo.freezone.douyin_web_api import (
     fetch_douyin_detail_via_http,
 )
 from novelvideo.freezone.paths import outputs_dir
-from novelvideo.utils.chrome_cdp import browsable_cdp_url
+from novelvideo.utils.chrome_cdp import browsable_cdp_url, default_cdp_url
 
 logger = logging.getLogger(__name__)
 
@@ -279,7 +279,6 @@ async def resolve_douyin_video_id(input_str: str) -> str:
 # 真实 Chrome 复用用户登录态、能过抖音 Argus 详情签名；容器里 Chrome 不绑定
 # localhost，连接前经 browsable_cdp_url 解析成宿主可达 IP。
 _CHROME_CDP_URL_ENV = "ST_CHROME_CDP_URL"
-_DEFAULT_CHROME_CDP_URL = "http://host.docker.internal:9222"
 # CDP 整体预算（首页预热 + 视频页加载 + 详情 XHR 捕获），超时判定为需登录/风控。
 _DETAIL_TIMEOUT_SECONDS = 60.0
 
@@ -291,7 +290,7 @@ def chrome_cdp_url() -> str:
     用的是同一个宿主 Chrome，必须走同一个端点换算（主机名解析成 IP），不能开第二份
     读环境的代码各自漂移。
     """
-    raw = os.environ.get(_CHROME_CDP_URL_ENV, "").strip() or _DEFAULT_CHROME_CDP_URL
+    raw = os.environ.get(_CHROME_CDP_URL_ENV, "").strip() or default_cdp_url()
     # [aipdd fork delta] Chrome 只接受 IP / localhost 的 Host 头，容器里
     # host.docker.internal 这类主机名会被直接拒（HTTP 500），统一解析成 IP。
     return browsable_cdp_url(raw)

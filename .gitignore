@@ -22,6 +22,10 @@ jr_error.log
 /*.log
 /*.mp3
 /*.zip
+# 构建产物：技能 zip 与动效样例片可重建，不入库。
+/dist/
+# pytest/junit XML 报告。
+/report_*.xml
 
 # 本地参考资料（嵌入的第三方仓库，不跟踪）
 /awesome-nano-banana-pro-prompts/

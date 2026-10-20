@@ -5,7 +5,7 @@
 // 「Web 不推流」：这里只有控制类请求，视频走 摄像头→边车→系统虚拟摄像头→OBS，不经浏览器。
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api } from "@/lib/api";
+import { api, uploadApi } from "@/lib/api";
 import { jsonWithBackendError } from "@/lib/api-errors";
 import { queryKeys } from "@/lib/query-keys";
 import type { OkResponse } from "@/types/api";
@@ -205,7 +205,7 @@ export function useUploadFaceSwapSource() {
       const form = new FormData();
       form.append("file", file);
       return jsonWithBackendError<OkResponse<{ path: string }>>(
-        api.post("api/v1/admin/faceswap/engine/face", {
+        uploadApi.post("api/v1/admin/faceswap/engine/face", {
           body: form,
           throwHttpErrors: false,
         }),

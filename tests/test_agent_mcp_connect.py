@@ -12,6 +12,7 @@
 import asyncio
 import sys
 import textwrap
+from types import SimpleNamespace
 
 from novelvideo.agent import mcp as agent_mcp
 
@@ -100,3 +101,198 @@ async def test_mcp_hub_failed_spawn_records_error(tmp_path) -> None:
         await asyncio.sleep(0.05)
     finally:
         await hub.close()
+
+
+# ---------------------------------------------------------------------------
+# 内置服务器可用性门控：外部命令缺失时不白起子进程
+# ---------------------------------------------------------------------------
+
+
+def test_builtin_definitions_mark_missing_commands(monkeypatch) -> None:
+    monkeypatch.setattr(agent_mcp.shutil, "which", lambda _command: None)
+
+    chrome = agent_mcp._chrome_server()
+    blender = agent_mcp._blender_server()
+    comfy = agent_mcp._comfy_server()
+
+    assert chrome["available"] is False
+    assert "chrome-devtools-mcp" in chrome["unavailable_reason"]
+    assert blender["available"] is False
+    assert "uvx" in blender["unavailable_reason"]
+    # 其余内置只依赖随包 Python/配置，不因外部命令缺失而不可用。
+    assert comfy["available"] is True
+
+
+def test_builtin_definitions_mark_available_commands(monkeypatch) -> None:
+    monkeypatch.setattr(agent_mcp.shutil, "which", lambda _command: "/usr/bin/fake")
+
+    assert agent_mcp._chrome_server()["available"] is True
+    assert agent_mcp._blender_server()["available"] is True
+
+
+def test_load_config_exposes_availability(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("NOVELVIDEO_AGENT_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(agent_mcp.shutil, "which", lambda _command: None)
+
+    servers = {item["id"]: item for item in agent_mcp.list_servers("alice")}
+
+    assert servers["aipdd-drama"]["available"] is True
+    assert servers["chrome-devtools"]["available"] is False
+    assert servers["blender-mcp"]["available"] is False
+
+
+def test_enabled_servers_skips_unavailable(monkeypatch) -> None:
+    monkeypatch.setattr(
+        agent_mcp,
+        "list_servers",
+        lambda _username: [
+            {"id": "ok", "enabled": True, "available": True},
+            {"id": "missing", "enabled": True, "available": False},
+            {"id": "off", "enabled": False, "available": True},
+        ],
+    )
+
+    assert [item["id"] for item in agent_mcp.enabled_servers("alice")] == ["ok"]
+
+
+async def test_mcp_hub_skips_unavailable_without_spawn() -> None:
+    hub = agent_mcp.McpToolHub(
+        [
+            {
+                "id": "blender-mcp",
+                "transport": "stdio",
+                "command": "uvx",
+                "args": ["mcp-for-blender"],
+                "enabled": True,
+                "available": False,
+                "unavailable_reason": "未检测到 uvx 命令",
+            }
+        ],
+        connect_timeout=1.0,
+    )
+    try:
+        await hub.start()
+        assert hub.errors == [{"server_id": "blender-mcp", "error": "未检测到 uvx 命令"}]
+        assert hub.tools == []
+        await asyncio.sleep(0.05)
+    finally:
+        await hub.close()
+
+
+async def test_probe_unavailable_server_returns_reason() -> None:
+    result = await agent_mcp.probe_server(
+        {
+            "id": "chrome-devtools",
+            "transport": "stdio",
+            "command": "chrome-devtools-mcp",
+            "args": [],
+            "enabled": True,
+            "available": False,
+            "unavailable_reason": "未检测到 chrome-devtools-mcp 命令",
+        }
+    )
+
+    assert result == {"ok": False, "error": "未检测到 chrome-devtools-mcp 命令"}
+
+
+# ---------------------------------------------------------------------------
+# 启动命令解析：Windows 的 .cmd/.bat 需经 cmd.exe /c
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_launch_wraps_windows_batch(monkeypatch) -> None:
+    resolved = r"C:\Users\me\AppData\Roaming\npm\chrome-devtools-mcp.cmd"
+    comspec = r"C:\Windows\System32\cmd.exe"
+    monkeypatch.setattr(agent_mcp.shutil, "which", lambda _command: resolved)
+    monkeypatch.setattr(
+        agent_mcp,
+        "os",
+        SimpleNamespace(name="nt", environ={"COMSPEC": comspec}),
+    )
+
+    command, prefix, available = agent_mcp._resolve_launch("chrome-devtools-mcp")
+
+    assert available is True
+    assert command == comspec
+    assert prefix == ["/d", "/c", resolved]
+
+
+def test_chrome_server_wraps_windows_batch(monkeypatch) -> None:
+    resolved = r"C:\npm\chrome-devtools-mcp.cmd"
+    monkeypatch.setattr(agent_mcp.shutil, "which", lambda _command: resolved)
+    monkeypatch.setattr(
+        agent_mcp,
+        "os",
+        SimpleNamespace(name="nt", environ={"COMSPEC": "cmd.exe"}),
+    )
+
+    server = agent_mcp._chrome_server()
+
+    assert server["available"] is True
+    assert server["command"] == "cmd.exe"
+    assert server["args"][:3] == ["/d", "/c", resolved]
+    assert "--browserUrl" in server["args"]
+
+
+def test_resolve_launch_posix_executable_is_direct(monkeypatch) -> None:
+    monkeypatch.setattr(agent_mcp.shutil, "which", lambda _command: "/usr/bin/uvx")
+
+    command, prefix, available = agent_mcp._resolve_launch("uvx")
+
+    assert (command, prefix, available) == ("/usr/bin/uvx", [], True)
+
+
+# ---------------------------------------------------------------------------
+# 内部 API 地址：CE-owner 模式只允许回环
+# ---------------------------------------------------------------------------
+
+
+def test_loopback_url_rewrites_lan_host_preserving_port_and_path() -> None:
+    assert (
+        agent_mcp._loopback_url("http://192.168.1.9:8800/api/v1")
+        == "http://127.0.0.1:8800/api/v1"
+    )
+    assert agent_mcp._loopback_url("http://192.168.1.9") == "http://127.0.0.1"
+    assert agent_mcp._loopback_url("http://localhost:8780") == "http://localhost:8780"
+    assert agent_mcp._loopback_url("http://[::1]:8780") == "http://[::1]:8780"
+    assert agent_mcp._loopback_url("") == ""
+
+
+def test_builtin_server_forces_loopback_api_url(monkeypatch) -> None:
+    monkeypatch.setenv("AIPDD_DRAMA_API_URL", "http://192.168.1.9:8800")
+
+    server = agent_mcp._builtin_server()
+
+    assert server["env"]["AIPDD_DRAMA_API_URL"] == "http://127.0.0.1:8800"
+    assert server["env"]["DRAMACLAW_API_URL"] == "http://127.0.0.1:8800"
+    assert server["env"]["DRAMACLAW_CE_OWNER"] == "1"
+
+
+# ---------------------------------------------------------------------------
+# 默认地址随部署形态：容器走宿主别名，本机（exe/dmg）走回环
+# ---------------------------------------------------------------------------
+
+
+def test_blender_default_host_depends_on_container(monkeypatch) -> None:
+    monkeypatch.delenv("ST_BLENDER_HOST", raising=False)
+
+    monkeypatch.setattr(agent_mcp, "in_container", lambda: False)
+    assert agent_mcp._blender_connection() == ("127.0.0.1", "9876")
+
+    monkeypatch.setattr(agent_mcp, "in_container", lambda: True)
+    assert agent_mcp._blender_connection() == ("host.docker.internal", "9876")
+
+
+def test_chrome_default_url_depends_on_container(monkeypatch) -> None:
+    monkeypatch.delenv("ST_CHROME_CDP_URL", raising=False)
+    monkeypatch.setattr(agent_mcp, "browsable_cdp_url", lambda url: url)
+
+    monkeypatch.setattr(agent_mcp, "default_cdp_url", lambda: "http://127.0.0.1:9222")
+    assert agent_mcp._chrome_cdp_url() == "http://127.0.0.1:9222"
+
+    monkeypatch.setattr(
+        agent_mcp,
+        "default_cdp_url",
+        lambda: "http://host.docker.internal:9222",
+    )
+    assert agent_mcp._chrome_cdp_url() == "http://host.docker.internal:9222"

@@ -1,10 +1,38 @@
 import asyncio
 import functools
-from collections.abc import Awaitable, Callable
+import logging
+from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any
 
 import anyio
 from anyio.lowlevel import RunVar
+
+
+logger = logging.getLogger(__name__)
+
+# 事件循环只弱引用 Task；不持有强引用时，未完成的 fire-and-forget 任务可能
+# 在运行中被 GC 掉，表现为「任务刚开始就悄无声息地消失」。
+_background_tasks: set[asyncio.Task[Any]] = set()
+
+
+def _finish_background_task(task: asyncio.Task[Any]) -> None:
+    _background_tasks.discard(task)
+    if task.cancelled():
+        return
+    error = task.exception()
+    if error is not None:
+        logger.error("background task failed", exc_info=error)
+
+
+def spawn_background(
+    coro: Coroutine[Any, Any, Any], *, name: str = ""
+) -> asyncio.Task[Any]:
+    """Launch a background task and keep it strongly referenced until done."""
+
+    task = asyncio.create_task(coro, name=name or None)
+    _background_tasks.add(task)
+    task.add_done_callback(_finish_background_task)
+    return task
 
 
 METADATA_IO_CONCURRENCY = 4

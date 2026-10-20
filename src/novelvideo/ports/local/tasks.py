@@ -118,7 +118,7 @@ class InlineTaskBackend:
             episode,
             beat_num=beat_num,
             scope=scope,
-            metadata={},
+            metadata=metadata,
             queue_kind=lane_name,
             project_lane_limit=project_lane_limit,
         )
@@ -378,7 +378,9 @@ class InlineTaskBackend:
             scope=task_state.scope,
         )
         self._remove_queued_task(task_state.task_id)
-        get_task_manager().update_progress_for_project(
+        # 进度写入要拿 BEGIN IMMEDIATE 写锁，竞争时是阻塞的（同 kill 一样不得占事件循环）。
+        await asyncio.to_thread(
+            get_task_manager().update_progress_for_project,
             ctx,
             task_state.task_type,
             task_state.episode,
@@ -469,7 +471,9 @@ class InMemoryCancellationStore:
             expires_at = self._keys.get(key)
             if expires_at is None:
                 return False
-            if expires_at < time.time():
+            # 用 <= 而不是 <：Windows 上 time.time() 只有 ~15.6ms 分辨率，
+            # ttl=0 的取消（记录时刻即到期）在同一个时钟刻度里会永远比 now "大"。
+            if expires_at <= time.time():
                 self._keys.pop(key, None)
                 return False
             return True

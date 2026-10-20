@@ -94,6 +94,14 @@ _PROJECT_TASK_RESOURCE_KINDS = {
     "freezone_video_mix": "video",
     "freezone_whiteboard_animation": "video",
     "freezone_explainer_video": "video",
+    # [aipdd fork delta] 动效大片渲染：逐帧截图 + 编码，与讲解视频同为长任务走 video 队列。
+    "freezone_motion_render": "video",
+    # [aipdd fork delta] 动效大片拍点预检：同样要独占一个 Chrome 逐张截图，排进同一条
+    # 队列才不会让预检和成片同时拉起两个浏览器实例。
+    "freezone_motion_stills": "video",
+    # [aipdd fork delta] 动效大片交付：落一盘剪映工程目录，与口播剪辑的草稿导出同为
+    # 交付类任务走 video 队列（不占渲染资源，但口径一致更好排程）。
+    "freezone_motion_draft": "video",
     "freezone_channel_short_video": "video",
     "freezone_narration_smart_edit": "video",
     "freezone_video_idea": "video",

@@ -14,6 +14,7 @@
 | `NOVELVIDEO_OUTPUT_DIR` | `$DATA_ROOT/output` | 成片与产物输出目录。Docker Compose 固定为 `/data/output`，随 `ce-data` 卷持久化。 |
 | `NOVELVIDEO_STATE_DIR` | `$DATA_ROOT/state` | 本地状态。 |
 | `NOVELVIDEO_RUNTIME_DIR` | `$DATA_ROOT/runtime` | 运行时临时目录。 |
+| `NOVELVIDEO_PROJECT_ROOT` | 自动探(各消费方按「哪层能找到自己要的随包资源」反推) | 工程根。换脸边车、3D 世界安装器、剪映 10.2 草稿骨架三处都用它定位随包的 `services/`;部署布局非标准时显式指定。 |
 | `ST_CONTROL_PLANE_DSN` / `ST_REDIS_URL` / `ST_CELERY_BROKER_URL` / `ST_CELERY_RESULT_BACKEND` | 空(CE 强制清空) | EE/分布式才用;CE 任务进程内 inline 执行,留空。 |
 
 ## 模型网关
@@ -67,7 +68,7 @@ wave3 归档说明里。
 |---|---|---|
 | `VIDEO_FPS` | `30` | 帧率。 |
 | `VIDEO_WIDTH` / `VIDEO_HEIGHT` | `1080` / `1920` | 竖屏分辨率。 |
-| `VIDEO_CODEC` | `libx264` | 视频编码(H.264);ffmpeg build 须含此编码器,见 [ffmpeg 指南](../guides/ffmpeg.md)。 |
+| `VIDEO_CODEC` | `libx264` | 视频编码(H.264)。现在**所有出片链路都认它**——编码参数统一由 `src/novelvideo/video_encoder.py` 给出，该解析器先读这个变量，再退到 `libx264 → h264_videotoolbox → h264_mf → libopenh264` 阶梯。两个前提：本机这台 ffmpeg build 真的有它，且它属于阶梯这四个 H.264 实现之一；否则忽略、按阶梯选，不会失败（指到 `mpeg4`/`aac` 这种非 H.264 时警告一次）。见 [ffmpeg 指南](../guides/ffmpeg.md)。 |
 | `VIDEO_AUDIO_CODEC` | `aac` | 音频编码。 |
 | `VIDEO_BITRATE` | `4M` | 码率。 |
 | `IMAGE_DEFAULT_WIDTH` / `IMAGE_DEFAULT_HEIGHT` / `IMAGE_DEFAULT_STYLE` | `1440` / `2560` / `chinese_period_drama` | 图像默认尺寸与风格。 |
@@ -76,7 +77,23 @@ wave3 归档说明里。
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `FFMPEG_PATH` | `ffmpeg`(从 PATH) | ffmpeg 可执行路径,装在非标准位置时显式指定。 |
+| `FFMPEG_PATH` | `ffmpeg`(从 PATH) | ffmpeg 可执行路径,装在非标准位置时显式指定。**只有动效大片链路(逐帧编码 + 响度归一)和共用的编码器解析器认它**；`generators/video_composer.py` 与 `freezone/jobs.py` 那批老链路 argv 里写的是裸 `ffmpeg`,只从 PATH 找。指到 PATH 之外的二进制时,编码器清单按前者探、老链路按后者跑,解析器会打一条一次性 warning,详见 [ffmpeg 指南](../guides/ffmpeg.md)。|
+
+## 动效大片(MG)
+
+图册 → 模型按渲染契约出单文件页面 → 包内 Chrome 逐帧渲染 → 代码编曲归一响度 → 剪映草稿,整条链默认零配置、零外发。以下变量都是**可选**的覆盖开关。
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `MOTION_GALLERY_MANIFEST` | 内置 `freezone/motion_templates.json` | 换一套案例图册时指到外部 JSON。读坏了回落内置那份并打 warning;内置那份读不出来才报错(那是打包坏了)。 |
+| `MOTION_STYLE_MANIFEST` | 内置 `freezone/motion_styles.json` | 画风图册(66 条)是另一份独立清单,只换画面观感、不动案例分镜结构。回落口径与上面那条完全一致:外部读坏→回落内置并打 warning,内置那份读不出来才报错。 |
+| `MOTION_GALLERY_ASSET_BASE` | `/api/v1/motion-gallery` | 海报/原片的地址前缀。把 37 条原片(~0.7 GB,不随包)放到 OSS/CDN 后指过去,前端直接按 `<前缀>/<清单相对路径>` 取。 |
+| `MOTION_GALLERY_MIRROR` | 空 | 原片按需取源:本机缓存没有时从 `<MIRROR>/<相对路径>` 拉一次、校验 sha256 后落进状态卷再回给前端。不设则未缓存的原片不显示(只影响看片,不影响取提示词)。 |
+| `ST_CHROME_CDP_URL` | 空 | 连一个现成的调试实例,渲染任务不再自己拉浏览器。不设时按部署形态取默认:本机/桌面为 `http://127.0.0.1:9222`,容器为 `http://host.docker.internal:9222`。与抖音详情、内置 Chrome MCP 同一变量。 |
+| `ST_CHROME_PATH` | 空 | 指到某个 Chrome/Chromium 可执行文件,由渲染任务拉起临时无头实例。指了但文件不存在会吵,不会静默找不到。 |
+| `MOTION_DRAFT_TEMPLATE_DIR` | 随包 `services/vectcut/template_jianying_10_2` | 剪映 10.2 草稿骨架目录(含根 `draft_content.json` 与 `Timelines/`)。骨架位置靠「哪一层能找到它」反推工程根,工程根不在默认位置时用 `NOVELVIDEO_PROJECT_ROOT` 指根,或直接指这个目录。 |
+
+> 桌面形态不用设这几个:`env.rs` 把 `resources/bin`(含 `ffmpeg.exe`/`ffprobe.exe`/`chrome/`)前置进 `PATH`,并把 `APP_RESOURCE_PATH` 注入后端,浏览器与模板骨架都从这里探。详见 [桌面版环境变量契约](../../../desktop/README.md)。
 
 ## 安全
 

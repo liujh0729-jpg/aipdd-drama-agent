@@ -282,3 +282,20 @@ HTTP 服务假 `aipdd_server.py`）。其中**只有 8.1 覆盖不到的项**留
 | `proc_win` 进程树回归：`terminate_tree` 连带杀孙进程、`shutdown_all` 清残留 | `cargo test -- --ignored` 2 passed |
 | nginx 官方 win zip 自包含性 | 实测包内仅 `nginx.exe`，无 DLL 依赖 |
 | `win-sign.ps1` 待签清单枚举 | `-Stage Resources -DryRun` 列出便携 Python 内 58 个 PE |
+
+### 8.3 本轮（Hermes 随包）装机实测（2026-10-20）
+
+在 8.1 的同一台 Win10 x64 上，用含 `resources/hermes` 的 2.2.1 重出包复跑装机链路。为排除
+历史安装残骸干扰，先把已卸载目录整个清空，再全新安装。
+
+| 项 | 结果 |
+|---|---|
+| `build-windows.ps1` 出包 | 退出码 0；`AIPDD DramaClaw_2.2.1_x64-setup.exe` **738,525,546 B（704.3 MB）**，sha256 `407cc992c7d552debfaf13c59f19f6aa745f56cf7d9d9d5e4d1f11ef38505f0b`（不含 Hermes 的旧包 683 MB） |
+| Hermes 载荷 | `resources/hermes` **5,712 个文件 / 98.7 MiB**；资源总计 **34,715** 个文件，装机后 **34,717**（＋壳 exe、卸载器） |
+| 静默安装 `/S` | 退出码 0，**57.6s** |
+| 起服 | **11.6s** 四端口全开：`:8080`→200、`:3000`→200、`:9001`→404、`:8780`→404（后两个根路径无路由，就绪判定走 TCP 探活） |
+| 装机内 ACP | 用装机目录内的 `resources/python/python.exe` + `resources/hermes/site-packages`，按 `base_env()` 同款 argv/env 发 `initialize`，**13.0s** 返回 `agentInfo: {name: hermes-agent, version: 0.19.0}` |
+| 可用性判定 | 装机副本上 `is_hermes_backend_available()` == **True**，`_hermes_cli_args()` 解析出 `['-c', 'from hermes_cli.main import main; main()']` |
+| 浏览器验收 | 真实浏览器打开 `http://127.0.0.1:8080`，`#root` 完整渲染落地页；启动瞬间一次 `/api/v1/config` 502 在 API 就绪后消失，匿名会话仅 `media-catalog` 401（预期） |
+| 强杀桌面壳 | 安装目录派生进程 **0**、四端口 **0 监听**；宿主另一套 nginx 21 个进程未受影响 |
+| 卸载 `uninstall.exe /S` | 退出码 0，9.2s；干净口径残骸 **1 个文件**：`resources\app\services\vectcut\config.json`（运行期写入，与 8.1 一致）；无 `__pycache__` / Hermes / dist 残骸 |

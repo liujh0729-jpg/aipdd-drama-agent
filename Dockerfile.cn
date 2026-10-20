@@ -45,6 +45,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY LICENSES ./LICENSES
 COPY src ./src
+# 剪映 10.2 草稿骨架：动效大片「导出到剪映」的唯一模板来源，缺了那个动作只会回 409。
+COPY services/vectcut/template_jianying_10_2 ./services/vectcut/template_jianying_10_2
 COPY .hermes ./.hermes
 # world 特性（3DGS / SHARP）本地 vendored 源：uv.lock 把 sharp/da2 锁成目录源，
 # INSTALL_WORLD=1 构建（下方 uv sync --extra world）与运行期「下载并部署」都从本地

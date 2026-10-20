@@ -16,6 +16,7 @@ from novelvideo.task_backend.cancel import (
 from novelvideo.task_backend.registry import register_project_task_runner
 from novelvideo.task_backend.subprocesses import run_project_subprocess
 from novelvideo.task_identity import project_task_state_key
+from novelvideo.video_encoder import video_encode_args
 from novelvideo.task_state import get_task_manager
 
 
@@ -530,12 +531,7 @@ def run_compose_episode(
                         "0:v:0",
                         "-map",
                         "1:a:0",
-                        "-c:v",
-                        "libx264",
-                        "-preset",
-                        "fast",
-                        "-crf",
-                        "23",
+                        *video_encode_args(preset="fast", crf="23"),
                         "-c:a",
                         "aac",
                         "-b:a",
@@ -564,12 +560,7 @@ def run_compose_episode(
                         "0:v:0",
                         "-map",
                         "0:a:0",
-                        "-c:v",
-                        "libx264",
-                        "-preset",
-                        "fast",
-                        "-crf",
-                        "23",
+                        *video_encode_args(preset="fast", crf="23"),
                         "-c:a",
                         "aac",
                         "-b:a",
@@ -596,12 +587,7 @@ def run_compose_episode(
                         "0:v:0",
                         "-map",
                         "1:a:0",
-                        "-c:v",
-                        "libx264",
-                        "-preset",
-                        "fast",
-                        "-crf",
-                        "23",
+                        *video_encode_args(preset="fast", crf="23"),
                         "-c:a",
                         "aac",
                         "-b:a",
@@ -654,12 +640,7 @@ def run_compose_episode(
                 "[outv]",
                 "-map",
                 "[outa]",
-                "-c:v",
-                "libx264",
-                "-preset",
-                "fast",
-                "-crf",
-                "23",
+                *video_encode_args(preset="fast", crf="23"),
                 "-pix_fmt",
                 "yuv420p",
                 "-c:a",

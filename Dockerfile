@@ -115,13 +115,17 @@ RUN npm install -g chrome-devtools-mcp
 # 第 3 段：业务代码（日常改代码只从这里重建，零下载）
 # ════════════════════════════════════════════════════════════════════════
 COPY src ./src
+# 剪映 10.2 草稿骨架：动效大片的「导出到剪映」靠它铺目录结构，缺了这份模板那个动作
+# 只会回 409（模板探不到）。55KB，随业务代码段一起带。
+COPY services/vectcut/template_jianying_10_2 ./services/vectcut/template_jianying_10_2
 COPY .hermes ./.hermes
 
 # 资产完整性兜底(等价原 wheel 检查):login 媒体须随 src 带入(.dockerignore 已 ! 放行)。
 RUN test -f src/novelvideo/assets/login_bgm.mp3 \
     && test -f src/novelvideo/assets/login_bg_v1.mp4 \
     && test -f src/novelvideo/assets/login_bg_v2.mp4 \
-    && test -f src/novelvideo/assets/login_bg_v3.mp4
+    && test -f src/novelvideo/assets/login_bg_v3.mp4 \
+    && test -f services/vectcut/template_jianying_10_2/draft_content.json
 
 # 项目本体安装：依赖上面已装齐且 --frozen 锁死，本步只构建/链接本项目
 # （hatchling editable 从 /root/.cache/uv 读缓存，零下载）；

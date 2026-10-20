@@ -75,6 +75,8 @@ if (-not $SkipChecks) {
     if ($LASTEXITCODE -ne 0) { Die '缺少 tauri-cli：cargo install tauri-cli --version "^2"' }
 
     # 便携 Python 的 Windows 布局是 python\python.exe（没有 bin/ 这一层，和 mac 不同）
+    # 动效大片两份清单与海报在这里再拦一次：不加 -Prepare 直接复用旧 resources 时，
+    # prepare-resources.sh 的出包自检根本不会跑，缺文件只会在装机后表现为图册空白。
     $required = @(
         'python\python.exe',
         'bin\nginx.exe',
@@ -82,7 +84,12 @@ if (-not $SkipChecks) {
         'bin\uv.exe',
         'app\dist\index.html',
         'app\src\novelvideo',
-        'app\services\faceswap\server.py'
+        'app\src\novelvideo\freezone\motion_templates.json',
+        'app\src\novelvideo\freezone\motion_styles.json',
+        'app\src\novelvideo\freezone\motion_posters',
+        'app\services\faceswap\server.py',
+        'app\.hermes\plugins\dramaclaw\plugin.yaml',
+        'hermes\site-packages\hermes_cli\main.py'
     )
     foreach ($rel in $required) {
         if (-not (Test-Path (Join-Path $ResDir $rel))) {

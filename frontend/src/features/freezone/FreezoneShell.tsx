@@ -68,6 +68,7 @@ import { prefetchFreezoneAudioModels } from "@/features/canvas/hooks/useFreezone
 import { prefetchFreezoneTextModels } from "@/features/canvas/hooks/useFreezoneTextModels";
 import { prefetchFreezoneCameraOptions } from "@/features/canvas/hooks/useFreezoneCameraOptions";
 import { prefetchFreezoneStyleTemplates } from "@/features/canvas/hooks/useFreezoneStyleTemplates";
+import { prefetchFreezoneMotionCases } from "@/features/canvas/hooks/useFreezoneMotionCases";
 import { prefetchFreezoneVideoCameraTemplates } from "@/features/canvas/hooks/useFreezoneVideoCameraTemplates";
 import {
   normalizePresetProjectionRequest,
@@ -532,6 +533,8 @@ export function FreezoneShell({ project, canvasId }: FreezoneShellProps) {
     prefetchFreezoneTextModels();
     prefetchFreezoneCameraOptions(projectId);
     prefetchFreezoneStyleTemplates(projectId);
+    // [aipdd fork delta] 动效大片图册与画风图册同一条预热口径（随包静态清单，一次拉取）。
+    prefetchFreezoneMotionCases(projectId);
     prefetchFreezoneVideoCameraTemplates(projectId);
   }, [projectId]);
 

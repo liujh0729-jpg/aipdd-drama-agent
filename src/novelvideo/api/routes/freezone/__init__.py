@@ -462,6 +462,12 @@ from .media_jobs import (
     _enqueue_or_start_freezone_video_mix,
     _enqueue_or_start_freezone_whiteboard_animation,
     _enqueue_or_start_freezone_explainer_video,
+    # [aipdd fork delta] 动效大片渲染（MG）：与讲解视频同走 video 队列的纯本地长任务。
+    _enqueue_or_start_freezone_motion_render,
+    # [aipdd fork delta] 动效大片拍点预检：渲染契约第 4 条，占用同一个包内 Chrome。
+    _enqueue_or_start_freezone_motion_stills,
+    # [aipdd fork delta] 动效大片交付：逐镜 MG 成片落成剪映工程目录。
+    _enqueue_or_start_freezone_motion_draft,
     _enqueue_or_start_freezone_channel_short_video,
     _enqueue_or_start_freezone_narration_smart_edit,
     _enqueue_or_start_freezone_article_write,
@@ -812,6 +818,7 @@ from .jobs import router as _router_jobs
 from .edit_ops import router as _router_edit_ops
 from .canvas_routes import router as _router_canvas_routes
 from .assets import router as _router_assets
+from .motion import router as _router_motion
 
 
 @asynccontextmanager
@@ -879,6 +886,7 @@ router.include_router(_router_jobs)
 router.include_router(_router_edit_ops)
 router.include_router(_router_canvas_routes)
 router.include_router(_router_assets)
+router.include_router(_router_motion)
 
 # ── 包级命名空间状态（原单文件全局，供 tests patch）──
 _agent_review_frame_reviewer: FrameReviewReviewer | None = None

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -74,6 +76,12 @@ VOICE_PREREQ_CHAT_PREFIX = (
 RENDER_PREREQ_CHAT_PREFIX = (
     "Render 任务没有生成可用图片：当前缺少必要草图前置。请先在「资产」生成或确认对应 "
     "Beat 的草图后，再重新生成 Render。"
+)
+SERVICE_UNREACHABLE_HINT = (
+    "The AIPDD API is unreachable (network_error). Do not call "
+    "aipdd_drama_self_heal: it uses the same API and will fail too. Tell the user "
+    "the service is not running or DRAMACLAW_API_URL points at the wrong host/port; "
+    "start AIPDD (or fix the URL), then retry once."
 )
 
 
@@ -142,13 +150,58 @@ def _render_prereq_error_text(value: Any) -> str:
     return ""
 
 
-def _with_chat_error_hints(value: Any) -> Any:
+def _looks_like_failure(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    if value.get("ok") is False:
+        return True
+    if value.get("success") is False:
+        return True
+    code = value.get("status_code")
+    if code is None:
+        return False
+    try:
+        return int(code) >= 400
+    except (TypeError, ValueError):
+        return False
+
+
+def _should_offer_self_heal(value: Any) -> bool:
+    """自愈只处理「不是调用方自己能改」的失败。
+
+    4xx 是调用方自己就能改的（参数、路径、状态），只有 429 限流和 5xx
+    服务端/环境异常才值得交给自愈；鉴权与网络不可达另有指引。
+    """
+
+    if not isinstance(value, dict) or not _looks_like_failure(value):
+        return False
+    code = value.get("status_code")
+    try:
+        if code is not None:
+            status_code = int(code)
+            if 400 <= status_code < 500 and status_code != 429:
+                return False
+    except (TypeError, ValueError):
+        pass
+    error = str(value.get("error") or value.get("detail") or "")
+    return not error.startswith("network_error:")
+
+
+def _with_chat_error_hints(
+    value: Any, *, top: bool = True, self_heal_hint: bool = True
+) -> Any:
     if isinstance(value, list):
-        return [_with_chat_error_hints(item) for item in value]
+        return [
+            _with_chat_error_hints(item, top=False, self_heal_hint=self_heal_hint)
+            for item in value
+        ]
     if not isinstance(value, dict):
         return value
 
-    result = {key: _with_chat_error_hints(item) for key, item in value.items()}
+    result = {
+        key: _with_chat_error_hints(item, top=False, self_heal_hint=self_heal_hint)
+        for key, item in value.items()
+    }
     voice_error = _voice_prereq_error_text(value)
     if voice_error:
         result.setdefault(
@@ -178,7 +231,8 @@ def _with_chat_error_hints(value: Any) -> Any:
                 "another tool in this turn."
             ),
         )
-    if _has_text_content_filter(value):
+    content_filter = _has_text_content_filter(value)
+    if content_filter:
         result.setdefault("chat_error", TEXT_CONTENT_FILTER_CHAT_ERROR)
         result.setdefault(
             "agent_instruction",
@@ -187,7 +241,53 @@ def _with_chat_error_hints(value: Any) -> Any:
                 "provider JSON or provider_response_id."
             ),
         )
+    error_text = str(value.get("error") or "")
+    if top and error_text.startswith("network_error:"):
+        result.setdefault("service_unreachable", {"instruction": SERVICE_UNREACHABLE_HINT})
+    if (
+        top
+        and self_heal_hint
+        and not (voice_error or render_error or content_filter)
+        and _should_offer_self_heal(value)
+    ):
+        result.setdefault(
+            "self_heal",
+            {
+                "tool": "aipdd_drama_self_heal",
+                "instruction": (
+                    "If this is not a simple invalid-argument, auth, or permission error, call "
+                    "aipdd_drama_self_heal once with symptom=<what the user asked for> and "
+                    "error=<this error text>, plus tool_name if known. Start with mode='diagnose'. "
+                    "Then relay data.analysis.reply to the user in natural Chinese; present "
+                    "data.repairs with status='proposed' as suggestions and ask before applying "
+                    "them with mode='repair'. Do not retry the same failing call blindly or call "
+                    "self-heal again for the same error."
+                ),
+            },
+        )
     return result
+
+
+def hint_tool_output(text: Any, *, tool_name: str = "") -> Any:
+    """给已是 JSON 的工具输出补上失败提示。
+
+    ``_request`` 直接返回的失败已带提示；但不少处理器会把错误重新包成
+    ``tool_error`` 字符串，提示会在这里补回。自愈工具自身失败时不再提示
+    「调用自愈」，避免 Agent 循环。
+    """
+
+    if not isinstance(text, str):
+        return text
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(parsed, dict):
+        return text
+    hinted = _with_chat_error_hints(
+        parsed, self_heal_hint=tool_name != "aipdd_drama_self_heal"
+    )
+    return text if hinted == parsed else json.dumps(hinted, ensure_ascii=False)
 
 
 def _ce_owner_mode() -> bool:
@@ -301,7 +401,9 @@ def _normalize_api_path(path: str) -> str:
     if any(part == ".." for part in raw.split("/")):
         raise ValueError("path traversal is not allowed")
     _validate_ingest_api_path(raw)
-    return raw
+    # 项目名/角色名允许中文和空格，但原始字符串直接进 http.client 会抛
+    # InvalidURL；保留 "/" 与已有百分号编码，其余按 RFC 3986 转义。
+    return quote(raw, safe="/%:@!$&'()*+,;=-._~")
 
 
 def _validate_ingest_api_path(path: str) -> None:
@@ -344,12 +446,10 @@ def _query_string(params: Any) -> str:
 # “决策/发射”已下沉到服务端权威计划器（POST /pipeline/plan），这里不再有本地计划闸门。
 
 
-def _request(method: str, path: str, *, query: Any = None, body: Any = None) -> dict[str, Any]:
-    api_path = _normalize_api_path(path)
-    url = f"{_base_url()}{api_path}{_query_string(query)}"
-    payload = None
+def _api_headers(accept: str = "application/json") -> dict[str, str]:
+    """请求头（含认证）：文本请求与二进制下载共用同一套凭证口径。"""
     headers = {
-        "Accept": "application/json",
+        "Accept": accept,
         "User-Agent": "aipdd-drama-plugin/0.1.0",
     }
     token = _env_first("AIPDD_DRAMA_AGENT_TOKEN", "DRAMACLAW_AGENT_TOKEN")
@@ -361,25 +461,122 @@ def _request(method: str, path: str, *, query: Any = None, body: Any = None) -> 
         _enforce_ce_owner_target(_base_url())
     if token:
         headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def _request(
+    method: str,
+    path: str,
+    *,
+    query: Any = None,
+    body: Any = None,
+    timeout: float | None = None,
+    self_heal_hint: bool = True,
+) -> dict[str, Any]:
+    api_path = _normalize_api_path(path)
+    url = f"{_base_url()}{api_path}{_query_string(query)}"
+    payload = None
+    headers = _api_headers()
     if body is not None:
         payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
         headers["Content-Type"] = "application/json"
 
     req = Request(url, data=payload, headers=headers, method=method.upper())
     try:
-        with urlopen(req, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:
+        with urlopen(
+            req, timeout=float(timeout) if timeout else DEFAULT_TIMEOUT_SECONDS
+        ) as resp:
             text = resp.read().decode("utf-8", errors="replace")
-            return _with_chat_error_hints(_decode_response(resp.status, text))
+            return _with_chat_error_hints(
+                _decode_response(resp.status, text), self_heal_hint=self_heal_hint
+            )
     except HTTPError as exc:
         text = exc.read().decode("utf-8", errors="replace")
-        return _with_chat_error_hints({
-            "ok": False,
-            "status_code": exc.code,
-            "error": _response_error_text(text) or exc.reason,
-            "data": _maybe_json(text),
-        })
+        return _with_chat_error_hints(
+            {
+                "ok": False,
+                "status_code": exc.code,
+                "error": _response_error_text(text) or exc.reason,
+                "data": _maybe_json(text),
+            },
+            self_heal_hint=self_heal_hint,
+        )
     except URLError as exc:
-        return {"ok": False, "error": f"network_error: {exc.reason}"}
+        return _with_chat_error_hints(
+            {"ok": False, "error": f"network_error: {exc.reason}"},
+            self_heal_hint=False,
+        )
+
+
+def _download(
+    method: str,
+    path: str,
+    destination: Path,
+    *,
+    timeout: float | None = None,
+) -> dict[str, Any]:
+    """把二进制导出（成片 / ZIP）流式落盘；文本响应（错误 JSON）按错误返回。
+
+    不能用 :func:`_request`：它按 UTF-8 解码响应体，mp4/zip 会被替换字符破坏。
+    """
+    api_path = _normalize_api_path(path)
+    url = f"{_base_url()}{api_path}"
+    req = Request(url, headers=_api_headers(accept="*/*"), method=method.upper())
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.part")
+    try:
+        with urlopen(
+            req, timeout=float(timeout) if timeout else DEFAULT_TIMEOUT_SECONDS
+        ) as resp:
+            content_type = (resp.headers.get("Content-Type") or "").lower()
+            if content_type.startswith("application/json") or content_type.startswith("text/"):
+                text = resp.read().decode("utf-8", errors="replace")
+                return _with_chat_error_hints(
+                    _decode_response(resp.status, text)
+                )
+            with partial.open("wb") as fh:
+                shutil.copyfileobj(resp, fh, length=1024 * 1024)
+        partial.replace(destination)
+        return {
+            "ok": True,
+            "status_code": 200,
+            "data": {
+                "path": str(destination),
+                "filename": destination.name,
+                "bytes": destination.stat().st_size,
+            },
+        }
+    except HTTPError as exc:
+        text = exc.read().decode("utf-8", errors="replace")
+        partial.unlink(missing_ok=True)
+        return _with_chat_error_hints(
+            {
+                "ok": False,
+                "status_code": exc.code,
+                "error": _response_error_text(text) or exc.reason,
+                "data": _maybe_json(text),
+            }
+        )
+    except URLError as exc:
+        partial.unlink(missing_ok=True)
+        return _with_chat_error_hints(
+            {"ok": False, "error": f"network_error: {exc.reason}"},
+            self_heal_hint=False,
+        )
+    except OSError as exc:
+        partial.unlink(missing_ok=True)
+        return {"ok": False, "error": f"failed to write {destination}: {exc}"}
+
+
+def _export_dir(project: str) -> Path:
+    """导出落盘目录：Hermes 会话有项目目录就放项目 exports/，否则系统临时目录。"""
+    root = _project_output_dir()
+    if root is None:
+        root = Path(tempfile.gettempdir()) / "aipdd-drama-exports"
+    safe_project = "".join(
+        ch if ch.isalnum() or ch in {"-", "_", "."} else "_" for ch in project
+    ).strip("._") or "project"
+    return root / "exports" / safe_project
 
 
 def _decode_response(status_code: int, text: str) -> dict[str, Any]:
@@ -605,30 +802,86 @@ def _audio_ui_spec(items: list[dict[str, Any]]) -> dict[str, Any]:
     return _media_ui_spec("audio_list", "Audio", items)
 
 
+_GENERIC_BODY_MAX_CHARS = 200_000
+
+
+def _cap_generic_body(resp: Any) -> Any:
+    """通用 /get /post /patch /delete 透传：超大响应截成预览，防止灌爆 Agent 上下文。"""
+    if not isinstance(resp, (dict, list)):
+        return resp
+    text = json.dumps(resp, ensure_ascii=False, default=str)
+    if len(text) <= _GENERIC_BODY_MAX_CHARS:
+        return resp
+    capped: dict[str, Any] = {
+        "ok": _resp_ok(resp),
+        "truncated": True,
+        "truncated_chars": len(text),
+        "notice": (
+            f"响应 {len(text)} 字符，超过 {_GENERIC_BODY_MAX_CHARS} 上限已截断；"
+            "请用 query 收窄（limit/offset/episode/task_type 等）或改用专用工具分次读取。"
+        ),
+        "preview": text[:_GENERIC_BODY_MAX_CHARS],
+    }
+    if isinstance(resp, dict):
+        for key in ("status_code", "error", "detail"):
+            if key in resp:
+                capped[key] = resp[key]
+    return capped
+
+
 def _handle_get(args: dict[str, Any], **_: Any) -> str:
     try:
-        return tool_result(_request("GET", str(args.get("path") or ""), query=args.get("query")))
+        return tool_result(
+            _cap_generic_body(_request("GET", str(args.get("path") or ""), query=args.get("query")))
+        )
     except Exception as exc:
         return tool_error(str(exc))
 
 
 def _handle_post(args: dict[str, Any], **_: Any) -> str:
     try:
-        return tool_result(_request("POST", str(args.get("path") or ""), query=args.get("query"), body=args.get("body")))
+        return tool_result(
+            _cap_generic_body(
+                _request(
+                    "POST",
+                    str(args.get("path") or ""),
+                    query=args.get("query"),
+                    body=args.get("body"),
+                )
+            )
+        )
     except Exception as exc:
         return tool_error(str(exc))
 
 
 def _handle_patch(args: dict[str, Any], **_: Any) -> str:
     try:
-        return tool_result(_request("PATCH", str(args.get("path") or ""), query=args.get("query"), body=args.get("body")))
+        return tool_result(
+            _cap_generic_body(
+                _request(
+                    "PATCH",
+                    str(args.get("path") or ""),
+                    query=args.get("query"),
+                    body=args.get("body"),
+                )
+            )
+        )
     except Exception as exc:
         return tool_error(str(exc))
 
 
 def _handle_delete(args: dict[str, Any], **_: Any) -> str:
     try:
-        return tool_result(_request("DELETE", str(args.get("path") or ""), query=args.get("query"), body=args.get("body")))
+        return tool_result(
+            _cap_generic_body(
+                _request(
+                    "DELETE",
+                    str(args.get("path") or ""),
+                    query=args.get("query"),
+                    body=args.get("body"),
+                )
+            )
+        )
     except Exception as exc:
         return tool_error(str(exc))
 
@@ -1817,6 +2070,425 @@ _PATH_PROPS = {
     },
     "query": {"type": "object", "description": "Optional query parameters."},
 }
+
+
+# ---------------------------------------------------------------------------
+# [aipdd fork delta] P1 覆盖面：小说章节 / 动效大片 / 成片导出
+#
+# 这三组路由此前只能走 aipdd_drama_get/post 裸调，Agent 不知道路径与任务类型。
+# 这里补成有类型的工具：章节结构读取与保存、上传后启动导入（ingest_fast）、
+# MG 动效大片的案例/风格目录与渲染/静帧/剪映草稿提交、以及成片与整集 ZIP 的
+# 本地落盘导出。动效任务完成后用 freezone/jobs/{task_type}/{job_id}/result 取产物。
+# ---------------------------------------------------------------------------
+
+_MOTION_RENDER_FIELDS = (
+    "html",
+    "case_id",
+    "style_id",
+    "subject",
+    "model_text",
+    "title",
+    "aspect_ratio",
+    "resolution",
+    "fps",
+    "duration_seconds",
+    "node_id",
+    "canvas_id",
+    "archive_to_library",
+    "source_tool",
+    "episode",
+    "beat_number",
+    "music",
+)
+
+_MOTION_STILLS_FIELDS = (
+    "html",
+    "case_id",
+    "style_id",
+    "subject",
+    "model_text",
+    "aspect_ratio",
+    "resolution",
+    "max_stills",
+    "source_tool",
+)
+
+_MOTION_DRAFT_FIELDS = (
+    "title",
+    "clips",
+    "narration",
+    "bgm",
+    "subtitles",
+    "text_style",
+    "aspect_ratio",
+    "resolution",
+    "fps",
+    "draft_dir",
+    "deploy",
+)
+
+# 页面来源三者必居其一（html / case_id / style_id），且两个 id 互斥 ——
+# 与运行时 `_require_motion_page_source`、后端 `_check_page_source` 同一口径。
+_MOTION_PAGE_SOURCE_CONSTRAINTS: dict[str, Any] = {
+    "anyOf": [
+        {"required": ["html"]},
+        {"required": ["case_id"]},
+        {"required": ["style_id"]},
+    ],
+    "not": {"required": ["case_id", "style_id"]},
+}
+
+
+def _filter_catalog_rows(
+    rows: list[Any], args: dict[str, Any], text_keys: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    """按 category 精确匹配、query 在指定字段里模糊匹配（不区分大小写）。"""
+    category = str(args.get("category") or "").strip()
+    query = str(args.get("query") or "").strip().casefold()
+    filtered: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if category and str(row.get("category") or "").strip() != category:
+            continue
+        if query:
+            haystack = "\n".join(
+                _flatten_text_fields([row.get(key) for key in text_keys])
+            ).casefold()
+            if query not in haystack:
+                continue
+        filtered.append(row)
+    return filtered
+
+
+def _motion_body(args: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
+    return {key: args[key] for key in fields if args.get(key) is not None}
+
+
+def _require_motion_page_source(body: dict[str, Any]) -> None:
+    case_id = str(body.get("case_id") or "").strip()
+    style_id = str(body.get("style_id") or "").strip()
+    if case_id and style_id:
+        raise ValueError("case_id and style_id are mutually exclusive: pick one")
+    if not str(body.get("html") or "").strip() and not case_id and not style_id:
+        raise ValueError(
+            "html, case_id or style_id is required: paste the MG page source, "
+            "or pick a catalog case/style for the model to write one"
+        )
+
+
+def _handle_get_story_source(args: dict[str, Any], **_: Any) -> str:
+    """读取项目故事源正文（用户在 Agent / 网页粘贴的小说或故事）。"""
+    try:
+        project = _project_from_args(args)
+        return tool_result(
+            _request("GET", f"/api/v1/projects/{project}/story/source")
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_save_story_source(args: dict[str, Any], **_: Any) -> str:
+    """保存/替换项目故事源；这是「用户在 Agent 里直接输入整本小说」的入口。"""
+    try:
+        project = _project_from_args(args)
+        text = str(args.get("text") or "")
+        if not text.strip():
+            raise ValueError("text is required (the novel/story source)")
+        return tool_result(
+            _request(
+                "PUT",
+                f"/api/v1/projects/{project}/story/source",
+                body={"text": text},
+                timeout=120,
+            )
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_get_chapters(args: dict[str, Any], **_: Any) -> str:
+    """读取已上传小说的章节结构；默认只给元数据，避免整本正文灌进上下文。"""
+    try:
+        project = _project_from_args(args)
+        spine = str(args.get("spine_template") or "").strip()
+        resp = _request(
+            "GET",
+            f"/api/v1/projects/{project}/chapters",
+            query={"spine_template": spine} if spine else None,
+        )
+        data = resp.get("data") if isinstance(resp, dict) else None
+        chapters = data.get("chapters") if isinstance(data, dict) else None
+        if not isinstance(chapters, list):
+            return tool_result(resp)
+        raw_chapter = args.get("chapter")
+        include_content = bool(args.get("include_content"))
+        selected = [row for row in chapters if isinstance(row, dict)]
+        if raw_chapter is not None:
+            try:
+                wanted = int(raw_chapter)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("chapter must be an integer") from exc
+            selected = [
+                row
+                for row in selected
+                if int(row.get("number", 0) or 0) == wanted
+            ]
+            if not selected:
+                raise ValueError(f"chapter {wanted} not found (1-{len(chapters)})")
+            include_content = True
+        if not include_content:
+            selected = [
+                {
+                    key: value
+                    for key, value in row.items()
+                    if key not in {"content", "scene_blocks"}
+                }
+                for row in selected
+            ]
+        resp["data"] = {**data, "chapters": selected, "returned": len(selected)}
+        resp["hint"] = (
+            "默认只返回章节元数据；传 chapter=N 读单章正文，或 include_content=true "
+            "读全部正文。"
+        )
+        return tool_result(resp)
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_update_chapter(args: dict[str, Any], **_: Any) -> str:
+    """保存单章正文（标题行由后端保留，编辑只替换正文）。"""
+    try:
+        project = _project_from_args(args)
+        raw_chapter = args.get("chapter")
+        if raw_chapter is None:
+            raise ValueError("chapter is required")
+        try:
+            chapter = int(raw_chapter)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("chapter must be an integer") from exc
+        body = str(args.get("body") or "")
+        if not body.strip():
+            raise ValueError("body is required (chapter body text, without the title line)")
+        return tool_result(
+            _request(
+                "PUT",
+                f"/api/v1/projects/{project}/chapters/{chapter}",
+                body={"body": body},
+            )
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_start_ingest(args: dict[str, Any], **_: Any) -> str:
+    """从 uploads/ 里已上传的小说启动导入（ingest_fast 任务）。"""
+    try:
+        project = _project_from_args(args)
+        filename = str(args.get("filename") or "").strip()
+        if not filename:
+            raise ValueError("filename is required; list uploads with aipdd_drama_list_ingest_uploads")
+        body: dict[str, Any] = {"filename": filename}
+        if args.get("rebuild") is not None:
+            body["rebuild"] = bool(args["rebuild"])
+        spine = str(args.get("spine_template") or "").strip()
+        if spine:
+            body["spine_template"] = spine
+        return tool_result(
+            _request(
+                "POST",
+                f"/api/v1/projects/{project}/ingest/start",
+                body=body,
+                timeout=60,
+            )
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_motion_cases(args: dict[str, Any], **_: Any) -> str:
+    """动效大片案例图册；给 case_id 时返回该案例的完整提示词。"""
+    try:
+        project = _project_from_args(args)
+        case_id = str(args.get("case_id") or "").strip()
+        if case_id:
+            return tool_result(
+                _request(
+                    "GET",
+                    f"/api/v1/projects/{project}/freezone/motion/cases/"
+                    f"{quote(case_id, safe='')}/prompt",
+                )
+            )
+        resp = _request("GET", f"/api/v1/projects/{project}/freezone/motion/cases")
+        data = resp.get("data") if isinstance(resp, dict) else None
+        if isinstance(data, list):
+            filtered = _filter_catalog_rows(
+                data, args, ("id", "label", "category", "brief", "tags")
+            )
+            resp["data"] = _limit_items(filtered, args, 200)
+            resp["total"] = len(filtered)
+        return tool_result(resp)
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_motion_styles(args: dict[str, Any], **_: Any) -> str:
+    """画风图册；给 style_id 时返回该风格的完整提示词。"""
+    try:
+        project = _project_from_args(args)
+        style_id = str(args.get("style_id") or "").strip()
+        if style_id:
+            return tool_result(
+                _request(
+                    "GET",
+                    f"/api/v1/projects/{project}/freezone/motion/styles/"
+                    f"{quote(style_id, safe='')}/prompt",
+                )
+            )
+        resp = _request("GET", f"/api/v1/projects/{project}/freezone/motion/styles")
+        data = resp.get("data") if isinstance(resp, dict) else None
+        if isinstance(data, list):
+            filtered = _filter_catalog_rows(
+                data, args, ("id", "label", "label_en", "category", "brief", "tags")
+            )
+            resp["data"] = _limit_items(filtered, args, 100)
+            resp["total"] = len(filtered)
+        return tool_result(resp)
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_motion_renders(args: dict[str, Any], **_: Any) -> str:
+    """本项目已渲染的 MG 成片清单（可选按集过滤）。"""
+    try:
+        project = _project_from_args(args)
+        query: dict[str, Any] = {}
+        if args.get("episode") is not None:
+            query["episode"] = int(args["episode"])
+        resp = _request(
+            "GET",
+            f"/api/v1/projects/{project}/freezone/motion/renders",
+            query=query or None,
+        )
+        data = resp.get("data") if isinstance(resp, dict) else None
+        if isinstance(data, list):
+            resp["data"] = _limit_items(
+                [row for row in data if isinstance(row, dict)], args, 200
+            )
+        return tool_result(resp)
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_motion_render(args: dict[str, Any], **_: Any) -> str:
+    """提交一镜 MG 渲染（freezone_motion_render）。"""
+    try:
+        project = _project_from_args(args)
+        body = _motion_body(args, _MOTION_RENDER_FIELDS)
+        _require_motion_page_source(body)
+        return tool_result(
+            _request(
+                "POST",
+                f"/api/v1/projects/{project}/freezone/motion/render",
+                body=body,
+            )
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_motion_stills(args: dict[str, Any], **_: Any) -> str:
+    """提交拍点静帧预检（freezone_motion_stills）。"""
+    try:
+        project = _project_from_args(args)
+        body = _motion_body(args, _MOTION_STILLS_FIELDS)
+        _require_motion_page_source(body)
+        return tool_result(
+            _request(
+                "POST",
+                f"/api/v1/projects/{project}/freezone/motion/stills",
+                body=body,
+            )
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_motion_draft(args: dict[str, Any], **_: Any) -> str:
+    """把逐镜 MG 成片交付为剪映草稿（freezone_motion_draft）。"""
+    try:
+        project = _project_from_args(args)
+        body = _motion_body(args, _MOTION_DRAFT_FIELDS)
+        clips = body.get("clips")
+        if not isinstance(clips, list) or not clips:
+            raise ValueError("clips is required: a non-empty list of {source, ...} MG renders")
+        for clip in clips:
+            if not isinstance(clip, dict) or not str(clip.get("source") or "").strip():
+                raise ValueError("each clip needs a source (local path / project-relative / static URL)")
+        return tool_result(
+            _request(
+                "POST",
+                f"/api/v1/projects/{project}/freezone/motion/draft",
+                body=body,
+            )
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_get_subtitles(args: dict[str, Any], **_: Any) -> str:
+    """读取一集 SRT 字幕文本。"""
+    try:
+        project = _project_from_args(args)
+        episode = _require_episode(args)
+        resp = _request(
+            "GET",
+            f"/api/v1/projects/{project}/episodes/{episode}/export/srt",
+        )
+        data = resp.get("data") if isinstance(resp, dict) else None
+        if isinstance(data, str):
+            resp["data"] = {
+                "episode": episode,
+                "format": "srt",
+                "chars": len(data),
+                "cue_count": data.count("-->"),
+                "content": data,
+            }
+        return tool_result(resp)
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_export_episode(args: dict[str, Any], **_: Any) -> str:
+    """把成片或整集资源 ZIP 下载到本地文件。"""
+    try:
+        project = _project_from_args(args)
+        episode = _require_episode(args)
+        kind = str(args.get("kind") or "zip").strip().lower()
+        if kind not in {"video", "zip"}:
+            raise ValueError("kind must be video or zip")
+        try:
+            timeout = float(args.get("timeout_seconds") or 600)
+        except (TypeError, ValueError):
+            timeout = 600.0
+        timeout = max(30.0, min(timeout, 3600.0))
+        if kind == "video":
+            method = "GET"
+            endpoint = f"/api/v1/projects/{project}/episodes/{episode}/export/video"
+            filename = f"ep{episode:03d}_final.mp4"
+        else:
+            method = "POST"
+            endpoint = f"/api/v1/projects/{project}/episodes/{episode}/export/zip"
+            filename = f"ep{episode:03d}.zip"
+        result = _download(
+            method, endpoint, _export_dir(project) / filename, timeout=timeout
+        )
+        if isinstance(result, dict) and result.get("ok") and isinstance(result.get("data"), dict):
+            result["data"]["kind"] = kind
+            result["data"]["endpoint"] = endpoint
+        return tool_result(result)
+    except Exception as exc:
+        return tool_error(str(exc))
 
 
 # ---------------------------------------------------------------------------
@@ -3797,6 +4469,7 @@ def _handle_get_run_status(args: dict[str, Any], **_: Any) -> str:
         status = _request(
             "GET", f"/api/v1/projects/{project}/pipeline/status", query={"episode": episode}
         )
+        status_ok = _resp_ok(status)
         rows = _project_task_rows(project)
         running: list[dict[str, Any]] = []
         failed: list[dict[str, Any]] = []
@@ -3829,27 +4502,33 @@ def _handle_get_run_status(args: dict[str, Any], **_: Any) -> str:
                     1 for r in beat_rows if str(r.get("video_url") or r.get("video") or "")
                 ),
             }
-        done = not running and not failed
+        done = status_ok and not running and not failed
         if failed:
             next_action = "存在失败任务，先看 failed 列表再决定重试或取消"
         elif running:
             next_action = "有任务在运行，稍后再次调用 aipdd_drama_get_run_status 轮询"
         else:
             next_action = "流水线空闲，可用 aipdd_drama_run_pipeline 继续推进分镜，或用 aipdd_drama_video_range 生成镜头视频"
-        return tool_result(
-            {
-                "ok": True,
-                "project": project,
-                "episode": episode,
-                "pipeline_status": status.get("data") if isinstance(status, dict) else status,
-                "running": running,
-                "failed": failed,
-                "completed": completed[-20:],
-                "counts": counts,
-                "done": done,
-                "next_recommended_action": next_action,
-            }
-        )
+        payload: dict[str, Any] = {
+            "ok": status_ok,
+            "project": project,
+            "episode": episode,
+            "pipeline_status": status.get("data") if isinstance(status, dict) else status,
+            "running": running,
+            "failed": failed,
+            "completed": completed[-20:],
+            "counts": counts,
+            "done": done,
+            "next_recommended_action": next_action,
+        }
+        if not status_ok:
+            # 服务端聚合读失败：本机任务行照常返回，但必须让上方看到失败。
+            payload["pipeline_status_error"] = _resp_error(status)
+            payload["partial"] = "pipeline/status 读取失败，running/failed/completed 仅来自本机任务行"
+            payload["next_recommended_action"] = (
+                "先核实 project_id 是否正确、服务是否健康（原因见 pipeline_status_error），再轮询或推进流水线"
+            )
+        return tool_result(payload)
     except Exception as exc:
         return tool_error(str(exc))
 
@@ -4033,15 +4712,24 @@ def _handle_run_pipeline(args: dict[str, Any], **_: Any) -> str:
         return tool_error(str(exc))
 
 
-def _schema(name: str, description: str, properties: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
+def _schema(
+    name: str,
+    description: str,
+    properties: dict[str, Any],
+    required: list[str] | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    parameters: dict[str, Any] = {
+        "type": "object",
+        "properties": properties,
+        "required": required or [],
+    }
+    if extra:
+        parameters.update(extra)
     return {
         "name": name,
         "description": description,
-        "parameters": {
-            "type": "object",
-            "properties": properties,
-            "required": required or [],
-        },
+        "parameters": parameters,
     }
 
 
@@ -4151,7 +4839,7 @@ def _handle_env_setup(args: dict[str, Any], **_: Any) -> str:
     """
     try:
         action = str(args.get("action") or "check").strip().lower()
-        if action in ("check", "plan", "status"):
+        if action == "check":
             return tool_result(_request("GET", "/api/v1/admin/env-setup/plan"))
         if action == "install":
             item = str(args.get("item") or "").strip()
@@ -4160,6 +4848,301 @@ def _handle_env_setup(args: dict[str, Any], **_: Any) -> str:
             return tool_result(_request("POST", "/api/v1/admin/env-setup/install", body={"item": item}))
         raise ValueError("action must be one of: check, install")
     except Exception as exc:
+        return tool_error(str(exc))
+
+
+def _handle_self_heal(args: dict[str, Any], **_: Any) -> str:
+    """[aipdd fork delta] 环境与代码自愈：失败症状 → 默认文本模型分析 → 白名单修复。
+
+    ``mode='diagnose'`` 只读：聚合系统自检、环境计划、日志尾部、失败工具源码与
+    堆栈片段，交给默认文本模型给根因和修复建议。``mode='repair'`` 才会执行后端
+    白名单动作（安装可自动装环境项 / 唯一匹配源码替换 / 建缺失目录），并回传
+    ``restart_required``。模型不可用时后端降级为只读诊断，仍返回结构化结果。
+    """
+    try:
+        symptom = str(args.get("symptom") or "").strip()
+        if not symptom:
+            raise ValueError(
+                "symptom is required: describe what failed, or paste the exact error text"
+            )
+        mode = str(args.get("mode") or "diagnose").strip().lower()
+        if mode not in ("diagnose", "repair"):
+            raise ValueError("mode must be 'diagnose' or 'repair'")
+        scope = str(args.get("scope") or "auto").strip().lower()
+        if scope not in ("auto", "environment", "code"):
+            raise ValueError("scope must be 'auto', 'environment' or 'code'")
+        body: dict[str, Any] = {"symptom": symptom, "mode": mode, "scope": scope}
+        for key in ("tool_name", "error", "model"):
+            value = str(args.get(key) or "").strip()
+            if value:
+                body[key] = value
+        if args.get("allow_heavy") is True or str(
+            args.get("allow_heavy")
+        ).strip().lower() in {"1", "true", "yes", "on"}:
+            body["allow_heavy"] = True
+        # 分析可能包含一次模型调用（默认 120s 超时）+ 环境探测，留足余量。
+        # 自愈自身失败时不要再提示「调用自愈」，否则会把 Agent 送进循环。
+        resp = _request(
+            "POST",
+            "/api/v1/admin/self-heal",
+            body=body,
+            timeout=180,
+            self_heal_hint=False,
+        )
+        return tool_result(resp)
+    except Exception as exc:  # noqa: BLE001
+        return tool_error(str(exc))
+
+
+# --------------------------------------------------------------------------- #
+# [aipdd fork delta] 待办计划：用户设计划 → Agent 读计划 → 执行器按计划自动推进。
+# 计划条目带 stage（流水线里程碑）与可选 episode；执行由 /agent/plan/run 的
+# plan_runner 委托权威计划器完成（只推进到镜头首帧，绝不提交视频）。
+# --------------------------------------------------------------------------- #
+_PLAN_STAGE_HINTS: dict[str, str] = {
+    "story": "故事源正文",
+    "screenplay": "整本多集剧本",
+    "ingest": "剧本入库/图谱",
+    "characters": "角色提取",
+    "episodes": "分集规划",
+    "identities": "人物身份规划（逐集）",
+    "script": "分镜脚本（逐集）",
+    "scenes": "场景规划（逐集）",
+    "props": "道具规划（逐集）",
+    "sketches": "草图与配色（逐集）",
+    "frames": "镜头首帧（逐集）",
+}
+
+
+def _fetch_plan(project: str) -> dict[str, Any]:
+    resp = _request("GET", "/api/v1/agent/plan", query={"project": project})
+    if not _resp_ok(resp):
+        raise ValueError(_resp_error(resp) or "读取待办计划失败")
+    data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+    return data
+
+
+def _match_plan_item(items: list[dict[str, Any]], ref: str) -> dict[str, Any] | None:
+    for item in items:
+        if str(item.get("id") or "") == ref:
+            return item
+    lowered = ref.strip().lower()
+    if not lowered:
+        return None
+    for item in items:
+        if not item.get("done") and str(item.get("title") or "").strip().lower() == lowered:
+            return item
+    for item in items:
+        if str(item.get("title") or "").strip().lower() == lowered:
+            return item
+    return None
+
+
+def _plan_item_refs(raw_items: list[Any]) -> list[str]:
+    refs: list[str] = []
+    for item in raw_items:
+        if isinstance(item, dict):
+            ref = str(item.get("id") or item.get("title") or "").strip()
+        else:
+            ref = str(item or "").strip()
+        if ref:
+            refs.append(ref)
+    return refs
+
+
+def _handle_get_plan(args: dict[str, Any], **_: Any) -> str:
+    """读取项目待办计划：条目、可执行阶段以及下一步建议。"""
+    try:
+        project = _project_from_args(args)
+        data = _fetch_plan(project)
+        items = [item for item in data.get("items") or [] if isinstance(item, dict)]
+        pending = [item for item in items if not item.get("done")]
+        return tool_result(
+            {
+                "ok": True,
+                "project": project,
+                "items": items,
+                "pending": len(pending),
+                "executable_pending": [
+                    item.get("id") for item in pending if item.get("stage")
+                ],
+                "max_items": data.get("max_items"),
+                "stages": _PLAN_STAGE_HINTS,
+                "next_hint": (
+                    "用 aipdd_drama_update_plan 调整计划；用户确认后调用 "
+                    "aipdd_drama_run_plan 按计划自动执行（推进到镜头首帧，不生成视频）"
+                ),
+            }
+        )
+    except Exception as exc:  # noqa: BLE001 - 以工具错误文本返回
+        return tool_error(str(exc))
+
+
+def _handle_update_plan(args: dict[str, Any], **_: Any) -> str:
+    """维护项目待办计划：add（带 stage 即自动执行）/ update / complete / remove。"""
+    try:
+        project = _project_from_args(args)
+        action = str(args.get("action") or "").strip().lower()
+        raw_items = args.get("items")
+        raw_items = raw_items if isinstance(raw_items, list) else []
+        if not raw_items:
+            raise ValueError("items 不能为空")
+
+        if action == "add":
+            specs: list[dict[str, Any]] = []
+            for raw in raw_items:
+                if isinstance(raw, dict):
+                    spec: dict[str, Any] = {
+                        "title": raw.get("title") or raw.get("task") or raw.get("name") or ""
+                    }
+                    if raw.get("stage") not in (None, ""):
+                        spec["stage"] = str(raw["stage"])
+                    if raw.get("episode") not in (None, ""):
+                        spec["episode"] = raw["episode"]
+                    specs.append(spec)
+                elif str(raw or "").strip():
+                    specs.append({"title": str(raw)})
+            if not specs:
+                raise ValueError("items 不能为空")
+            resp = _request(
+                "POST",
+                "/api/v1/agent/plan/items/batch",
+                body={"project": project, "items": specs},
+            )
+            if not _resp_ok(resp):
+                raise ValueError(_resp_error(resp) or "新增计划失败")
+            data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+            return tool_result(
+                {
+                    "ok": True,
+                    "project": project,
+                    "added": data.get("added") or [],
+                    "items": data.get("items") or [],
+                    "next_hint": (
+                        "用户确认后调用 aipdd_drama_run_plan（mode=auto）按计划执行；"
+                        "带 stage 的条目会自动推进到对应产物并回勾"
+                    ),
+                }
+            )
+
+        if action == "update":
+            data = _fetch_plan(project)
+            items = [item for item in data.get("items") or [] if isinstance(item, dict)]
+            updated: list[dict[str, Any]] = []
+            missing: list[str] = []
+            errors: list[str] = []
+            for raw in raw_items:
+                if not isinstance(raw, dict):
+                    errors.append(f"update 需要对象：{raw}")
+                    continue
+                ref = str(raw.get("id") or raw.get("title") or "").strip()
+                item = _match_plan_item(items, ref)
+                if item is None:
+                    missing.append(ref)
+                    continue
+                changes: dict[str, Any] = {"project": project}
+                for key in ("title", "stage", "episode", "done"):
+                    if key in raw:
+                        changes[key] = raw[key]
+                if len(changes) == 1:
+                    errors.append(f"{ref}：没有可改的字段")
+                    continue
+                resp = _request(
+                    "PATCH",
+                    f"/api/v1/agent/plan/items/{item['id']}",
+                    body=changes,
+                )
+                if not _resp_ok(resp):
+                    errors.append(f"{ref}：{_resp_error(resp)}")
+                    continue
+                payload = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+                if payload.get("item"):
+                    updated.append(payload["item"])
+            data = _fetch_plan(project)
+            return tool_result(
+                {
+                    "ok": True,
+                    "project": project,
+                    "updated": updated,
+                    "missing": missing,
+                    "errors": errors,
+                    "items": data.get("items") or [],
+                }
+            )
+
+        if action in ("complete", "remove"):
+            data = _fetch_plan(project)
+            items = [item for item in data.get("items") or [] if isinstance(item, dict)]
+            changed: list[dict[str, Any]] = []
+            missing: list[str] = []
+            for ref in _plan_item_refs(raw_items):
+                item = _match_plan_item(items, ref)
+                if item is None:
+                    missing.append(ref)
+                    continue
+                if action == "complete":
+                    if item.get("done"):
+                        changed.append(item)
+                        continue
+                    resp = _request(
+                        "PATCH",
+                        f"/api/v1/agent/plan/items/{item['id']}",
+                        body={"project": project, "done": True},
+                    )
+                else:
+                    resp = _request(
+                        "DELETE",
+                        f"/api/v1/agent/plan/items/{item['id']}",
+                        query={"project": project},
+                    )
+                if not _resp_ok(resp):
+                    missing.append(f"{ref}（{_resp_error(resp)}）")
+                else:
+                    changed.append(item)
+            data = _fetch_plan(project)
+            return tool_result(
+                {
+                    "ok": True,
+                    "project": project,
+                    "changed": changed,
+                    "missing": missing,
+                    "items": data.get("items") or [],
+                }
+            )
+        raise ValueError("action must be add/update/complete/remove")
+    except Exception as exc:  # noqa: BLE001
+        return tool_error(str(exc))
+
+
+def _handle_run_plan(args: dict[str, Any], **_: Any) -> str:
+    """按待办计划自动推进：读计划 → 委托权威计划器 → 真实产物回勾任务。"""
+    try:
+        project = _project_from_args(args)
+        mode = str(args.get("mode") or "auto").strip().lower()
+        if mode not in ("auto", "manual", "checkpoint"):
+            raise ValueError("mode must be 'auto', 'manual' or 'checkpoint'")
+        try:
+            budget = float(args.get("budget_s") or 90)
+        except (TypeError, ValueError):
+            budget = 90.0
+        body: dict[str, Any] = {
+            "project": project,
+            "mode": mode,
+            "approve": bool(args.get("approve")),
+            "budget_s": budget,
+        }
+        for key in (*_PLAN_ARG_KEYS, "max_steps", "plan_episode_assets"):
+            value = args.get(key)
+            if value is not None and str(value).strip() != "":
+                body[key] = value
+        # 执行器自己会跨阶段轮询；HTTP 超时必须覆盖整个预算，否则 urllib 先超时。
+        timeout = min(660.0, max(60.0, budget + 60.0))
+        resp = _request("POST", "/api/v1/agent/plan/run", body=body, timeout=timeout)
+        if not _resp_ok(resp):
+            raise ValueError(_resp_error(resp) or "按计划执行失败")
+        data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+        return tool_result({"project": project, **data})
+    except Exception as exc:  # noqa: BLE001
         return tool_error(str(exc))
 
 
@@ -4204,11 +5187,92 @@ TOOLS = (
                 },
                 "item": {
                     "type": "string",
-                    "description": "Plan item id to install (e.g. 'world'). Required when action='install'.",
+                    "description": (
+                        "Plan item id to install (e.g. 'world'; 'world' is the only "
+                        "auto-installable item, other ids return deployment guidance). "
+                        "Required when action='install'."
+                    ),
                 },
             },
         ),
         _handle_env_setup,
+    ),
+    (
+        "aipdd_drama_self_heal",
+        _schema(
+            "aipdd_drama_self_heal",
+            (
+                "Self-heal a failed AIPDD Drama tool call or environment problem. Call this "
+                "once when an aipdd_drama_* / vectcut_* tool returns ok:false or an HTTP 5xx "
+                "and the cause is unclear, or when the user says a tool is broken. Skip it "
+                "for invalid-argument / auth / permission errors you can correct directly. "
+                "Pass the exact symptom and error text. mode='diagnose' (default) is "
+                "read-only: it collects system diagnostics, the environment plan, recent "
+                "logs, the failing tool's source and traceback frames, then asks the "
+                "configured default text model for a root-cause analysis and a safe repair "
+                "plan. mode='repair' also applies whitelisted repairs (install an "
+                "auto-installable env item, exact-string code patch with backup + syntax "
+                "check + automatic revert, or create a missing data directory) and reports "
+                "restart_required. It never runs shell commands and never changes secrets. "
+                "Use mode='repair' only when the user explicitly asked you to fix it; never "
+                "apply code patches on your own. The call can take 30-120 seconds. Afterwards "
+                "relay data.analysis.reply to the user; treat repairs with status='proposed' "
+                "as suggestions, and if data.degraded is true, say the default text model is "
+                "unavailable and why."
+            ),
+            {
+                "symptom": {
+                    "type": "string",
+                    "description": (
+                        "What failed, in the user's words, plus the exact error text. Required."
+                    ),
+                },
+                "tool_name": {
+                    "type": "string",
+                    "description": (
+                        "Name of the failing tool, e.g. 'aipdd_drama_generate_sketches'. "
+                        "Lets the server include that tool's source in the analysis."
+                    ),
+                },
+                "error": {
+                    "type": "string",
+                    "description": "Raw error message / HTTP response body (secrets are redacted).",
+                },
+                "scope": {
+                    "type": "string",
+                    "enum": ["auto", "environment", "code"],
+                    "description": (
+                        "'auto' (default) collects environment + code evidence; 'environment' "
+                        "skips source/traceback; 'code' skips diagnostics/logs."
+                    ),
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["diagnose", "repair"],
+                    "description": (
+                        "'diagnose' (default) only analyses and returns a plan; 'repair' also "
+                        "applies whitelisted repairs."
+                    ),
+                },
+                "model": {
+                    "type": "string",
+                    "description": (
+                        "Optional text model id override. Omit to use the configured default "
+                        "text model slot."
+                    ),
+                },
+                "allow_heavy": {
+                    "type": "boolean",
+                    "description": (
+                        "Allow long-running repairs such as installing the 3D world runtime. "
+                        "Only relevant with mode='repair'. Without it such a repair returns "
+                        "status='needs_confirm' instead of running."
+                    ),
+                },
+            },
+            ["symptom"],
+        ),
+        _handle_self_heal,
     ),
     (
         "aipdd_drama_pipeline_status",
@@ -6587,11 +7651,431 @@ TOOLS = (
         ),
         _handle_commit_white_model_video,
     ),
+    (
+        "aipdd_drama_get_plan",
+        _schema(
+            "aipdd_drama_get_plan",
+            "[aipdd fork delta] 读取当前项目的待办工作计划（用户在 Agent 页「待办计划」"
+            "面板设置、或你之前用 aipdd_drama_update_plan 写入的）。返回 items（含 id/"
+            "title/done/stage/episode/last_error）、executable_pending 与 stages 说明。"
+            "用户说「按计划做 / 执行计划」时，先读这个确认计划，再调用 "
+            "aipdd_drama_run_plan。",
+            {"project_id": _TOOLS_PAGE_PROJECT_PROP},
+        ),
+        _handle_get_plan,
+    ),
+    (
+        "aipdd_drama_update_plan",
+        _schema(
+            "aipdd_drama_update_plan",
+            "[aipdd fork delta] 维护项目待办计划。add：写制作任务；给条目带 stage"
+            "（story/screenplay/ingest/characters/episodes/identities/script/scenes/"
+            "props/sketches/frames）和可选 episode 集号后，aipdd_drama_run_plan 就能自动"
+            "推进到对应产物并回勾。update：改 title/stage/episode/done；complete/remove："
+            "按 id 或标题勾掉/删除。不带 stage 的条目是手工待办，执行器不会碰。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "action": {
+                    "type": "string",
+                    "enum": ["add", "update", "complete", "remove"],
+                    "description": "add=新增；update=修改；complete=标记完成；remove=删除。",
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {"type": "string"},
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string", "description": "update 时必填"},
+                                    "title": {"type": "string"},
+                                    "stage": {
+                                        "type": "string",
+                                        "enum": list(_PLAN_STAGE_HINTS),
+                                    },
+                                    "episode": {
+                                        "type": "integer",
+                                        "description": "集号；省略=全部集",
+                                    },
+                                    "done": {"type": "boolean"},
+                                },
+                            },
+                        ]
+                    },
+                    "description": (
+                        "add 传标题或 {title,stage,episode}；update 传 {id,stage?,episode?,"
+                        "title?,done?}；complete/remove 传 id 或标题。"
+                    ),
+                },
+            },
+            ["action", "items"],
+        ),
+        _handle_update_plan,
+    ),
+    (
+        "aipdd_drama_run_plan",
+        _schema(
+            "aipdd_drama_run_plan",
+            "[aipdd fork delta] 按待办计划自动执行（用户设置工作计划后，Agent 用本工具"
+            "读取计划并完成对应工作）。执行器把 stage 映射到权威流水线计划器，按真实产物"
+            "回勾任务；重复调用幂等，已完成的条目不会重跑。mode=auto（默认）在 budget_s "
+            "内连续推进；manual 只推一段；checkpoint 只预览。只推进到镜头首帧，绝不生成"
+            "视频（视频用 aipdd_drama_video_range）。返回 status/advanced/completed/"
+            "remaining/items/next_action。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "mode": {
+                    "type": "string",
+                    "enum": ["auto", "manual", "checkpoint"],
+                    "description": "默认 auto：预算内连续推进到计划完成。",
+                },
+                "approve": {
+                    "type": "boolean",
+                    "description": "checkpoint 模式下确认后带 true 才发射。",
+                },
+                "budget_s": {
+                    "type": "number",
+                    "description": "单次调用最长推进秒数（默认 90，最大 600）。",
+                },
+                "max_steps": {
+                    "type": "integer",
+                    "description": "单次调用最多推进的段数（默认 50）。",
+                },
+                "plan_episode_assets": {
+                    "type": "boolean",
+                    "description": "计划点名场景/道具时执行器会自动打开；一般无需手动传。",
+                },
+                "episode": {
+                    "type": "integer",
+                    "description": "可选：限定集号（覆盖计划条目的全部集语义）。",
+                },
+                "story_text": {
+                    "type": "string",
+                    "description": "计划包含 story 且项目还没有故事源时，用它导入正文。",
+                },
+                "episode_count": {"type": "integer", "description": "分集集数（1-60）。"},
+                "total_seconds": {"type": "number", "description": "总时长，用于推导集数。"},
+                "seconds_per_episode": {"type": "number", "description": "单集目标时长。"},
+                "target_beats": {"type": "integer", "description": "每集目标镜头数。"},
+                "aspect_ratio": {
+                    "type": "string",
+                    "enum": ["2:3", "16:9"],
+                    "description": "草图/首帧画幅（默认 2:3）。",
+                },
+                "model": {"type": "string", "description": "草图/首帧图像模型 id。"},
+                "style": {"type": "string", "description": "视觉风格名。"},
+                "story_style": {"type": "string", "description": "导演风格 key。"},
+            },
+        ),
+        _handle_run_plan,
+    ),
+    (
+        "aipdd_drama_get_story_source",
+        _schema(
+            "aipdd_drama_get_story_source",
+            "[aipdd fork delta] 读取项目故事源正文（GET /projects/{project}/story/source）。"
+            "用户在 Agent 或网页里粘贴/导入的小说故事都在这里；返回 text/chars/"
+            "billable_chars/filename。写剧本前先读它确认故事已导入。",
+            {"project_id": _TOOLS_PAGE_PROJECT_PROP},
+        ),
+        _handle_get_story_source,
+    ),
+    (
+        "aipdd_drama_save_story_source",
+        _schema(
+            "aipdd_drama_save_story_source",
+            "[aipdd fork delta] 保存项目故事源（PUT /projects/{project}/story/source）——"
+            "用户在 Agent 里直接输入整本小说/故事时的入口，与网页粘贴导入同口径校验"
+            "（字数上限、计费字数）。保存后可用 aipdd_drama_get_chapters 看章节结构，"
+            "或直接 aipdd_drama_run_plan 从 story 阶段开始生成剧本。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "text": {"type": "string", "description": "整本小说/故事正文（纯文本）。"},
+            },
+            ["text"],
+        ),
+        _handle_save_story_source,
+    ),
+    (
+        "aipdd_drama_get_chapters",
+        _schema(
+            "aipdd_drama_get_chapters",
+            "[aipdd fork delta] 读取已上传小说的章节结构（GET /projects/{project}/chapters）。"
+            "默认只返回每章 number/title/word_count 等元数据；传 chapter=N 返回该章正文，"
+            "或 include_content=true 返回全部正文（整本很大，按需逐章读）。"
+            "spine_template=drama 时附带场景块切分预览。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "chapter": {"type": "integer", "description": "只读该章（会返回正文）。"},
+                "include_content": {
+                    "type": "boolean",
+                    "description": "true=返回全部章节正文（默认 false，只给元数据）。",
+                },
+                "spine_template": {
+                    "type": "string",
+                    "enum": ["drama", "narrated"],
+                    "description": "章节切分口径：drama（默认，含场景块）/ narrated。",
+                },
+            },
+        ),
+        _handle_get_chapters,
+    ),
+    (
+        "aipdd_drama_update_chapter",
+        _schema(
+            "aipdd_drama_update_chapter",
+            "[aipdd fork delta] 保存单章正文（PUT /projects/{project}/chapters/{chapter}）。"
+            "body 只含正文、不含标题行——标题行由后端保留，编辑不会破坏章节结构。"
+            "改了正文后如需重建知识图谱，重新调用 aipdd_drama_start_ingest（rebuild=true）。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "chapter": {"type": "integer", "description": "章号（章节列表里的 number）。"},
+                "body": {"type": "string", "description": "新的章节正文（不含标题行）。"},
+            },
+            ["chapter", "body"],
+        ),
+        _handle_update_chapter,
+    ),
+    (
+        "aipdd_drama_start_ingest",
+        _schema(
+            "aipdd_drama_start_ingest",
+            "[aipdd fork delta] 从 uploads/ 里已上传的小说启动导入（POST /projects/{project}/ingest/start，"
+            "task_type=ingest_fast，episode=0）。上传文件本身走 Web/客户端的 multipart 上传；"
+            "先调用 aipdd_drama_list_ingest_uploads 拿到 filename，再调用本工具。"
+            "rebuild=true 重建知识图谱。轮询 aipdd_drama_get_task(task_type=\"ingest_fast\", episode=0)。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "filename": {
+                    "type": "string",
+                    "description": "uploads/ 下的文件名（来自 aipdd_drama_list_ingest_uploads）。",
+                },
+                "rebuild": {
+                    "type": "boolean",
+                    "description": "true=重建知识图谱（重新导入）。默认 false。",
+                },
+                "spine_template": {
+                    "type": "string",
+                    "enum": ["drama", "narrated"],
+                    "description": "导入时的章节切分口径。",
+                },
+            },
+            ["filename"],
+        ),
+        _handle_start_ingest,
+    ),
+    (
+        "aipdd_drama_motion_cases",
+        _schema(
+            "aipdd_drama_motion_cases",
+            "[aipdd fork delta] 动效大片案例图册（GET /projects/{project}/freezone/motion/cases）。"
+            "返回案例清单（id/label/category/brief/tags/画幅/时长）及渲染契约；"
+            "传 case_id 则返回该案例的完整提示词。可先按 category/query 过滤，再用 "
+            "aipdd_drama_motion_render(case_id=..., subject=...) 出片。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "case_id": {"type": "string", "description": "取该案例的完整提示词（省略=列案例）。"},
+                "category": {"type": "string", "description": "按分类精确过滤。"},
+                "query": {"type": "string", "description": "在标题/简介/标签里模糊搜索。"},
+                "limit": {"type": "integer", "description": "返回条数（默认 200）。"},
+                "offset": {"type": "integer", "description": "跳过条数。"},
+            },
+        ),
+        _handle_motion_cases,
+    ),
+    (
+        "aipdd_drama_motion_styles",
+        _schema(
+            "aipdd_drama_motion_styles",
+            "[aipdd fork delta] 画风图册（GET /projects/{project}/freezone/motion/styles，"
+            "51 支画风 + 15 支 MG 动态设计）。返回 id/label/category/brief/tags/palette；"
+            "传 style_id 则返回该风格的完整提示词。渲染时用 "
+            "aipdd_drama_motion_render(style_id=..., subject=...)（与 case_id 二选一）。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "style_id": {"type": "string", "description": "取该风格的完整提示词（省略=列风格）。"},
+                "category": {"type": "string", "description": "按分类精确过滤。"},
+                "query": {"type": "string", "description": "在名称/简介/标签里模糊搜索。"},
+                "limit": {"type": "integer", "description": "返回条数（默认 100）。"},
+                "offset": {"type": "integer", "description": "跳过条数。"},
+            },
+        ),
+        _handle_motion_styles,
+    ),
+    (
+        "aipdd_drama_motion_renders",
+        _schema(
+            "aipdd_drama_motion_renders",
+            "[aipdd fork delta] 本项目已渲染的 MG 成片清单（GET /projects/{project}/freezone/motion/renders）。"
+            "数据来自磁盘上的 mp4 + 同名 *.motion.json（画幅/时长/拍点/集号镜号），"
+            "返回 url/时长/拍点等；可用 episode 只看某一集。剪映草稿的 clips[].source "
+            "直接取这里的 path 或 url。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "episode": {"type": "integer", "description": "只回该集成片（省略=全部）。"},
+                "limit": {"type": "integer", "description": "返回条数（默认 200）。"},
+                "offset": {"type": "integer", "description": "跳过条数。"},
+            },
+        ),
+        _handle_motion_renders,
+    ),
+    (
+        "aipdd_drama_motion_render",
+        _schema(
+            "aipdd_drama_motion_render",
+            "[aipdd fork delta] 渲染一镜 MG 动效大片（POST /projects/{project}/freezone/motion/render，"
+            "task_type=freezone_motion_render）。页面来源三者必居其一（case_id 与 style_id 互斥）："
+            "直接给 html（单文件自包含，"
+            "需定义 window.render(t)/window.DUR，可选 window.EV 拍点），或留空 html 并给 "
+            "case_id / style_id 让文本模型按图册契约生成页面。渲染不出网，用本机/"
+            "随包 Chrome 逐帧截图 + ffmpeg 编码。提交后轮询 "
+            "aipdd_drama_get_task(task_type=\"freezone_motion_render\", episode=0, scope=<job_id>)，"
+            "完成后用 aipdd_drama_get(path=\"/projects/{project}/freezone/jobs/freezone_motion_render/<job_id>/result\") 取成片。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "html": {"type": "string", "description": "MG 页面源码（≤400000 字符）。"},
+                "case_id": {"type": "string", "description": "案例 id（html 留空时作页面来源；也可仅追溯）。"},
+                "style_id": {"type": "string", "description": "风格 id；与 case_id 二选一。"},
+                "subject": {"type": "string", "description": "本镜头内容/文案（html 留空按案例/风格生成页面时可选，给了就按它写文案）。"},
+                "model_text": {"type": "string", "description": "生成 MG 页面的文本模型 id（省略走默认）。"},
+                "title": {"type": "string", "description": "片名（资产库条目名；省略回退 case_id）。"},
+                "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "description": "画幅（默认 16:9）。"},
+                "resolution": {"type": "string", "enum": ["720p", "1080p"], "description": "清晰度（默认 720p）。"},
+                "fps": {"type": "integer", "description": "帧率 1-60（默认 30，调低更快）。"},
+                "duration_seconds": {"type": "number", "description": "成片时长上限（秒）；省略以页面 window.DUR 为准。"},
+                "node_id": {"type": "string", "description": "画布节点 id（非空时成片写入节点历史）。"},
+                "canvas_id": {"type": "string", "description": "画布 id（省略 default）。"},
+                "archive_to_library": {"type": "boolean", "description": "true=成片登记进资产库「待分类资产」。"},
+                "source_tool": {"type": "string", "description": "任务归属标识（工具 kind）。"},
+                "episode": {"type": "integer", "description": "分镜工作台发起时的集号（写进 sidecar）。"},
+                "beat_number": {"type": "integer", "description": "分镜工作台发起时的镜号。"},
+                "music": {"type": "boolean", "description": "是否程序生成配乐（默认 true）。"},
+            },
+            extra=_MOTION_PAGE_SOURCE_CONSTRAINTS,
+        ),
+        _handle_motion_render,
+    ),
+    (
+        "aipdd_drama_motion_stills",
+        _schema(
+            "aipdd_drama_motion_stills",
+            "[aipdd fork delta] 拍点静帧预检（POST /projects/{project}/freezone/motion/stills，"
+            "task_type=freezone_motion_stills）：与正式渲染同一个页面、同一个 Chrome 截图通道，"
+            "按 window.EV 拍点各出一张 PNG（不编码、不配乐，只要求 Chrome）。页面来源同 "
+            "aipdd_drama_motion_render（html 或 case_id/style_id 三者必居其一，case_id 与 style_id 互斥）。"
+            "先看静帧再出成片。"
+            "轮询 aipdd_drama_get_task(task_type=\"freezone_motion_stills\", episode=0, scope=<job_id>)。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "html": {"type": "string", "description": "MG 页面源码（≤400000 字符）。"},
+                "case_id": {"type": "string", "description": "案例 id；与 style_id 二选一。"},
+                "style_id": {"type": "string", "description": "风格 id；与 case_id 二选一。"},
+                "subject": {"type": "string", "description": "本镜头内容/文案（html 留空按案例/风格生成页面时可选，给了就按它写文案）。"},
+                "model_text": {"type": "string", "description": "生成 MG 页面的文本模型 id。"},
+                "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "description": "画幅（默认 16:9）。"},
+                "resolution": {"type": "string", "enum": ["720p", "1080p"], "description": "清晰度（默认 720p）。"},
+                "max_stills": {"type": "integer", "description": "静帧张数上限 1-120（默认 24）。"},
+                "source_tool": {"type": "string", "description": "任务归属标识。"},
+            },
+            extra=_MOTION_PAGE_SOURCE_CONSTRAINTS,
+        ),
+        _handle_motion_stills,
+    ),
+    (
+        "aipdd_drama_motion_draft",
+        _schema(
+            "aipdd_drama_motion_draft",
+            "[aipdd fork delta] 把逐镜 MG 成片交付为一盘剪映草稿（POST /projects/{project}/freezone/motion/draft，"
+            "task_type=freezone_motion_draft）。clips 按镜头顺序给出（source=本地路径/项目相对/"
+            "/static URL，通常取 aipdd_drama_motion_renders 的 path 或 url），逐条顺次贴轨；"
+            "可选 narration/bgm/subtitles/text_style。全程不出网、不调模型。deploy=true 时"
+            "再整盘复制进本机剪映工程目录。轮询 aipdd_drama_get_task("
+            "task_type=\"freezone_motion_draft\", episode=0, scope=<job_id>)。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "title": {"type": "string", "description": "剪映工程名（省略自动起名）。"},
+                "clips": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "source": {"type": "string", "description": "MG 成片引用。"},
+                            "name": {"type": "string", "description": "时间轴片段名。"},
+                            "duration_seconds": {"type": "number", "description": "侧车缺失时的兜底时长。"},
+                            "width": {"type": "integer"},
+                            "height": {"type": "integer"},
+                            "beats": {"type": "array", "items": {}, "description": "兜底拍点（秒数或 EV 对象）。"},
+                            "narration": {"type": "object", "description": "该镜旁白 {source,name,duration_seconds,gain}。"},
+                            "caption": {"type": "string", "description": "该镜字幕（与请求级 subtitles 互斥）。"},
+                        },
+                        "required": ["source"],
+                    },
+                    "description": "按镜头顺序排列的 MG 成片（至少一条）。",
+                },
+                "narration": {"type": "object", "description": "整片旁白 {source,name,duration_seconds,gain}。"},
+                "bgm": {"type": "object", "description": "背景音乐 {source,name,duration_seconds,gain}。"},
+                "subtitles": {"type": "array", "items": {"type": "object"}, "description": "整片字幕 [{text,start_seconds,duration_seconds}]。"},
+                "text_style": {"type": "object", "description": "字幕样式 {size,bold,y_ratio}。"},
+                "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "description": "画布画幅。"},
+                "resolution": {"type": "string", "enum": ["720p", "1080p"], "description": "画布档位。"},
+                "fps": {"type": "integer", "description": "草稿帧率 1-60（默认 30）。"},
+                "draft_dir": {"type": "string", "description": "草稿落盘根目录（绝对路径；省略回退设置）。"},
+                "deploy": {"type": "boolean", "description": "是否复制进本机剪映工程目录（默认 true）。"},
+            },
+            ["clips"],
+        ),
+        _handle_motion_draft,
+    ),
+    (
+        "aipdd_drama_get_subtitles",
+        _schema(
+            "aipdd_drama_get_subtitles",
+            "[aipdd fork delta] 读取一集 SRT 字幕文本（GET /projects/{project}/episodes/{episode}/export/srt）。"
+            "返回 content/cue_count/chars，供 Agent 校对台词或改写字幕；没有任何镜头时返回错误。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "episode": {"type": "integer", "description": "集号。"},
+            },
+            ["episode"],
+        ),
+        _handle_get_subtitles,
+    ),
+    (
+        "aipdd_drama_export_episode",
+        _schema(
+            "aipdd_drama_export_episode",
+            "[aipdd fork delta] 把成片或整集资源包下载到本地文件（流式写盘，返回 path/bytes）。"
+            "kind=video 走 GET /projects/{project}/episodes/{episode}/export/video（最终 mp4）；"
+            "kind=zip 走 POST /projects/{project}/episodes/{episode}/export/zip（音频/视频/成片/"
+            "帧/网格图/SRT 打包）。落盘目录：Hermes 会话为项目 exports/<project>/，否则系统临时目录。",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "episode": {"type": "integer", "description": "集号。"},
+                "kind": {
+                    "type": "string",
+                    "enum": ["video", "zip"],
+                    "description": "video=成片 mp4（默认 zip 以外选它）；zip=整集资源包。",
+                },
+                "timeout_seconds": {"type": "number", "description": "下载超时秒数（默认 600，30-3600）。"},
+            },
+            ["episode"],
+        ),
+        _handle_export_episode,
+    ),
 )
+
+
+def _hinted_handler(name: str, handler: Any) -> Any:
+    def wrapped(args: dict[str, Any], **kwargs: Any) -> Any:
+        return hint_tool_output(handler(args, **kwargs), tool_name=name)
+
+    return wrapped
 
 
 def register(ctx) -> None:
     for name, schema, handler in TOOLS:
+        registered_handler = _hinted_handler(name, handler)
         # [aipdd fork delta] VectCut 工具组不依赖主 API 凭证（服务可被单独调用），
         # 用独立检查：默认可用，VECTCUT_ENABLED=0 时隐藏。
         is_vectcut = name.startswith("vectcut_")
@@ -6600,7 +8084,7 @@ def register(ctx) -> None:
                 name=name,
                 toolset=toolset,
                 schema=schema,
-                handler=handler,
+                handler=registered_handler,
                 check_fn=_vectcut_available if is_vectcut else _available,
                 requires_env=[] if is_vectcut else ["DRAMACLAW_API_URL", "DRAMACLAW_AGENT_TOKEN"],
                 description=schema["description"],

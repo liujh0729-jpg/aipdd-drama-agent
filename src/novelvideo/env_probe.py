@@ -23,9 +23,8 @@ import subprocess
 import urllib.request
 from typing import Any
 
-from novelvideo.utils.chrome_cdp import browsable_cdp_url
+from novelvideo.utils.chrome_cdp import browsable_cdp_url, default_cdp_url
 
-DEFAULT_CHROME_CDP_URL = "http://host.docker.internal:9222"
 _CHROME_PROBE_TIMEOUT = 2.0
 _VERSION_RE = re.compile(r"(\d+(?:\.\d+){0,3})")
 
@@ -101,7 +100,7 @@ def _chrome_item() -> dict[str, Any]:
     失败成因（连接拒绝 / 超时 / HTTP 码 / 端口上不是 Chrome）写进 detail。
     """
 
-    raw = (os.environ.get("ST_CHROME_CDP_URL", "").strip() or DEFAULT_CHROME_CDP_URL)
+    raw = (os.environ.get("ST_CHROME_CDP_URL", "").strip() or default_cdp_url())
     resolved = browsable_cdp_url(raw if "//" in raw else f"//{raw}")
     base = resolved if "://" in resolved else f"http://{resolved.lstrip('/')}"
     probe_url = f"{base.rstrip('/')}/json/version"

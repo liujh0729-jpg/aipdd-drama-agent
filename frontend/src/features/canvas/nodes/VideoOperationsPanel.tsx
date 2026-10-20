@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, ChevronDown, ChevronUp, Film, FileText, Languages, Library, Loader2, Music, Pause, Volume2, VolumeX, X, Link as LinkIcon } from "lucide-react";
+import { ArrowUp, ChevronDown, ChevronUp, Film, Clapperboard, FileText, Languages, Library, Loader2, Music, Pause, Volume2, VolumeX, X, Link as LinkIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFn } from "@/lib/i18n-types";
 import { toast } from "sonner";
@@ -75,6 +75,17 @@ import {
   AssetLibraryModal,
   type AssetLibrarySelection,
 } from "@/features/canvas/ui/AssetLibraryModal";
+import { MotionGalleryModal } from "@/features/canvas/ui/MotionGalleryModal";
+import {
+  useFreezoneMotionCases,
+  useFreezoneMotionStyles,
+} from "@/features/canvas/hooks/useFreezoneMotionCases";
+import { renderMotionSource } from "@/components/episode/beat-workbench/motion-render-action";
+import {
+  MOTION_ASPECT_RATIOS,
+  type FreezoneMotionCase,
+  type FreezoneMotionStyle,
+} from "@/api/ops";
 import { useCanvasStore } from "@/stores/canvasStore";
 import {
   fetchFreezoneTextTranslateResult,
@@ -255,6 +266,12 @@ export function VideoOperationsPanel({
     const [referencePanelWidth, setReferencePanelWidth] = useState<number | null>(null);
     const [isTranslatingPrompt, setIsTranslatingPrompt] = useState(false);
     const [isCharacterLibraryOpen, setIsCharacterLibraryOpen] = useState(false);
+    const [isMotionGalleryOpen, setIsMotionGalleryOpen] = useState(false);
+    // 动效大片图册：目录是随包静态清单，一个项目只拉一次（createCatalogStore 去重）。
+    const motionProject = readUrl().project ?? null;
+    const motionCatalog = useFreezoneMotionCases(motionProject);
+    // 画风图册与案例图册同一套拉取内核，各一份清单：案例给分镜结构，画风给画面观感。
+    const motionStyleCatalog = useFreezoneMotionStyles(motionProject);
     // Local draft + composition guard so IME (中文输入法) candidates stop being
     // wiped by the store-driven re-render. Same fix pattern as
     // `docs/changes/2026-05-12-image-gen-ime-fix.md`.
@@ -698,6 +715,17 @@ export function VideoOperationsPanel({
                   <CharacterLibraryChip
                     onOpen={() => setIsCharacterLibraryOpen(true)}
                   />
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setIsMotionGalleryOpen(true);
+                    }}
+                    className={`${NODE_TEXT_CONTROL_TRIGGER_CLASS} group/asset px-1.5`}
+                  >
+                    <Clapperboard className={`${NODE_TEXT_CONTROL_ICON_CLASS} group-hover/asset:text-text-dark`} />
+                    <span>{t("node.videoOps.motionGallery")}</span>
+                  </button>
                 </div>
                 <div className="ml-3 flex shrink-0 items-center gap-3">
                   <GenModeSelect
@@ -1036,6 +1064,70 @@ export function VideoOperationsPanel({
             spawnCharacterLibraryReferences(selections)
           }
         />
+
+        {isMotionGalleryOpen ? (
+          <MotionGalleryModal
+            applyLabelKey="node.videoOps.motionApply"
+            assetBase={motionCatalog.assetBase}
+            cases={motionCatalog.cases}
+            categories={motionCatalog.categories}
+            error={motionCatalog.error}
+            isLoading={motionCatalog.isLoading}
+            methods={motionCatalog.methods}
+            onApply={(text, item) => {
+              updateNodeData(id, { prompt: text });
+              toast.success(t("node.videoOps.motionApplied", { label: item.label }));
+            }}
+            // 「按这条出片」两个页签共用同一条渲染链路（renderMotionSource），
+            // 这里必须带上 node_id/canvas_id：后端靠它把成片写回发起渲染的这个节点。
+            // 没有项目上下文（motionProject 为空）就渲染不了，回调不给、按钮不出现。
+            onRenderCase={
+              motionProject
+                ? (item: FreezoneMotionCase) =>
+                    void renderMotionSource(
+                      motionProject,
+                      { id: item.id, kind: "case", label: item.label },
+                      {
+                        subject: prompt.trim(),
+                        aspectRatio: MOTION_ASPECT_RATIOS.has(aspectRatio)
+                          ? aspectRatio
+                          : "16:9",
+                        nodeId: id,
+                        canvasId: readUrl().canvas ?? "default",
+                      },
+                      t,
+                    )
+                : undefined
+            }
+            onRenderStyle={
+              motionProject
+                ? (item: FreezoneMotionStyle) =>
+                    void renderMotionSource(
+                      motionProject,
+                      { id: item.id, kind: "style", label: item.label },
+                      {
+                        subject: prompt.trim(),
+                        aspectRatio: MOTION_ASPECT_RATIOS.has(aspectRatio)
+                          ? aspectRatio
+                          : "16:9",
+                        nodeId: id,
+                        canvasId: readUrl().canvas ?? "default",
+                      },
+                      t,
+                    )
+                : undefined
+            }
+            onClose={() => setIsMotionGalleryOpen(false)}
+            onRetry={motionCatalog.retry}
+            onStyleRetry={motionStyleCatalog.retry}
+            project={motionProject}
+            renderContract={motionCatalog.renderContract}
+            styleCategories={motionStyleCatalog.categories}
+            styleError={motionStyleCatalog.error}
+            styleLoading={motionStyleCatalog.isLoading}
+            styles={motionStyleCatalog.styles}
+          />
+        ) : null}
       </>
     );
 }

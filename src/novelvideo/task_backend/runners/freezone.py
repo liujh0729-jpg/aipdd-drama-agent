@@ -324,6 +324,8 @@ _TOOL_ARCHIVE_LABELS = {
     "freezone_whiteboard_animation": "白板动画",
     # [aipdd fork delta] 科普讲解视频：产物是一条逐帧代码绘制的横屏 MG 讲解成片。
     "freezone_explainer_video": "科普讲解视频",
+    # [aipdd fork delta] 动效大片渲染：产物是一条按案例契约逐帧截图的 MG 成片。
+    "freezone_motion_render": "动效大片",
     # [aipdd fork delta req46] 音乐创作：产物是一首 mp3/wav/pcm 音频。
     "freezone_music_generate": "音乐创作",
     # [aipdd fork delta] 口播智能剪辑：产物是剪后口播成片（或 VectCut 剪映草稿）。
@@ -2061,6 +2063,675 @@ def run_freezone_explainer_video(
 ) -> dict[str, Any]:
     return _run_cancellable(
         envelope, _run_freezone_explainer_video_async(envelope, ctx)
+    )
+
+
+# --------------------------------------------------------------------------- #
+# [aipdd fork delta] 动效大片渲染（freezone_motion_render）：两种入口，一段成片。
+#  · 已经有页面：payload 带 html → 直接渲染。
+#  · 只有案例 + 镜头文案：payload 带 case_id（html 留空）→ 先用图册里那条渲染契约
+#    提示词让网关文本模型写页面（``generate_freezone_text``，出网口径已在
+#    ``FREEZONE_LEAF_EGRESS`` 记为 NETWORK），再渲染。
+#  · 只有风格 + 镜头文案：payload 带 style_id → 同上，但规格换成画风图册那条（观感
+#    约束，不含分镜结构）；案例与风格同时给会被 _motion_page_source 拒掉。
+# 渲染这一段本身一次网都不出：不调任何生成 leaf，Chrome 用 ``--host-resolver-rules``
+# 打死域名解析（页面里残留的外链图片/字体既发不出去，也不会让同一条提示词今天能渲、
+# 明天渲不出），ffmpeg 只读管道；画面全部是页面里的代码画的。
+# --------------------------------------------------------------------------- #
+
+
+def _motion_page_source(payload: dict[str, Any]) -> tuple[str, str]:
+    """页面来源校验收在一处：贴好的源码、按案例生成、按风格生成，三条只能走一条。
+
+    路由层同样挡一次，但排队的 envelope 可能绕过路由直接进任务（重跑、手工投递），
+    所以这里必须自己再确认一遍，否则两个 id 同时给时会静默偏向其中一个。
+    """
+    case_id = str(payload.get("case_id") or "").strip()
+    style_id = str(payload.get("style_id") or "").strip()
+    if case_id and style_id:
+        raise RuntimeError(
+            "案例与风格只能选一个：案例给分镜结构，风格给画面观感，不要同时给"
+        )
+    if not str(payload.get("html") or "").strip() and not case_id and not style_id:
+        raise RuntimeError(
+            "MG 页面内容为空：请粘贴页面源码，或选择案例/风格并给出本镜头文案让模型生成"
+        )
+    return case_id, style_id
+
+
+async def _generate_motion_page(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+    *,
+    task_type: str,
+    job_id: str,
+    case_id: str,
+    style_id: str,
+    subject: str,
+    model_text: str,
+    width: int,
+    height: int,
+    fps: int,
+    duration_seconds: float | None,
+) -> tuple[str, str]:
+    """让网关文本模型按图册规格写一页 MG 源码；返回 (页面源码, 实际模型名)。
+
+    ``task_type`` 由调用方给：生成页面这一步的进度要报在**发起它的那一单**上，
+    写死成渲染任务类型的话，静帧预检的进度会串到成片任务里去。
+
+    ``case_id`` 与 ``style_id`` 二选一（路由已挡过）：案例给分镜结构，画风给画面观感。
+    规格文字走 ``build_freezone_*``：它读提示词库的生效值，所以超管改过某条案例或
+    某条风格，图册里复制到的与这一单实际发给模型的才是同一份文字。
+    """
+    from novelvideo.freezone.motion_render import build_motion_page_prompt
+    from novelvideo.freezone.route_helpers import (
+        build_freezone_motion_prompt,
+        build_freezone_motion_style_prompt,
+    )
+    from novelvideo.freezone.text_node import generate_freezone_text
+
+    if style_id:
+        source_label = f"画风 {style_id}"
+        builder = build_freezone_motion_style_prompt
+        missing = "不在本机的画风图册清单里：请重新选择风格"
+    else:
+        source_label = f"动效案例 {case_id}"
+        builder = build_freezone_motion_prompt
+        missing = "不在本机的图册清单里：请重新选择案例"
+    try:
+        spec_prompt = builder(style_id if style_id else case_id)
+    except KeyError:
+        raise RuntimeError(f"{source_label}{missing}") from None
+    _update(ctx, task_type, job_id, 0.04, "按渲染契约生成 MG 页面...")
+    prompt = build_motion_page_prompt(
+        spec_prompt,
+        subject=subject,
+        width=width,
+        height=height,
+        fps=fps,
+        duration_seconds=duration_seconds,
+    )
+    model, raw = await _call_freezone_leaf(
+        envelope,
+        generate_freezone_text,
+        "generate_freezone_text",
+        prompt=prompt,
+        **({"model": model_text} if model_text else {}),
+    )
+    from novelvideo.freezone.motion_render import extract_motion_page, motion_page_error
+
+    page = extract_motion_page(str(raw or ""))
+    complaint = motion_page_error(page)
+    if complaint:
+        # 把模型的原文留在日志里（只截前 2000 字符），否则"为什么这单失败了"只能猜。
+        logger.warning(
+            "[motion-render] 页面契约预检未通过 job=%s 来源=%s：%s；回复开头：%s",
+            job_id,
+            style_id or case_id,
+            complaint,
+            str(raw or "")[:2000],
+        )
+        raise RuntimeError(f"MG 页面生成失败：{complaint}")
+    return page, str(model or "")
+
+
+async def _attach_motion_score(
+    payload: dict[str, Any],
+    ctx: ProjectContext,
+    *,
+    job_id: str,
+    output_path: Path,
+    rendered: Any,
+    case_id: str,
+    style_id: str,
+    cancel_kwargs: dict[str, Any],
+) -> dict[str, Any]:
+    """按渲染契约第 3/6 条给成片配一段程序生成的配乐，失败就交无声片。
+
+    画面是这一单的主要产物：本机 ffmpeg 少某个能力、或这一镜短到排不出网格，都不该让整单
+    判失败，所以这里只把原因写进结果（``engine="silent"`` + 中文说明），前端与 sidecar 都能
+    看见「这一镜为什么没声」。取消不在这条兜底里——``TaskCancelled`` 必须照常往上抛。
+    """
+    if not payload.get("music", True):
+        return {"engine": "off"}
+    from novelvideo.freezone.motion_audio import MotionAudioError, score_and_attach
+    from novelvideo.freezone.motion_media import get_case
+
+    # 分类决定编曲风格（音乐MV→drive、科普→ambient），拿不到就用中性档位；
+    # 按风格出片时这一镜没有案例，就取那条风格自己的分类。
+    if style_id:
+        from novelvideo.freezone.motion_styles import get_motion_style
+
+        category = str((get_motion_style(style_id) or {}).get("category") or "")
+    else:
+        category = str((get_case(case_id) or {}).get("category") or "")
+    _update(ctx, "freezone_motion_render", job_id, 0.95, "按拍点网格编曲并归一响度...")
+    try:
+        score = await _await_with_cancel_watch(
+            score_and_attach(
+                output_path,
+                events=[dict(item) for item in rendered.events],
+                duration_seconds=rendered.plan.duration_seconds,
+                fps=rendered.plan.fps,
+                case_category=category,
+            ),
+            **cancel_kwargs,
+        )
+    except (MotionAudioError, OSError) as exc:
+        logger.warning("[motion-render] 配乐失败，交付无声片 job=%s：%s", job_id, exc)
+        return {"engine": "silent", "error": str(exc)}
+    return score.as_dict()
+
+
+async def _run_freezone_motion_render_async(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+) -> dict[str, Any]:
+    from novelvideo.api.deps import make_static_url_for_context
+    from novelvideo.freezone.jobs import ensure_freezone_dirs
+    from novelvideo.freezone.mix import (
+        normalize_mix_aspect_ratio,
+        normalize_mix_resolution,
+        resolve_mix_canvas,
+    )
+    from novelvideo.freezone.motion_render import (
+        MAX_PAGE_CHARS,
+        clamp_fps,
+        page_source_path,
+        render_motion_video,
+    )
+    from novelvideo.freezone.motion_draft.project import pick_int
+    from novelvideo.freezone.paths import outputs_dir
+
+    payload = envelope.get("payload") or {}
+    task_type = "freezone_motion_render"
+    job_id = str(payload["job_id"])
+    project_dir = Path(str(payload.get("project_dir") or ctx.output_dir))
+    ensure_freezone_dirs(project_dir)
+
+    html = str(payload.get("html") or "")
+    case_id, style_id = _motion_page_source(payload)
+    page_source = "pasted"
+    page_model = ""
+    aspect_ratio = normalize_mix_aspect_ratio(str(payload.get("aspect_ratio") or "16:9"))
+    resolution = normalize_mix_resolution(str(payload.get("resolution") or ""))
+    width, height = resolve_mix_canvas(aspect_ratio, resolution)
+    fps = clamp_fps(payload.get("fps"))
+    requested_duration = payload.get("duration_seconds")
+    duration_seconds = (
+        float(requested_duration)
+        if str(requested_duration or "").strip() not in ("", "None")
+        else None
+    )
+    if not html.strip():
+        html, page_model = await _generate_motion_page(
+            envelope,
+            ctx,
+            task_type=task_type,
+            job_id=job_id,
+            case_id=case_id,
+            style_id=style_id,
+            subject=str(payload.get("subject") or ""),
+            model_text=str(payload.get("model_text") or ""),
+            width=width,
+            height=height,
+            fps=fps,
+            duration_seconds=duration_seconds,
+        )
+        page_source = "generated"
+    if len(html) > MAX_PAGE_CHARS:
+        raise RuntimeError(
+            f"MG 页面过大（{len(html)} 字符，上限 {MAX_PAGE_CHARS}）："
+            "渲染契约要求单文件自包含，请精简页面、外链改代码绘制"
+        )
+    output_path = outputs_dir(project_dir, task_type) / f"{job_id}.mp4"
+
+    cancel_kwargs = {
+        "project_id": ctx.project_id,
+        "task_type": task_type,
+        "episode": 0,
+        "task_id": str(envelope.get("__run_task_id") or ""),
+        "scope": job_id,
+    }
+
+    _update(ctx, task_type, job_id, 0.12, "启动渲染浏览器...")
+
+    def _note_progress(done: int, total: int) -> None:
+        fraction = done / float(max(1, total))
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            round(0.15 + 0.79 * min(1.0, max(0.0, fraction)), 3),
+            f"逐帧渲染 MG 画面 {done}/{total}",
+        )
+
+    rendered = await _await_with_cancel_watch(
+        render_motion_video(
+            html,
+            output_path,
+            width=width,
+            height=height,
+            fps=fps,
+            duration_seconds=duration_seconds,
+            on_progress=_note_progress,
+        ),
+        **cancel_kwargs,
+    )
+
+    # 配乐排在成片之后、sidecar 之前：sidecar 要把「这一镜到底有没有声、什么 BPM/档位」
+    # 一起落盘，导出剪映草稿时才知道嵌在画面里的这条分轨该不该给旁白让位。
+    audio_info = await _attach_motion_score(
+        payload,
+        ctx,
+        job_id=job_id,
+        output_path=output_path,
+        rendered=rendered,
+        case_id=case_id,
+        style_id=style_id,
+        cancel_kwargs=cancel_kwargs,
+    )
+
+    _update(ctx, task_type, job_id, 0.97, "登记动效成片...")
+    rel = output_path.relative_to(project_dir).as_posix()
+    page_rel = output_path.with_suffix(".html").relative_to(project_dir).as_posix()
+    source_rel = (
+        page_source_path(output_path.with_suffix(".html")).relative_to(project_dir).as_posix()
+    )
+    # 拍点/画幅只活在这一单的结果里，任务记录过期后就查不到了；而「导出剪映草稿」要的
+    # 正是这两样（打点落进剪映时间轴）。所以把渲染元数据同名落一份 .motion.json  sidecar，
+    # 让草稿任务能离线拿到。写失败只告警：成片已出，草稿缺拍点仍可照常落轨。
+    sidecar_path = output_path.with_suffix(".motion.json")
+    try:
+        sidecar_path.write_text(
+            json.dumps(
+                {
+                    "job_id": job_id,
+                    "case_id": str(payload.get("case_id") or ""),
+                    # 按风格出片时没有案例，风格 id 是这一镜唯一的出处。
+                    "style_id": str(payload.get("style_id") or ""),
+                    # 片名/集号/镜号写进 sidecar：导出剪映草稿要把散落的成片按镜归位并
+                    # 显示成认得出的名字，这三样只在这个任务的 payload 里有过。
+                    "title": str(payload.get("title") or ""),
+                    "episode": pick_int(payload.get("episode")),
+                    "beat_number": pick_int(payload.get("beat_number")),
+                    "video_path": str(output_path),
+                    "page_path": str(output_path.with_suffix(".html")),
+                    "width": rendered.width,
+                    "height": rendered.height,
+                    "fps": rendered.plan.fps,
+                    "frames": rendered.plan.frames,
+                    "duration_seconds": round(rendered.plan.duration_seconds, 6),
+                    "aspect_ratio": aspect_ratio,
+                    "beats": [dict(item) for item in rendered.events],
+                    # 配乐口径也要能在草稿任务里离线读到：草稿靠它决定「画面里这条分轨
+                    # 要不要给旁白让位」，无声片（silent/off）就不该去压低音量。
+                    "audio": audio_info,
+                },
+                ensure_ascii=False,
+                indent=2,
+                # NaN/Infinity 不是合法 JSON：宁可这份 sidecar 不落盘（下面只告警），
+                # 也不要写出一份草稿任务与前端都解析不了的坏文件。
+                allow_nan=False,
+            ),
+            encoding="utf-8",
+        )
+    except (OSError, ValueError) as exc:
+        logger.warning("[motion-render] 渲染元数据 sidecar 落盘失败 job=%s：%s", job_id, exc)
+    result: dict[str, Any] = {
+        "job_id": job_id,
+        "output_path": str(output_path),
+        "output_url": make_static_url_for_context(ctx, rel),
+        # 页面与成片同名同目录：出片后仍能打开 .html 复现「这一帧为什么长这样」。
+        "page_url": make_static_url_for_context(ctx, page_rel),
+        # 同名还有一份不带引导脚本的原始源码：改完再渲就改这份。
+        "page_source_url": make_static_url_for_context(ctx, source_rel),
+        "sidecar_path": str(sidecar_path),
+        "media_type": "video",
+        "case_id": str(payload.get("case_id") or ""),
+        "style_id": str(payload.get("style_id") or ""),
+        "aspect_ratio": aspect_ratio,
+        "resolution": resolution,
+        "width": rendered.width,
+        "height": rendered.height,
+        "fps": rendered.plan.fps,
+        "frames": rendered.plan.frames,
+        "duration_seconds": round(rendered.plan.duration_seconds, 3),
+        "page_duration_seconds": round(rendered.plan.page_duration_seconds, 3),
+        "requested_duration_seconds": (
+            round(float(duration_seconds), 3) if duration_seconds else None
+        ),
+        "beats": [dict(item) for item in rendered.events],
+        # 配乐这一段的事实：BPM/档位/音符数/归一前响度，或降级成无声片的原因。
+        "audio": audio_info,
+        "engine": "chrome-cdp",
+        # 页面来源要留痕：粘贴的页面和模型产出的页面，出问题时排查路径完全不同。
+        "page_source": page_source,
+        "model": page_model or str(payload.get("model") or ""),
+    }
+    score_path = Path(str(audio_info.get("score_path") or ""))
+    if score_path.is_file() and score_path.is_relative_to(project_dir):
+        # 分轨干声也要能直接播：配乐对不对拍点、要不要在剪映里单独拧音乐音量，
+        # 听这一条就够了，不用先把整片下下来。
+        result["score_url"] = make_static_url_for_context(
+            ctx, score_path.relative_to(project_dir).as_posix()
+        )
+    history_record = _append_node_history(
+        ctx=ctx,
+        project_dir=project_dir,
+        payload=payload,
+        task_type=task_type,
+        job_id=job_id,
+        media_type="video",
+        result=result,
+    )
+    if history_record:
+        result["generation_history_record"] = history_record
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type=task_type,
+        job_id=job_id,
+        media="video",
+        url=str(result["output_url"]),
+        result=result,
+        stem=str(payload.get("title") or payload.get("case_id") or payload.get("style_id") or ""),
+    )
+    return result
+
+
+def run_freezone_motion_render(
+    envelope: dict[str, Any], ctx: ProjectContext
+) -> dict[str, Any]:
+    return _run_cancellable(
+        envelope, _run_freezone_motion_render_async(envelope, ctx)
+    )
+
+
+# --------------------------------------------------------------------------- #
+# [aipdd fork delta] 动效大片拍点预检（freezone_motion_stills）：渲染契约第 4 条。
+# 一页 MG 脚本 → 每个拍点一张静帧，先检查节奏、溢出与可读性，修好再精修整片。
+# 与成片共用同一个 CDP 截图通道（`MotionPage.capture_at`），所以预检看到的就是成片
+# 会有的画面；差别只在这里**不编码、不配乐**，因此连 ffmpeg 都不需要（预检只查 Chrome）。
+# 页面来源与渲染任务同口径：带 html 就检这一页，留空则先按案例契约让文本模型写页面。
+# --------------------------------------------------------------------------- #
+async def _run_freezone_motion_stills_async(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+) -> dict[str, Any]:
+    from novelvideo.api.deps import make_static_url_for_context
+    from novelvideo.freezone.jobs import ensure_freezone_dirs
+    from novelvideo.freezone.mix import (
+        normalize_mix_aspect_ratio,
+        normalize_mix_resolution,
+        resolve_mix_canvas,
+    )
+    from novelvideo.freezone.motion_render import (
+        MAX_PAGE_CHARS,
+        clamp_fps,
+        clamp_max_stills,
+        page_source_path,
+        render_motion_stills,
+    )
+    from novelvideo.freezone.paths import outputs_dir
+
+    payload = envelope.get("payload") or {}
+    task_type = "freezone_motion_stills"
+    job_id = str(payload["job_id"])
+    project_dir = Path(str(payload.get("project_dir") or ctx.output_dir))
+    ensure_freezone_dirs(project_dir)
+
+    html = str(payload.get("html") or "")
+    case_id, style_id = _motion_page_source(payload)
+    aspect_ratio = normalize_mix_aspect_ratio(str(payload.get("aspect_ratio") or "16:9"))
+    resolution = normalize_mix_resolution(str(payload.get("resolution") or ""))
+    width, height = resolve_mix_canvas(aspect_ratio, resolution)
+    max_stills = clamp_max_stills(payload.get("max_stills"))
+
+    page_source = "pasted"
+    page_model = ""
+    if not html.strip():
+        # 预检同样要先把页面写出来：fps 用默认档，页面时长由它自报的 window.DUR 决定。
+        html, page_model = await _generate_motion_page(
+            envelope,
+            ctx,
+            task_type=task_type,
+            job_id=job_id,
+            case_id=case_id,
+            style_id=style_id,
+            subject=str(payload.get("subject") or ""),
+            model_text=str(payload.get("model_text") or ""),
+            width=width,
+            height=height,
+            fps=clamp_fps(None),
+            duration_seconds=None,
+        )
+        page_source = "generated"
+    if len(html) > MAX_PAGE_CHARS:
+        raise RuntimeError(
+            f"MG 页面过大（{len(html)} 字符，上限 {MAX_PAGE_CHARS}）："
+            "渲染契约要求单文件自包含，请精简页面、外链改代码绘制"
+        )
+
+    out_dir = outputs_dir(project_dir, task_type) / job_id
+    cancel_kwargs = {
+        "project_id": ctx.project_id,
+        "task_type": task_type,
+        "episode": 0,
+        "task_id": str(envelope.get("__run_task_id") or ""),
+        "scope": job_id,
+    }
+
+    _update(ctx, task_type, job_id, 0.12, "启动预检浏览器...")
+
+    def _note_progress(done: int, total: int) -> None:
+        fraction = done / float(max(1, total))
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            round(0.15 + 0.79 * min(1.0, max(0.0, fraction)), 3),
+            f"按拍点出静帧 {done}/{total}",
+        )
+
+    rendered = await _await_with_cancel_watch(
+        render_motion_stills(
+            html,
+            out_dir,
+            width=width,
+            height=height,
+            max_stills=max_stills,
+            on_progress=_note_progress,
+        ),
+        **cancel_kwargs,
+    )
+
+    _update(ctx, task_type, job_id, 0.97, "整理静帧清单...")
+    stills: list[dict[str, Any]] = []
+    for still in rendered.stills:
+        if not still.path.is_relative_to(project_dir):
+            continue
+        stills.append(
+            {
+                "at_seconds": round(still.at_seconds, 3),
+                "event_type": still.event_type,
+                "path": str(still.path),
+                "url": make_static_url_for_context(
+                    ctx, still.path.relative_to(project_dir).as_posix()
+                ),
+            }
+        )
+    if not stills:
+        raise RuntimeError("静帧预检没有产出可显示的图：请确认本机 Chrome 正常后重试")
+    page_path = out_dir / "page.html"
+    source_path = page_source_path(page_path)
+    return {
+        "job_id": job_id,
+        "media_type": "image",
+        # 预检的产物是一目录 PNG，没有单一成片：列表给前端逐张显示，output_url 退到
+        # 第一张（开场帧），这样按通用产物解析的地方也不会拿到空地址。
+        "stills": stills,
+        "output_url": stills[0]["url"],
+        "output_path": stills[0]["path"],
+        "count": len(stills),
+        "page_url": (
+            make_static_url_for_context(ctx, page_path.relative_to(project_dir).as_posix())
+            if page_path.is_file() and page_path.is_relative_to(project_dir)
+            else ""
+        ),
+        # 不带引导脚本的原始源码：预检看完不满意，就在这份上改完再提交。
+        "page_source_url": (
+            make_static_url_for_context(
+                ctx, source_path.relative_to(project_dir).as_posix()
+            )
+            if source_path.is_file() and source_path.is_relative_to(project_dir)
+            else ""
+        ),
+        "case_id": case_id,
+        # 与渲染任务同一口径：预检也要留下是按哪条风格出的帧，否则改风格重预检无从对照。
+        "style_id": style_id,
+        "aspect_ratio": aspect_ratio,
+        "resolution": resolution,
+        "width": width,
+        "height": height,
+        "max_stills": max_stills,
+        "page_duration_seconds": round(rendered.page_duration_seconds, 3),
+        # 页面没写 window.EV 时退成等间隔网格：这个事实必须说出来，否则用户会以为
+        # 每张图都对的是拍点，而它其实只是按秒排的。
+        "beat_grid": rendered.beat_grid,
+        "beats": [dict(item) for item in rendered.events],
+        "engine": "chrome-cdp",
+        "page_source": page_source,
+        "model": page_model or str(payload.get("model") or ""),
+    }
+
+
+def run_freezone_motion_stills(
+    envelope: dict[str, Any], ctx: ProjectContext
+) -> dict[str, Any]:
+    return _run_cancellable(
+        envelope, _run_freezone_motion_stills_async(envelope, ctx)
+    )
+
+
+# --------------------------------------------------------------------------- #
+# [aipdd fork delta] 动效大片交付（freezone_motion_draft）：逐镜成片 → 一盘剪映草稿。
+# MG 渲染一次只出一镜，N 个散落的 mp4 不等于交付。本任务把项目里已渲染的 MG 成片（含
+# 同名 ``*.motion.json`` 里的画幅/时长/拍点）连旁白、BGM 一起排成多镜时间线，直接落成
+# 剪映工程目录，可选再复制进本机剪映工程根。
+# 全程不出网、不调模型、不引任何草稿库：拍点是页面自报的，剪映打开就是打好的点。
+# --------------------------------------------------------------------------- #
+async def _run_freezone_motion_draft_async(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+) -> dict[str, Any]:
+    from novelvideo.freezone.jobs import ensure_freezone_dirs
+    from novelvideo.freezone.mix import (
+        normalize_mix_aspect_ratio,
+        normalize_mix_resolution,
+        resolve_mix_canvas,
+    )
+    from novelvideo.freezone.motion_draft import (
+        MICROSECOND,
+        MotionDraftInputError,
+        build_spec,
+        read_clips,
+        total_duration_us,
+        write_motion_draft,
+    )
+    from novelvideo.freezone.motion_render import clamp_fps
+    from novelvideo.freezone.paths import outputs_dir
+
+    payload = envelope.get("payload") or {}
+    task_type = "freezone_motion_draft"
+    job_id = str(payload["job_id"])
+    project_dir = Path(str(payload.get("project_dir") or ctx.output_dir))
+    ensure_freezone_dirs(project_dir)
+
+    aspect_ratio = normalize_mix_aspect_ratio(str(payload.get("aspect_ratio") or "16:9"))
+    resolution = normalize_mix_resolution(str(payload.get("resolution") or ""))
+    width, height = resolve_mix_canvas(aspect_ratio, resolution)
+    fps = clamp_fps(payload.get("fps"))
+    title = str(payload.get("title") or "").strip() or f"动效大片 {job_id}"
+
+    _update(ctx, task_type, job_id, 0.08, "读取动效成片与拍点...")
+    try:
+        clips = read_clips(
+            list(payload.get("clips") or []),
+            project_dir=project_dir,
+            fallback_width=width,
+            fallback_height=height,
+        )
+        spec = build_spec(
+            name=title,
+            width=width,
+            height=height,
+            ratio=aspect_ratio,
+            fps=fps,
+            clips=clips,
+            narration=payload.get("narration") or None,
+            bgm=payload.get("bgm") or None,
+            subtitles=list(payload.get("subtitles") or []),
+            text_style=payload.get("text_style") or None,
+            project_dir=project_dir,
+        )
+    except MotionDraftInputError as exc:
+        raise RuntimeError(str(exc)) from None
+
+    # 落盘根目录的优先级：本次请求指定 > 「设置 → 剪映草稿目录」> 项目输出目录。
+    from novelvideo.model_gateway_settings import get_vectcut_draft_dir, normalize_vectcut_draft_dir
+
+    try:
+        configured = normalize_vectcut_draft_dir(
+            str(payload.get("draft_dir") or "").strip() or get_vectcut_draft_dir()
+        )
+    except ValueError as exc:
+        raise RuntimeError(f"剪映草稿落盘目录不合法：{exc}") from None
+    draft_root = Path(configured) if configured else outputs_dir(project_dir, task_type)
+    out_dir = draft_root / job_id
+
+    _update(ctx, task_type, job_id, 0.4, "组装剪映草稿工程...")
+    written = await asyncio.to_thread(
+        write_motion_draft,
+        spec,
+        out_dir=out_dir,
+        deploy=bool(payload.get("deploy")),
+        project_name=title,
+    )
+    if not written.ok:
+        raise RuntimeError(written.error or "剪映草稿生成失败")
+
+    _update(ctx, task_type, job_id, 0.95, "草稿已落盘")
+    result: dict[str, Any] = {
+        "job_id": job_id,
+        "media_type": "draft",
+        "name": title,
+        "draft_dir": written.draft_dir,
+        "timeline_id": written.timeline_id,
+        "deployed_dir": written.deployed_dir,
+        "clips": len(spec.clips),
+        "aspect_ratio": aspect_ratio,
+        "resolution": resolution,
+        "width": spec.width,
+        "height": spec.height,
+        "fps": spec.fps,
+        "duration_seconds": round(total_duration_us(spec) / float(MICROSECOND), 3),
+        "beat_count": sum(len(clip.beat_us) for clip in spec.clips),
+        "has_narration": bool(spec.narration),
+        "has_bgm": spec.bgm is not None,
+        # 字幕条数：0 表示这次没落文字轨，前端用它判断草稿里有没有字幕。
+        "text_clips": len(spec.texts),
+        "files": written.files,
+        "warning": written.error,
+    }
+    return result
+
+
+def run_freezone_motion_draft(
+    envelope: dict[str, Any], ctx: ProjectContext
+) -> dict[str, Any]:
+    return _run_cancellable(
+        envelope, _run_freezone_motion_draft_async(envelope, ctx)
     )
 
 
@@ -4966,6 +5637,29 @@ register_project_task_runner(
 register_project_task_runner(
     "freezone_explainer_video",
     run_freezone_explainer_video,
+    requires_home_node=False,
+)
+# [aipdd fork delta] 动效大片渲染：随包 Chrome 逐帧截图 + 随包 ffmpeg 编码，纯本地，
+# 一个生成 leaf 都不调（页面是上一步文本节点产出的）。
+register_project_task_runner(
+    "freezone_motion_render",
+    run_freezone_motion_render,
+    requires_home_node=False,
+)
+# [aipdd fork delta] 动效大片拍点预检：一页 MG 脚本 → 每个拍点一张静帧（渲染契约第 4 条）。
+# 与渲染同一个 Chrome 截图通道，但不编码不配乐，所以随包的 ffmpeg 完全用不上；页面若需要
+# 现生成，则与渲染任务共用同一个文本 leaf 出网口径。
+register_project_task_runner(
+    "freezone_motion_stills",
+    run_freezone_motion_stills,
+    requires_home_node=False,
+)
+# [aipdd fork delta] 动效大片交付：把逐镜 MG 成片（+旁白/BGM）落成剪映工程目录。纯本地
+# 文件读写，一个 leaf 都不出，也不依赖 VectCut 服务或任何第三方草稿库——桌面包形态下
+# 这条是唯一的交付路径。
+register_project_task_runner(
+    "freezone_motion_draft",
+    run_freezone_motion_draft,
     requires_home_node=False,
 )
 # [aipdd fork delta] Phase 2B 渠道短视频：复用讲解视频渲染链（text×2 + audio×1 + 本地

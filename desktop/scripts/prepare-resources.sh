@@ -47,7 +47,7 @@ mkdir -p "$RES"/{bin,python,nginx,app/dist}
 APP="$RES/app"
 
 # ------------------------------------------------------------- 1) 便携 Python
-log "1/6 便携 Python（python-build-standalone ${PY} / ${TRIPLE}）"
+log "1/7 便携 Python（python-build-standalone ${PY} / ${TRIPLE}）"
 need curl
 need tar
 # 资源名形如 cpython-3.12.15+<date>-<triple>-install_only.tar.gz：含具体 patch 版本，
@@ -83,7 +83,7 @@ fi
 "$PYBIN" -V || { echo "便携 Python 无法执行：$PYBIN" >&2; exit 4; }
 
 # --------------------------------------------------- 2) 离线预装 CE 后端依赖
-log "2/6 按 uv.lock 冻结预装 CE 后端依赖（无 pip 暴露给用户）"
+log "2/7 按 uv.lock 冻结预装 CE 后端依赖（无 pip 暴露给用户）"
 need uv
 # 关键：不能 `uv pip install "."`——那会重新解版本，解出不一致的 pydantic/typing-inspection
 # 导致运行期 import 崩。必须按锁安装：uv export --frozen → pip install -r → 本体 --no-deps。
@@ -97,7 +97,7 @@ uv pip install --python "$PYBIN" --no-cache --no-deps "$ROOT_DIR"
 # 依赖装进 $RES/python/lib/python*/site-packages，随包只读分发。
 
 # ----------------------------------------------------------- 3) 前端 dist
-log "3/6 构建 React/Vite 前端 → resources/app/dist"
+log "3/7 构建 React/Vite 前端 → resources/app/dist"
 need node
 # 前端以 pnpm 管理（见 frontend/pnpm-lock.yaml + packageManager: pnpm@11）；
 # 直接 npm ci 会因 peer 依赖（dramaclaw-spec-render↔lucide-react）冲突失败。
@@ -119,9 +119,23 @@ fi
 cp -R "$ROOT_DIR/frontend/dist/." "$APP/dist/"
 
 # -------------------------------------------------------- 4) 后端源码副本
-log "4/6 拷贝后端源码 → resources/app/src（PYTHONPATH 目标）"
+log "4/7 拷贝后端源码 → resources/app/src（PYTHONPATH 目标）"
 mkdir -p "$APP/src"
 cp -R "$ROOT_DIR/src/novelvideo" "$APP/src/novelvideo"
+# [aipdd fork delta] 项目内置技能与插件源：Agent「技能」面板与 Hermes 都从 <app>/.hermes
+# 读取（skills.py::builtin_skills_root / hermes_workspace.py::_materialize_skill_links /
+# _materialize_plugin_links 均以 DRAMACLAW_ROOT=.hermes 为源）。缺 skills，装机版技能与
+# zip 下载全空；缺 plugins/dramaclaw，Hermes 的 AIPDD MCP 工具一个都注册不出来。
+if [[ -d "$ROOT_DIR/.hermes/skills" ]]; then
+  mkdir -p "$APP/.hermes"
+  cp -R "$ROOT_DIR/.hermes/skills" "$APP/.hermes/skills"
+fi
+if [[ -d "$ROOT_DIR/.hermes/plugins" ]]; then
+  mkdir -p "$APP/.hermes"
+  cp -R "$ROOT_DIR/.hermes/plugins" "$APP/.hermes/plugins"
+  # 打包机上的 __pycache__ 不该随包分发（跨 Python 版本也无效）。
+  find "$APP/.hermes/plugins" -type d -name __pycache__ -prune -exec rm -rf {} +
+fi
 # VectCut（Python 服务，optional）：连同其 requirements 一并放入，运行期同解释器执行。
 if [[ -d "$ROOT_DIR/services/vectcut" ]]; then
   mkdir -p "$APP/services"
@@ -151,9 +165,9 @@ if [[ -n "${NEWAPI_BIN:-}" ]]; then
   # 允许用外部已编译好的 win-x64/darwin 网关二进制出包（构建机缺 Go/bun 时的逃生门，与 NGINX_BIN 同思路）。
   [[ -f "$NEWAPI_BIN" ]] || { echo "NEWAPI_BIN 指向的文件不存在：$NEWAPI_BIN" >&2; exit 6; }
   cp "$NEWAPI_BIN" "$RES/bin/new-api${EXE}"
-  log "5/6 使用外部网关二进制 $NEWAPI_BIN → resources/bin/new-api${EXE}（跳过 go/bun 构建）"
+  log "5/7 使用外部网关二进制 $NEWAPI_BIN → resources/bin/new-api${EXE}（跳过 go/bun 构建）"
 else
-log "5/6 编译 newapi 网关（先 bun 构建内嵌 web/dist，再 CGO_ENABLED=0 go build）→ resources/bin/new-api${EXE}"
+log "5/7 编译 newapi 网关（先 bun 构建内嵌 web/dist，再 CGO_ENABLED=0 go build）→ resources/bin/new-api${EXE}"
 need go
 need bun
 GW="$ROOT_DIR/third_party/dramaclaw-gateway"
@@ -170,7 +184,7 @@ GW="$ROOT_DIR/third_party/dramaclaw-gateway"
 fi
 
 # ------------------------------------------------ 6) 随附二进制：nginx/ffmpeg/chromium
-log "6/6 随附 nginx / ffmpeg / Chromium（官方预编译，注意可重定位性，见 README）"
+log "6/7 随附 nginx / ffmpeg / Chromium（官方预编译，注意可重定位性，见 README）"
 
 # nginx：优先用现有静态二进制；否则 macOS 走 Homebrew、Windows 走官方 zip。
 if [[ -n "${NGINX_BIN:-}" && -x "${NGINX_BIN%/*}/$NGINX_BIN" ]]; then
@@ -284,6 +298,25 @@ else
 fi
 log "uv ${UV_VER} 已内置 resources/bin/uv$EXE（可选引擎的运行期安装器）"
 
+# ------------------------------------------------------- 7) Hermes Agent 运行时
+# 不用 venv：venv 的 pyvenv.cfg 记录 base 解释器绝对路径，安装包挪目录/改名即失效。
+# --target 是扁平依赖目录，运行时由 Rust 注入 HERMES_SITE_PACKAGES（子进程 PYTHONPATH），
+# 随包 Python 以 `-c "from hermes_cli.main import main; main()" acp` 启动，
+# 绕开 console-script shim 里的构建机绝对解释器路径（与 API 服务同一处理）。
+# 版本按发布写死（不跟 latest），HERMES_AGENT_SPEC 可覆盖（与 Dockerfile 同包名）。
+log "7/7 Hermes Agent 运行时（acp extra）→ resources/hermes/site-packages"
+need uv
+HERMES_AGENT_SPEC="${HERMES_AGENT_SPEC:-hermes-agent[acp]==0.19.0}"
+rm -rf "$RES/hermes"
+mkdir -p "$RES/hermes/site-packages"
+uv pip install --python "$PYBIN" --target "$RES/hermes/site-packages" --no-cache "$HERMES_AGENT_SPEC"
+# 出包前自检：ACP 依赖与两个入口模块必须可导入；先禁 pyc，避免往只读资源里写缓存。
+HERMES_SITE_PACKAGES="$RES/hermes/site-packages" PYTHONDONTWRITEBYTECODE=1 \
+  "$PYBIN" -c "import os, sys; sys.path.insert(0, os.environ['HERMES_SITE_PACKAGES']); import hermes_cli.main, acp_adapter.entry, acp; print('hermes runtime ok')" \
+  || { echo "Hermes 运行时导入自检失败（检查 HERMES_AGENT_SPEC 与网络/镜像）" >&2; exit 10; }
+find "$RES/hermes" -type d -name __pycache__ -prune -exec rm -rf {} +
+log "Hermes 运行时已内置 resources/hermes/site-packages（$HERMES_AGENT_SPEC）"
+
 # ---------------------------------------------------------------------------
 # HyperFrames 本地 producer（引擎即服务，讲解视频 / 渠道短视频的渲染底座）。
 # 与 Docker 侧同源：构建期固定 @hyperframes/producer 版本、运行期零外联，api 只按
@@ -337,6 +370,44 @@ if [[ "${INSTALL_RENDERER:-0}" == "1" ]]; then
   log "本地 producer 已内置：node → resources/bin/node，producer → resources/app/services/hyperframes-renderer"
 else
   log "跳过本地 HyperFrames producer（INSTALL_RENDERER=1 才打包；体积大）"
+fi
+
+# ---------------------------------------------------------------- 出包物料自检
+# Hermes 靠 .hermes/plugins/dramaclaw 注册全部 aipdd_drama_* 工具；缺了它，装机版
+# 对话后端即使能起来也一个平台工具都没有，而且启动/导入都不报错。必须在出包前拦住。
+if [[ ! -f "$APP/.hermes/plugins/dramaclaw/plugin.yaml" ]]; then
+  echo "Hermes 插件缺失：app/.hermes/plugins/dramaclaw/plugin.yaml（请确认 .hermes/plugins 已随包）" >&2
+  exit 9
+fi
+# 运行时依赖目录少了，Hermes 会在启动时 ImportError（用户看到的是「对话用不了」）。
+if [[ ! -f "$RES/hermes/site-packages/hermes_cli/main.py" ]]; then
+  echo "Hermes 运行时缺失：resources/hermes/site-packages/hermes_cli/main.py" >&2
+  exit 9
+fi
+
+# ---------------------------------------------------- 动效大片物料自检
+# MG 链路的三样随包物料缺任何一样，装机的 exe/dmg 里那条链路就是死的（图册空、
+# 导出剪映草稿报模板缺失），而后端 import 与启动都不会报错——必须在出包前拦住。
+# Chrome 只影响逐帧渲染，且 SKIP_CHROMIUM=1 是正当构建选项，所以只告警不拦停。
+MG_MISSING=()
+# 路径以装载位置为准：清单与海报都在 novelvideo/freezone/ 下（motion_templates.py /
+# motion_styles.py 的 _MANIFEST_PATH 同源），写在包根检查会永远判缺、把出包白拦一次。
+[[ -f "$APP/src/novelvideo/freezone/motion_templates.json" ]] || \
+  MG_MISSING+=("案例图册清单 app/src/novelvideo/freezone/motion_templates.json")
+[[ -f "$APP/src/novelvideo/freezone/motion_styles.json" ]] || \
+  MG_MISSING+=("画风图册清单 app/src/novelvideo/freezone/motion_styles.json")
+[[ -d "$APP/src/novelvideo/freezone/motion_posters" && -n "$(ls -A "$APP/src/novelvideo/freezone/motion_posters" 2>/dev/null)" ]] || \
+  MG_MISSING+=("图册海报 app/src/novelvideo/freezone/motion_posters")
+[[ -f "$APP/services/vectcut/template_jianying_10_2/draft_content.json" ]] || \
+  MG_MISSING+=("剪映 10.2 草稿模板 app/services/vectcut/template_jianying_10_2/draft_content.json")
+if [[ ${#MG_MISSING[@]} -gt 0 ]]; then
+  printf '动效大片物料缺失：%s\n' "${MG_MISSING[*]}" >&2
+  exit 9
+fi
+if [[ ! -d "$RES/bin/chrome" ]]; then
+  log "警告：resources/bin/chrome 不在包里，逐帧渲染 MG 成片在装机后不可用（用户可自备 Chrome 或本机 Chrome 路径）。"
+else
+  log "动效大片物料齐全：两份图册清单 + $(ls "$APP/src/novelvideo/freezone/motion_posters" | wc -l | tr -d ' ') 张海报 + 剪映草稿模板 + 内置 Chrome"
 fi
 
 if [[ "$GOOS" == windows ]]; then

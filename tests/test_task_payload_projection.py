@@ -158,7 +158,15 @@ def test_registered_task_types_are_the_full_bridge_set() -> None:
     # 32 → 33：口播智能剪辑（freezone_narration_smart_edit，[aipdd fork delta]）注册进 bridge 集
     # （静音剪本地、ASR/文本/生图/生乐走既有分发，不额外读项目态，
     # 因此 PROJECTION_REQUIREMENTS 里不留条目 —— 投影为 None 即逐字透传）。
-    assert len(task_types) == 33, task_types
+    # 33 → 34：动效大片渲染（freezone_motion_render，[aipdd fork delta]）注册进 bridge 集
+    # （案例/画风/契约全部由 payload 里的 case_id、style_id 在服务侧查册，
+    # 不额外读项目态，因此 PROJECTION_REQUIREMENTS 里不留条目 —— 投影为 None 即逐字透传）。
+    # 34 → 35：动效分帧（freezone_motion_stills，[aipdd fork delta]）注册进 bridge 集
+    # （同上：分帧参数在 payload，无额外项目态读取 —— 投影为 None 即逐字透传）。
+    # 35 → 36：动效草稿工程（freezone_motion_draft，[aipdd fork delta]）注册进 bridge 集
+    # （草稿工程只写本地 out 目录与 payload 给的素材，无额外项目态读取 ——
+    # 投影为 None 即逐字透传）。
+    assert len(task_types) == 36, task_types
     assert {
         "mainline_sketch_from_context",
         "mainline_frame_from_context",

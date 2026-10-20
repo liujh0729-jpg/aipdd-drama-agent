@@ -21,6 +21,10 @@ import {
   // [aipdd fork delta] 科普讲解视频提交。
   submitFreezoneExplainerVideo,
   submitFreezoneMediaCopywrite,
+  // [aipdd fork delta] 动效大片：按案例（或自贴页面）渲染一镜 MG 成片的提交。
+  MOTION_ASPECT_RATIOS,
+  submitFreezoneMotionRender,
+  submitFreezoneMotionStills,
   // [aipdd fork delta] 口播智能剪辑提交（多阶段静音/瑕疵/分镜/B-roll + 直出/落草稿）。
   submitFreezoneNarrationSmartEdit,
   // [aipdd fork delta req46] 音乐创作提交与两步翻唱预处理（抽歌词）。
@@ -45,6 +49,8 @@ import {
   type FreezoneAudioVoiceRef,
   // [aipdd fork delta req46] 音乐创作模式（与后端 Literal 同名）。
   type FreezoneMusicMode,
+  type FreezoneMotionCase,
+  type FreezoneMotionStyle,
   type FreezoneVideoResolution,
 } from "@/api/ops";
 import { Button } from "@/components/ui/button";
@@ -70,6 +76,15 @@ import { useFreezoneMusicModels } from "@/features/canvas/hooks/useFreezoneMusic
 import { useFreezoneTextModels } from "@/features/canvas/hooks/useFreezoneTextModels";
 import { useFreezoneVideoModels } from "@/features/canvas/hooks/useFreezoneVideoModels";
 import { useFreezoneVisionModels } from "@/features/canvas/hooks/useFreezoneVisionModels";
+// [aipdd fork delta] 动效大片：案例图册、剪映草稿导出这两块 UI 全用画布/分镜台的同一处
+// 实现，工具页不再各写一份 —— 图册的门禁、提示词拼法、草稿的旁白互斥规则都要改一处生效。
+import { MotionGalleryModal, MotionStyleSwatch } from "@/features/canvas/ui/MotionGalleryModal";
+import {
+  resolveMotionAssetUrl,
+  useFreezoneMotionCases,
+  useFreezoneMotionStyles,
+} from "@/features/canvas/hooks/useFreezoneMotionCases";
+import { MotionDraftDialog } from "@/components/episode/beat-workbench/motion-draft-dialog";
 import { isVideoModeSupportedByModel } from "@/features/canvas/nodes/shared/videoModelCapabilities";
 import {
   channelForDisplay,
@@ -4087,6 +4102,538 @@ function VideoReverseScriptPanel({ project }: { project: string }) {
   );
 }
 
+// [aipdd fork delta] 动效大片：两步一条链 —— ① 从案例图册挑一条分镜规格，让文本模型按
+// 本系统渲染契约先写 MG 页面、再由随包 Chrome 逐帧截图 + ffmpeg 编码成一镜成片；
+// ② 把项目里已渲染的成片按镜头顺序导成一盘剪映 10.2 草稿（拍点用页面自报的那份）。
+// 第①步里还挂着渲染契约第 4 条的预检：「先按拍点出静帧」用同一个包内 Chrome 逐拍截
+// 一张 PNG 摊在本页翻看（不编码、不配乐，所以缺 ffmpeg 也能用），检完再精修整片。
+// 整①步有两种页面来源：源码框里粘了/改了页面就渲那一页（不出网），框里空着才按所选
+// 案例让模型写页面 —— 预检与成片读同一份来源，改一处两边都跟着变。
+// 图册与草稿弹窗都用画布/分镜台的同一处实现，门禁与文案改一处即全站生效。
+// 依赖门禁分两处：整片在 render_preflight（Chrome + ffmpeg），预检在 stills_preflight
+// （只要求 Chrome）；缺依赖提交当场 409 说清缺什么，不排注定失败的任务。
+function MotionBlockbusterPanel({ project }: { project: string }) {
+  const { t } = useTranslation();
+  const { busy, run } = useSubmitting();
+  const motion = useFreezoneMotionCases(project);
+  const motionStyles = useFreezoneMotionStyles(project);
+  // 图册两个页签选中的条目互斥：后端把 case_id 与 style_id 当二选一，同时给会被
+  // 当场拒掉，所以这里也只允许留一个。
+  const [caseItem, setCaseItem] = useState<FreezoneMotionCase | null>(null);
+  const [styleItem, setStyleItem] = useState<FreezoneMotionStyle | null>(null);
+  const [casePrompt, setCasePrompt] = useState("");
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [title, setTitle] = useState("");
+  const [textModel, setTextModel] = useState("");
+  const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [resolution, setResolution] = useState<FreezoneVideoResolution>("720p");
+  const [fps, setFps] = useState(30);
+  const [duration, setDuration] = useState("");
+  const [maxStills, setMaxStills] = useState(24);
+  const [pageText, setPageText] = useState("");
+  const [sourceBusy, setSourceBusy] = useState(false);
+  const [draftOpen, setDraftOpen] = useState(false);
+  const stillsRun = useSubmitting();
+
+  const textModels = useFreezoneTextModels(project);
+  const defaultTextModel =
+    textModels.models.find((m) => m.isDefault) ?? textModels.models[0];
+
+  const poster = caseItem
+    ? resolveMotionAssetUrl(caseItem.cover, motion.assetBase)
+    : "";
+  // 选中的那条：两种图册都当成一页 MG 的规格来源，只是案例给分镜结构、画风给观感。
+  const selected = caseItem ?? styleItem;
+  const selectedTitle = title.trim() || selected?.label || "";
+
+  // 预检产物是一目录按拍点排好的 PNG：直接摊在本页翻看，不进资产库（它是检查用的
+  // 中间产物，不是交付物），所以事实来源取最近一次完成的静帧任务。
+  const { data: tasksData } = useTasks(project ? { project } : undefined);
+  const stillsTask = useMemo(() => {
+    const list = (tasksData?.data ?? []).filter(
+      (task) =>
+        task.task_type === "freezone_motion_stills" && task.status === "completed",
+    );
+    return (
+      [...list].sort(
+        (a, b) =>
+          (Date.parse(b.created_at ?? "") || 0) -
+          (Date.parse(a.created_at ?? "") || 0),
+      )[0] ?? null
+    );
+  }, [tasksData]);
+  const stillsResult =
+    stillsTask?.result && typeof stillsTask.result === "object"
+      ? (stillsTask.result as Record<string, unknown>)
+      : null;
+  const stills = Array.isArray(stillsResult?.stills)
+    ? (stillsResult.stills as Array<Record<string, unknown>>)
+    : [];
+  const stillsPageUrl =
+    typeof stillsResult?.page_url === "string" ? stillsResult.page_url : "";
+
+  // 「改完再渲一遍」的起点：最近一次预检/成片落在磁盘上的原始页面（不带我们的引导
+  // 脚本）。两类任务都读，取时间上更新的那条 —— 预检往往是刚跑的那一次。
+  const pageSourceUrl = useMemo(() => {
+    const list = (tasksData?.data ?? []).filter(
+      (task) =>
+        (task.task_type === "freezone_motion_stills" ||
+          task.task_type === "freezone_motion_render") &&
+        task.status === "completed",
+    );
+    const newest = [...list].sort(
+      (a, b) =>
+        (Date.parse(b.created_at ?? "") || 0) -
+        (Date.parse(a.created_at ?? "") || 0),
+    )[0];
+    const result =
+      newest?.result && typeof newest.result === "object"
+        ? (newest.result as Record<string, unknown>)
+        : null;
+    return typeof result?.page_source_url === "string"
+      ? result.page_source_url
+      : "";
+  }, [tasksData]);
+
+  const onLoadPageSource = async () => {
+    if (!pageSourceUrl) {
+      toast.error(t("tools.motionBlockbuster.noSourceToLoad"));
+      return;
+    }
+    setSourceBusy(true);
+    try {
+      // 静态目录里的页面是同源文件，直接读文本；不缓存，否则改完重载还是旧页面。
+      const response = await fetch(pageSourceUrl, { cache: "no-store" });
+      if (!response.ok) throw new Error(String(response.status));
+      setPageText(await response.text());
+    } catch {
+      toast.error(t("tools.motionBlockbuster.sourceLoadFailed"));
+    } finally {
+      setSourceBusy(false);
+    }
+  };
+
+  const onRender = () => {
+    // 源码框里有内容就渲那一页（不再出网让模型重写）；两边都空才要求先选图册条目。
+    const pasted = pageText.trim();
+    if (!selected && !pasted) {
+      toast.error(t("tools.motionBlockbuster.needCase"));
+      return;
+    }
+    // 一次提交出一镜成片：页面生成 + 逐帧渲染 + 编码 + 配乐都在同一个任务里跑完。
+    void run(1, () =>
+      submitFreezoneMotionRender(project, {
+        html: pasted || undefined,
+        // 案例与画风二选一：另一栏留空，后端同时收到两条会当场拒掉这一单。
+        caseId: caseItem?.id,
+        styleId: styleItem?.id,
+        subject: subject.trim(),
+        title: selectedTitle,
+        // 空 = 不传 model_text，走后端系统默认文本模型链。
+        modelText: textModel || undefined,
+        aspectRatio,
+        resolution,
+        fps,
+        durationS: duration.trim() === "" ? null : Number(duration),
+        // 工具页任务：产物完成后自动存入资产库「待分类资产」。
+        archiveToLibrary: true,
+        sourceTool: "motion-blockbuster",
+      }),
+    );
+  };
+
+  const onStills = () => {
+    const pasted = pageText.trim();
+    if (!selected && !pasted) {
+      toast.error(t("tools.motionBlockbuster.needCase"));
+      return;
+    }
+    // 预检与成片同源：同一条图册规格、同一画幅、同一份页面来源，只是不编码、不配乐。
+    void stillsRun.run(
+      1,
+      () =>
+        submitFreezoneMotionStills(project, {
+          html: pasted || undefined,
+          caseId: caseItem?.id,
+          styleId: styleItem?.id,
+          subject: subject.trim(),
+          modelText: textModel || undefined,
+          aspectRatio,
+          resolution,
+          maxStills,
+          sourceTool: "motion-blockbuster",
+        }),
+      "tools.motionBlockbuster.stillsSubmittedHint",
+    );
+  };
+
+  return (
+    <div className="space-y-5">
+      <section className="space-y-3">
+        <h3 className="font-heading text-xs font-semibold uppercase tracking-wide text-foreground">
+          {t("tools.motionBlockbuster.renderStep")}
+        </h3>
+        <div className="space-y-1.5">
+          <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            {t("tools.motionBlockbuster.case")}
+          </Label>
+          {selected ? (
+            <div className="flex items-start gap-3 rounded-lg border border-border bg-white/[0.02] p-2">
+              {caseItem && caseItem.posterReady && poster ? (
+                <img
+                  src={poster}
+                  alt={caseItem.label}
+                  className="size-16 shrink-0 rounded-md object-cover"
+                />
+              ) : styleItem ? (
+                <MotionStyleSwatch
+                  alt={styleItem.label}
+                  className="size-16 shrink-0 rounded-md"
+                  palette={styleItem.palette}
+                />
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-foreground">{selected.label}</p>
+                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                  {/* 案例给画幅与时长，画风只给观感：第二栏换成它的英文名。 */}
+                  {caseItem
+                    ? `${caseItem.category} · ${caseItem.resolution}${
+                        caseItem.durationSeconds ? ` · ${caseItem.durationSeconds}s` : ""
+                      }`
+                    : `${styleItem?.category ?? ""} · ${styleItem?.labelEn ?? ""}`}
+                </p>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+                  {selected.brief}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setGalleryOpen(true)}
+              >
+                {t("tools.motionBlockbuster.changeCase")}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setGalleryOpen(true)}
+            >
+              {t("tools.motionBlockbuster.openGallery")}
+            </Button>
+          )}
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t("tools.motionBlockbuster.caseHint")}
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            {t("tools.motionBlockbuster.sourceLabel")}
+          </Label>
+          <Textarea
+            rows={6}
+            value={pageText}
+            onChange={(e) => setPageText(e.target.value)}
+            spellCheck={false}
+            placeholder={t("tools.motionBlockbuster.sourcePlaceholder")}
+            className="font-mono text-[11px] leading-relaxed"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void onLoadPageSource()}
+              disabled={sourceBusy}
+            >
+              {t("tools.motionBlockbuster.sourceLoad")}
+            </Button>
+            {pageText ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setPageText("")}
+              >
+                {t("tools.motionBlockbuster.sourceClear")}
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t("tools.motionBlockbuster.sourceHint")}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            {t("tools.motionBlockbuster.subject")}
+          </Label>
+          <Textarea
+            rows={3}
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder={t("tools.motionBlockbuster.subjectPlaceholder")}
+          />
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t("tools.motionBlockbuster.subjectHint")}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            <span>{t("tools.motionBlockbuster.titleLabel")}</span>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t("tools.motionBlockbuster.titlePlaceholder")}
+              className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+            />
+          </label>
+          <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            <span>{t("tools.motionBlockbuster.duration")}</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              placeholder={t("tools.motionBlockbuster.durationPlaceholder")}
+              className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+            />
+          </label>
+        </div>
+        <div className="space-y-1">
+          <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            {t("tools.motionBlockbuster.textModel")}
+          </Label>
+          <ModelSelect
+            value={textModel}
+            onChange={setTextModel}
+            ariaLabel={t("tools.motionBlockbuster.textModel")}
+            groups={[
+              {
+                options: [
+                  {
+                    value: "",
+                    label: defaultTextModel
+                      ? t("tools.common.modelDefault", {
+                          model: displayModelName(
+                            defaultTextModel.label,
+                            defaultTextModel.channel,
+                          ),
+                        })
+                      : t("tools.motionBlockbuster.textModelAuto"),
+                    ...(defaultTextModel
+                      ? { channel: channelForDisplay(defaultTextModel) }
+                      : {}),
+                  },
+                  ...textModels.models.map((m) => ({
+                    value: m.id,
+                    label: displayModelName(m.label, m.channel),
+                    channel: channelForDisplay(m),
+                  })),
+                ],
+              },
+            ]}
+          />
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t("tools.motionBlockbuster.textModelHint")}
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            <span>{t("tools.motionBlockbuster.aspect")}</span>
+            <select
+              value={aspectRatio}
+              onChange={(e) => setAspectRatio(e.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+            >
+              {[...MOTION_ASPECT_RATIOS].map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            <span>{t("tools.motionBlockbuster.resolution")}</span>
+            <select
+              value={resolution}
+              onChange={(e) =>
+                setResolution(e.target.value as FreezoneVideoResolution)
+              }
+              className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+            >
+              <option value="720p">720p</option>
+              <option value="1080p">1080p</option>
+            </select>
+          </label>
+          <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            <span>{t("tools.motionBlockbuster.fps")}</span>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              step={1}
+              value={fps}
+              onChange={(e) => setFps(Number(e.target.value))}
+              className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+            />
+          </label>
+        </div>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.motionBlockbuster.fpsHint")}
+        </p>
+        {casePrompt ? (
+          <details className="rounded-lg border border-border bg-white/[0.02] p-2">
+            <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground">
+              {t(
+                styleItem
+                  ? "tools.motionBlockbuster.promptPreviewStyle"
+                  : "tools.motionBlockbuster.promptPreview",
+              )}
+            </summary>
+            <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-muted-foreground">
+              {casePrompt}
+            </pre>
+          </details>
+        ) : null}
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+            <span>{t("tools.motionBlockbuster.maxStills")}</span>
+            <input
+              type="number"
+              min={1}
+              max={120}
+              step={1}
+              value={maxStills}
+              onChange={(e) => setMaxStills(Number(e.target.value))}
+              className="h-8 w-20 rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+            />
+          </label>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onStills}
+            disabled={stillsRun.busy}
+          >
+            {t("tools.motionBlockbuster.stillsButton")}
+          </Button>
+          <SubmitButton busy={busy} onClick={onRender}>
+            {t("tools.motionBlockbuster.submit")}
+          </SubmitButton>
+        </div>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.motionBlockbuster.stillsHint")}
+        </p>
+        {stills.length ? (
+          <div className="space-y-2 rounded-lg border border-border bg-white/[0.02] p-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-medium text-foreground">
+                {t("tools.motionBlockbuster.stillsResultTitle", { n: stills.length })}
+              </p>
+              {stillsPageUrl ? (
+                <a
+                  className="text-[11px] text-primary hover:underline"
+                  href={stillsPageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t("tools.motionBlockbuster.stillsOpenPage")}
+                </a>
+              ) : null}
+            </div>
+            {stillsResult?.beat_grid === true ? (
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                {t("tools.motionBlockbuster.stillsBeatGrid")}
+              </p>
+            ) : null}
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {stills.map((still, index) => (
+                <figure key={index} className="min-w-0 space-y-1">
+                  <img
+                    src={String(still.url ?? "")}
+                    alt={t("tools.motionBlockbuster.stillsAlt", {
+                      at: Number(still.at_seconds ?? 0).toFixed(2),
+                    })}
+                    loading="lazy"
+                    className="aspect-video w-full rounded-md border border-border object-cover"
+                  />
+                  <figcaption className="truncate text-[10px] text-muted-foreground">
+                    {Number(still.at_seconds ?? 0).toFixed(2)}s
+                    {still.event_type ? ` · ${String(still.event_type)}` : ""}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="space-y-2 border-t border-border/40 pt-4">
+        <h3 className="font-heading text-xs font-semibold uppercase tracking-wide text-foreground">
+          {t("tools.motionBlockbuster.draftStep")}
+        </h3>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.motionBlockbuster.draftHint")}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setDraftOpen(true)}
+        >
+          {t("tools.motionBlockbuster.draftButton")}
+        </Button>
+      </section>
+
+      {galleryOpen ? (
+        <MotionGalleryModal
+          cases={motion.cases}
+          categories={motion.categories}
+          methods={motion.methods}
+          renderContract={motion.renderContract}
+          assetBase={motion.assetBase}
+          project={project}
+          applyLabelKey="tools.motionBlockbuster.useCase"
+          onApply={(prompt, item) => {
+            // 「填入」= 选定这一条作为页面规格：案例与画风各占一栏，另一栏清空。
+            if (item.kind === "style") {
+              setStyleItem(motionStyles.styles.find((style) => style.id === item.id) ?? null);
+              setCaseItem(null);
+            } else {
+              setCaseItem(motion.cases.find((entry) => entry.id === item.id) ?? null);
+              setStyleItem(null);
+            }
+            setCasePrompt(prompt);
+            setGalleryOpen(false);
+          }}
+          isLoading={motion.isLoading}
+          error={motion.error}
+          onRetry={motion.retry}
+          styles={motionStyles.styles}
+          styleCategories={motionStyles.categories}
+          styleLoading={motionStyles.isLoading}
+          styleError={motionStyles.error}
+          onStyleRetry={motionStyles.retry}
+          onClose={() => setGalleryOpen(false)}
+        />
+      ) : null}
+      <MotionDraftDialog
+        open={draftOpen}
+        onOpenChange={setDraftOpen}
+        project={project}
+        episode={0}
+        beats={[]}
+        defaultName={t("tools.motionBlockbuster.draftDefaultName")}
+      />
+    </div>
+  );
+}
+
 function OmniPanel({
   project,
   tool,
@@ -4333,6 +4880,10 @@ export function ToolsPage({ project }: { project: string }) {
             </div>
             {active === "video-clone" ? <VideoClonePanel project={project} /> : null}
             {active === "video-mix" ? <VideoMixPanel project={project} /> : null}
+            {/* [aipdd fork delta] 动效大片：按案例图册渲染 MG 成片 + 导出剪映草稿。 */}
+            {active === "motion-blockbuster" ? (
+              <MotionBlockbusterPanel project={project} />
+            ) : null}
             {active === "whiteboard-animation" ? (
               <WhiteboardAnimationPanel project={project} />
             ) : null}

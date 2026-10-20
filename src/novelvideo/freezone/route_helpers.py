@@ -21,7 +21,19 @@ from novelvideo.api.schemas import (
     FreezoneRelightRequest,
     FreezoneTemplateEditRequest,
 )
+from novelvideo.catalog import prompt_library
 from novelvideo.config import IMAGE_GENERATION_SELECTIONS
+from novelvideo.freezone.motion_styles import (
+    compose_motion_style_prompt,
+    load_motion_style_manifest,
+    motion_style_prompt_key,
+)
+from novelvideo.freezone.motion_templates import (
+    compose_motion_prompt,
+    get_motion_manifest_version,
+    load_motion_manifest,
+    motion_prompt_key,
+)
 from novelvideo.freezone.paths import resolve_static_url_to_path, safe_upload_filename, uploads_dir
 from novelvideo.freezone.style_templates import (
     get_style_manifest_version,
@@ -142,10 +154,70 @@ def get_freezone_image_style_asset_base() -> str:
     return "/api/v1/style-gallery"
 
 
+def get_freezone_motion_manifest() -> dict:
+    """动效大片整份图册（案例 + 方法 + 分类顺序 + 渲染契约）。"""
+    return load_motion_manifest()
+
+
+def get_freezone_motion_manifest_version() -> str:
+    return get_motion_manifest_version()
+
+
+def get_freezone_motion_asset_base() -> str:
+    """海报/原片素材的地址前缀，前端按 `<前缀>/<清单里的相对路径>` 拼绝对地址。
+
+    和画风图册的 `STYLE_GALLERY_ASSET_BASE` 同一思路：海报（几 MB）随包发布、
+    走本地托管端点；原片（37 条合计 ~0.7 GB）不进安装包，由运维放到 OSS/CDN
+    或本地缓存目录后用这个变量指过去。留空时指向本地按需下载缓存的托管端点
+    `/api/v1/motion-gallery`，没下载过的原片 404 → 前端只显示海报，不影响
+    取用提示词。
+    """
+    base = os.environ.get("MOTION_GALLERY_ASSET_BASE", "").strip()
+    if base:
+        return base
+    return "/api/v1/motion-gallery"
+
+
+def get_freezone_motion_style_manifest() -> dict:
+    """画风图册整份清单（风格、分类顺序、出处）。"""
+    return load_motion_style_manifest()
+
+
+def build_freezone_motion_style_prompt(style_id: str) -> str:
+    """风格规格 + 本系统渲染契约，拼成一条可直接使用的提示词。
+
+    与案例同一套口径：风格条目按清单登记进提示词库（``motion-style.<style_id>``），
+    这里读库的生效值，超管改过这条风格就跟着变；库里没有（外部清单刚换、还没生成）
+    时回落到现拼。契约本身只在案例清单存一份，由 compose 去接。
+    """
+    try:
+        text = prompt_library.get_prompt_text(motion_style_prompt_key(style_id))
+    except KeyError:
+        return compose_motion_style_prompt(style_id)
+    if not text.strip():  # pragma: no cover - 库内空覆盖会被当默认处理
+        return compose_motion_style_prompt(style_id)
+    return text.rstrip() + "\n"
+
+
+def build_freezone_motion_prompt(case_id: str) -> str:
+    """案例分镜规格 + 本系统渲染契约，拼成一条可直接使用的提示词。
+
+    案例条目已按清单登记进提示词库（``motion.<case_id>``），所以这里读的是库的
+    生效值 —— 超管在「设置→提示词库」改了某条动效提示词，图册与渲染任务要立刻
+    拿到改后的文字。未登记（清单是外部换的、库里还没生成）时回落到现拼。
+    """
+    try:
+        text = prompt_library.get_prompt_text(motion_prompt_key(case_id))
+    except KeyError:
+        return compose_motion_prompt(case_id)
+    if not text.strip():  # pragma: no cover - 库内空覆盖会被当默认处理
+        return compose_motion_prompt(case_id)
+    return text.rstrip() + "\n"
+
+
 def build_camera_prompt(camera: Optional[FreezoneImageCameraConfig]) -> str:
     if camera is None:
         return ""
-
     parts: list[str] = []
     if str(camera.camera_body or "").strip():
         parts.append(str(camera.camera_body).strip())

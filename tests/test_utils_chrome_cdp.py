@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from novelvideo.utils.chrome_cdp import browsable_cdp_url
+from novelvideo.utils.chrome_cdp import browsable_cdp_url, default_cdp_url
 
 
 def test_localhost_and_ip_urls_keep_as_is() -> None:
@@ -54,3 +54,13 @@ def test_blank_and_malformed_input() -> None:
     assert browsable_cdp_url("   ") == ""
     # 无主机名的相对串不猜测、原样返回。
     assert browsable_cdp_url("/json/version") == "/json/version"
+
+
+def test_default_cdp_url_depends_on_deployment(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 桌面版（exe/dmg）：Chrome 与后端同机，直连回环，不绕宿主别名。
+    monkeypatch.setattr("novelvideo.utils.chrome_cdp.in_container", lambda: False)
+    assert default_cdp_url() == "http://127.0.0.1:9222"
+
+    # 容器：回环指向容器自身，必须走宿主别名。
+    monkeypatch.setattr("novelvideo.utils.chrome_cdp.in_container", lambda: True)
+    assert default_cdp_url() == "http://host.docker.internal:9222"

@@ -986,61 +986,84 @@ class TaskStateManager:
         queue_kind: str | None = None,
     ):
         expected_task_id = expected_task_id or _CURRENT_PROJECT_TASK_ID.get()
-        state = self.get_task_for_project(ctx, task_type, episode, beat_num, scope)
-        if not state:
-            if expected_task_id:
-                logger.warning(
-                    "Ignore stale project task update for missing row: "
-                    "%s/%s/%s expected_task_id=%s scope=%s",
-                    task_type,
-                    ctx.project_id,
-                    episode,
-                    expected_task_id,
-                    scope,
+        task_key = project_task_state_key(
+            task_type,
+            ctx.project_id,
+            episode,
+            beat_num=beat_num,
+            scope=scope,
+        )
+        # 读-改-写必须在同一 BEGIN IMMEDIATE 事务里：否则与取消/开始执行的
+        # 反向 CAS 交错时，这里会把 cancelled 冲回 running（丢失更新）。
+        with self._connect_context(ctx) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM task_states WHERE task_key = ? AND project_id = ?",
+                (task_key, ctx.project_id),
+            ).fetchone()
+            if row is not None and self._is_expired(row["expires_at"]):
+                conn.execute(
+                    "DELETE FROM task_states WHERE task_key = ? AND project_id = ?",
+                    (task_key, ctx.project_id),
                 )
+                row = None
+            if row is not None:
+                state = self._row_to_state(row)
+                if expected_task_id and state.task_id != expected_task_id:
+                    logger.warning(
+                        "Ignore stale project task update: %s/%s/%s expected_task_id=%s current_task_id=%s",
+                        task_type,
+                        ctx.project_id,
+                        episode,
+                        expected_task_id,
+                        state.task_id,
+                    )
+                    return
+                if state.status in TERMINAL_TASK_STATUSES:
+                    logger.warning(
+                        "Ignore progress update for terminal project task: %s/%s/%s status=%s",
+                        task_type,
+                        ctx.project_id,
+                        episode,
+                        state.status,
+                    )
+                    return
+
+                state.status = status
+                if status in {"completed", "failed", "cancelled"} and not state.completed_at:
+                    state.completed_at = utc_now_iso()
+                if progress is not None:
+                    state.progress = progress
+                self._apply_progress_message(state, current_task, logs)
+                if metadata is not None:
+                    state.metadata = self._merge_task_metadata(state.metadata, metadata)
+                    state.result = self._merge_metadata_into_result(state.result, state.metadata)
+                state.updated_at = utc_now_iso()
+                ttl = self.COMPLETED_TTL if status in TERMINAL_TASK_STATUSES else None
+                self._save_on_connection(conn, task_key, state, compute_expiry(ttl))
                 return
-            state = self.create_task_for_project(
-                ctx,
-                task_type,
-                episode,
-                beat_num,
-                scope,
-                metadata=metadata,
-                status=status,
-                queue_kind=_queue_kind_from_metadata(metadata, queue_kind),
-            )
-        if expected_task_id and state.task_id != expected_task_id:
+
+        if expected_task_id:
             logger.warning(
-                "Ignore stale project task update: %s/%s/%s expected_task_id=%s current_task_id=%s",
+                "Ignore stale project task update for missing row: "
+                "%s/%s/%s expected_task_id=%s scope=%s",
                 task_type,
                 ctx.project_id,
                 episode,
                 expected_task_id,
-                state.task_id,
+                scope,
             )
             return
-        if state.status in TERMINAL_TASK_STATUSES:
-            logger.warning(
-                "Ignore progress update for terminal project task: %s/%s/%s status=%s",
-                task_type,
-                ctx.project_id,
-                episode,
-                state.status,
-            )
-            return
-
-        state.status = status
-        if status in {"completed", "failed", "cancelled"} and not state.completed_at:
-            state.completed_at = utc_now_iso()
-        if progress is not None:
-            state.progress = progress
-        self._apply_progress_message(state, current_task, logs)
-        if metadata is not None:
-            state.metadata = self._merge_task_metadata(state.metadata, metadata)
-            state.result = self._merge_metadata_into_result(state.result, state.metadata)
-        state.updated_at = utc_now_iso()
-        ttl = self.COMPLETED_TTL if status in TERMINAL_TASK_STATUSES else None
-        self._save_for_context(ctx, state, ttl=ttl)
+        self.create_task_for_project(
+            ctx,
+            task_type,
+            episode,
+            beat_num,
+            scope,
+            metadata=metadata,
+            status=status,
+            queue_kind=_queue_kind_from_metadata(metadata, queue_kind),
+        )
 
     def complete_task(
         self,
@@ -1116,60 +1139,103 @@ class TaskStateManager:
         queue_kind: str | None = None,
     ) -> bool:
         expected_task_id = expected_task_id or _CURRENT_PROJECT_TASK_ID.get()
-        state = self.get_task_for_project(ctx, task_type, episode, beat_num, scope)
-        if not state:
-            if expected_task_id:
-                logger.warning(
-                    "Ignore stale project task complete for missing row: "
-                    "%s/%s/%s expected_task_id=%s scope=%s",
-                    task_type,
-                    ctx.project_id,
-                    episode,
-                    expected_task_id,
-                    scope,
+        task_key = project_task_state_key(
+            task_type,
+            ctx.project_id,
+            episode,
+            beat_num=beat_num,
+            scope=scope,
+        )
+
+        def _apply(state: TaskState) -> None:
+            state.status = "completed"
+            state.progress = 1.0 if progress is None else progress
+            self._apply_progress_message(state, current_task, logs)
+            merged_metadata = self._merge_task_metadata(state.metadata, metadata)
+            state.result = self._merge_metadata_into_result(result, merged_metadata)
+            state.error = None
+            if merged_metadata is not None:
+                state.metadata = merged_metadata
+            state.completed_at = utc_now_iso()
+            state.updated_at = utc_now_iso()
+
+        # 与 update_progress_for_project 同理：读-改-写收进同一个写事务，
+        # 取消（cancelled）与完成不能互相覆盖。
+        with self._connect_context(ctx) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM task_states WHERE task_key = ? AND project_id = ?",
+                (task_key, ctx.project_id),
+            ).fetchone()
+            if row is not None and self._is_expired(row["expires_at"]):
+                conn.execute(
+                    "DELETE FROM task_states WHERE task_key = ? AND project_id = ?",
+                    (task_key, ctx.project_id),
                 )
-                return False
-            state = self.create_task_for_project(
-                ctx,
-                task_type,
-                episode,
-                beat_num,
-                scope,
-                metadata=metadata,
-                queue_kind=_queue_kind_from_metadata(metadata, queue_kind),
-            )
-        if expected_task_id and state.task_id != expected_task_id:
+                row = None
+            if row is not None:
+                state = self._row_to_state(row)
+                if expected_task_id and state.task_id != expected_task_id:
+                    logger.warning(
+                        "Ignore stale project task complete: "
+                        "%s/%s/%s expected_task_id=%s current_task_id=%s",
+                        task_type,
+                        ctx.project_id,
+                        episode,
+                        expected_task_id,
+                        state.task_id,
+                    )
+                    return False
+                if state.status == "cancelled":
+                    logger.warning(
+                        "Ignore complete update for cancelled project task: %s/%s/%s",
+                        task_type,
+                        ctx.project_id,
+                        episode,
+                    )
+                    return False
+                _apply(state)
+                self._save_on_connection(conn, task_key, state, compute_expiry(self.COMPLETED_TTL))
+                logger.info(
+                    "Project task completed: %s/%s/%s", task_type, ctx.project_id, episode
+                )
+                return True
+
+        if expected_task_id:
             logger.warning(
-                "Ignore stale project task complete: "
-                "%s/%s/%s expected_task_id=%s current_task_id=%s",
+                "Ignore stale project task complete for missing row: "
+                "%s/%s/%s expected_task_id=%s scope=%s",
                 task_type,
                 ctx.project_id,
                 episode,
                 expected_task_id,
-                state.task_id,
+                scope,
             )
             return False
-        if state.status == "cancelled":
-            logger.warning(
-                "Ignore complete update for cancelled project task: %s/%s/%s",
-                task_type,
-                ctx.project_id,
-                episode,
+        state = self.create_task_for_project(
+            ctx,
+            task_type,
+            episode,
+            beat_num,
+            scope,
+            metadata=metadata,
+            queue_kind=_queue_kind_from_metadata(metadata, queue_kind),
+        )
+        with self._connect_context(ctx) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM task_states WHERE task_key = ? AND project_id = ?",
+                (task_key, ctx.project_id),
+            ).fetchone()
+            if row is None or row["task_id"] != state.task_id:
+                return False
+            created = self._row_to_state(row)
+            _apply(created)
+            self._save_on_connection(conn, task_key, created, compute_expiry(self.COMPLETED_TTL))
+            logger.info(
+                "Project task completed: %s/%s/%s", task_type, ctx.project_id, episode
             )
-            return False
-        state.status = "completed"
-        state.progress = 1.0 if progress is None else progress
-        self._apply_progress_message(state, current_task, logs)
-        merged_metadata = self._merge_task_metadata(state.metadata, metadata)
-        state.result = self._merge_metadata_into_result(result, merged_metadata)
-        state.error = None
-        if merged_metadata is not None:
-            state.metadata = merged_metadata
-        state.completed_at = utc_now_iso()
-        state.updated_at = utc_now_iso()
-        self._save_for_context(ctx, state, ttl=self.COMPLETED_TTL)
-        logger.info("Project task completed: %s/%s/%s", task_type, ctx.project_id, episode)
-        return True
+            return True
 
     def fail_task(
         self,
@@ -1236,65 +1302,108 @@ class TaskStateManager:
         queue_kind: str | None = None,
     ):
         expected_task_id = expected_task_id or _CURRENT_PROJECT_TASK_ID.get()
-        state = self.get_task_for_project(ctx, task_type, episode, beat_num, scope)
-        if not state:
-            if expected_task_id:
+        task_key = project_task_state_key(
+            task_type,
+            ctx.project_id,
+            episode,
+            beat_num=beat_num,
+            scope=scope,
+        )
+
+        def _apply(state: TaskState) -> None:
+            state.status = "failed"
+            if error is not None:
+                state.error = error
+            if progress is not None:
+                state.progress = progress
+            self._apply_progress_message(state, current_task, logs)
+            if metadata is not None:
+                state.metadata = self._merge_task_metadata(state.metadata, metadata)
+                state.result = self._merge_metadata_into_result(state.result, state.metadata)
+            state.completed_at = utc_now_iso()
+            state.updated_at = utc_now_iso()
+
+        with self._connect_context(ctx) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM task_states WHERE task_key = ? AND project_id = ?",
+                (task_key, ctx.project_id),
+            ).fetchone()
+            if row is not None and self._is_expired(row["expires_at"]):
+                conn.execute(
+                    "DELETE FROM task_states WHERE task_key = ? AND project_id = ?",
+                    (task_key, ctx.project_id),
+                )
+                row = None
+            if row is not None:
+                state = self._row_to_state(row)
+                if expected_task_id and state.task_id != expected_task_id:
+                    logger.warning(
+                        "Ignore stale project task fail: %s/%s/%s expected_task_id=%s current_task_id=%s",
+                        task_type,
+                        ctx.project_id,
+                        episode,
+                        expected_task_id,
+                        state.task_id,
+                    )
+                    return
+                if state.status == "cancelled":
+                    logger.warning(
+                        "Ignore fail update for cancelled project task: %s/%s/%s",
+                        task_type,
+                        ctx.project_id,
+                        episode,
+                    )
+                    return
+                _apply(state)
+                self._save_on_connection(conn, task_key, state, compute_expiry(self.COMPLETED_TTL))
                 logger.warning(
-                    "Ignore stale project task fail for missing row: "
-                    "%s/%s/%s expected_task_id=%s scope=%s",
+                    "Project task failed: %s/%s/%s: %s",
                     task_type,
                     ctx.project_id,
                     episode,
-                    expected_task_id,
-                    scope,
+                    error,
                 )
                 return
-            state = self.create_task_for_project(
-                ctx,
-                task_type,
-                episode,
-                beat_num,
-                scope,
-                metadata=metadata,
-                queue_kind=_queue_kind_from_metadata(metadata, queue_kind),
-            )
-        if expected_task_id and state.task_id != expected_task_id:
+
+        if expected_task_id:
             logger.warning(
-                "Ignore stale project task fail: %s/%s/%s expected_task_id=%s current_task_id=%s",
+                "Ignore stale project task fail for missing row: "
+                "%s/%s/%s expected_task_id=%s scope=%s",
                 task_type,
                 ctx.project_id,
                 episode,
                 expected_task_id,
-                state.task_id,
+                scope,
             )
             return
-        if state.status == "cancelled":
+        state = self.create_task_for_project(
+            ctx,
+            task_type,
+            episode,
+            beat_num,
+            scope,
+            metadata=metadata,
+            queue_kind=_queue_kind_from_metadata(metadata, queue_kind),
+        )
+        with self._connect_context(ctx) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM task_states WHERE task_key = ? AND project_id = ?",
+                (task_key, ctx.project_id),
+            ).fetchone()
+            if row is None or row["task_id"] != state.task_id:
+                return
+            created = self._row_to_state(row)
+            _apply(created)
+            self._save_on_connection(conn, task_key, created, compute_expiry(self.COMPLETED_TTL))
             logger.warning(
-                "Ignore fail update for cancelled project task: %s/%s/%s",
+                "Project task failed: %s/%s/%s: %s",
                 task_type,
                 ctx.project_id,
                 episode,
+                error,
             )
-            return
-        state.status = "failed"
-        if error is not None:
-            state.error = error
-        if progress is not None:
-            state.progress = progress
-        self._apply_progress_message(state, current_task, logs)
-        if metadata is not None:
-            state.metadata = self._merge_task_metadata(state.metadata, metadata)
-            state.result = self._merge_metadata_into_result(state.result, state.metadata)
-        state.completed_at = utc_now_iso()
-        state.updated_at = utc_now_iso()
-        self._save_for_context(ctx, state, ttl=self.COMPLETED_TTL)
-        logger.warning(
-            "Project task failed: %s/%s/%s: %s",
-            task_type,
-            ctx.project_id,
-            episode,
-            error,
-        )
 
     def get_task(
         self,

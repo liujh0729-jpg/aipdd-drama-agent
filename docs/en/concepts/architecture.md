@@ -77,6 +77,21 @@ No external database is required.
 
 All text / image / video / audio models are reached through a single **OpenAI-compatible gateway** (LocalNewAPI or an official key); see [Configuring Model Providers](../getting-started/configuring-models.md) for details.
 
+## Motion Feature Film (MG) Pipeline
+
+Three self-written modules under `freezone/` form a fully local render line — no external editing service, no stock footage:
+
+| Module | Responsibility |
+|---|---|
+| `motion_templates` / `motion_media` | The 37-case gallery catalog (bundled `motion_templates.json` + posters) and **on-demand original caching** (`MOTION_GALLERY_ASSET_BASE` / `MOTION_GALLERY_MIRROR`) |
+| `motion_render` (`page` / `chrome` / `capturer` / `encoder` / `pipeline`) | Validates the animated page the model writes against this system's render contract (`window.render(t)` / `window.DUR` / `window.EV`), injects a deterministic clock, captures it frame by frame through CDP with the bundled Chrome, and pipes the PNG stream straight into ffmpeg (`image2pipe`, no frames on disk); the encoder is chosen from a live `-encoders` probe, never hardcoded |
+| `motion_audio` | Infers the beat grid from `window.EV` (median inter-onset interval, octave-folded into 45–180 BPM, phase aligned onto the action), synthesizes the score in numpy, normalizes it with two-pass `loudnorm` to **-14 LUFS / true peak ≤ -1 dBTP**, then muxes with `-c:v copy` |
+| `motion_draft` | A from-scratch Jianying / CapCut 10.2 draft writer: root `draft_content.json` **plus** `Timelines/<uuid>/` and the mirrors, integer microseconds, video / narration / BGM on separate tracks (segments on one track may not overlap), `.locked` cleared |
+
+The `*.motion.json` sidecar written next to each render records the beat grid and the audio engine verdict, and is the single source of truth for draft export. The desktop app relies on `resources/bin/` (ffmpeg, optionally Chrome); see [desktop/README.md](../../../desktop/README.md).
+
+Every delivery chain shares one encoder resolver: `src/novelvideo/video_encoder.py` probes `ffmpeg -encoders` locally and takes the first usable H.264 implementation from `libx264 → h264_videotoolbox → h264_mf → libopenh264` (x264 gets CRF, the rest get a bitrate). MG's `motion_render/encoder.py`, the episode composer and the `jobs.py` one-tap tools all take their `-c:v` from there, so the bundled LGPL build (no x264) cannot break any of them; trade-offs and exceptions in the [ffmpeg guide](../guides/ffmpeg.md).
+
 ## Tech Stack
 
 Python + FastAPI (REST API, `:8780`) · CLI `novelvideo` · React frontend · Docker Compose self-hosting.

@@ -42,6 +42,7 @@ from novelvideo.freezone.explainer import (
     ExplainerTimeline,
 )
 from novelvideo.freezone.whiteboard import resolve_cjk_font_path
+from novelvideo.video_encoder import video_encode_args
 
 # --------------------------------------------------------------------------- #
 # 设计坐标（1280×720）与安全区：所有几何先按设计坐标写，再统一缩放到画布。
@@ -1533,12 +1534,7 @@ def _build_encoder_command(
     else:
         command += ["-an"]
     command += [
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-crf",
-        "18",
+        *video_encode_args(crf="18"),
         "-pix_fmt",
         "yuv420p",
         "-movflags",

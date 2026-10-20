@@ -1,5 +1,6 @@
 ---
 name: vectcut
+agent: true
 description: "Use when the user asks to edit/cut/assemble existing media into a Jianying (剪映) / CapCut draft — 剪辑、剪映草稿、CapCut、时间线、拼接、把素材拼成视频、给草稿加字幕/配音/配乐/贴纸/特效/关键帧、把画布产物做成剪映草稿、我剪一下/拼一下/合成一个草稿. Also use when the user asks which editing options exist (转场/蒙版/动画/特效名称) before assembling. Do NOT use for pipeline generation (草图/首帧/配音生成/成片合成) — that belongs to the dramaclaw skill."
 compatibility: Requires the VectCut editing service reachable at VECTCUT_BASE_URL (no built-in default: docker compose injects http://vectcut:9001; a host-run service started by scripts/start-vectcut.sh is usually http://127.0.0.1:9001). Start it with scripts/start-vectcut.sh, or with docker compose -f docker-compose.aipdd.yml --profile vectcut up -d vectcut.
 requires:

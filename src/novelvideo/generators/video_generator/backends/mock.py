@@ -8,6 +8,7 @@ import os
 
 from novelvideo.generators import video_generator as _video_generator
 from novelvideo.task_backend.cancel import TaskCancelled, TaskTimedOut
+from novelvideo.video_encoder import video_encode_args
 
 from ..models import VideoGenResult, VideoGenStatus, VideoGeneratorBase
 
@@ -95,10 +96,7 @@ class MockVideoGenerator(VideoGeneratorBase):
                 video_filter,
                 "-t",
                 str(duration),
-                "-c:v",
-                "libx264",
-                "-preset",
-                "fast",
+                *video_encode_args(preset="fast"),
                 "-pix_fmt",
                 "yuv420p",
                 "-an",  # 无音频

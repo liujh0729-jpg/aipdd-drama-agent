@@ -702,15 +702,21 @@ def test_render_copywrite_file_omits_model_line_for_subtitle_fallback() -> None:
 
 
 def test_chrome_cdp_url_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    # [aipdd fork delta] 默认值与 compose 注入保持一致；环境变量可覆盖，
-    # 主机名形式在交给 CDP 前解析成宿主可达 IP（Chrome 只接受 IP / localhost 的 Host 头）。
+    # [aipdd fork delta] 默认值随部署形态（容器走宿主别名、本机走回环）；
+    # 环境变量可覆盖，主机名形式在交给 CDP 前解析成宿主可达 IP
+    # （Chrome 只接受 IP / localhost 的 Host 头）。
     monkeypatch.setenv(module._CHROME_CDP_URL_ENV, "http://127.0.0.1:9333")
     assert module.chrome_cdp_url() == "http://127.0.0.1:9333"
+
+    monkeypatch.delenv(module._CHROME_CDP_URL_ENV, raising=False)
+    monkeypatch.setattr("novelvideo.utils.chrome_cdp.in_container", lambda: False)
+    assert module.chrome_cdp_url() == "http://127.0.0.1:9222"
+
+    monkeypatch.setattr("novelvideo.utils.chrome_cdp.in_container", lambda: True)
     monkeypatch.setattr(
         "novelvideo.utils.chrome_cdp.socket.gethostbyname",
         lambda _host: "192.168.65.254",
     )
-    monkeypatch.delenv(module._CHROME_CDP_URL_ENV, raising=False)
     assert module.chrome_cdp_url() == "http://192.168.65.254:9222"
 
 

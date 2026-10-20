@@ -13,8 +13,29 @@ Chrome 的 DevTools HTTP 端点会校验 Host 头：只接受 IP 或 localhost�
 from __future__ import annotations
 
 import ipaddress
+import os
 import socket
 from urllib.parse import urlsplit, urlunsplit
+
+DEFAULT_CDP_PORT = 9222
+
+
+def in_container() -> bool:
+    """当前进程是否跑在容器里（Docker / Podman）。"""
+
+    return os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv")
+
+
+def default_cdp_url() -> str:
+    """Chrome 调试端口的默认地址：容器走宿主别名，本机（exe/dmg）走回环。
+
+    桌面版把 Chrome 与后端跑在同一台机器上：``host.docker.internal`` 在本机
+    既解析不到、也没有理由绕一圈；容器里则相反——回环指向容器自身而非宿主的
+    Chrome，必须走宿主别名。
+    """
+
+    host = "host.docker.internal" if in_container() else "127.0.0.1"
+    return f"http://{host}:{DEFAULT_CDP_PORT}"
 
 
 def browsable_cdp_url(url: str) -> str:

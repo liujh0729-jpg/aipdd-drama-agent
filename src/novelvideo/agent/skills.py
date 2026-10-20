@@ -18,6 +18,12 @@
 - 单个 markdown 文件（frontmatter 里写 name / description）；
 - zip 包（含 SKILL.md，可带附件；允许一个顶层目录包裹）。
 
+内置技能：仓库 ``.hermes/skills/<name>/`` 是项目级技能源（Hermes 后端也直接使用）。
+只有 frontmatter 显式声明 ``agent: true`` 的技能才进入 Agent 面板与 ``agent_load_skill``
+——``dramaclaw`` 这类只服务 Hermes 的旧技能不会污染 Agent 的工具口径。内置技能
+只读（可停用、不可删除）；用户安装同名技能时覆盖内置版本。任何技能都可导出 zip
+（``skill_zip_bytes``），供界面「查看 / 下载」使用。
+
 启停状态存 ``skills_disabled``（settings kv，JSON 数组）：禁用的技能不进摘要、
 也不可加载，但文件保留。本模块不做任何网络访问，纯本地文件操作。
 """
@@ -26,8 +32,10 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import re
 import shutil
+import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -44,6 +52,9 @@ ZIP_MAX_MEMBERS = 256  # zip 成员数上限
 SKILL_BODY_PROMPT_MAX_CHARS = 32000  # 载入正文注入模型上下文时的截断
 SKILL_NAME_MAX_LEN = 64
 DISABLED_KEY = "skills_disabled"
+BUILTIN_SKILLS_ENV = "AGENT_BUILTIN_SKILLS_DIR"
+BUILTIN_AGENT_FLAG = "agent"  # frontmatter `agent: true` 才进入 Agent 面板
+SKILL_FILES_MAX = 200  # 面板详情/files 字段枚举上限（导出按安装上限单独校验）
 
 # 技能名规则：小写字母/数字开头，允许中划线与下划线（与目录名一一对应）。
 _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-_]{0,63}$")
@@ -51,6 +62,14 @@ _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-_]{0,63}$")
 
 class SkillError(ValueError):
     """技能安装/解析失败（消息面向用户可读）。"""
+
+
+class SkillNotFoundError(SkillError):
+    """技能不存在（HTTP 映射 404）。"""
+
+
+class SkillTooLargeError(SkillError):
+    """上传/导出超过体积、数量上限（HTTP 映射 413）。"""
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -84,8 +103,10 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
 def parse_skill_document(text: str, *, fallback_name: str = "") -> dict[str, Any]:
     """把一份 SKILL.md 文本解析成 {name, description, body}。"""
     meta, body = _parse_frontmatter(text)
+    name = str(meta.get("name") or fallback_name or "").strip()
     return {
-        "name": str(meta.get("name") or fallback_name or "").strip(),
+        "name": name,
+        "title": str(meta.get("title") or name).strip(),
         "description": str(meta.get("description") or "").strip(),
         "body": body,
     }
@@ -101,8 +122,110 @@ def _normalize_name(raw: str) -> str:
     return name
 
 
+def _with_normalized_name(text: str, name: str) -> str:
+    """只改写 frontmatter 的 name 行，保留 title/agent/requires 等其他字段。"""
+    stripped = text.lstrip("\ufeff")
+    lines = stripped.splitlines()
+    if lines and lines[0].strip() == "---":
+        end = next(
+            (index for index in range(1, len(lines)) if lines[index].strip() in ("---", "...")),
+            None,
+        )
+        if end is not None:
+            name_index = next(
+                (
+                    index
+                    for index in range(1, end)
+                    if lines[index].partition(":")[0].strip().lower() == "name"
+                ),
+                None,
+            )
+            if name_index is None:
+                lines.insert(1, f"name: {name}")
+            else:
+                lines[name_index] = f"name: {name}"
+            return "\n".join(lines) + "\n"
+    return f"---\nname: {name}\n---\n\n{stripped}"
+
+
 def _skill_dir(username: str, name: str) -> Path:
     return store.skills_root(username) / name
+
+
+def builtin_skills_root() -> Path:
+    """项目内置技能目录（仓库 ``.hermes/skills``；打包形态可用 env 覆盖）。"""
+    raw = os.environ.get(BUILTIN_SKILLS_ENV, "").strip()
+    if raw:
+        return Path(raw)
+    return Path(__file__).resolve().parents[3] / ".hermes" / "skills"
+
+
+def _truthy(value: Any) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_builtin_agent_skill(skill_dir: Path) -> bool:
+    """内置技能需 frontmatter 显式写 ``agent: true`` 才进入 Agent 面板。"""
+    document = skill_dir / SKILL_FILENAME
+    if not document.exists():
+        return False
+    try:
+        text = document.read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+        return False
+    meta, _body = _parse_frontmatter(text)
+    return _truthy(meta.get(BUILTIN_AGENT_FLAG))
+
+
+def _skill_files(skill_dir: Path, limit: int = SKILL_FILES_MAX) -> list[Path]:
+    """技能目录内的普通文件（跳过临时/备份/隐藏文件，按相对路径排序）。"""
+    if not skill_dir.is_dir():
+        return []
+    files = [
+        path
+        for path in skill_dir.rglob("*")
+        if path.is_file()
+        and not path.is_symlink()
+        and not path.name.startswith(".")
+        and not path.name.endswith((".bak", ".tmp"))
+    ]
+    # 按 POSIX 相对路径比较：Path 排序在 Windows 上大小写不敏感，结果不一致。
+    files.sort(key=lambda path: path.relative_to(skill_dir).as_posix())
+    return files[:limit]
+
+
+def _skill_rel_files(skill_dir: Path) -> list[str]:
+    return [path.relative_to(skill_dir).as_posix() for path in _skill_files(skill_dir)]
+
+
+def _iter_candidate_dirs(username: str) -> list[tuple[Path, str]]:
+    """候选技能目录：用户安装优先，其后为内置（同名时用户版本覆盖）。"""
+    candidates: list[tuple[Path, str]] = []
+    user_root = store.skills_root(username)
+    if user_root.exists():
+        candidates.extend(
+            (path, "user")
+            for path in sorted(user_root.iterdir())
+            if path.is_dir() and not path.name.startswith(".")
+        )
+    builtin_root = builtin_skills_root()
+    if builtin_root.exists():
+        candidates.extend(
+            (path, "builtin")
+            for path in sorted(builtin_root.iterdir())
+            if path.is_dir()
+            and not path.name.startswith(".")
+            and not path.name.startswith("_")
+            and _is_builtin_agent_skill(path)
+        )
+    return candidates
+
+
+def _skill_location(username: str, name: str) -> tuple[Path, str] | None:
+    for skill_dir, source in _iter_candidate_dirs(username):
+        if skill_dir.name == name and (skill_dir / SKILL_FILENAME).exists():
+            return skill_dir, source
+    return None
 
 
 def disabled_skills(username: str) -> set[str]:
@@ -130,26 +253,26 @@ def _read_skill_meta(skill_dir: Path) -> dict[str, Any] | None:
         parsed["name"] = skill_dir.name
     return {
         "name": skill_dir.name,
-        "title": parsed["name"],
+        "title": parsed["title"] or parsed["name"],
         "description": parsed["description"],
         "path": str(skill_dir),
     }
 
 
 def list_skills(username: str) -> list[dict[str, Any]]:
-    """列出用户已安装的技能（含启停状态），坏目录跳过。"""
-    root = store.skills_root(username)
+    """列出可用技能（内置 + 用户安装，含启停状态），坏目录跳过。"""
     disabled = disabled_skills(username)
-    skills: list[dict[str, Any]] = []
-    for skill_dir in sorted(root.iterdir() if root.exists() else []):
-        if not skill_dir.is_dir() or skill_dir.name.startswith("."):
-            continue
+    merged: dict[str, dict[str, Any]] = {}
+    for skill_dir, source in _iter_candidate_dirs(username):
         meta = _read_skill_meta(skill_dir)
         if meta is None:
             continue
+        meta["source"] = source
+        meta["files"] = _skill_rel_files(skill_dir)
         meta["enabled"] = skill_dir.name not in disabled
-        skills.append(meta)
-    return skills
+        # 用户目录先遍历：同名时用户安装的版本覆盖内置版本。
+        merged.setdefault(skill_dir.name, meta)
+    return [merged[name] for name in sorted(merged)]
 
 
 def get_skill(username: str, name: str) -> dict[str, Any] | None:
@@ -157,13 +280,18 @@ def get_skill(username: str, name: str) -> dict[str, Any] | None:
     resolved = resolve_skill(username, name)
     if not resolved:
         return None
-    skill_dir = _skill_dir(username, resolved)
+    location = _skill_location(username, resolved)
+    if location is None:
+        return None
+    skill_dir, source = location
     meta = _read_skill_meta(skill_dir)
     if meta is None:
         return None
     text = (skill_dir / SKILL_FILENAME).read_text(encoding="utf-8-sig", errors="replace")
     parsed = parse_skill_document(text, fallback_name=resolved)
     body = parsed["body"][:SKILL_BODY_PROMPT_MAX_CHARS]
+    meta["source"] = source
+    meta["files"] = _skill_rel_files(skill_dir)
     meta["body"] = body
     meta["truncated"] = len(parsed["body"]) > len(body)
     meta["enabled"] = resolved not in disabled_skills(username)
@@ -175,24 +303,26 @@ def resolve_skill(username: str, reference: str) -> str | None:
     raw = str(reference or "").strip()
     if not raw:
         return None
-    root = store.skills_root(username)
-    if not root.exists():
-        return None
+    candidates = [
+        (skill_dir, source)
+        for skill_dir, source in _iter_candidate_dirs(username)
+        if (skill_dir / SKILL_FILENAME).exists()
+    ]
     normalized = re.sub(r"\s+", "-", raw.lower())
-    for skill_dir in root.iterdir():
-        if skill_dir.is_dir() and skill_dir.name.lower() == normalized:
+    for skill_dir, _source in candidates:
+        if skill_dir.name.lower() == normalized:
             return skill_dir.name
-    for skill_dir in root.iterdir():
-        if not skill_dir.is_dir():
-            continue
+    for skill_dir, _source in candidates:
         meta = _read_skill_meta(skill_dir)
         if meta and str(meta.get("title") or "").strip().lower() == raw.lower():
             return skill_dir.name
     return None
 
 
-def read_skill_body(username: str, reference: str) -> tuple[str, str, str] | None:
-    """供 agent_load_skill 工具使用：返回 (目录名, description, 正文)。
+def read_skill_body(
+    username: str, reference: str
+) -> tuple[str, str, str, bool] | None:
+    """供 agent_load_skill 工具使用：返回 (目录名, description, 正文, 是否截断)。
 
     只允许加载已启用的技能；未启用/不存在返回 None。
     """
@@ -202,7 +332,50 @@ def read_skill_body(username: str, reference: str) -> tuple[str, str, str] | Non
     detail = get_skill(username, resolved)
     if detail is None:
         return None
-    return resolved, str(detail.get("description") or ""), str(detail.get("body") or "")
+    return (
+        resolved,
+        str(detail.get("description") or ""),
+        str(detail.get("body") or ""),
+        bool(detail.get("truncated")),
+    )
+
+
+def skill_files(username: str, reference: str) -> list[str]:
+    """已启用技能内的相对文件清单（供 agent_load_skill 提示可读的附件）。"""
+    resolved = resolve_skill(username, reference)
+    if not resolved or resolved in disabled_skills(username):
+        return []
+    location = _skill_location(username, resolved)
+    return _skill_rel_files(location[0]) if location else []
+
+
+def read_skill_file(
+    username: str, reference: str, relative: str
+) -> tuple[str, str] | None:
+    """读取技能目录内的一个附件，返回 (目录名, 文本)。
+
+    路径按技能目录解析并校验真实路径，阻止 ``..`` 与符号链接逃逸。
+    """
+    resolved = resolve_skill(username, reference)
+    if not resolved or resolved in disabled_skills(username):
+        return None
+    location = _skill_location(username, resolved)
+    if location is None:
+        return None
+    skill_dir = location[0]
+    pure = PurePosixPath(str(relative or "").replace("\\", "/"))
+    if not pure.parts or pure.is_absolute() or ".." in pure.parts:
+        raise SkillError("技能文件路径非法")
+    target = (skill_dir / Path(*pure.parts)).resolve()
+    if not target.is_relative_to(skill_dir.resolve()) or not target.is_file():
+        return None
+    if target.stat().st_size > SKILL_TEXT_MAX_BYTES:
+        raise SkillError("技能附件过大（上限 256KB）")
+    try:
+        text = target.read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+        return None
+    return resolved, text
 
 
 def build_skills_summary(username: str) -> str:
@@ -217,7 +390,7 @@ def build_skills_summary(username: str) -> str:
         return ""
     joined = "\n".join(lines)
     return (
-        "已安装技能（用 agent_load_skill 工具按需加载全文，加载后按技能指引工作）：\n"
+        "可用技能（用 agent_load_skill 工具按需加载全文，加载后按技能指引工作）：\n"
         f"{joined}"
     )
 
@@ -228,9 +401,12 @@ def install_skill(username: str, *, filename: str, content: bytes) -> dict[str, 
         raise SkillError("上传内容为空")
     source_name = Path(str(filename or "")).name
     if source_name.lower().endswith(".zip"):
-        return _install_from_zip(username, content)
+        zip_fallback = Path(source_name).stem
+        if zip_fallback.lower() == SKILL_FILENAME[:-3].lower():
+            zip_fallback = ""
+        return _install_from_zip(username, content, fallback_name=zip_fallback)
     if len(content) > SKILL_TEXT_MAX_BYTES:
-        raise SkillError(f"技能文件过大（上限 {SKILL_TEXT_MAX_BYTES // 1024}KB）")
+        raise SkillTooLargeError(f"技能文件过大（上限 {SKILL_TEXT_MAX_BYTES // 1024}KB）")
     try:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
@@ -246,14 +422,13 @@ def _install_from_text(username: str, text: str, *, fallback_name: str) -> dict[
     if not str(parsed["name"] or "").strip():
         raise SkillError("技能缺少 name：请在 SKILL.md 头部 frontmatter 里写 name")
     name = _normalize_name(str(parsed["name"]))
-    # 重新安装时归一化 frontmatter，避免目录名与 frontmatter 不一致。
-    normalized_text = text
-    meta, body = _parse_frontmatter(text)
-    if str(meta.get("name") or "").lower() != name:
-        header_lines = [f"name: {name}"]
-        if parsed["description"]:
-            header_lines.append(f"description: {parsed['description']}")
-        normalized_text = "---\n" + "\n".join(header_lines) + "\n---\n\n" + body
+    # 重新安装时只归一化 name 行，title/agent/requires 等其他 frontmatter 字段原样保留。
+    meta, _body = _parse_frontmatter(text)
+    normalized_text = (
+        _with_normalized_name(text, name)
+        if str(meta.get("name") or "") != name
+        else text
+    )
     target_dir = _skill_dir(username, name)
     existed = (target_dir / SKILL_FILENAME).exists()
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -266,9 +441,24 @@ def _install_from_text(username: str, text: str, *, fallback_name: str) -> dict[
     return {"name": name, "updated": existed}
 
 
-def _install_from_zip(username: str, data: bytes) -> dict[str, Any]:
+def _safe_member_path(filename: str) -> PurePosixPath:
+    """zip 成员路径归一化 + zip-slip 校验（反斜杠也按分隔符处理）。"""
+    pure = PurePosixPath(str(filename or "").replace("\\", "/"))
+    if (
+        not pure.parts
+        or pure.is_absolute()
+        or ".." in pure.parts
+        or any(":" in part for part in pure.parts)
+    ):
+        raise SkillError(f"技能包包含非法路径：{filename}")
+    return pure
+
+
+def _install_from_zip(
+    username: str, data: bytes, *, fallback_name: str = ""
+) -> dict[str, Any]:
     if len(data) > ZIP_MAX_BYTES:
-        raise SkillError(f"技能包过大（上限 {ZIP_MAX_BYTES // 1024 // 1024}MB）")
+        raise SkillTooLargeError(f"技能包过大（上限 {ZIP_MAX_BYTES // 1024 // 1024}MB）")
     try:
         archive = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile as exc:
@@ -281,65 +471,106 @@ def _install_from_zip(username: str, data: bytes) -> dict[str, Any]:
             raise SkillError(f"技能包文件数过多（上限 {ZIP_MAX_MEMBERS}）")
         total_bytes = sum(item.file_size for item in members)
         if total_bytes > ZIP_MAX_TOTAL_BYTES:
-            raise SkillError("技能包解压后体积过大")
-        # 防 zip-slip：成员必须是纯相对路径。
-        for item in members:
-            pure = PurePosixPath(item.filename)
-            if pure.is_absolute() or ".." in pure.parts:
-                raise SkillError(f"技能包包含非法路径：{item.filename}")
+            raise SkillTooLargeError("技能包解压后体积过大")
+        parsed_members = [(item, _safe_member_path(item.filename)) for item in members]
         candidates = [
-            item
-            for item in members
-            if PurePosixPath(item.filename).name.lower() == SKILL_FILENAME.lower()
+            (item, pure)
+            for item, pure in parsed_members
+            if pure.name.lower() == SKILL_FILENAME.lower()
         ]
         if not candidates:
             raise SkillError("技能包中缺少 SKILL.md")
         # 优先根目录（层级最浅）的 SKILL.md。
-        candidates.sort(key=lambda item: (len(PurePosixPath(item.filename).parts), item.filename))
-        chosen = candidates[0]
-        chosen_path = PurePosixPath(chosen.filename)
+        candidates.sort(key=lambda pair: (len(pair[1].parts), pair[0].filename))
+        chosen, chosen_path = candidates[0]
         prefix = chosen_path.parent
+        prefix_str = "" if str(prefix) in ("", ".") else prefix.as_posix()
         try:
             document_text = archive.read(chosen).decode("utf-8-sig", errors="replace")
-        except OSError as exc:
-            raise SkillError("技能包中的 SKILL.md 无法读取") from exc
-        fallback = "" if str(prefix) in ("", ".") else prefix.name
+        except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError) as exc:
+            raise SkillError("技能包中的 SKILL.md 无法读取（文件可能损坏或被加密）") from exc
+        # 无 frontmatter name 时依次退回顶层目录名、zip 文件名。
+        fallback = prefix.name if prefix_str else fallback_name
         parsed = parse_skill_document(document_text, fallback_name=fallback)
         if not str(parsed["name"] or "").strip():
-            raise SkillError("技能缺少 name：请在 SKILL.md 头部 frontmatter 里写 name")
+            raise SkillError(
+                "技能缺少 name：请在 SKILL.md 头部 frontmatter 里写 name，"
+                "或用「技能名.zip」命名安装包"
+            )
         name = _normalize_name(str(parsed["name"]))
+        meta, _body = _parse_frontmatter(document_text)
+        normalized_document = (
+            _with_normalized_name(document_text, name)
+            if str(meta.get("name") or "") != name
+            else document_text
+        )
         target_dir = _skill_dir(username, name)
         existed = target_dir.exists()
-        if existed:
-            shutil.rmtree(target_dir)  # 重新安装 = 整目录替换
-        target_dir.mkdir(parents=True, exist_ok=True)
-        prefix_str = "" if str(prefix) in ("", ".") else str(prefix)
-        for item in members:
-            raw_name = item.filename
-            if prefix_str:
-                if raw_name != prefix_str and not raw_name.startswith(prefix_str + "/"):
-                    continue  # 技能目录之外的成员忽略
-                relative = raw_name[len(prefix_str) + 1 :]
-            else:
-                relative = raw_name
-            if not relative:
-                continue
-            destination = target_dir / PurePosixPath(relative)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(archive.read(item))
+        skills_root = store.skills_root(username)
+        # 先解压到隐藏临时目录，全部成功后再整目录换入：损坏的包不会毁掉已装版本。
+        staging = Path(tempfile.mkdtemp(prefix=f".install-{name}-", dir=skills_root))
+        try:
+            extracted_bytes = 0
+            try:
+                for item, pure in parsed_members:
+                    if prefix_str:
+                        if not pure.as_posix().startswith(prefix_str + "/"):
+                            continue  # 技能目录之外的成员忽略
+                        relative = pure.relative_to(prefix)
+                    else:
+                        relative = pure
+                    if not relative.parts:
+                        continue
+                    destination = staging.joinpath(*relative.parts)
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    payload = archive.read(item)
+                    extracted_bytes += len(payload)
+                    if extracted_bytes > ZIP_MAX_TOTAL_BYTES:
+                        raise SkillTooLargeError("技能包解压后体积过大")
+                    destination.write_bytes(payload)
+            except SkillError:
+                raise
+            except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError) as exc:
+                raise SkillError("技能包解压失败（文件可能损坏或被加密）") from exc
+            document_path = staging / chosen_path.name
+            document_path.write_text(
+                normalized_document
+                if normalized_document.endswith("\n")
+                else normalized_document + "\n",
+                encoding="utf-8",
+            )
+            backup: Path | None = None
+            try:
+                if target_dir.exists():
+                    backup = Path(
+                        tempfile.mkdtemp(prefix=f".backup-{name}-", dir=skills_root)
+                    )
+                    backup.rmdir()
+                    target_dir.rename(backup)
+                staging.rename(target_dir)
+            except OSError as exc:
+                if backup is not None and backup.exists() and not target_dir.exists():
+                    backup.rename(target_dir)
+                raise SkillError("技能包安装失败（无法替换技能目录）") from exc
+            if backup is not None:
+                shutil.rmtree(backup, ignore_errors=True)
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
     _set_enabled_internal(username, name, True)
     logger.info("agent skill installed from zip: name=%s updated=%s", name, existed)
     return {"name": name, "updated": existed}
 
 
 def delete_skill(username: str, name: str) -> bool:
-    """删除技能（连同目录与文件）。"""
+    """删除用户安装的技能（内置技能只读，返回 False）。"""
     resolved = resolve_skill(username, name)
     if not resolved:
         return False
-    target_dir = _skill_dir(username, resolved)
-    if not target_dir.exists():
+    location = _skill_location(username, resolved)
+    if location is None or location[1] != "user":
         return False
+    target_dir = location[0]
     shutil.rmtree(target_dir)
     disabled = disabled_skills(username)
     if resolved in disabled:
@@ -347,6 +578,45 @@ def delete_skill(username: str, name: str) -> bool:
         _write_disabled(username, disabled)
     logger.info("agent skill deleted: name=%s", resolved)
     return True
+
+
+def skill_zip_bytes(username: str, reference: str) -> tuple[str, bytes]:
+    """把一个技能目录打成 zip（顶层目录 = 技能名），供界面下载。
+
+    包结构与 ``install_skill`` 接受的 zip 一致：重新安装即可还原（含附件）。
+    """
+    resolved = resolve_skill(username, reference)
+    if not resolved:
+        raise SkillNotFoundError("技能不存在")
+    location = _skill_location(username, resolved)
+    if location is None:
+        raise SkillNotFoundError("技能不存在")
+    skill_dir = location[0]
+    # 导出包要能被 install_skill 原样装回，文件数必须与安装上限一致。
+    files = _skill_files(skill_dir, limit=ZIP_MAX_MEMBERS + 1)
+    if not files:
+        raise SkillError("技能目录为空")
+    if len(files) > ZIP_MAX_MEMBERS:
+        raise SkillTooLargeError(f"技能文件数过多（上限 {ZIP_MAX_MEMBERS}），无法导出")
+    root = skill_dir.resolve()
+    buffer = io.BytesIO()
+    total_bytes = 0
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in files:
+            try:
+                real = path.resolve()
+                if not real.is_relative_to(root):
+                    continue  # 不跟随指向目录外的符号链接
+                total_bytes += real.stat().st_size
+            except OSError:
+                continue
+            if total_bytes > ZIP_MAX_TOTAL_BYTES:
+                raise SkillTooLargeError("技能包体积过大")
+            archive.write(real, f"{resolved}/{real.relative_to(root).as_posix()}")
+    payload = buffer.getvalue()
+    if not payload:
+        raise SkillError("技能目录为空")
+    return resolved, payload
 
 
 def _set_enabled_internal(username: str, name: str, enabled: bool) -> None:

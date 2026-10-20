@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import shlex
 import shutil
 import time
 import uuid
@@ -106,8 +107,82 @@ def _hermes_cli_path() -> Path:
     return Path.home() / ".local" / "bin" / "hermes"
 
 
+def _hermes_cli_args() -> list[str]:
+    """Extra argv placed before the ``acp`` subcommand.
+
+    桌面版把 Hermes 依赖装进随包 ``--target`` 目录，用随附 Python 以
+    ``-c "from hermes_cli.main import main; main()" acp`` 启动；不能依赖
+    console script（Windows 的 shim 写着构建机绝对路径，挪机即失效）。
+    """
+    raw = os.environ.get("HERMES_CLI_ARGS", "").strip()
+    if not raw:
+        return []
+    try:
+        return shlex.split(raw)
+    except ValueError as exc:
+        _log.warning("invalid HERMES_CLI_ARGS ignored: %s", exc)
+        return []
+
+
+def _hermes_site_packages() -> Path | None:
+    raw = os.environ.get("HERMES_SITE_PACKAGES", "").strip()
+    return Path(raw) if raw else None
+
+
 def is_hermes_backend_available() -> bool:
-    return _hermes_cli_path().exists()
+    if not _hermes_cli_path().exists():
+        return False
+    site = _hermes_site_packages()
+    return site is None or site.is_dir()
+
+
+# 桌面进程的 PATH 由 Rust env.rs 组装（随包 Python/bin 前置）。Hermes 子进程
+# 需要同一份 PATH 才能找到 ffmpeg/chrome/node；Windows 还要求 SYSTEMROOT 等
+# 基础变量，否则 CreateProcess 起不来。容器形态继续用最小 PATH 收紧面。
+_DESKTOP_ENV_KEYS = (
+    "PATH",
+    "SYSTEMROOT",
+    "SYSTEMDRIVE",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "TEMP",
+    "TMP",
+    "PYTHONUTF8",
+    "PYTHONIOENCODING",
+    "PYTHONPYCACHEPREFIX",
+)
+
+
+def _runtime_env() -> dict[str, str]:
+    if not os.environ.get("APP_RESOURCE_PATH", "").strip():
+        return {"PATH": "/usr/local/bin:/usr/bin:/bin"}
+    env = {key: os.environ[key] for key in _DESKTOP_ENV_KEYS if os.environ.get(key)}
+    env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
+    site = _hermes_site_packages()
+    if site is not None:
+        # 随包依赖目录排在主程序 site-packages 之前：hermes 的 pin 与 app
+        # 依赖互不干扰（两者本来就是不同进程）。
+        env["PYTHONPATH"] = str(site)
+    return env
+
+
+def _child_runtime_env(home: Path) -> dict[str, str]:
+    env = _runtime_env()
+    if os.name == "nt":
+        # Python 在 Windows 上不认 TMPDIR；Hermes 的临时文件要给到可写的 home。
+        tmp = str(home / "tmp")
+        env["TMP"] = tmp
+        env["TEMP"] = tmp
+        # Hermes 启动期会解析默认数据目录（hermes_constants.get_default_hermes_root），
+        # 该函数在未拿全 Windows 基础变量时会让 Path.home() 直接抛
+        # RuntimeError("Could not determine home directory")。把用户目录也收敛到
+        # 工作区内，既满足解析又保持与其他用户的隔离。
+        env["USERPROFILE"] = str(home)
+        env["HOMEDRIVE"], env["HOMEPATH"] = os.path.splitdrive(str(home))
+        env["LOCALAPPDATA"] = str(home / "AppData" / "Local")
+        env["APPDATA"] = str(home / "AppData" / "Roaming")
+    return env
 
 
 @dataclass
@@ -381,6 +456,7 @@ class HermesPool:
         )
         client = HermesSdkClient(
             cli_path=cli_path,
+            cli_args=_hermes_cli_args(),
             cwd=home,
             env=env,
             model=model,
@@ -600,9 +676,8 @@ class HermesPool:
                 egress_project_id=egress_project_id,
                 project_env=project_env,
                 authorization=authorization,
-            )
+            ) | _child_runtime_env(home)
         env = {
-            "PATH": "/usr/local/bin:/usr/bin:/bin",
             "LANG": os.environ.get("LANG", "C.UTF-8"),
             "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
             "HOME": str(home),
@@ -621,6 +696,7 @@ class HermesPool:
             "SUPERTALE_AGENT_TOKEN_EXPIRES_AT": str(token.exp),
             "SUPERTALE_API_URL": self._api_url,
         }
+        env = _child_runtime_env(home) | env
         if project_id:
             env["DRAMACLAW_PROJECT_ID"] = project_id
             env["DRAMACLAW_PROJECT"] = project_id

@@ -7,9 +7,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { McpPage } from "@/features/mcp/McpPage";
+import { useAuthStore } from "@/stores/auth-store";
 
 const navigateMock = vi.hoisted(() => vi.fn());
 const setEnabledMock = vi.hoisted(() => vi.fn());
@@ -86,6 +87,7 @@ const CATALOG_NAMES = [
   "aipdd_drama_patch",
   "aipdd_drama_delete",
   "aipdd_drama_env_setup",
+  "aipdd_drama_self_heal",
   "aipdd_drama_pipeline_status",
   "aipdd_drama_list_tasks",
   "aipdd_drama_get_task",
@@ -263,6 +265,9 @@ function openBuiltinTools() {
 
 describe("McpPage global mode", () => {
   beforeEach(() => {
+    // 新增/编辑/测试连接只对 owner 渲染（与后端依赖一致）；本文件默认 owner 视角验收，
+    // member 视角另有用例。
+    useAuthStore.setState({ username: "admin", role: "owner" });
     navigateMock.mockReset();
     setEnabledMock.mockReset();
     upsertMock.mockReset();
@@ -272,6 +277,10 @@ describe("McpPage global mode", () => {
     projectsState.current = undefined;
     catalogState.current = buildCatalog();
     serversState.current = [builtinServer()];
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ username: null, role: null });
   });
 
   it("uses a project id placeholder and offers recent project shortcuts", () => {
@@ -599,5 +608,50 @@ describe("McpPage global mode", () => {
         }),
       ),
     );
+  });
+
+  // [aipdd fork delta] 身份边界：新增/编辑/测试连接在（后端 403 的）member 视角不渲染；
+  // 清单、启停、删除与恢复默认照常，「工具」分页只留内置只读目录。
+  it("hides owner-only server controls from members", () => {
+    useAuthStore.setState({ username: "bob", role: "member" });
+    serversState.current = [
+      builtinServer(),
+      {
+        id: "s-echo",
+        name: "Echo",
+        description: "自装回显服务",
+        transport: "http",
+        command: "",
+        args: [],
+        env: {},
+        url: "https://echo.example.com/mcp",
+        headers: {},
+        enabled: true,
+        builtin: false,
+      },
+    ];
+
+    renderPage(<McpPage project="alpha" />);
+    openToolsTab();
+
+    // 新增不可见；恢复默认仍可用；两台服务器都可启停。
+    expect(screen.queryByRole("button", { name: "mcp.agentServers.add" })).toBeNull();
+    expect(screen.getByRole("button", { name: "mcp.agentServers.reset" })).toBeInTheDocument();
+    expect(screen.getAllByRole("switch")).toHaveLength(2);
+
+    // 自装服务器：测试连接与编辑不渲染；删除（清理）保留。
+    expandServer("Echo");
+    expect(screen.queryByRole("button", { name: "mcp.agentServers.test" })).toBeNull();
+    expect(screen.queryByTitle("mcp.agentServers.edit")).toBeNull();
+    expect(screen.getByTitle("mcp.agentServers.delete")).toBeInTheDocument();
+    // 「工具」分页控件整个不渲染（member 没有探测入口），展开即概览。
+    expect(screen.queryByRole("button", { name: "mcp.agentServers.detail.tools" })).toBeNull();
+    expect(document.body.textContent).toContain("自装回显服务");
+
+    // 内置 aipdd-drama 的只读工具目录仍对 member 可见。
+    expandServer("Echo"); // 收起，避免与下一张卡的断言混在一起
+    expandServer("AIPDD Drama");
+    fireEvent.click(screen.getByRole("button", { name: "mcp.agentServers.detail.tools" }));
+    expect(document.body.textContent).toContain("mcp.toolGroups.production");
   });
 });

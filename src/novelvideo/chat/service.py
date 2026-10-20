@@ -96,6 +96,11 @@ _STYLE_SHORT_DRAMA_REQUEST_RE = re.compile(
 _CONTINUE_PIPELINE_RE = re.compile(
     r"(?:继续|恢复|接着|下一步|当前|已有|已上传|刚才上传)"
 )
+# [aipdd fork delta] 「输入小说 → 剧本」入口：用户直接粘贴完整故事正文（而不是一句话
+# 主题/风格描述）时，不再拦成「请先上传文档」，交给 Agent 用计划工具导入并推进。
+# 判据用去掉请求短语后的正文长度 + 叙事标点数量，避免把「帮我写个赛博朋克短剧」当小说。
+_LONG_FORM_STORY_MIN_CHARS = 300
+_LONG_FORM_STORY_MIN_STOPS = 5
 _DRAMACLAW_SCRIPT_UPLOAD_MODEL_REPLY_INSTRUCTIONS = """[AIPDD_DRAMA_SCRIPT_UPLOAD_GUIDANCE]
 用户正在请求创建、生成或编写剧本/短剧，但当前消息没有上传剧本文档。
 
@@ -3217,6 +3222,16 @@ def _frontend_context_reply(prompt: str) -> str | None:
     return None
 
 
+def _looks_like_long_form_story(text: str) -> bool:
+    """消息里是否直接带了一篇完整故事/小说正文（而非一句话主题/风格描述）。"""
+    body = _SCRIPT_CREATION_REQUEST_RE.sub("", text)
+    body = _STYLE_SHORT_DRAMA_REQUEST_RE.sub("", body)
+    compact = re.sub(r"\s+", "", body)
+    if len(compact) < _LONG_FORM_STORY_MIN_CHARS:
+        return False
+    return len(re.findall(r"[。！？!?…；;]", body)) >= _LONG_FORM_STORY_MIN_STOPS
+
+
 def _script_creation_model_reply_prompt(prompt: str) -> str | None:
     if not prompt:
         return None
@@ -3227,6 +3242,8 @@ def _script_creation_model_reply_prompt(prompt: str) -> str | None:
 
     text = _CHAT_ATTACHMENTS_BLOCK_RE.sub("", prompt).strip()
     if _CONTINUE_PIPELINE_RE.search(text):
+        return None
+    if _looks_like_long_form_story(text):
         return None
     if _SCRIPT_CREATION_REQUEST_RE.search(text) or _STYLE_SHORT_DRAMA_REQUEST_RE.search(
         text

@@ -213,6 +213,10 @@ export interface FreezoneJobRef {
     | "freezone_video_story"
     | "freezone_video_clone"
     | "freezone_video_mix"
+    // [aipdd fork delta] 动效大片：图册案例 → 逐帧渲染的 MG 成片（video 队列）。
+    | "freezone_motion_render"
+    // [aipdd fork delta] 动效大片交付：MG 成片 + 旁白/BGM → 剪映草稿（video 队列）。
+    | "freezone_motion_draft"
     | "stage_asset";
   job_id: string;
   task_key: string;
@@ -1887,6 +1891,581 @@ export async function listFreezoneStyleTemplates(
   };
 }
 
+// /freezone/motion/cases ------------------------------------------------- //
+
+/** 动效大片图册里的一条案例：别人做出这支片子的完整口径。 */
+export interface FreezoneMotionCase {
+  id: string;
+  label: string;
+  /** 分类：产品宣传片 / 风格动画 / 科普动画 / 3D动画 / 音乐MV / 原理与基础动效 / 作品集展示。 */
+  category: string;
+  /** 一句话这支片子在做什么。 */
+  brief: string;
+  tags: string[];
+  /** 重写后的中文分镜规格（不含本系统渲染契约）。 */
+  prompt_cn: string;
+  /** 海报相对路径 `<id>/poster.webp`，需经 resolveMotionAssetUrl 解析。 */
+  cover: string;
+  /** 随包海报是否真的在（缺图时前端不显示破图）。 */
+  posterReady: boolean;
+  /** 这条案例的原片现在放得出来吗：本机已缓存，或配了镜像可以现取。 */
+  videoReady: boolean;
+  resolution: string;
+  durationSeconds: number | null;
+  author: string;
+  /** 原片文件名，与 cover 同一个前缀拼地址；未缓存且没配镜像时取不到。 */
+  mediaFile: string;
+  mediaBytes: number;
+}
+
+/** 文档里那套做法（先方案后制作、确定性逐帧、拍点网格…）拆成的方法卡。 */
+export interface FreezoneMotionMethod {
+  id: string;
+  label: string;
+  summary: string;
+  where: string;
+}
+
+export interface FreezoneMotionCatalog {
+  assetBase: string;
+  version: string;
+  /** 展示顺序由后端清单给定，前端不再自己排。 */
+  categories: string[];
+  methods: FreezoneMotionMethod[];
+  modelHint: string;
+  renderContract: string;
+  source: string;
+  cases: FreezoneMotionCase[];
+}
+
+function coerceMotionCase(entry: Record<string, unknown>): FreezoneMotionCase | null {
+  // 没有 id 就没法取提示词、也没法拼素材地址，这条只能丢。
+  const id = pickString(entry, "id", "case_id", "caseId");
+  if (!id) return null;
+  const media =
+    entry.media && typeof entry.media === "object" && !Array.isArray(entry.media)
+      ? (entry.media as Record<string, unknown>)
+      : {};
+  return {
+    id,
+    label: pickString(entry, "label", "title", "name") ?? id,
+    category: pickString(entry, "category", "group") ?? "",
+    brief: pickString(entry, "brief", "summary", "desc", "description") ?? "",
+    tags: pickStringArray(entry, "tags", "keywords"),
+    prompt_cn: pickString(entry, "prompt_cn", "prompt", "spec") ?? "",
+    cover: pickString(entry, "cover", "poster") ?? "",
+    posterReady: pickBoolean(entry, "poster_ready", "posterReady") ?? false,
+    videoReady: pickBoolean(entry, "video_ready", "videoReady") ?? false,
+    resolution: pickString(entry, "resolution") ?? "",
+    durationSeconds: pickNumber(entry, "duration_seconds", "durationSeconds"),
+    author: pickString(entry, "author") ?? "",
+    mediaFile: pickString(media, "file") ?? "",
+    mediaBytes: pickNumber(media, "bytes") ?? 0,
+  };
+}
+
+function coerceMotionList(payload: unknown): FreezoneMotionCase[] {
+  let candidate: unknown = payload;
+  if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+    const wrapper = candidate as Record<string, unknown>;
+    if (Array.isArray(wrapper.cases)) candidate = wrapper.cases;
+    else if (Array.isArray(wrapper.data)) candidate = wrapper.data;
+    else if (Array.isArray(wrapper.items)) candidate = wrapper.items;
+  }
+  if (!Array.isArray(candidate)) return [];
+  const result: FreezoneMotionCase[] = [];
+  for (const item of candidate) {
+    if (!item || typeof item !== "object") continue;
+    const entry = coerceMotionCase(item as Record<string, unknown>);
+    if (entry) result.push(entry);
+  }
+  return result;
+}
+
+function coerceMotionMethods(payload: unknown): FreezoneMotionMethod[] {
+  if (!Array.isArray(payload)) return [];
+  const result: FreezoneMotionMethod[] = [];
+  for (const item of payload) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as Record<string, unknown>;
+    const method = pickString(entry, "label", "title", "name");
+    if (!method) continue;
+    result.push({
+      id: pickString(entry, "id") ?? method,
+      label: method,
+      summary: pickString(entry, "summary", "desc", "description") ?? "",
+      where: pickString(entry, "where", "landing") ?? "",
+    });
+  }
+  return result;
+}
+
+export async function listFreezoneMotionCases(
+  project: string,
+): Promise<FreezoneMotionCatalog> {
+  // 与画风图册同一个信封：`data` 是裸列表，元信息挂同级。
+  const envelope = await apiCallEnvelope<unknown>(
+    `projects/${encodeURIComponent(project)}/freezone/motion/cases`,
+  );
+  const nested =
+    envelope.data && typeof envelope.data === "object" && !Array.isArray(envelope.data)
+      ? (envelope.data as Record<string, unknown>)
+      : {};
+  const source = envelope as Record<string, unknown>;
+  const meta = (key: string) => pickString(source, key) ?? pickString(nested, key) ?? "";
+  const listSource = Array.isArray(source.categories)
+    ? source
+    : Array.isArray(nested.categories)
+      ? nested
+      : {};
+  return {
+    assetBase: meta("asset_base"),
+    version: meta("version"),
+    categories: pickStringArray(listSource, "categories"),
+    methods: coerceMotionMethods(listSource.methods),
+    modelHint: meta("model_hint"),
+    renderContract: meta("render_contract"),
+    source: meta("source"),
+    cases: coerceMotionList(envelope.data),
+  };
+}
+
+/**
+ * 取一条案例可直接使用的完整提示词（分镜规格 + 本系统渲染契约）。
+ *
+ * 前端不自己把两段文字拼起来：契约的拼法是后端 `compose_motion_prompt` 一处定的，
+ * 图册复制、提示词库和渲染任务必须拿到逐字相同的文本。
+ */
+export async function fetchFreezoneMotionPrompt(
+  project: string,
+  caseId: string,
+): Promise<string> {
+  const envelope = await apiCallEnvelope<{ prompt?: string }>(
+    `projects/${encodeURIComponent(project)}/freezone/motion/cases/${encodeURIComponent(caseId)}/prompt`,
+  );
+  return envelope.data?.prompt ?? "";
+}
+
+// /freezone/motion/styles ------------------------------------------------- //
+
+/**
+ * [aipdd fork delta] 画风图册里的一条风格：想要这种观感时，画布该按什么口径画。
+ *
+ * 与案例的分工不同 —— 案例给分镜结构，风格给画面观感，所以这里**没有海报与原片**：
+ * 卡片样张由 `palette` 用代码画，上游样片一张都不随包（名录只是规格出处）。
+ */
+export interface FreezoneMotionStyle {
+  id: string;
+  label: string;
+  labelEn: string;
+  /** 分类：手绘与绘画 / 东方传统 / … / MG 动态设计，顺序由后端清单给定。 */
+  category: string;
+  brief: string;
+  tags: string[];
+  /** 2–8 个 `#rrggbb`，后端已收口成小写。 */
+  palette: string[];
+  /** 六段中文规格（风格/色板/代码技法/运动/排版/禁则），不含本系统渲染契约。 */
+  prompt_cn: string;
+  /** 规格出处（上游名录编号），用于留痕，不指向任何随包素材。 */
+  source: string;
+}
+
+export interface FreezoneMotionStyleCatalog {
+  version: string;
+  categories: string[];
+  source: string;
+  styles: FreezoneMotionStyle[];
+}
+
+function coerceMotionStyle(entry: Record<string, unknown>): FreezoneMotionStyle | null {
+  // 没有 id 既取不到提示词也没法发起渲染，这条只能丢。
+  const id = pickString(entry, "id", "style_id", "styleId");
+  if (!id) return null;
+  return {
+    id,
+    label: pickString(entry, "label", "title", "name") ?? id,
+    labelEn: pickString(entry, "label_en", "labelEn") ?? "",
+    category: pickString(entry, "category", "group") ?? "",
+    brief: pickString(entry, "brief", "summary", "desc", "description") ?? "",
+    tags: pickStringArray(entry, "tags", "keywords"),
+    palette: pickStringArray(entry, "palette"),
+    prompt_cn: pickString(entry, "prompt_cn", "prompt", "spec") ?? "",
+    source: pickString(entry, "source") ?? "",
+  };
+}
+
+function coerceMotionStyleList(payload: unknown): FreezoneMotionStyle[] {
+  let candidate: unknown = payload;
+  if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+    const wrapper = candidate as Record<string, unknown>;
+    if (Array.isArray(wrapper.styles)) candidate = wrapper.styles;
+    else if (Array.isArray(wrapper.data)) candidate = wrapper.data;
+    else if (Array.isArray(wrapper.items)) candidate = wrapper.items;
+  }
+  if (!Array.isArray(candidate)) return [];
+  const result: FreezoneMotionStyle[] = [];
+  for (const item of candidate) {
+    if (!item || typeof item !== "object") continue;
+    const entry = coerceMotionStyle(item as Record<string, unknown>);
+    if (entry) result.push(entry);
+  }
+  return result;
+}
+
+export async function listFreezoneMotionStyles(
+  project: string,
+): Promise<FreezoneMotionStyleCatalog> {
+  const envelope = await apiCallEnvelope<unknown>(
+    `projects/${encodeURIComponent(project)}/freezone/motion/styles`,
+  );
+  const nested =
+    envelope.data && typeof envelope.data === "object" && !Array.isArray(envelope.data)
+      ? (envelope.data as Record<string, unknown>)
+      : {};
+  const source = envelope as Record<string, unknown>;
+  const meta = (key: string) => pickString(source, key) ?? pickString(nested, key) ?? "";
+  const listSource = Array.isArray(source.categories)
+    ? source
+    : Array.isArray(nested.categories)
+      ? nested
+      : {};
+  return {
+    version: meta("version"),
+    categories: pickStringArray(listSource, "categories"),
+    source: meta("source"),
+    styles: coerceMotionStyleList(envelope.data),
+  };
+}
+
+/**
+ * 取一条风格可直接使用的完整提示词（风格规格 + 本系统渲染契约）。
+ *
+ * 拼法只在后端 `compose_motion_style_prompt` 定一次：契约存在案例清单里，图册复制、
+ * 提示词库与渲染任务必须拿到逐字相同的文本。
+ */
+export async function fetchFreezoneMotionStylePrompt(
+  project: string,
+  styleId: string,
+): Promise<string> {
+  const envelope = await apiCallEnvelope<{ prompt?: string }>(
+    `projects/${encodeURIComponent(project)}/freezone/motion/styles/${encodeURIComponent(styleId)}/prompt`,
+  );
+  return envelope.data?.prompt ?? "";
+}
+
+// /freezone/motion/render -------------------------------------------------- //
+
+/**
+ * [aipdd fork delta] MG 成片支持的画幅，与后端 `FreezoneMotionRenderRequest.aspect_ratio`
+ * 同一份口径（未知值后端按 9:16）。画布节点面板与工具页必须用同一个集合，
+ * 否则一处放宽、另一处静默回落。
+ */
+export const MOTION_ASPECT_RATIOS: ReadonlySet<string> = new Set(["16:9", "9:16", "1:1"]);
+
+/**
+ * [aipdd fork delta] 动效大片渲染：一页 MG 脚本 → 一条 MG 成片。
+ *
+ * 三种入口：`html` 有值就是渲染这一页；留空则给 `caseId`（案例）或 `styleId`（画风）
+ * 之一（可再带 `subject` 本镜头文案），任务里先按同一份渲染契约让网关文本模型写页面
+ * —— 分镜工作台逐镜一键出片与画风图册「按这条风格出片」走的都是后者。两个 id 同时
+ * 给会被后端当场拒掉（400）：两套规格只会让模型在冲突的色板与禁则之间取平均。
+ * 渲染本身用随包 Chrome + ffmpeg，不出网。
+ */
+export interface FreezoneMotionRenderPayload {
+  html?: string;
+  caseId?: string;
+  styleId?: string;
+  subject?: string;
+  modelText?: string;
+  title?: string;
+  aspectRatio?: string;
+  resolution?: FreezoneVideoResolution;
+  fps?: number;
+  durationS?: number | null;
+  nodeId?: string;
+  canvasId?: string;
+  /** 集号/镜号：写进渲染 sidecar，导出剪映草稿时靠它们把成片归位到对应镜头。 */
+  episode?: number;
+  beatNumber?: number;
+  archiveToLibrary?: boolean;
+  sourceTool?: string;
+}
+
+export async function submitFreezoneMotionRender(
+  project: string,
+  payload: FreezoneMotionRenderPayload,
+): Promise<FreezoneJobRef> {
+  return await apiCall<FreezoneJobRef>(
+    `projects/${encodeURIComponent(project)}/freezone/motion/render`,
+    {
+      method: "POST",
+      json: {
+        html: payload.html ?? "",
+        case_id: payload.caseId ?? "",
+        style_id: payload.styleId ?? "",
+        subject: payload.subject ?? "",
+        model_text: payload.modelText ?? "",
+        title: payload.title ?? "",
+        aspect_ratio: payload.aspectRatio ?? "16:9",
+        resolution: payload.resolution ?? "720p",
+        fps: normalizeNumberInput(payload.fps, 30, 1, 60, true),
+        duration_seconds:
+          payload.durationS && payload.durationS > 0 ? payload.durationS : null,
+        node_id: payload.nodeId ?? "",
+        canvas_id: payload.canvasId ?? "",
+        episode: normalizeNumberInput(payload.episode, 0, 0, 9999, true),
+        beat_number: normalizeNumberInput(payload.beatNumber, 0, 0, 9999, true),
+        archive_to_library: payload.archiveToLibrary ?? false,
+        source_tool: payload.sourceTool ?? "",
+      },
+    },
+  );
+}
+
+// /freezone/motion/stills -------------------------------------------------- //
+
+/**
+ * [aipdd fork delta] 动效大片拍点预检（渲染契约第 4 条「先出静帧再出成片」）：
+ * 一页 MG 脚本 → 每个拍点一张静帧。页面来源与 :func:`submitFreezoneMotionRender`
+ * 同口径（带 `html` 就检这一页，留空则按 `caseId` 或 `styleId` + `subject` 先生成
+ * 页面）；走的是同一个包内 Chrome 与同一个截图通道，但**不编码、不配乐**，所以本机
+ * 没有 ffmpeg 也能用，只有找不到 Chrome 会被后端当场拒掉（409）。
+ */
+export interface FreezoneMotionStillsPayload {
+  html?: string;
+  caseId?: string;
+  styleId?: string;
+  subject?: string;
+  modelText?: string;
+  aspectRatio?: string;
+  resolution?: FreezoneVideoResolution;
+  maxStills?: number | null;
+  sourceTool?: string;
+}
+
+export async function submitFreezoneMotionStills(
+  project: string,
+  payload: FreezoneMotionStillsPayload,
+): Promise<FreezoneJobRef> {
+  return await apiCall<FreezoneJobRef>(
+    `projects/${encodeURIComponent(project)}/freezone/motion/stills`,
+    {
+      method: "POST",
+      json: {
+        html: payload.html ?? "",
+        case_id: payload.caseId ?? "",
+        style_id: payload.styleId ?? "",
+        subject: payload.subject ?? "",
+        model_text: payload.modelText ?? "",
+        aspect_ratio: payload.aspectRatio ?? "16:9",
+        resolution: payload.resolution ?? "720p",
+        max_stills:
+          payload.maxStills && payload.maxStills > 0
+            ? normalizeNumberInput(payload.maxStills, 24, 1, 120, true)
+            : null,
+        source_tool: payload.sourceTool ?? "",
+      },
+    },
+  );
+}
+
+// /freezone/motion/renders ------------------------------------------------- //
+
+/**
+ * [aipdd fork delta] 一盘已渲染好的 MG 成片（导出剪映草稿的候选行）。
+ *
+ * 清单是从磁盘上的渲染目录扫出来的，不依赖任务记录：任务会过期被清、资产库条目名
+ * 还能改，只有落盘的成片 + 同名 sidecar 是稳定事实。`url` 是同源静态 URL，可直接
+ * 作为草稿的 `source` 回传（后端认 `/static/...`，不认外链）。
+ */
+export interface FreezoneMotionRenderClip {
+  jobId: string;
+  name: string;
+  episode: number;
+  beatNumber: number;
+  caseId: string;
+  durationSeconds: number | null;
+  width: number;
+  height: number;
+  fps: number;
+  aspectRatio: string;
+  /** 页面自报的拍点（`window.EV` 原样带回），草稿里变成剪映的打点标记。 */
+  beats: unknown[];
+  hasSidecar: boolean;
+  url: string;
+}
+
+function coerceMotionRenderClip(entry: Record<string, unknown>): FreezoneMotionRenderClip | null {
+  const url = pickString(entry, "url", "output_url");
+  // 没有同源 URL 就没法交给草稿任务（本地路径前端拿不到也不该拿），这条只能丢。
+  if (!url) return null;
+  return {
+    jobId: pickString(entry, "job_id", "jobId") ?? "",
+    name: pickString(entry, "name") ?? url,
+    episode: pickNumber(entry, "episode") ?? 0,
+    beatNumber: pickNumber(entry, "beat_number", "beatNumber") ?? 0,
+    caseId: pickString(entry, "case_id", "caseId") ?? "",
+    durationSeconds: pickNumber(entry, "duration_seconds", "durationSeconds"),
+    width: pickNumber(entry, "width") ?? 0,
+    height: pickNumber(entry, "height") ?? 0,
+    fps: pickNumber(entry, "fps") ?? 0,
+    aspectRatio: pickString(entry, "aspect_ratio", "aspectRatio") ?? "",
+    beats: Array.isArray(entry.beats) ? (entry.beats as unknown[]) : [],
+    hasSidecar: pickBoolean(entry, "has_sidecar", "hasSidecar") ?? false,
+    url,
+  };
+}
+
+export async function listFreezoneMotionRenders(
+  project: string,
+  episode?: number,
+): Promise<FreezoneMotionRenderClip[]> {
+  const query = episode && episode > 0 ? `?episode=${encodeURIComponent(episode)}` : "";
+  const envelope = await apiCallEnvelope<{ url?: string }>(
+    `projects/${encodeURIComponent(project)}/freezone/motion/renders${query}`,
+  );
+  const source = Array.isArray(envelope.data) ? envelope.data : [];
+  const result: FreezoneMotionRenderClip[] = [];
+  for (const item of source) {
+    if (!item || typeof item !== "object") continue;
+    const entry = coerceMotionRenderClip(item as Record<string, unknown>);
+    if (entry) result.push(entry);
+  }
+  return result;
+}
+
+// /freezone/motion/draft --------------------------------------------------- //
+
+/** 草稿里的一段音频（旁白或 BGM）：`source` 收本机路径与同源静态 URL。 */
+export interface FreezoneMotionDraftAudio {
+  source: string;
+  /** 音频时长（秒）；留空时后端按它该覆盖的范围垫满（整片垫满全片、逐镜对齐该镜）。 */
+  durationS?: number | null;
+  /** 音量增益，1 = 原音量；BGM 常配 0.2 左右给旁白让位。 */
+  gain?: number;
+  name?: string;
+}
+
+/** 草稿里的一条 MG 成片，按镜头顺序排列、逐条顺次贴轨不留空隙。 */
+export interface FreezoneMotionDraftClip {
+  source: string;
+  name?: string;
+  durationS?: number | null;
+  /** 页面自报拍点（秒），直接沿用渲染清单里带回来的那一份。 */
+  beats?: unknown[];
+  /** 该镜自己的旁白：贴在该片段起点上；与整片旁白互斥。 */
+  narration?: FreezoneMotionDraftAudio | null;
+  /** 该镜的字幕：贴在该片段窗口上；与请求级 subtitles 互斥。 */
+  caption?: string;
+}
+
+/** 整片字幕的一条：只写文字和起点，时长由后端垫到下一条开始处。 */
+export interface FreezoneMotionDraftSubtitle {
+  text: string;
+  startS: number;
+  durationS?: number | null;
+}
+
+/** 字幕样式（整条文字轨生效）。位置写「距顶部占多高」（0~1）。 */
+export interface FreezoneMotionDraftTextStyle {
+  size?: number;
+  bold?: boolean;
+  yRatio?: number;
+}
+
+export interface FreezoneMotionDraftPayload {
+  title?: string;
+  clips: FreezoneMotionDraftClip[];
+  narration?: FreezoneMotionDraftAudio | null;
+  bgm?: FreezoneMotionDraftAudio | null;
+  subtitles?: FreezoneMotionDraftSubtitle[];
+  textStyle?: FreezoneMotionDraftTextStyle | null;
+  aspectRatio?: string;
+  resolution?: FreezoneVideoResolution;
+  fps?: number;
+  draftDir?: string;
+  /** 是否再整盘复制进本机剪映工程目录；关掉只留在项目输出目录。 */
+  deploy?: boolean;
+}
+
+function draftAudioToJson(audio: FreezoneMotionDraftAudio | null | undefined): Record<string, unknown> | null {
+  const source = (audio?.source ?? "").trim();
+  if (!source) return null;
+  const body: Record<string, unknown> = { source };
+  if (audio?.durationS && audio.durationS > 0) body.duration_seconds = audio.durationS;
+  if (typeof audio?.gain === "number") body.gain = audio.gain;
+  if (audio?.name) body.name = audio.name;
+  return body;
+}
+
+/**
+ * 字幕样式：不用 ``normalizeNumberInput``，它把 0 当「没填」——而 y_ratio=0 是合法的
+ * 「贴顶」档，被回落到 0.75 会让用户看到字幕跑到底部去。
+ */
+function draftTextStyleToJson(
+  style: FreezoneMotionDraftTextStyle | null | undefined,
+): Record<string, unknown> | null {
+  if (!style) return null;
+  const size = Number(style.size);
+  const yRatio = Number(style.yRatio);
+  return {
+    size: Number.isFinite(size) && size > 0 ? Math.min(40, Math.max(1, size)) : 7,
+    bold: style.bold ?? true,
+    y_ratio: Number.isFinite(yRatio) ? Math.min(1, Math.max(0, yRatio)) : 0.75,
+  };
+}
+
+/**
+ * [aipdd fork delta] 动效大片交付：逐镜 MG 成片 + 旁白/BGM → 一盘剪映 10.2 草稿。
+ *
+ * 自研，不引第三方草稿库、不调 VectCut 服务：拍点用页面自报的那一份，剪映打开就是
+ * 打好的点。产物是工程目录（不是可播放媒体），所以完成后可见的信息是落盘路径。
+ */
+export async function submitFreezoneMotionDraft(
+  project: string,
+  payload: FreezoneMotionDraftPayload,
+): Promise<FreezoneJobRef> {
+  return await apiCall<FreezoneJobRef>(
+    `projects/${encodeURIComponent(project)}/freezone/motion/draft`,
+    {
+      method: "POST",
+      json: {
+        title: payload.title ?? "",
+        clips: payload.clips.map((clip) => {
+          const body: Record<string, unknown> = { source: clip.source };
+          if (clip.name) body.name = clip.name;
+          if (clip.durationS && clip.durationS > 0) body.duration_seconds = clip.durationS;
+          if (clip.beats && clip.beats.length > 0) body.beats = clip.beats;
+          const narration = draftAudioToJson(clip.narration);
+          if (narration) body.narration = narration;
+          const caption = (clip.caption ?? "").trim();
+          if (caption) body.caption = caption;
+          return body;
+        }),
+        narration: draftAudioToJson(payload.narration),
+        bgm: draftAudioToJson(payload.bgm),
+        // 空文本的行不落进草稿：删一行只剩空格不该变成一条 0 长度的字幕。
+        subtitles: (payload.subtitles ?? [])
+          .filter((row) => row.text.trim())
+          .map((row) => {
+            const body: Record<string, unknown> = {
+              text: row.text.trim(),
+              start_seconds: row.startS > 0 ? row.startS : 0,
+            };
+            if (row.durationS && row.durationS > 0) body.duration_seconds = row.durationS;
+            return body;
+          }),
+        text_style: draftTextStyleToJson(payload.textStyle),
+        aspect_ratio: payload.aspectRatio ?? "16:9",
+        resolution: payload.resolution ?? "720p",
+        fps: normalizeNumberInput(payload.fps, 30, 1, 60, true),
+        draft_dir: payload.draftDir ?? "",
+        deploy: payload.deploy ?? true,
+      },
+    },
+  );
+}
+
 // /freezone/image/camera-options ----------------------------------------- //
 
 export interface FreezoneCameraIdLabel {
@@ -3239,6 +3818,10 @@ export async function fetchFreezoneJobResult(
     | "freezone_video_story"
     | "freezone_video_clone"
     | "freezone_video_mix"
+    // [aipdd fork delta] 动效大片的 MG 成片。
+    | "freezone_motion_render"
+    // [aipdd fork delta] 动效大片的剪映草稿（产物是草稿目录，不是媒体文件）。
+    | "freezone_motion_draft"
     | "stage_asset",
   jobId: string,
 ): Promise<FreezoneJobResult> {

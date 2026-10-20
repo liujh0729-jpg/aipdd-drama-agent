@@ -60,7 +60,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
     if item is None:
         raise ValueError(f"unknown AIPDD Drama tool: {name}")
     _schema, handler = item
-    text = handler(arguments or {})
+    # 工具处理器是同步阻塞实现（urllib 请求，自愈可达 180s）。直接调用会在
+    # 事件循环里串行化所有 MCP 请求，连取消/心跳都无法及时处理。
+    text = await asyncio.to_thread(handler, arguments or {})
+    text = dramaclaw_tools.hint_tool_output(text, tool_name=name)
     return [types.TextContent(type="text", text=str(text or ""))]
 
 

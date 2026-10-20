@@ -156,6 +156,14 @@ async def freezone_job_result(
         "freezone_whiteboard_animation",
         # [aipdd fork delta] 科普讲解视频成片（逐帧代码绘制的横屏 MG），同走通用产物解析。
         "freezone_explainer_video",
+        # [aipdd fork delta] 动效大片成片（按案例契约逐帧截图的 MG），同走通用产物解析。
+        "freezone_motion_render",
+        # [aipdd fork delta] 动效大片拍点预检：产物是一目录静帧 PNG，前端按同一套 job
+        # 结果轮询取清单（`stills`），所以也要在这个 Literal 里挂号。
+        "freezone_motion_stills",
+        # [aipdd fork delta] 动效大片交付：产物是一盘剪映工程目录（不是可播放媒体），
+        # 但前端按同一套 job 结果轮询取进度与落盘路径，所以要在这个 Literal 里挂号。
+        "freezone_motion_draft",
         # [aipdd fork delta] Phase 2B 渠道短视频成片（复用讲解视频链，渠道画幅 MP4）。
         "freezone_channel_short_video",
         # [aipdd fork delta] 口播智能剪辑：直出 MP4 / 剪映草稿产物，同走通用产物解析。

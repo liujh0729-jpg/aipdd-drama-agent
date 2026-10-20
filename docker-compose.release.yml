@@ -15,6 +15,9 @@ services:
       args:
         INSTALL_WORLD: "${INSTALL_WORLD:-0}"
     image: aipdd/api
+    # [aipdd fork delta] 固定（可插值）容器名：MCP 栏目「本地 Agent 工具」写入的
+    # docker exec 条目需要稳定可寻址。一机多套时用 .env 的 ST_CONTAINER_NAME 改名。
+    container_name: "${ST_CONTAINER_NAME:-aipdd-drama-api}"
     restart: unless-stopped
     # 运行时从宿主 .env 注入 model/LLM key；镜像版允许没有 .env（首启后再补也行）。
     # environment: 块仍覆盖此处同名变量，保持 CE inline 模式强制不变。
@@ -23,6 +26,8 @@ services:
         required: false
     environment:
       ST_EDITION: ce
+      # 与 container_name 同步：后端据此生成 MCP 手动配置里的 docker exec 目标。
+      AIPDD_DRAMA_MCP_CONTAINER: "${ST_CONTAINER_NAME:-aipdd-drama-api}"
       ST_CONTROL_PLANE_DSN: ""
       ST_REDIS_URL: ""
       ST_CELERY_BROKER_URL: ""

@@ -6,14 +6,23 @@
 
 约定：
 - ``variables`` 列出模板里可用的占位符，渲染时只替换已知占位符，未知占位符原样保留；
-- ``default`` 文本首尾不带多余换行，调用点负责按原样补回前后换行 / 空行。
+- ``default`` 文本首尾不带多余换行，调用点负责按原样补回前后换行 / 空行；
+- 「动效大片」（``motion``）分组不在本文件里逐条抄写，导入时按图册清单生成，
+  见 ``_motion_prompt_entries``。
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
-DEFAULT_PROMPTS: tuple[dict[str, Any], ...] = (
+# 动效大片图册的分组名；条目按清单生成，见 ``_motion_prompt_entries``。
+MOTION_GROUP = "motion"
+# 画风图册（66 条风格）的分组名；见 ``_motion_style_prompt_entries``。
+# 与案例分开成组：两份名录各自增删，混在一组里 100 多条就没法浏览了。
+MOTION_STYLE_GROUP = "motion_style"
+
+_BUILTIN_PROMPTS: tuple[dict[str, Any], ...] = (
     # ------------------------------------------------------------------
     # 角色与身份（generators/character_generation.py）
     # ------------------------------------------------------------------
@@ -1052,4 +1061,91 @@ Each panel is the FIRST FRAME of a video clip. For dynamic actions:
 - "walks in" (走进) → show character at the DOORWAY (before entering)
 Show the STARTING pose, NOT the ending result.""",
     },
+)
+
+
+def _motion_prompt_entries() -> tuple[dict[str, Any], ...]:
+    """把动效大片图册的每条案例登记成提示词库条目（``motion.<case_id>``）。
+
+    规格文字不在这里再抄一份 —— 图册清单（``motion_templates.json``）是唯一出处，
+    于是图册、设置里的提示词库与渲染任务的默认 prompt 三者永远同源；清单换一套
+    （``MOTION_GALLERY_MANIFEST``）时分组条目跟着换。
+
+    清单读不出来时本分组降级为空，而不是连带整个提示词库导入失败：图册是浏览
+    能力，生成链路不该因为一份配置文件坏了就断。
+    """
+    try:
+        # 延迟导入：这份数据模块被生成链路广泛引用，不该在导入期就拉起 freezone。
+        from novelvideo.freezone.motion_templates import (
+            compose_motion_prompt,
+            load_motion_cases,
+            motion_prompt_key,
+        )
+
+        cases = load_motion_cases()
+    except Exception as exc:  # pragma: no cover - 打包缺文件 / 外部清单坏
+        logging.getLogger(__name__).warning("motion gallery prompts unavailable: %s", exc)
+        return ()
+
+    entries: list[dict[str, Any]] = []
+    for case in cases:
+        case_id = str(case["id"])
+        try:
+            composed = compose_motion_prompt(case_id)
+        except KeyError:  # pragma: no cover - 清单自检保证不会发生
+            continue
+        entries.append(
+            {
+                "key": motion_prompt_key(case_id),
+                "group": MOTION_GROUP,
+                "label": str(case["label"]),
+                "description": str(case["brief"]),
+                "variables": (),
+                "default": composed.rstrip(),
+            }
+        )
+    return tuple(entries)
+
+
+def _motion_style_prompt_entries() -> tuple[dict[str, Any], ...]:
+    """把画风图册的每条风格登记成提示词库条目（``motion-style.<style_id>``）。
+
+    与案例同一套做法：规格文字只在 ``motion_styles.json`` 存一份，图册、提示词库与
+    渲染任务读的是同一处；渲染契约也不在这里重复，由 compose 去案例清单取。
+    清单坏了同样降级为空分组。
+    """
+    try:
+        from novelvideo.freezone.motion_styles import (
+            compose_motion_style_prompt,
+            load_motion_styles,
+            motion_style_prompt_key,
+        )
+
+        styles = load_motion_styles()
+    except Exception as exc:  # pragma: no cover - 打包缺文件 / 外部清单坏
+        logging.getLogger(__name__).warning("motion style gallery prompts unavailable: %s", exc)
+        return ()
+
+    entries: list[dict[str, Any]] = []
+    for style in styles:
+        style_id = str(style["id"])
+        try:
+            composed = compose_motion_style_prompt(style_id)
+        except KeyError:  # pragma: no cover - 清单自检保证不会发生
+            continue
+        entries.append(
+            {
+                "key": motion_style_prompt_key(style_id),
+                "group": MOTION_STYLE_GROUP,
+                "label": str(style["label"]),
+                "description": str(style["brief"]),
+                "variables": (),
+                "default": composed.rstrip(),
+            }
+        )
+    return tuple(entries)
+
+
+DEFAULT_PROMPTS: tuple[dict[str, Any], ...] = (
+    _BUILTIN_PROMPTS + _motion_prompt_entries() + _motion_style_prompt_entries()
 )

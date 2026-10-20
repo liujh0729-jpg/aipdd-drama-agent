@@ -14,6 +14,7 @@
 | `NOVELVIDEO_OUTPUT_DIR` | `$DATA_ROOT/output` | Output directory for finished videos and artifacts. Docker Compose pins it to `/data/output`, which is persisted in the `ce-data` volume. |
 | `NOVELVIDEO_STATE_DIR` | `$DATA_ROOT/state` | Local state. |
 | `NOVELVIDEO_RUNTIME_DIR` | `$DATA_ROOT/runtime` | Runtime temporary directory. |
+| `NOVELVIDEO_PROJECT_ROOT` | auto-detected (each consumer walks up to the layer holding the bundled resource it needs) | Project root. Used by the face-swap sidecar, the 3D world installer and the Jianying 10.2 draft skeleton to locate the bundled `services/`; set it explicitly for non-standard deployments. |
 | `ST_CONTROL_PLANE_DSN` / `ST_REDIS_URL` / `ST_CELERY_BROKER_URL` / `ST_CELERY_RESULT_BACKEND` | Empty (forced empty in CE) | Used only by EE/distributed; CE runs tasks inline in-process, so leave empty. |
 
 ## Model Gateway
@@ -78,7 +79,7 @@ conditions are recorded in the wave3 archive note inside `tests/test_no_hardcode
 |---|---|---|
 | `VIDEO_FPS` | `30` | Frame rate. |
 | `VIDEO_WIDTH` / `VIDEO_HEIGHT` | `1080` / `1920` | Portrait resolution. |
-| `VIDEO_CODEC` | `libx264` | Video codec (H.264); the ffmpeg build must include this encoder, see the [ffmpeg guide](../guides/ffmpeg.md). |
+| `VIDEO_CODEC` | `libx264` | Video codec (H.264). Honored by **every** encode chain now — all of them pick the encoder through `src/novelvideo/video_encoder.py`, which reads this variable before falling back to `libx264 → h264_videotoolbox → h264_mf → libopenh264`. Two conditions: the local ffmpeg build must actually contain it, and it must be one of those four H.264 implementations; anything else (e.g. `mpeg4`, `aac`) is ignored with a one-time warning and the ladder is used instead. See the [ffmpeg guide](../guides/ffmpeg.md). |
 | `VIDEO_AUDIO_CODEC` | `aac` | Audio codec. |
 | `VIDEO_BITRATE` | `4M` | Bitrate. |
 | `IMAGE_DEFAULT_WIDTH` / `IMAGE_DEFAULT_HEIGHT` / `IMAGE_DEFAULT_STYLE` | `1440` / `2560` / `chinese_period_drama` | Default image dimensions and style. |
@@ -87,7 +88,23 @@ conditions are recorded in the wave3 archive note inside `tests/test_no_hardcode
 
 | Variable | Default | Description |
 |---|---|---|
-| `FFMPEG_PATH` | `ffmpeg` (from PATH) | Path to the ffmpeg executable; specify explicitly when installed in a non-standard location. |
+| `FFMPEG_PATH` | `ffmpeg` (from PATH) | Path to the ffmpeg executable; specify explicitly when installed in a non-standard location. **Only the motion-feature-film chain (frame encoding + loudness normalization) and the shared encoder resolver read it**; `generators/video_composer.py` and the legacy `freezone/jobs.py` paths exec a bare `ffmpeg`, so they only ever use PATH. Pointing it at a binary off PATH makes the encoder list get probed from one build while those chains run another — the resolver logs a one-time warning; see the [ffmpeg guide](../guides/ffmpeg.md). |
+
+## Motion feature film (MG)
+
+Gallery → model writes a single-file page against the render contract → bundled Chrome renders it frame by frame → code-arranged score → Jianying draft. Out of the box this chain needs no configuration and makes no outbound calls; every variable below is an optional override.
+
+| Variable | Default | Description |
+|---|---|---|
+| `MOTION_GALLERY_MANIFEST` | bundled `freezone/motion_templates.json` | Point at an external case catalog to swap the gallery. An unreadable/broken external file falls back to the bundled one with a warning; only a missing bundled catalog is an error (that means a broken package). |
+| `MOTION_STYLE_MANIFEST` | bundled `freezone/motion_styles.json` | The art-style catalog (66 entries) is a second, independent manifest: it changes the look, not the case shot structure. Same fallback rule as above — a broken external file falls back to the bundled one with a warning; only a missing bundled manifest is an error. |
+| `MOTION_GALLERY_ASSET_BASE` | `/api/v1/motion-gallery` | Address prefix for posters and original clips. Put the 37 originals (~0.7 GB, not bundled) on OSS/CDN and point here; the frontend resolves `<base>/<path-relative-to-manifest>`. |
+| `MOTION_GALLERY_MIRROR` | empty | On-demand original fetch: when the local cache misses, pull once from `<mirror>/<relative path>`, verify sha256, store in the state volume, then serve. Unset means un-cached originals simply don't play — prompts still work. |
+| `ST_CHROME_CDP_URL` | empty | Attach to an existing debugging instance instead of launching one. When unset the default follows the deployment: `http://127.0.0.1:9222` natively/desktop, `http://host.docker.internal:9222` in containers. Shared with the Douyin detail capture and the built-in Chrome MCP. |
+| `ST_CHROME_PATH` | empty | Path to a Chrome/Chromium executable to launch as a temporary headless instance. A path that does not exist is reported loudly rather than silently treated as "no browser". |
+| `MOTION_DRAFT_TEMPLATE_DIR` | bundled `services/vectcut/template_jianying_10_2` | Jianying 10.2 draft skeleton (root `draft_content.json` plus `Timelines/`). The skeleton location is derived by walking up to the layer that contains it; when your layout differs, set `NOVELVIDEO_PROJECT_ROOT` or point at this directory directly. |
+
+> The desktop build needs none of these: `env.rs` prepends `resources/bin` (with `ffmpeg.exe` / `ffprobe.exe` / `chrome/`) to `PATH` and injects `APP_RESOURCE_PATH`, which is where the browser and the draft skeleton are discovered. See the [desktop environment contract](../../../desktop/README.md).
 
 ## Security
 

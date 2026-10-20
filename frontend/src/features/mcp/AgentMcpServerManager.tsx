@@ -6,6 +6,8 @@
 // 与「工具」（内置 AIPDD Drama 读取工具目录；其余服务经「测试连接」拉取）。支持新增/
 // 编辑/启停/删除/恢复默认；内置服务器不可删除、可禁用。添加时按接入类型区分输入：
 // SSE 与流式传输 HTTP 填服务地址（+请求头），自定义代码填启动命令、参数与环境变量。
+// 身份边界：新增/编辑/测试连接只对 owner 渲染（后端同为 owner 依赖）；member 保留
+// 清单、启停与清理（删除 / 恢复默认）。
 // 两种宿主：
 // - MCP 栏目页：showHeading 缺省（true），自带区块标题与描述（AgentMcpSection 壳）；
 // - Agent「连接器MCP」弹窗：showHeading=false，标题由对话框提供，只渲染操作行与列表。
@@ -52,6 +54,7 @@ import {
   type AgentMcpTransport,
 } from "@/lib/queries/agent";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 import { agentErrorMessage } from "@/features/agent/core";
 
@@ -169,6 +172,10 @@ export function AgentMcpServerManager({
   className?: string;
 }) {
   const { t } = useTranslation();
+  // 新增/编辑/测试连接在后端是 owner 能力（会注册或真实执行本机命令），
+  // 入口不渲染给 member；清单、启停、清理（删除/恢复默认）继续可用。
+  const role = useAuthStore((state) => state.role);
+  const isOwner = role === "owner";
   const serversQuery = useAgentMcpServers();
   const upsert = useUpsertAgentMcpServer();
   const setEnabled = useSetAgentMcpServerEnabled();
@@ -292,10 +299,12 @@ export function AgentMcpServerManager({
         )}
         {t("mcp.agentServers.reset")}
       </Button>
-      <Button type="button" size="sm" onClick={openCreate} className="h-7 gap-1.5 rounded-[7px] bg-primary px-2 text-xs font-normal text-primary-foreground shadow-none hover:bg-primary/85 active:bg-primary/75">
-        <Plus className="size-3.5" />
-        {t("mcp.agentServers.add")}
-      </Button>
+      {isOwner ? (
+        <Button type="button" size="sm" onClick={openCreate} className="h-7 gap-1.5 rounded-[7px] bg-primary px-2 text-xs font-normal text-primary-foreground shadow-none hover:bg-primary/85 active:bg-primary/75">
+          <Plus className="size-3.5" />
+          {t("mcp.agentServers.add")}
+        </Button>
+      ) : null}
     </>
   );
 
@@ -338,9 +347,14 @@ export function AgentMcpServerManager({
             const open = expandedId === server.id;
             const probing = probe.isPending && probe.variables === server.id;
             const result = probeResult?.serverId === server.id ? probeResult.result : null;
+            const unavailable = server.available === false;
+            const unavailableReason = server.unavailable_reason || t("mcp.agentServers.unavailableHint");
             const args = server.args ?? [];
             const envKeys = Object.keys(server.env ?? {});
             const headerKeys = Object.keys(server.headers ?? {});
+            // 「工具」分页要么是只读目录（内置 aipdd-drama），要么经「测试连接」
+            // 拉取（owner 能力）；member 只见「概览」，分页控件整个不渲染。
+            const canSeeTools = isOwner || (server.builtin && server.id === AIPDD_DRAMA_SERVER_ID);
             return (
               <div
                 key={server.id}
@@ -372,6 +386,14 @@ export function AgentMcpServerManager({
                     >
                       {t(badgeKey(server))}
                     </span>
+                    {unavailable ? (
+                      <span
+                        title={unavailableReason}
+                        className="shrink-0 rounded-sm border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300"
+                      >
+                        {t("mcp.agentServers.unavailable")}
+                      </span>
+                    ) : null}
                   </button>
                   <div className="flex shrink-0 items-center gap-1">
                     <button
@@ -379,11 +401,13 @@ export function AgentMcpServerManager({
                       role="switch"
                       aria-checked={server.enabled}
                       title={
-                        server.enabled
-                          ? t("mcp.agentServers.disable")
-                          : t("mcp.agentServers.enable")
+                        unavailable
+                          ? unavailableReason
+                          : server.enabled
+                            ? t("mcp.agentServers.disable")
+                            : t("mcp.agentServers.enable")
                       }
-                      disabled={setEnabled.isPending}
+                      disabled={setEnabled.isPending || unavailable}
                       onClick={() => setEnabled.mutate({ serverId: server.id, enabled: !server.enabled })}
                       className={cn(
                         "relative h-4 w-7 rounded-full transition-colors",
@@ -397,35 +421,40 @@ export function AgentMcpServerManager({
                         )}
                       />
                     </button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={probing}
-                      onClick={() => void handleProbe(server)}
-                      className="h-6 gap-1 px-1.5 text-[11px]"
-                    >
-                      {probing ? <Loader2 className="size-3 animate-spin" /> : null}
-                      {t("mcp.agentServers.test")}
-                    </Button>
-                    <button
-                      type="button"
-                      title={
-                        server.builtin
-                          ? t("mcp.agentServers.builtinLocked")
-                          : t("mcp.agentServers.edit")
-                      }
-                      disabled={server.builtin}
-                      onClick={() => openEdit(server)}
-                      className={cn(
-                        "rounded-sm p-1 transition-colors",
-                        server.builtin
-                          ? "cursor-not-allowed text-muted-foreground/40"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      <Pencil className="size-3.5" />
-                    </button>
+                    {isOwner ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={probing || unavailable}
+                        title={unavailable ? unavailableReason : undefined}
+                        onClick={() => void handleProbe(server)}
+                        className="h-6 gap-1 px-1.5 text-[11px]"
+                      >
+                        {probing ? <Loader2 className="size-3 animate-spin" /> : null}
+                        {t("mcp.agentServers.test")}
+                      </Button>
+                    ) : null}
+                    {isOwner ? (
+                      <button
+                        type="button"
+                        title={
+                          server.builtin
+                            ? t("mcp.agentServers.builtinLocked")
+                            : t("mcp.agentServers.edit")
+                        }
+                        disabled={server.builtin}
+                        onClick={() => openEdit(server)}
+                        className={cn(
+                          "rounded-sm p-1 transition-colors",
+                          server.builtin
+                            ? "cursor-not-allowed text-muted-foreground/40"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       title={
@@ -472,30 +501,37 @@ export function AgentMcpServerManager({
                 {/* [aipdd fork delta] 展开态：概览（描述 / 连接信息 / 键名）与工具（目录或探测结果）。 */}
                 {open ? (
                   <div className="mt-2 border-t border-white/[0.06] pt-2">
-                    <div className="flex w-fit items-center gap-0.5 rounded-full border border-border bg-background/40 p-0.5">
-                      {(["overview", "tools"] as const).map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          aria-pressed={detailTab === item}
-                          onClick={() => setDetailTab(item)}
-                          className={cn(
-                            "rounded-sm px-2 py-0.5 text-[11px] transition-colors",
-                            detailTab === item
-                              ? "bg-primary text-primary-foreground"
-                              : "text-muted-foreground hover:text-foreground",
-                          )}
-                        >
-                          {t(`mcp.agentServers.detail.${item}`)}
-                        </button>
-                      ))}
-                    </div>
+                    {canSeeTools ? (
+                      <div className="flex w-fit items-center gap-0.5 rounded-full border border-border bg-background/40 p-0.5">
+                        {(["overview", "tools"] as const).map((item) => (
+                          <button
+                            key={item}
+                            type="button"
+                            aria-pressed={detailTab === item}
+                            onClick={() => setDetailTab(item)}
+                            className={cn(
+                              "rounded-sm px-2 py-0.5 text-[11px] transition-colors",
+                              detailTab === item
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground hover:text-foreground",
+                            )}
+                          >
+                            {t(`mcp.agentServers.detail.${item}`)}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
 
-                    {detailTab === "overview" ? (
+                    {detailTab === "overview" || !canSeeTools ? (
                       <div className="mt-2 space-y-1.5 text-[11px] leading-relaxed">
                         <p className="text-muted-foreground">
                           {server.description || t("mcp.agentServers.noDescription")}
                         </p>
+                        {unavailable ? (
+                          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-300">
+                            {unavailableReason}
+                          </p>
+                        ) : null}
                         {server.transport === "stdio" ? (
                           <div className="flex items-start gap-1.5">
                             <span className="shrink-0 text-muted-foreground">

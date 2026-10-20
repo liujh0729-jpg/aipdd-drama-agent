@@ -8,7 +8,7 @@ AIPDD-Agent-Claw 内置一个 [MCP](https://modelcontextprotocol.io) 服务器�
 剪辑草稿，工具页的批量处理（视频复刻 / 混剪短视频 / 白板动画视频 / 科普讲解视频 / 渠道短视频 / 一句话生成短视频 /
 公众号文章编写与发布 / 人声复刻 / 对口型 / 换人 / 去水印 / 抖音文案提取），一键自动化（故事→分镜步进
 驱动器、按分镜区间批量生视频），以及画布（freezone）的生图 /
-图片编辑 / 生视频 / 音频 / 文本脚本 / 资源目录读，以及环境自动安装（`aipdd_drama_env_setup`：探测运行依赖 → 待办计划 → 逐项安装）—— 共 105 个工具。
+图片编辑 / 生视频 / 音频 / 文本脚本 / 资源目录读，环境自动安装（`aipdd_drama_env_setup`：探测运行依赖 → 待办计划 → 逐项安装），环境与代码自愈（`aipdd_drama_self_heal`：调用失败时交给默认文本模型分析，`diagnose` 只诊断、`repair` 仅执行白名单修复），可执行工作计划（`aipdd_drama_get_plan` / `aipdd_drama_update_plan` / `aipdd_drama_run_plan`），小说故事源读写、章节读写与导入、动效大片（MG）目录 / 渲染 / 静帧 / 剪映草稿、成片与整集导出 —— 共 122 个工具。
 任何会说 MCP 的客户端（**Claude Code**、Codex 等）都能用它从头做完一部短剧。
 
 服务器（`src/novelvideo/chat/dramaclaw_mcp.py`）是 AIPDD-Agent-Claw REST API 之上的 薄
@@ -73,11 +73,26 @@ claude mcp list        # dramaclaw → ✓ connected
 > 把 `.mcp.json` 的 command 换成
 > `docker compose exec -T -e DRAMACLAW_API_URL=http://localhost:8780 -e DRAMACLAW_CE_OWNER=1 api python -m novelvideo.chat.dramaclaw_mcp`。
 
+### 站内 MCP 页面：按运行形态生成配置
+
+站内 **MCP → 本地 Agent 工具** 可一键把 Workbuddy / Claude Code / Cursor / Codex
+接到当前实例，写入的条目随运行形态变化：
+
+- **Docker 部署**：`docker exec -i <容器名> python -m novelvideo.chat.aipdd_drama_mcp`，
+  容器名由 `AIPDD_DRAMA_MCP_CONTAINER` 指定（缺省 `aipdd-drama-api`，与发布编排一致）；
+- **桌面版（exe / dmg）**：直接使用随包 Python（`sys.executable -m …`），令牌与项目号
+  走条目 `env`，无需另装 Docker 或 uv。
+
+内置服务器（Chrome DevTools / Blender / ComfyUI）在页面上按运行环境标注可用性：
+本机缺少 `chrome-devtools-mcp` 或 `uvx` 时显示「不可用」并给出安装命令，Agent
+回合不会再尝试拉起缺失的命令；装好后下一次请求自动恢复，无需改配置。
+
 ## 代理能做什么
 
 工具覆盖完整管线。一次典型的端到端流程：
 
-1. `aipdd_drama_post` → `/projects/{p}/ingest/upload` + `/ingest/start` —— 导入稿件
+1. `aipdd_drama_start_ingest` → `/projects/{p}/ingest/start` —— 导入已上传稿件
+   （上传本身走网页/客户端 multipart；`aipdd_drama_post` 仍可直调同一端点）
 2. `aipdd_drama_build_characters` → 抽取角色
 3. `aipdd_drama_plan_episodes` → 分集
 4. `aipdd_drama_plan_identities` → 每集身份
@@ -149,6 +164,30 @@ claude mcp list        # dramaclaw → ✓ connected
     （聚合流水线进度 + 正在运行/失败/已完成任务 + 本集镜头计数）、`aipdd_drama_cancel_run`
     （一键取消本集在跑任务）与 `aipdd_drama_suggest_config`（按模型目录与画幅给出推荐生成
     配置与理由，先看好再生成）。
+19. **可执行工作计划（用户设计划 → Agent 自动做）**：`aipdd_drama_update_plan`
+    （add / update / complete / remove；条目带 `stage` 里程碑——story / screenplay /
+    ingest / characters / episodes / identities / script / scenes / props / sketches /
+    frames——和可选 `episode` 集号，写入后即可执行；不带 stage 的是手工待办）、
+    `aipdd_drama_get_plan`（读取计划、未完成数与可执行条目，供 Agent 每轮先确认再动手）、
+    `aipdd_drama_run_plan`（`mode=auto` 在 `budget_s` 内按计划连续推进；`manual` 只推
+    一段；`checkpoint` 只预览。执行器复用同一个后端计划器，按**真实产物**（故事正文、
+    角色、分集、身份、分镜脚本、场景/道具、草图、首帧）回勾任务，重复调用幂等，
+    已完成的条目不会重跑；同样**只推进到镜头首帧，绝不生成视频**）。
+    对应的 HTTP 接口是 `GET/POST/PATCH/DELETE /api/v1/agent/plan*` 与
+    `POST /api/v1/agent/plan/run`，Agent 页右侧「待办计划」面板可直接查看阶段与执行。
+20. **小说故事源 / 章节 / 动效大片 / 成片导出**：`aipdd_drama_get_story_source` /
+    `aipdd_drama_save_story_source`（用户在 Agent 里直接粘贴整本小说的入口，与网页导入
+    同口径校验）、`aipdd_drama_get_chapters`（章节结构；默认只给
+    元数据，`chapter=N` 读单章正文）、`aipdd_drama_update_chapter`（保存单章正文，标题行
+    由后端保留）、`aipdd_drama_start_ingest`（对 `uploads/` 里已上传的文件启动
+    `ingest_fast`，先配 `aipdd_drama_list_ingest_uploads`）；动效大片
+    `aipdd_drama_motion_cases` / `aipdd_drama_motion_styles`（案例与画风图册，给 id 即返回
+    完整提示词）、`aipdd_drama_motion_renders`（已渲染成片清单）、
+    `aipdd_drama_motion_render`（一镜 MG 成片，`freezone_motion_render`）、
+    `aipdd_drama_motion_stills`（拍点静帧预检，`freezone_motion_stills`）、
+    `aipdd_drama_motion_draft`（逐镜成片 → 剪映草稿，`freezone_motion_draft`）；导出
+    `aipdd_drama_get_subtitles`（一集 SRT 文本）与 `aipdd_drama_export_episode`
+    （`kind=video` 下载成片 mp4，`kind=zip` 下载整集资源包，流式落盘并返回本地路径）。
 
 生成是**异步**的：工具调用启动任务，之后代理轮询 `aipdd_drama_pipeline_status` /
 `aipdd_drama_list_tasks` / `aipdd_drama_get_task` 直到完成。每个工具的描述里写明了
@@ -162,6 +201,16 @@ claude mcp list        # dramaclaw → ✓ connected
 > `aipdd_drama_get('/projects/{p}/freezone/canvases')` 列出画布，`…/freezone/canvases/{canvas_id}`
 > 查看节点与生成历史，`aipdd_drama_post('/projects/{p}/freezone/gen', {…})` 触发与画布
 > 节点等价出图 —— 与网页端操作完全同源。
+
+> **动效大片（MG）** 已有专门工具：`aipdd_drama_motion_cases` /
+> `aipdd_drama_motion_styles` 读案例与画风图册（给 `case_id`/`style_id` 返回完整提示词），
+> `aipdd_drama_motion_render` 起渲染（`html` 直贴页面，或 `case_id`/`style_id` + `subject`
+> 让模型按契约写页面），`aipdd_drama_motion_stills` 先按拍点出静帧预检，
+> `aipdd_drama_motion_renders` 列已渲染成片（事实来源是磁盘上的 `*.motion.json`
+> sidecar），`aipdd_drama_motion_draft` 导出剪映 10.2 草稿。任务类型是
+> `freezone_motion_render` / `freezone_motion_stills` / `freezone_motion_draft`，用
+> `aipdd_drama_get_task(task_type=..., episode=0, scope=<job_id>)` 轮询。这条链路依赖
+> 本机 Chrome 与 ffmpeg，见[动效大片指南](motion-feature-film.md)。
 
 ## 安全提示
 

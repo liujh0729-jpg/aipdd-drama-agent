@@ -25,6 +25,8 @@ import re
 import subprocess
 from dataclasses import dataclass
 
+from novelvideo.video_encoder import video_encode_args
+
 
 @dataclass(frozen=True, slots=True)
 class Interval:
@@ -504,10 +506,7 @@ def _encode_segment_command(
         f"{max(0.0, end):.3f}",
         "-i",
         str(video_path),
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
+        *video_encode_args(),
         "-c:a",
         "aac",
         "-avoid_negative_ts",

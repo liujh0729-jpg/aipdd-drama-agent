@@ -3,9 +3,11 @@
 """[aipdd fork delta] 本地 Agent 工具接入：把内置 AIPDD Drama MCP server 写进用户
 本机安装的 AI 客户端配置（Workbuddy / Claude Code / Cursor / Codex）。
 
-链路（本地 Docker 部署）：
-- 宿主 home 由 compose 挂进 api 容器（``${HOME}:/host-home``），本模块只在
+链路（Docker / 桌面两种形态）：
+- Docker：宿主 home 由 compose 挂进 api 容器（``${HOME}:/host-home``），本模块只在
   ``HOST_HOME_PATH``（缺省 ``/host-home``）之下探测与读写目标工具配置；
+- 桌面 exe/dmg 与裸机源码部署：没有挂载点，直接读写当前用户真实 home
+  （``Path.home()``），连接条目起本机 Python 而不是 docker exec；
 - installed：目标工具在本机的安装证据，分两级——
   ``app``（应用本体 / CLI 命中：宿主 home 内的用户级安装位置，或宿主应用目录
   挂载 ``HOST_APPS_PATH`` 下的 *.app / 安装目录——compose 把 macOS 的
@@ -14,9 +16,9 @@
   installed 为真 = 任一级命中（连接闸门不收紧：真装用户不因探测盲区被挡）；
   UI 按 evidence 分级展示（app →「已安装」；config →「检测到配置」）。
 - connect：由路由层生成一把统一密钥（st-…，机器凭证），本模块向目标配置写入
-  stdio 形态的 aipdd-drama 条目——``docker exec -i aipdd-drama-api python -m
-  novelvideo.chat.aipdd_drama_mcp``，在 api 容器内启动 MCP server，API 地址取
-  容器内 loopback；写入时同步清理品牌改名前的旧 ``dramaclaw`` 条目，避免双份；
+  stdio 形态的 aipdd-drama 条目——容器版为 ``docker exec -i <container> python -m
+  novelvideo.chat.aipdd_drama_mcp``，桌面/裸机版直接起本机 Python；API 地址取
+  本机 loopback；写入时同步清理品牌改名前的旧 ``dramaclaw`` 条目，避免双份；
 - disconnect：仅移除配置条目（密钥吊销由路由层负责）；
 - connected：目标配置文件里存在 aipdd-drama 条目（以文件为准，不另存状态；
   旧 dramaclaw 条目视同已连接）。
@@ -31,11 +33,17 @@ import json
 import os
 import re
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
 HOST_HOME_ENV = "HOST_HOME_PATH"
 DEFAULT_HOST_HOME = "/host-home"
+# 后端运行形态覆盖：docker=客户端经 docker exec 进 api 容器启动 MCP；
+# native=客户端直接起本机 Python（桌面 exe/dmg、裸机源码部署）。缺省按容器标记探测。
+MCP_TRANSPORT_ENV = "AIPDD_DRAMA_MCP_TRANSPORT"
+# docker exec 目标容器名（compose 可经 AIPDD_DRAMA_MCP_CONTAINER 注入自定义名）。
+CONTAINER_NAME_ENV = "AIPDD_DRAMA_MCP_CONTAINER"
 # 宿主应用目录在容器内的只读挂载点（macOS /Applications → /host-applications）。
 # 未挂载 / 不存在时「应用本体」级证据自动跳过，退回 home 内候选与配置痕迹。
 HOST_APPS_ENV = "HOST_APPS_PATH"
@@ -106,20 +114,53 @@ TOOL_DEFS: tuple[dict[str, Any], ...] = (
     },
 )
 
-_TOML_HEADER_RE = re.compile(r"(?m)^\[mcp_servers\.(?:aipdd-drama|dramaclaw)\]\s*$")
+_TOML_HEADER_RE = re.compile(
+    r"(?m)^\[mcp_servers\.(?:aipdd-drama|dramaclaw)(?:\.env)?\]\s*$"
+)
 _TOML_SECTION_RE = re.compile(r"(?m)^\[")
 
 
+def in_container() -> bool:
+    """后端是否跑在 Docker 容器里（决定连接条目用 docker exec 还是本机 Python）。
+
+    显式覆盖优先；否则以 ``/.dockerenv`` 为准——桌面 exe/dmg 与裸机源码部署
+    都没有该文件，此时才能安全地把 ``Path.home()`` 当成用户真实 home。
+    """
+    raw = os.environ.get(MCP_TRANSPORT_ENV, "").strip().lower()
+    if raw in {"docker", "native"}:
+        return raw == "docker"
+    return Path("/.dockerenv").exists()
+
+
+def container_name() -> str:
+    """docker exec 目标容器名（缺省与 docker-compose 的 container_name 一致）。"""
+    return os.environ.get(CONTAINER_NAME_ENV, "").strip() or CONTAINER_NAME
+
+
 def host_home() -> Path:
-    """宿主 home 在容器内的挂载点（compose 挂载；测试可经 env 覆盖）。"""
+    """宿主 home：容器取 compose 挂载点；桌面/裸机取当前用户真实 home。
+
+    容器未挂载 ``/host-home`` 时仍返回挂载点（由 UI 提示不可用），绝不把容器
+    内的 /root 误当用户 home 写配置。
+    """
     raw = os.environ.get(HOST_HOME_ENV, "").strip()
-    return Path(raw) if raw else Path(DEFAULT_HOST_HOME)
+    if raw:
+        return Path(raw)
+    default = Path(DEFAULT_HOST_HOME)
+    if default.is_dir() or in_container():
+        return default
+    return Path.home()
 
 
 def host_apps() -> Path:
-    """宿主应用目录挂载点（macOS 的 /Applications 只读挂载；测试可经 env 覆盖）。"""
+    """宿主应用目录：容器取只读挂载；macOS 桌面直接看本机 /Applications。"""
     raw = os.environ.get(HOST_APPS_ENV, "").strip()
-    return Path(raw) if raw else Path(DEFAULT_HOST_APPS)
+    if raw:
+        return Path(raw)
+    default = Path(DEFAULT_HOST_APPS)
+    if default.is_dir() or in_container():
+        return default
+    return Path("/Applications") if sys.platform == "darwin" else default
 
 
 def _tool_config_path(home: Path, definition: dict[str, Any]) -> Path:
@@ -262,11 +303,20 @@ def _toml_remove_block(text: str) -> str:
 
 def _toml_render_block(entry: dict[str, Any]) -> str:
     args_lines = ",\n".join(f"    {json.dumps(str(item))}" for item in entry.get("args") or [])
-    return (
+    block = (
         f"[mcp_servers.{SERVER_KEY}]\n"
         f"command = {json.dumps(str(entry.get('command') or ''))}\n"
         f"args = [\n{args_lines},\n]\n"
     )
+    env = entry.get("env")
+    if isinstance(env, dict) and env:
+        # 本机启动形态把令牌/地址放 env 子表（docker exec 形态则走 -e 参数）。
+        env_lines = "\n".join(
+            f"{json.dumps(str(key))} = {json.dumps(str(value))}"
+            for key, value in env.items()
+        )
+        block += f"\n[mcp_servers.{SERVER_KEY}.env]\n{env_lines}\n"
+    return block
 
 
 def toml_has_server(path: Path) -> bool:
@@ -300,31 +350,35 @@ def toml_remove_server(path: Path) -> None:
 
 
 def connection_entry(*, raw_key: str, project_id: str = "") -> dict[str, Any]:
-    """写入客户端配置的 aipdd-drama stdio 条目（docker exec 进本 api 容器）。
+    """写入客户端配置的 aipdd-drama stdio 条目（按运行形态选启动方式）。
+
+    - 容器版：``docker exec -i <container> python -m ...``，地址取容器内 loopback；
+    - 桌面/裸机版：直接起当前 Python（桌面包内即随包解释器），地址同样取
+      loopback（后端固定监听 127.0.0.1:8780），令牌/项目号走条目 ``env``。
 
     env 同时注入新名 ``AIPDD_DRAMA_*`` 与旧名 ``DRAMACLAW_*``：工具实现按
     新名优先、旧名回退读取，旧版镜像/容器里的 MCP 子进程也能继续工作。
     """
-    args = [
-        "exec",
-        "-i",
-        "-e",
-        f"AIPDD_DRAMA_API_URL={API_INNER_URL}",
-        "-e",
-        f"DRAMACLAW_API_URL={API_INNER_URL}",
-        "-e",
-        f"AIPDD_DRAMA_AGENT_TOKEN={raw_key}",
-        "-e",
-        f"DRAMACLAW_AGENT_TOKEN={raw_key}",
-    ]
+    variables = {
+        "AIPDD_DRAMA_API_URL": API_INNER_URL,
+        "DRAMACLAW_API_URL": API_INNER_URL,
+        "AIPDD_DRAMA_AGENT_TOKEN": raw_key,
+        "DRAMACLAW_AGENT_TOKEN": raw_key,
+    }
     if project_id:
-        args += [
-            "-e",
-            f"AIPDD_DRAMA_PROJECT_ID={project_id}",
-            "-e",
-            f"DRAMACLAW_PROJECT_ID={project_id}",
-        ]
-    args += [CONTAINER_NAME, "python", "-m", MCP_MODULE]
+        variables["AIPDD_DRAMA_PROJECT_ID"] = project_id
+        variables["DRAMACLAW_PROJECT_ID"] = project_id
+    if not in_container():
+        env = dict(variables)
+        # 桌面后端的源码目录不在随包解释器的 site-packages 里时靠它兜底。
+        python_path = os.environ.get("PYTHONPATH", "").strip()
+        if python_path:
+            env["PYTHONPATH"] = python_path
+        return {"command": sys.executable or "python", "args": ["-m", MCP_MODULE], "env": env}
+    args = ["exec", "-i"]
+    for key, value in variables.items():
+        args += ["-e", f"{key}={value}"]
+    args += [container_name(), "python", "-m", MCP_MODULE]
     return {"command": "docker", "args": args}
 
 

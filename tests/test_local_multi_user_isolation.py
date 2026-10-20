@@ -295,3 +295,52 @@ async def test_register_route_closed_by_default(multi_user, monkeypatch) -> None
             username="eve", password="eve-pass-12"
         ))
     assert exc.value.status_code == 403
+
+
+# ------------------------------------------------------------ 单用户暴露面告警
+
+
+def _hermetic_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """屏蔽 .env 惰性补键，让 delenv 后的 os.environ 保持真空。"""
+    from novelvideo.shared import runtime_env
+
+    monkeypatch.setattr(runtime_env, "load_project_dotenv", lambda **_: None)
+
+
+def test_single_user_exposure_warning_only_for_unverified_bind(monkeypatch) -> None:
+    """单用户旁路 + 未确认仅回环 → 返回绑定地址触发启动告警；回环绑定不告警。"""
+    from novelvideo.api.app import _single_user_exposure_bind_host
+
+    _hermetic_env(monkeypatch)
+    monkeypatch.delenv("ST_CE_MULTI_USER", raising=False)
+    monkeypatch.setenv("ST_EDITION", "ce")
+    monkeypatch.delenv("ST_CONTROL_PLANE_DSN", raising=False)
+
+    monkeypatch.delenv("NOVELVIDEO_API_HOST", raising=False)
+    assert _single_user_exposure_bind_host() == "unset"
+
+    monkeypatch.setenv("NOVELVIDEO_API_HOST", "0.0.0.0")
+    assert _single_user_exposure_bind_host() == "0.0.0.0"
+
+    for loopback in ("127.0.0.1", "localhost", "::1", "[::1]"):
+        monkeypatch.setenv("NOVELVIDEO_API_HOST", loopback)
+        assert _single_user_exposure_bind_host() is None
+
+
+def test_single_user_exposure_warning_skipped_for_multi_user_or_ee(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from novelvideo.api.app import _single_user_exposure_bind_host
+
+    _hermetic_env(monkeypatch)
+    monkeypatch.setenv("ST_EDITION", "ce")
+    monkeypatch.delenv("ST_CONTROL_PLANE_DSN", raising=False)
+    monkeypatch.delenv("NOVELVIDEO_API_HOST", raising=False)
+
+    monkeypatch.setenv("ST_CE_MULTI_USER", "true")
+    assert _single_user_exposure_bind_host() is None
+
+    monkeypatch.delenv("ST_CE_MULTI_USER", raising=False)
+    monkeypatch.setenv("ST_EDITION", "ee")
+    monkeypatch.setenv("ST_CONTROL_PLANE_DSN", "postgresql://control-plane/db")
+    assert _single_user_exposure_bind_host() is None

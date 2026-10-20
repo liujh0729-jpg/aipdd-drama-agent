@@ -101,7 +101,7 @@ def test_shell_rejects_copied_layout(tmp_path):
     copied = tmp_path / "a" / "b" / "c" / "plugins" / "dramaclaw"
     copied.mkdir(parents=True)
     shell_copy = copied / "__init__.py"
-    shell_copy.write_text(SHELL_PATH.read_text())
+    shell_copy.write_text(SHELL_PATH.read_text(encoding="utf-8"), encoding="utf-8")
 
     with pytest.raises(RuntimeError, match="软链目标"):
         _load_shell(shell_copy)

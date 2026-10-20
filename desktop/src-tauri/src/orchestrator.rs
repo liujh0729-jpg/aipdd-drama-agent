@@ -320,6 +320,9 @@ impl Orchestrator {
                     "--port",
                     "8780",
                 ]);
+                // 与 --host 同值落一份环境变量：后端按 NOVELVIDEO_API_HOST 判定
+                // 是否「确认仅回环」，单用户 CE 只在这时才放弃暴露告警。
+                c.env("NOVELVIDEO_API_HOST", "127.0.0.1");
                 c
             }
         };

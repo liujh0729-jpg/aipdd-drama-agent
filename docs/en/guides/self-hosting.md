@@ -38,7 +38,7 @@ Key points shared by both (defined once in `docker-compose.release.yml`, reused 
 | Services | `api` + `newapi` + `web` | No PG/Redis; `newapi` is LocalNewAPI, built from the vendored `third_party/dramaclaw-gateway` |
 | Build context | `api` = `.` · `newapi` = `${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}` · `web` = `./frontend` | Local build tags `aipdd/api`, `aipdd/gateway`, `aipdd/web`; zero external images |
 | Gateway source | `third_party/dramaclaw-gateway` (vendored) | To build from your own checkout instead, set `DRAMACLAW_GATEWAY_SRC=<path>` in `.env` |
-| Port | `8780:8780` | REST API |
+| Port | `8780:8780` | REST API. Published on all interfaces; while single-owner trust is active (no `ST_CE_MULTI_USER`) every request is treated as the local owner without login — keep 8780 behind the reverse proxy / firewall, or bind it to `127.0.0.1`. Startup logs a warning when the bind is not verifiably loopback-only |
 | Gateway admin port | `${ST_NEWAPI_BIND:-127.0.0.1}:${ST_NEWAPI_PORT:-3000}:3000` | Bound to `127.0.0.1` by default; set `ST_NEWAPI_BIND=0.0.0.0` in `.env` to widen it. **[aipdd fork] `docker-compose.aipdd.yml` no longer maps this port**: the gateway is an internal transport only, reachable externally via the web port's `/gateway/v1/` (that is `NEWAPI_PUBLIC_BASE_URL`, used by the model plaza call examples) |
 | Enforced environment | `ST_EDITION=ce`, control-plane/Redis/Celery cleared | CE mode cannot be downgraded |
 | Data volume | `ce-data:/data` (output at `/data/output`) | Persists project databases, settings, and generated media |

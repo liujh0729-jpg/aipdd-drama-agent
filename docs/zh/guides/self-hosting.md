@@ -38,7 +38,7 @@ cp .env.example .env
 | 服务 | `api` + `newapi` + `web` | 无 PG/Redis；`newapi` 是 LocalNewAPI，由 vendored 的 `third_party/dramaclaw-gateway` 构建 |
 | 构建上下文 | `api` = `.` · `newapi` = `${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}` · `web` = `./frontend` | 本地构建镜像名 `aipdd/api`、`aipdd/gateway`、`aipdd/web`；零外部镜像 |
 | 网关源码 | `third_party/dramaclaw-gateway`（vendored） | 想改用自己的 checkout 构建：`.env` 设 `DRAMACLAW_GATEWAY_SRC=<路径>` |
-| 端口 | `8780:8780` | REST API |
+| 端口 | `8780:8780` | REST API。发布到所有网卡；单用户信任开启时（未启用 `ST_CE_MULTI_USER`）任何请求都免登录被当成本地 owner——请把 8780 挡在反代/防火墙之后，或只绑 `127.0.0.1`。绑定未被确认为仅回环时，启动日志会告警 |
 | 网关管理端口 | `${ST_NEWAPI_BIND:-127.0.0.1}:${ST_NEWAPI_PORT:-3000}:3000` |  默认只绑 `127.0.0.1`；`.env` 设 `ST_NEWAPI_BIND=0.0.0.0` 放开。**[aipdd fork] `docker-compose.aipdd.yml` 不再映射该端口**：网关只作项目内部传输层，对外统一走 web 的 `/gateway/v1/`（模型广场调用示例即 `NEWAPI_PUBLIC_BASE_URL`） |
 | 强制环境 | `ST_EDITION=ce`、清空 control-plane/Redis/Celery | CE 模式不可降级 |
 | 数据卷 | `ce-data:/data`（输出为 `/data/output`） | 持久化项目数据库、设置和生成媒体 |

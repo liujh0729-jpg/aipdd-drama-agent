@@ -28,8 +28,8 @@
 
 | Symptom | Diagnosis |
 |---|---|
-| **Compositing stage reports ffmpeg not found** | Local development requires installing ffmpeg yourself (Docker bundles it); or point to a path with `FFMPEG_PATH`. See the [ffmpeg guide](ffmpeg.md). |
-| **Compositing fails with encoder unavailable** | The default codec is `libx264` (H.264), which your ffmpeg build must include; or change `VIDEO_CODEC`. |
+| **Compositing stage reports ffmpeg not found** | The legacy chains exec a bare `ffmpeg` from `PATH` (Docker images ship it; local development means installing it yourself); only the motion-graphics chain and the shared resolver read `FFMPEG_PATH`. Desktop builds put `resources/bin` first on `PATH`. See the [ffmpeg guide](ffmpeg.md). |
+| **Compositing fails with encoder unavailable** | Should not happen any more: `src/novelvideo/video_encoder.py` picks the encoder from what `ffmpeg -encoders` actually reports, so `Unknown encoder 'libx264'` is closed out. A "no H.264 encoder available" error means this build has none of the four candidates (x264 / videotoolbox / h264_mf / libopenh264). `VIDEO_CODEC` pins an implementation, but only one the build really has and only from that H.264 family. |
 | **Output is black / duration is wrong** | Usually upstream image/audio artifacts are missing; review the logs of preceding stages to confirm the assets were generated. |
 
 ## Data / upgrades
@@ -46,6 +46,16 @@
 |---|---|
 | **`FileNotFoundError` pointing at `BuilderGPT/...`** | These heavyweight feature scripts are not in the slim CE package; the plain text→video pipeline doesn't need them. They're only required for the 3D/voxel pipeline. |
 | **`uv sync --extra world` install fails** | Use uv (not pip) so the dependency overrides take effect; GPU acceleration needs a CUDA environment, while slim/CPU environments only support the CPU path. |
+
+## Self-heal (MCP agents)
+
+| Symptom | Diagnosis |
+|---|---|
+| **An agent tool call failed and the agent doesn't know how to continue** | Failures that aren't caller-fixable (server 5xx, rate-limit 429, or a status-less `ok:false`) carry a `self_heal` hint; fix 4xx parameter/path errors directly from the error message. Have the agent call `aipdd_drama_self_heal` once (default `mode="diagnose"`): it collects diagnostics, pending environment items, log tails, and the failing tool's source, then asks the configured default text model for a categorized diagnosis and next steps. |
+| **You want it to fix the problem** | Use `mode="repair"` only when the user explicitly asked for a fix. `diagnose` returns repairs with status `proposed` (suggestions only, nothing is executed); `repair` applies whitelisted actions only: install auto-installable runtime deps (e.g. world, requires `allow_heavy=true`; a `started` result means the async install has begun — confirm with `check` later, `needs_manual` means it cannot be auto-installed here, follow the returned `guide`), make a unique-match replacement in a `.py` file under `src/novelvideo/` or `.hermes/plugins/`, and create missing state/runtime/output directories. It never runs a shell, installs pip/npm packages, or edits secrets and auth files; patches are backed up, syntax-checked, and reverted on failure. |
+| **A tool reports `network_error` / the service is unreachable** | Do not call self-heal: its endpoint lives on the same service and will fail too. Confirm AIPDD is running and check the host/port in `DRAMACLAW_API_URL`, then retry once. |
+| **See what self-heal did** | The audit log is `self_heal/audit.jsonl` under the data directory, and patch backups are in `self_heal/backups/<UTC timestamp>/`. A source patch requires a service restart (`restart_required` is true); code patches inside a macOS `.app` are refused to preserve the signature. |
+| **Self-heal itself says the model is not configured** | The response has `degraded=true` and a `degraded_reason` pointing at the unconfigured gateway. Configure the default text model under Settings → Models & Channels and retry. |
 
 ## Still stuck?
 

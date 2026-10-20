@@ -84,3 +84,11 @@ def test_unknown_action_is_structured_error() -> None:
     out = json.loads(dt._handle_env_setup({"action": "bogus"}))
     assert out["ok"] is False
     assert "action" in out["error"].lower()
+
+
+def test_undocumented_action_aliases_are_rejected() -> None:
+    """schema 的 enum 只有 check/install；handler 不得再静默接受 plan/status。"""
+    for alias in ("plan", "status"):
+        out = json.loads(dt._handle_env_setup({"action": alias}))
+        assert out["ok"] is False, alias
+        assert "check, install" in out["error"], alias

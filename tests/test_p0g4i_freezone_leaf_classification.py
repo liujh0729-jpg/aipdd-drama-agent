@@ -515,7 +515,10 @@ def test_every_dispatch_site_names_a_classified_leaf() -> None:
     # generate_freezone_text（EG-18a）+ B-roll 生图叶 run_freezone_gen（EG-18b）+ BGM 音乐叶
     # run_freezone_music_generate（EG-15d），均为已登记叶；静音检测/裁接/混音/封面与
     # VectCut 草稿组装都在 narration_edit / narration_draft 新模块里纯本地直调，不经分发器）。
-    assert len(named) == 52
+    # 52 → 53：动效大片渲染 runner（[aipdd fork delta]，`run_freezone_motion_render`，
+    # 单一分发点：粘贴页面之外的「按案例生成页面」那一步 generate_freezone_text（EG-18a）；
+    # Chrome 逐帧截屏与 ffmpeg 编码都在 motion_render 包里纯本地直调，不经分发器）。
+    assert len(named) == 53
     assert set(named) <= set(FREEZONE_LEAF_EGRESS)
 
 

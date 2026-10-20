@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
+  Clapperboard,
   Loader2,
   Mic2,
   Palette,
@@ -27,6 +28,7 @@ import type { Beat } from "@/types/episode";
 
 import { RenderModelSelect } from "./render-settings-controls";
 import { SketchModelSelect, SketchAspectCheckbox } from "./sketch-settings-controls";
+import { MotionDraftDialog } from "./motion-draft-dialog";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -66,12 +68,14 @@ interface BatchBarProps {
 export function BatchBar({
   project,
   episode,
+  beats,
   videoBackend,
   spineTemplate = "drama",
   sketchAspectRatio,
   onSketchAspectRatioChange,
 }: BatchBarProps) {
   const { t } = useTranslation();
+  const [draftOpen, setDraftOpen] = useState(false);
 
   const assignColors = useAssignColors(project, episode);
   const detectIdentities = useDetectIdentities(project, episode);
@@ -274,6 +278,17 @@ export function BatchBar({
             )}
             {t("episode.workbench.batch.reassignColors")}
           </Button>
+          {/* [aipdd fork delta] 交付闭环：本集已渲染的 MG 成片 → 一盘剪映草稿。 */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setDraftOpen(true)}
+            className={TOOLBAR_CONTROL_CLASS}
+            title={t("episode.beat.motion.draft.tooltip")}
+          >
+            <Clapperboard className="size-3.5" />
+            {t("episode.beat.motion.draft.action")}
+          </Button>
           {/* 精品剧 (spine_template === "drama") 把解说烘进渲染视频，没有独立音频阶段 —— 隐藏「生成全集音频」 */}
           {SHOW_EPISODE_AUDIO_ENTRY && spineTemplate !== "drama" && (
           <Tooltip>
@@ -364,6 +379,14 @@ export function BatchBar({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MotionDraftDialog
+        open={draftOpen}
+        onOpenChange={setDraftOpen}
+        project={project}
+        episode={episode}
+        beats={beats}
+      />
 
     </div>
   );

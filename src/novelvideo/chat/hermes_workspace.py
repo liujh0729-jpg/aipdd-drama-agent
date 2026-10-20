@@ -14,6 +14,7 @@ import hashlib
 import logging
 import os
 import re
+import shutil
 from pathlib import Path
 
 import yaml
@@ -23,7 +24,7 @@ _log = logging.getLogger(__name__)
 DRAMACLAW_ROOT = Path(__file__).resolve().parents[3]
 STATE_ROOT = DRAMACLAW_ROOT / "state"
 # `vectcut` 是独立剪辑服务（services/vectcut）的调用技能，默认随 dramaclaw 一起分发。
-DEFAULT_HERMES_SKILLS = {"dramaclaw", "vectcut"}
+DEFAULT_HERMES_SKILLS = {"dramaclaw", "short-drama-production", "vectcut"}
 DEFAULT_HERMES_PLUGINS = {"dramaclaw"}
 DEFAULT_HERMES_TOOLSETS = {"hermes-acp"}
 _warned_repo_state_fallback = False
@@ -391,6 +392,64 @@ def _ensure_identity_context(home: Path) -> None:
         _log.warning("failed to ensure hermes MEMORY.md under %s", memories_dir)
 
 
+_COPY_MARKER = ".aipdd-managed-copy"
+
+
+def _is_managed_copy(path: Path) -> bool:
+    return path.is_dir() and (path / _COPY_MARKER).is_file()
+
+
+def _tree_fingerprint(root: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        if "__pycache__" in path.parts or path.suffix == ".pyc":
+            continue
+        digest.update(path.relative_to(root).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _managed_copy_is_current(link: Path, target: Path) -> bool:
+    try:
+        recorded = (link / _COPY_MARKER).read_text(encoding="utf-8").strip()
+        return recorded == _tree_fingerprint(target)
+    except OSError:
+        return False
+
+
+def _link_or_copy(link: Path, target: Path) -> None:
+    """Prefer a symlink; fall back to a fingerprinted copy.
+
+    Windows 非管理员 / 未开开发者模式时 ``symlink_to`` 抛 WinError 1314。
+    桌面装机版若静默跳过，Hermes 会「启动正常但技能/插件全空」，所以这里
+    退化成托管副本，并用内容指纹在下次 spawn 时按需刷新。
+    """
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return
+    except OSError as exc:
+        if os.name != "nt":
+            raise
+        _log.info("symlink unavailable at %s (%s); copying instead", link, exc)
+    try:
+        shutil.copytree(
+            target,
+            link,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        )
+    except OSError:
+        shutil.rmtree(link, ignore_errors=True)
+        raise
+    (link / _COPY_MARKER).write_text(_tree_fingerprint(target), encoding="utf-8")
+
+
+def _drop_managed_copy(entry: Path) -> None:
+    if _is_managed_copy(entry):
+        shutil.rmtree(entry, ignore_errors=True)
+
+
 def _materialize_skill_links(skills_dir: Path) -> None:
     """Create / refresh symlinks from skills_dir/<name> → repo-pinned skills.
 
@@ -435,26 +494,36 @@ def _materialize_skill_links(skills_dir: Path) -> None:
             except OSError:
                 continue
         elif link.exists():
-            # User-installed real dir with same name; do not clobber.
-            _log.warning(
-                "skill name collision at %s (not a symlink); leaving as-is",
-                link,
-            )
-            continue
+            if _is_managed_copy(link):
+                try:
+                    if _managed_copy_is_current(link, target):
+                        continue
+                    shutil.rmtree(link)
+                except OSError:
+                    continue
+            else:
+                # User-installed real dir with same name; do not clobber.
+                _log.warning(
+                    "skill name collision at %s (not a symlink); leaving as-is",
+                    link,
+                )
+                continue
         try:
-            link.symlink_to(target)
+            _link_or_copy(link, target)
         except OSError as e:
             _log.warning("failed to link %s → %s: %s", link, target, e)
 
     # Remove stale symlinks (skill removed from repo mirror)
     for entry in skills_dir.iterdir():
-        if entry.name == "_user" or not entry.is_symlink():
+        if entry.name == "_user" or entry.name in want:
             continue
-        if entry.name not in want:
+        if entry.is_symlink():
             try:
                 entry.unlink()
             except OSError:
                 pass
+        else:
+            _drop_managed_copy(entry)
 
 
 def _ensure_default_plugin_enabled(config_yaml: Path) -> None:
@@ -722,24 +791,34 @@ def _materialize_plugin_links(plugins_dir: Path) -> None:
             except OSError:
                 continue
         elif link.exists():
-            _log.warning(
-                "plugin name collision at %s (not a symlink); leaving as-is",
-                link,
-            )
-            continue
+            if _is_managed_copy(link):
+                try:
+                    if _managed_copy_is_current(link, target):
+                        continue
+                    shutil.rmtree(link)
+                except OSError:
+                    continue
+            else:
+                _log.warning(
+                    "plugin name collision at %s (not a symlink); leaving as-is",
+                    link,
+                )
+                continue
         try:
-            link.symlink_to(target)
+            _link_or_copy(link, target)
         except OSError as e:
             _log.warning("failed to link %s → %s: %s", link, target, e)
 
     for entry in plugins_dir.iterdir():
-        if not entry.is_symlink():
+        if entry.name in want:
             continue
-        if entry.name not in want:
+        if entry.is_symlink():
             try:
                 entry.unlink()
             except OSError:
                 pass
+        else:
+            _drop_managed_copy(entry)
 
 
 __all__ = [

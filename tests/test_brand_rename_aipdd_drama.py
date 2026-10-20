@@ -66,8 +66,10 @@ def test_no_tool_keeps_dramaclaw_prefix() -> None:
     # [aipdd fork delta] 公众号文章写作（aipdd_drama_article_write）注册，名册 101 → 102。
     # [aipdd fork delta] 公众号文章发布（aipdd_drama_article_publish）注册，名册 102 → 103。
     # [aipdd fork delta] 渠道短视频（aipdd_drama_channel_short_video）注册，名册 103 → 104。
-    # [aipdd fork delta] 口播智能剪辑（aipdd_drama_narration_smart_edit）注册，名册 104 → 105。
-    assert len(names) == len(set(names)) == 105
+    # [aipdd fork delta] 口播智能剪辑（aipdd_drama_narration_smart_edit）注册，名册 104 → 105；
+    # 其后计划/导入导出/动效大片等工具陆续注册至 121。
+    # [aipdd fork delta] 环境与代码自愈（aipdd_drama_self_heal）注册，名册 121 → 122。
+    assert len(names) == len(set(names)) == 122
     # 通用 REST 面与两个一键自动化工具都在新前缀下。
     assert {"aipdd_drama_get", "aipdd_drama_post", "aipdd_drama_auto_storyboard", "aipdd_drama_video_range"} <= set(names)
     # [aipdd fork delta] 工具页白板动画在新前缀下。
@@ -131,9 +133,10 @@ def test_env_error_message_uses_new_name(clean_env: pytest.MonkeyPatch) -> None:
 def test_output_dir_supertale_fallback(clean_env: pytest.MonkeyPatch) -> None:
     module = _load_tools_module()
     clean_env.setenv("SUPERTALE_PROJECT_OUTPUT_DIR", "/data/legacy-out")
-    assert str(module._project_output_dir()) == "/data/legacy-out"
+    # 比 Path 而非 str：Windows 宿主上分隔符渲染不同，语义相同。
+    assert module._project_output_dir() == Path("/data/legacy-out")
     clean_env.setenv("AIPDD_DRAMA_PROJECT_OUTPUT_DIR", "/data/new-out")
-    assert str(module._project_output_dir()) == "/data/new-out"
+    assert module._project_output_dir() == Path("/data/new-out")
 
 
 # ─── 3. 内置服务器定义与历史状态迁移 ─────────────────────────────────────────
@@ -180,7 +183,9 @@ def _write_json_config(path: Path, servers: dict) -> None:
     )
 
 
-def test_connection_entry_carries_both_env_generations() -> None:
+def test_connection_entry_carries_both_env_generations(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 容器版形态：docker exec 把两代 env 作为 -e KEY=VALUE 传参。
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_TRANSPORT", "docker")
     entry = lt.connection_entry(raw_key="st-x", project_id="p-1")
     args = [str(item) for item in entry["args"]]
     assert "AIPDD_DRAMA_API_URL=http://127.0.0.1:8780" in args
@@ -188,6 +193,22 @@ def test_connection_entry_carries_both_env_generations() -> None:
     assert "AIPDD_DRAMA_AGENT_TOKEN=st-x" in args
     assert "DRAMACLAW_AGENT_TOKEN=st-x" in args
     assert args[-4:] == ["aipdd-drama-api", "python", "-m", "novelvideo.chat.aipdd_drama_mcp"]
+
+
+def test_connection_entry_native_form_carries_both_env_generations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 桌面/裸机形态：直接起本机 Python，两代 env 走条目 env 字典。
+    monkeypatch.setenv("AIPDD_DRAMA_MCP_TRANSPORT", "native")
+    entry = lt.connection_entry(raw_key="st-x", project_id="p-1")
+    assert entry["args"] == ["-m", "novelvideo.chat.aipdd_drama_mcp"]
+    env = entry["env"]
+    assert env["AIPDD_DRAMA_API_URL"] == "http://127.0.0.1:8780"
+    assert env["DRAMACLAW_API_URL"] == "http://127.0.0.1:8780"
+    assert env["AIPDD_DRAMA_AGENT_TOKEN"] == "st-x"
+    assert env["DRAMACLAW_AGENT_TOKEN"] == "st-x"
+    assert env["AIPDD_DRAMA_PROJECT_ID"] == "p-1"
+    assert env["DRAMACLAW_PROJECT_ID"] == "p-1"
 
 
 def test_json_connect_replaces_legacy_entry(tmp_path: Path) -> None:

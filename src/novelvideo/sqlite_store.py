@@ -58,6 +58,28 @@ from novelvideo.utils.identity_refs import (
 from novelvideo.utils.path_resolver import compute_identity_path
 
 console = Console()
+
+# 可被 ``_update_character_field`` 直接拼进 UPDATE 的列白名单。
+# 列名来自代码常量而非用户输入；白名单防止未来调用方把 LLM/请求参数当列名传进来。
+_CHARACTER_UPDATABLE_FIELDS = frozenset(
+    {
+        "aliases_json",
+        "role",
+        "is_main",
+        "gender",
+        "age_group",
+        "body_type",
+        "fish_voice_id",
+        "description",
+        "face_prompt",
+        "appearance_details",
+        "identities_json",
+        "reference_audio_path",
+        "reference_audio_sha256",
+        "reference_audio_updated_at",
+        "voice_samples_by_age_group_json",
+    }
+)
 logger = logging.getLogger(__name__)
 
 # 存量名字自愈的「每种资产只跑一次、并且串行」必须记在**进程**上，不能记在 store 实例上：
@@ -781,6 +803,9 @@ class SQLiteStore:
         return cursor.rowcount
 
     async def _update_character_field(self, name: str, field: str, value: Any) -> bool:
+        if field not in _CHARACTER_UPDATABLE_FIELDS:
+            console.print(f"[red]更新角色字段失败: 不允许的列名 {field!r}[/red]")
+            return False
         try:
             db = await self._ensure_db()
             await db.execute(

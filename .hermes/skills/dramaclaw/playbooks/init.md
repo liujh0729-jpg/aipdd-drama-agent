@@ -48,7 +48,7 @@ Step 0（SKILL.md §0）的 `/pipeline/status` 返回决定从哪一步开始：
 **Step 4 失败处理**：若 `build_characters` 返回空结果，从小说内容分析角色后通过 `POST /projects/{project}/characters` 逐个添加。
 
 **Step 5 face_prompt 前置**：生成肖像前必须读取 `GET /projects/{project}/characters`，检查核心角色/重要角色的 `face_prompt`。
-- 如果为空，先根据角色名、性别、年龄段、description 生成一句具体面部特征描述，调用 `dramaclaw_update_character_face_prompt` 写入。
+- 如果为空，先根据角色名、性别、年龄段、description 生成一句具体面部特征描述，调用 `aipdd_drama_update_character_face_prompt` 写入。
 - `face_prompt` 只写脸部特征：发型、脸型、五官、肤色、年龄感、气质；不要写服装、身份、场景。
 - 只有缺失角色全部补齐后，才允许进入肖像生成。
 - 如果肖像任务报“请先设置面部特征 (face_prompt)”，停在当前角色，补齐该角色 `face_prompt` 后再重试，不要跳过或继续生成其它依赖项。

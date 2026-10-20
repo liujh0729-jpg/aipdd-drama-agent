@@ -311,3 +311,104 @@ def test_api_plan_crud(plan_client) -> None:
     assert plan_client.delete(
         f"/api/v1/agent/plan/items/{item['id']}", params={"project": "proj"}
     ).status_code == 404
+
+
+def test_api_plan_batch_stage_and_episode(plan_client) -> None:
+    created = plan_client.post(
+        "/api/v1/agent/plan/items/batch",
+        json={
+            "project": "proj",
+            "items": [
+                {"title": "写第 1 集故事", "stage": "story", "episode": 1},
+                {"title": "研读剧本"},
+            ],
+        },
+    )
+    assert created.status_code == 200
+    added = created.json()["data"]["added"]
+    assert [item["title"] for item in added] == ["写第 1 集故事", "研读剧本"]
+    assert added[0]["stage"] == "story" and added[0]["episode"] == 1
+    assert added[1]["stage"] is None and added[1]["episode"] is None
+
+    # 非法 stage 由 plans 层拒绝 → 400，且不落盘。
+    bad = plan_client.post(
+        "/api/v1/agent/plan/items/batch",
+        json={"project": "proj", "items": [{"title": "x", "stage": "storyboard"}]},
+    )
+    assert bad.status_code == 400
+    assert "未知阶段" in bad.json()["detail"]
+    assert [item["title"] for item in plan_client.get(
+        "/api/v1/agent/plan", params={"project": "proj"}
+    ).json()["data"]["items"]] == ["写第 1 集故事", "研读剧本"]
+
+    # 单条创建同样支持 stage/episode。
+    single = plan_client.post(
+        "/api/v1/agent/plan/items",
+        json={"project": "proj", "title": "生成第 1 集草图", "stage": "sketches", "episode": 1},
+    )
+    assert single.status_code == 200
+    item = single.json()["data"]["item"]
+    assert item["stage"] == "sketches" and item["episode"] == 1
+
+    # PATCH 可以改阶段/集号，也可以显式清空退回手工待办。
+    moved = plan_client.patch(
+        f"/api/v1/agent/plan/items/{item['id']}",
+        json={"project": "proj", "stage": "frames", "episode": 2},
+    )
+    assert moved.status_code == 200
+    row = moved.json()["data"]["item"]
+    assert row["stage"] == "frames" and row["episode"] == 2
+    cleared = plan_client.patch(
+        f"/api/v1/agent/plan/items/{item['id']}",
+        json={"project": "proj", "stage": "", "episode": None},
+    )
+    assert cleared.status_code == 200
+    row = cleared.json()["data"]["item"]
+    assert row["stage"] is None and row["episode"] is None
+
+    invalid = plan_client.patch(
+        f"/api/v1/agent/plan/items/{item['id']}",
+        json={"project": "proj", "stage": "storyboard"},
+    )
+    assert invalid.status_code == 400
+
+
+def test_api_plan_run_delegates_to_runner(plan_client, monkeypatch) -> None:
+    from novelvideo.agent import plan_runner
+
+    seen: dict = {}
+
+    async def fake_run(read, project, project_dir, opts, *, mode, approve, budget_s, max_steps):
+        seen.update(
+            project=project,
+            project_dir=project_dir,
+            opts=opts,
+            mode=mode,
+            approve=approve,
+            budget_s=budget_s,
+            max_steps=max_steps,
+        )
+        return {"status": "done", "advanced": [], "items": []}
+
+    monkeypatch.setattr(plan_runner, "run_plan", fake_run)
+    resp = plan_client.post(
+        "/api/v1/agent/plan/run",
+        json={
+            "project": "proj",
+            "mode": "auto",
+            "budget_s": 30,
+            "aspect_ratio": "16:9",
+            "story_text": "从前有座山。",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["status"] == "done"
+    assert seen["project"] == "proj" and seen["mode"] == "auto"
+    assert seen["budget_s"] == 30 and seen["approve"] is False
+    assert seen["opts"]["aspect_ratio"] == "16:9"
+    assert seen["opts"]["story_text"] == "从前有座山。"
+
+    bad = plan_client.post(
+        "/api/v1/agent/plan/run", json={"project": "proj", "mode": "bogus"}
+    )
+    assert bad.status_code == 400

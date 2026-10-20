@@ -76,7 +76,7 @@ def repo_skills(isolated_workspace):
     """Create a fake repo .hermes/skills tree."""
     skills = isolated_workspace / ".hermes" / "skills"
     skills.mkdir(parents=True)
-    for name in ("json-render", "dramaclaw", "vectcut", "other-skill"):
+    for name in ("json-render", "dramaclaw", "vectcut", "short-drama-production", "other-skill"):
         (skills / name).mkdir()
         (skills / name / "SKILL.md").write_text(f"# {name}\n")
     return skills
@@ -103,23 +103,24 @@ def test_fresh_create_layout(isolated_workspace, repo_skills, repo_plugins):
     # Default allowlist should be symlinked in.
     assert (home / "skills" / "dramaclaw").is_symlink()
     assert (home / "skills" / "vectcut").is_symlink()
+    assert (home / "skills" / "short-drama-production").is_symlink()
     assert not (home / "skills" / "json-render").exists()
     assert not (home / "skills" / "other-skill").exists()
     plugin_link = home / "plugins" / "dramaclaw"
     assert plugin_link.is_symlink()
     assert not (home / "plugins" / "other-plugin").exists()
-    config = (home / "config.yaml").read_text()
+    config = (home / "config.yaml").read_text(encoding="utf-8")
     assert _enabled_toolsets(config) == ["hermes-acp", "memory"]
     assert "    - dramaclaw" in config
-    assert "你是 AIPDD 画布" in (home / "SOUL.md").read_text()
-    memory = (home / "memories" / "MEMORY.md").read_text()
+    assert "你是 AIPDD 画布" in (home / "SOUL.md").read_text(encoding="utf-8")
+    memory = (home / "memories" / "MEMORY.md").read_text(encoding="utf-8")
     assert "AIPDD 画布在 AIPDD 会话中面向用户自称“AIPDD 画布”" in memory
     assert "我是 AIPDD 画布，AIPDD 的小说转视频创作助手。" not in memory
 
 
-def test_default_skill_allowlist_includes_vectcut():
-    """[aipdd fork delta] vectcut 剪辑技能默认随 dramaclaw 一起分发。"""
-    assert hw.DEFAULT_HERMES_SKILLS == {"dramaclaw", "vectcut"}
+def test_default_skill_allowlist_includes_builtin_creation_skills():
+    """[aipdd fork delta] vectcut 与短剧创作技能默认随 dramaclaw 一起分发。"""
+    assert hw.DEFAULT_HERMES_SKILLS == {"dramaclaw", "short-drama-production", "vectcut"}
 
 
 def test_hermes_initialize_timeout_allows_cold_start():

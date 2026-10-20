@@ -25,6 +25,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import sys
 import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -32,7 +34,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from novelvideo.agent import engine as agent_engine
@@ -74,6 +76,19 @@ async def require_interactive_user(request: Request) -> dict:
     if str(user.get("credential_kind") or "") in {"agent_session", "api_key"}:
         raise HTTPException(status_code=403, detail="browser session required")
     return user
+
+
+async def require_owner_user(request: Request) -> dict:
+    """[aipdd fork delta] MCP 服务器配置的写操作依赖：交互式会话里的 owner。
+
+    自定义 stdio 服务器就是在本机执行任意命令、http/sse 服务器可指向任意地址，
+    属管理员能力：注册/修改与测试连接（会真实执行命令）都走本依赖。member
+    保留清单查看、服务器启停与自己配置的清理（删除 / 恢复默认）。
+    """
+    from novelvideo.api.auth import require_owner
+
+    user = await require_api_user(request)
+    return require_owner(user)
 
 
 # 运行中的回合任务（会话 id → Task）。单进程部署假设：cancel 端点与 SSE 端点
@@ -204,7 +219,11 @@ async def agent_status(user: dict = Depends(require_api_user)) -> dict[str, Any]
             "skills_total": len(skills_list),
             "skills_enabled": sum(1 for item in skills_list if item.get("enabled")),
             "mcp_servers_total": len(servers),
-            "mcp_servers_enabled": sum(1 for item in servers if item.get("enabled")),
+            "mcp_servers_enabled": sum(
+                1
+                for item in servers
+                if item.get("enabled") and item.get("available", True)
+            ),
         },
     }
 
@@ -561,15 +580,51 @@ async def agent_put_memory(
 # ---------------------------------------------------------------------------
 
 
-class PlanItemCreateBody(BaseModel):
-    project: str
+class PlanItemFields(BaseModel):
+    """批量新增时的单条目：project 在请求体顶层，子项不重复携带。"""
+
     title: str
+    stage: str | None = None
+    episode: int | None = None
+
+
+class PlanItemCreateBody(PlanItemFields):
+    project: str
+
+
+class PlanItemsCreateBody(BaseModel):
+    project: str
+    items: list[PlanItemFields] = Field(default_factory=list)
 
 
 class PlanItemPatchBody(BaseModel):
     project: str
     title: str | None = None
     done: bool | None = None
+    stage: str | None = None
+    episode: int | None = None
+
+
+class PlanRunBody(BaseModel):
+    """按计划执行：默认 auto（预算内连续推进），可选 checkpoint / manual。"""
+
+    project: str
+    mode: str = "auto"
+    approve: bool = False
+    budget_s: float = 90.0
+    max_steps: int = 50
+    episode: int | None = None
+    plan_episode_assets: bool = False
+    include_story_version: bool = False
+    episode_count: int | None = None
+    target_beats: int | None = None
+    seconds_per_episode: float | None = None
+    total_seconds: float | None = None
+    story_text: str | None = None
+    aspect_ratio: str = "2:3"
+    model: str | None = None
+    style: str | None = None
+    story_style: str | None = None
 
 
 async def _resolve_plan_dir(project: str, user: dict, *, required_role: str) -> Path:
@@ -603,23 +658,96 @@ async def agent_add_plan_item(
     body: PlanItemCreateBody, user: dict = Depends(require_api_user)
 ) -> dict[str, Any]:
     project_dir = await _resolve_plan_dir(body.project, user, required_role="editor")
-    items, added = agent_plans.add_items(project_dir, [body.title], source="user")
+    try:
+        items, added = agent_plans.add_items(
+            project_dir,
+            [{"title": body.title, "stage": body.stage, "episode": body.episode}],
+            source="user",
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     if not added:
         raise HTTPException(400, "任务标题为空或与未完成任务重复")
     return {"ok": True, "data": {"item": added[0], "items": items, "max_items": agent_plans.PLAN_MAX_ITEMS}}
+
+
+@router.post("/plan/items/batch")
+async def agent_add_plan_items(
+    body: PlanItemsCreateBody, user: dict = Depends(require_api_user)
+) -> dict[str, Any]:
+    """批量写计划（Agent 一次性拆解多个任务时用；保持用户写的顺序）。"""
+    project_dir = await _resolve_plan_dir(body.project, user, required_role="editor")
+    specs = [
+        {"title": item.title, "stage": item.stage, "episode": item.episode}
+        for item in body.items
+    ]
+    try:
+        items, added = agent_plans.add_items(project_dir, specs, source="agent")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {
+        "ok": True,
+        "data": {
+            "added": added,
+            "items": items,
+            "max_items": agent_plans.PLAN_MAX_ITEMS,
+        },
+    }
+
+
+@router.post("/plan/run")
+async def agent_run_plan(
+    body: PlanRunBody, request: Request, user: dict = Depends(require_api_user)
+) -> dict[str, Any]:
+    """按计划自动推进流水线（执行器委托权威计划器；绝不在本接口生成视频）。"""
+    from novelvideo.agent.plan_runner import run_plan
+    from novelvideo.pipeline.transport import asgi_caller
+
+    project_dir = await _resolve_plan_dir(body.project, user, required_role="editor")
+    mode = str(body.mode or "auto").strip().lower()
+    if mode not in ("auto", "manual", "checkpoint"):
+        raise HTTPException(400, "mode must be auto/manual/checkpoint")
+    opts = body.model_dump(
+        exclude={
+            "project",
+            "mode",
+            "approve",
+            "budget_s",
+            "max_steps",
+        }
+    )
+    result = await run_plan(
+        asgi_caller(request.app, dict(request.headers)),
+        body.project,
+        project_dir,
+        opts,
+        mode=mode,
+        approve=bool(body.approve),
+        budget_s=body.budget_s,
+        max_steps=body.max_steps,
+    )
+    return {"ok": True, "data": result}
 
 
 @router.patch("/plan/items/{item_id}")
 async def agent_update_plan_item(
     item_id: str, body: PlanItemPatchBody, user: dict = Depends(require_api_user)
 ) -> dict[str, Any]:
-    if body.title is None and body.done is None:
-        raise HTTPException(400, "title 或 done 至少提供一个")
+    fields = body.model_fields_set
+    if not ({"title", "done", "stage", "episode"} & fields):
+        raise HTTPException(400, "title、done、stage、episode 至少提供一个")
     project_dir = await _resolve_plan_dir(body.project, user, required_role="editor")
+    changes: dict[str, Any] = {}
+    if "title" in fields:
+        changes["title"] = body.title
+    if "done" in fields:
+        changes["done"] = body.done
+    if "stage" in fields:
+        changes["stage"] = body.stage
+    if "episode" in fields:
+        changes["episode"] = body.episode
     try:
-        item = agent_plans.update_item(
-            project_dir, item_id, title=body.title, done=body.done
-        )
+        item = agent_plans.update_item(project_dir, item_id, **changes)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     if item is None:
@@ -651,21 +779,68 @@ async def agent_list_skills(user: dict = Depends(require_api_user)) -> dict[str,
     return {"ok": True, "data": agent_skills.list_skills(_username(user))}
 
 
+_UPLOAD_CHUNK_BYTES = 64 * 1024
+
+
+async def _read_upload_capped(file: UploadFile, limit: int) -> bytes:
+    """分块读取上传内容并在超限时立刻拒绝，避免把超大文件整个读进内存。"""
+    declared = getattr(file, "size", None)
+    if isinstance(declared, int) and declared > limit:
+        raise HTTPException(
+            413, f"上传内容过大（上限 {limit // 1024 // 1024}MB）"
+        )
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_UPLOAD_CHUNK_BYTES)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            raise HTTPException(
+                413, f"上传内容过大（上限 {limit // 1024 // 1024}MB）"
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @router.post("/skills/install")
 async def agent_install_skill(
     file: UploadFile = File(...), user: dict = Depends(require_api_user)
 ) -> dict[str, Any]:
     """安装技能：上传 SKILL.md（.md）或技能包（.zip）。"""
     username = _username(user)
-    payload = await file.read()
+    payload = await _read_upload_capped(file, agent_skills.ZIP_MAX_BYTES)
     try:
         result = agent_skills.install_skill(
             username, filename=file.filename or "", content=payload
         )
+    except agent_skills.SkillTooLargeError as exc:
+        raise HTTPException(413, str(exc)) from exc
     except agent_skills.SkillError as exc:
         raise HTTPException(400, str(exc)) from exc
     detail = agent_skills.get_skill(username, result["name"])
     return {"ok": True, "data": {"skill": detail, "updated": result["updated"]}}
+
+
+@router.get("/skills/{name}/download")
+async def agent_download_skill(
+    name: str, user: dict = Depends(require_api_user)
+) -> Response:
+    """下载技能 zip 包（结构与 /skills/install 接受的 zip 一致，可还原安装）。"""
+    try:
+        resolved, payload = agent_skills.skill_zip_bytes(_username(user), name)
+    except agent_skills.SkillNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except agent_skills.SkillTooLargeError as exc:
+        raise HTTPException(413, str(exc)) from exc
+    except agent_skills.SkillError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return Response(
+        content=payload,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{resolved}.zip"'},
+    )
 
 
 @router.get("/skills/{name}")
@@ -688,10 +863,13 @@ async def agent_set_skill_enabled(
 
 @router.delete("/skills/{name}")
 async def agent_delete_skill(name: str, user: dict = Depends(require_api_user)) -> dict[str, Any]:
-    deleted = agent_skills.delete_skill(_username(user), name)
-    if not deleted:
-        raise HTTPException(404, "技能不存在")
-    return {"ok": True, "data": {"deleted": True}}
+    username = _username(user)
+    if agent_skills.delete_skill(username, name):
+        return {"ok": True, "data": {"deleted": True}}
+    existing = agent_skills.get_skill(username, name)
+    if existing and existing.get("source") == "builtin":
+        raise HTTPException(400, "内置技能不可删除，可停用")
+    raise HTTPException(404, "技能不存在")
 
 
 # ---------------------------------------------------------------------------
@@ -717,7 +895,10 @@ class McpEnabledBody(BaseModel):
 
 
 @router.get("/mcp/servers")
-async def agent_list_mcp_servers(user: dict = Depends(require_api_user)) -> dict[str, Any]:
+async def agent_list_mcp_servers(
+    user: dict = Depends(require_interactive_user),
+) -> dict[str, Any]:
+    """MCP 清单（含服务器 env/headers 值）：只给浏览器会话，密钥不可读。"""
     return {"ok": True, "data": agent_mcp.list_servers(_username(user))}
 
 
@@ -733,8 +914,9 @@ async def agent_builtin_mcp_tools(user: dict = Depends(require_api_user)) -> dic
 
 @router.post("/mcp/servers")
 async def agent_upsert_mcp_server(
-    body: McpServerBody, user: dict = Depends(require_api_user)
+    body: McpServerBody, user: dict = Depends(require_owner_user)
 ) -> dict[str, Any]:
+    """新增/修改自定义服务器：等价于注册本机命令或外链地址，仅 owner 可操作。"""
     try:
         server = agent_mcp.upsert_server(_username(user), body.model_dump())
     except agent_mcp.McpConfigError as exc:
@@ -744,7 +926,7 @@ async def agent_upsert_mcp_server(
 
 @router.patch("/mcp/servers/{server_id}")
 async def agent_set_mcp_server_enabled(
-    server_id: str, body: McpEnabledBody, user: dict = Depends(require_api_user)
+    server_id: str, body: McpEnabledBody, user: dict = Depends(require_interactive_user)
 ) -> dict[str, Any]:
     server = agent_mcp.set_server_enabled(_username(user), server_id, bool(body.enabled))
     if server is None:
@@ -754,7 +936,7 @@ async def agent_set_mcp_server_enabled(
 
 @router.delete("/mcp/servers/{server_id}")
 async def agent_delete_mcp_server(
-    server_id: str, user: dict = Depends(require_api_user)
+    server_id: str, user: dict = Depends(require_interactive_user)
 ) -> dict[str, Any]:
     try:
         deleted = agent_mcp.delete_server(_username(user), server_id)
@@ -767,7 +949,7 @@ async def agent_delete_mcp_server(
 
 @router.post("/mcp/servers/{server_id}/probe")
 async def agent_probe_mcp_server(
-    server_id: str, user: dict = Depends(require_api_user)
+    server_id: str, user: dict = Depends(require_owner_user)
 ) -> dict[str, Any]:
     """测试连接并列出该服务器的工具（MCP 栏目的「测试连接」按钮）。"""
     username = _username(user)
@@ -779,7 +961,9 @@ async def agent_probe_mcp_server(
 
 
 @router.post("/mcp/servers/reset")
-async def agent_reset_mcp_servers(user: dict = Depends(require_api_user)) -> dict[str, Any]:
+async def agent_reset_mcp_servers(
+    user: dict = Depends(require_interactive_user),
+) -> dict[str, Any]:
     """恢复默认 MCP 配置（只保留内置服务器：DramaClaw + Chrome MCP）。"""
     return {"ok": True, "data": agent_mcp.reset_servers(_username(user))}
 
@@ -825,6 +1009,13 @@ async def agent_list_local_tools(user: dict = Depends(require_api_user)) -> dict
             "tools": await asyncio.to_thread(agent_local_tools.scan),
             "hostHomeAvailable": home.is_dir(),
             "hostHomePath": str(home),
+            # MCP 栏目手动配置按运行形态生成：容器内 docker exec，桌面/裸机起本机 Python。
+            "mcpRuntime": {
+                "mode": "docker" if agent_local_tools.in_container() else "native",
+                "python": sys.executable or "python",
+                "pythonPath": os.environ.get("PYTHONPATH", "").strip(),
+                "containerName": agent_local_tools.container_name(),
+            },
         },
     }
 

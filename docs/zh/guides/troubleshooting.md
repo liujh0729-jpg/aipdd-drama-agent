@@ -28,8 +28,8 @@
 
 | 现象 | 排查 |
 |---|---|
-| **合成阶段报找不到 ffmpeg** | 本地开发需自行装 ffmpeg(Docker 已自带);或用 `FFMPEG_PATH` 指定路径。见 [ffmpeg 指南](ffmpeg.md)。 |
-| **合成失败,提示编码器不可用** | 默认编码 `libx264`(H.264),你的 ffmpeg build 须包含它;或改 `VIDEO_CODEC`。 |
+| **合成阶段报找不到 ffmpeg** | 本地开发需自行装 ffmpeg(Docker 已自带)。老链路(整集合成、`jobs.py` 那批一键工具)只从 `PATH` 找;动效大片链路可用 `FFMPEG_PATH` 指定。见 [ffmpeg 指南](ffmpeg.md)。 |
+| **合成失败,提示编码器不可用** | 不该再出现:编码器由 `src/novelvideo/video_encoder.py` 按本机 `ffmpeg -encoders` 实测挑选,`Unknown encoder 'libx264'` 已收口。若报「没有可用的 H.264 编码器」,是这台 build 四个候选(x264 / videotoolbox / h264_mf / libopenh264)都没有;想指定某个实现设 `VIDEO_CODEC`(本机有才生效)。见 [ffmpeg 指南](ffmpeg.md)。 |
 | **成片黑屏 / 时长异常** | 多为上游图片/音频产物缺失;回看前序环节日志,确认素材已生成。 |
 
 ## 数据 / 升级类
@@ -46,6 +46,16 @@
 |---|---|
 | **报 `FileNotFoundError` 指向 `BuilderGPT/...`** | 这些重特性脚本不在 CE 精简包内,纯文本→成片不需要;走 3D/体素流程才需补齐。 |
 | **`uv sync --extra world` 安装失败** | 需用 uv(非 pip)以使依赖 override 生效;GPU 加速需 CUDA 环境,slim/CPU 环境仅 CPU 路径。 |
+
+## 自愈诊断（MCP Agent）
+
+| 现象 | 排查 |
+|---|---|
+| **Agent 调工具失败后不知道怎么继续** | 不是调用方自己能改的失败（服务端 5xx、限流 429、无状态码的 ok:false）会带上 `self_heal` 提示；参数/路径这类 4xx 按错误信息自行修正即可。让 Agent 调一次 `aipdd_drama_self_heal`（默认 `mode="diagnose"`）：它收集诊断、环境待办、日志尾部和失败工具源码，交给已配置的默认文本模型给出分类结论与下一步。 |
+| **想让它直接修** | 只有用户明确要求修复时才用 `mode="repair"`。`diagnose` 返回的修复项状态是 `proposed`（只是建议，不会执行）；`repair` 仅执行白名单动作：安装可自动装的运行依赖（如 world，需 `allow_heavy=true`；结果是 `started` 表示异步安装已开始、装没装好稍后用 `check` 确认，`needs_manual` 表示当前环境无法自动安装、按返回的 `guide` 手工处理）、对 `src/novelvideo/` 或 `.hermes/plugins/` 下的 `.py` 做唯一匹配替换、创建状态/运行时/输出目录。不执行 shell、不装 pip/npm 包、不改密钥与鉴权文件；补丁先备份并做语法校验，失败自动回滚。 |
+| **工具报 `network_error` / 服务连不上** | 不要调自愈：自愈端点就在同一个服务上，也会失败。先确认 AIPDD 已启动，并检查 `DRAMACLAW_API_URL` 的地址与端口，再重试一次。 |
+| **查自愈做了什么** | 审计日志在数据目录 `self_heal/audit.jsonl`，补丁备份在 `self_heal/backups/<UTC 时间>/`。改了源码后需重启服务（响应里 `restart_required` 为 true）；macOS `.app` 内拒绝改代码以保住签名。 |
+| **自愈本身报"模型未配置"** | 响应里 `degraded=true` 且 `degraded_reason` 指向网关未配置。先到「设置 → 模型与渠道」配好默认文本模型，再重试。 |
 
 ## 还没解决?
 

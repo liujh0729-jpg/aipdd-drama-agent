@@ -23,21 +23,17 @@ interface PlanItemFixture {
   created_at: string;
   updated_at: string;
   done_at: string | null;
+  stage?: string | null;
+  episode?: number | null;
 }
 
 const hoisted = vi.hoisted(() => ({
-  items: [] as Array<{
-    id: string;
-    title: string;
-    done: boolean;
-    source: string;
-    created_at: string;
-    updated_at: string;
-    done_at: string | null;
-  }>,
-  addCalls: [] as Array<{ project: string; title: string }>,
+  items: [] as PlanItemFixture[],
+  addCalls: [] as Array<{ project: string; title: string; stage?: string; episode?: number }>,
   updateCalls: [] as Array<Record<string, unknown>>,
   deleteCalls: [] as Array<{ project: string; itemId: string }>,
+  runCalls: [] as Array<Record<string, unknown>>,
+  runResult: { status: "done" } as Record<string, unknown>,
 }));
 
 vi.mock("@/lib/queries/agent", () => ({
@@ -46,9 +42,11 @@ vi.mock("@/lib/queries/agent", () => ({
     isLoading: false,
   }),
   useAddAgentPlanItem: () => ({
-    mutateAsync: vi.fn(async (payload: { project: string; title: string }) => {
-      hoisted.addCalls.push(payload);
-    }),
+    mutateAsync: vi.fn(
+      async (payload: { project: string; title: string; stage?: string; episode?: number }) => {
+        hoisted.addCalls.push(payload);
+      },
+    ),
     isPending: false,
   }),
   useUpdateAgentPlanItem: () => ({
@@ -64,6 +62,13 @@ vi.mock("@/lib/queries/agent", () => ({
       hoisted.deleteCalls.push(payload);
     },
   }),
+  useRunAgentPlan: () => ({
+    mutateAsync: vi.fn(async (payload: Record<string, unknown>) => {
+      hoisted.runCalls.push(payload);
+      return hoisted.runResult;
+    }),
+    isPending: false,
+  }),
 }));
 
 function fixtureItems(): PlanItemFixture[] {
@@ -76,6 +81,8 @@ function fixtureItems(): PlanItemFixture[] {
       created_at: "2026-10-01T00:00:00Z",
       updated_at: "2026-10-01T00:00:00Z",
       done_at: null,
+      stage: "script",
+      episode: 1,
     },
     {
       id: "plan_b",
@@ -95,6 +102,8 @@ describe("PlanPanel", () => {
     hoisted.addCalls = [];
     hoisted.updateCalls = [];
     hoisted.deleteCalls = [];
+    hoisted.runCalls = [];
+    hoisted.runResult = { status: "done" };
   });
 
   it("renders stored items with the pending count", () => {
@@ -168,5 +177,46 @@ describe("PlanPanel", () => {
 
     expect(screen.getByText("agent.plan.empty")).toBeInTheDocument();
     expect(screen.getByText("agent.plan.emptyHint")).toBeInTheDocument();
+  });
+
+  it("shows stage badges and runs the plan", async () => {
+    const user = userEvent.setup();
+    render(<PlanPanel project="alpha" />);
+
+    // 阶段名同时出现在新增下拉的 option 里；这里只认任务行上的徽标。
+    const stageBadges = screen.getAllByText(/agent\.plan\.stages\.script/);
+    expect(stageBadges.some((node) => node.tagName === "SPAN")).toBe(true);
+    expect(screen.getByText('agent.plan.episode:{"n":1}')).toBeInTheDocument();
+
+    const runButton = screen.getByRole("button", { name: /agent\.plan\.run/ });
+    expect(runButton).not.toBeDisabled();
+    await user.click(runButton);
+
+    await waitFor(() =>
+      expect(hoisted.runCalls).toEqual([{ project: "alpha", mode: "auto", budget_s: 90 }]),
+    );
+  });
+
+  it("adds a staged task with an episode", async () => {
+    const user = userEvent.setup();
+    render(<PlanPanel project="alpha" />);
+
+    await user.type(screen.getByPlaceholderText("agent.plan.placeholder"), "生成第 2 集草图");
+    await user.selectOptions(screen.getByLabelText("agent.plan.stageLabel"), "sketches");
+    await user.type(screen.getByPlaceholderText("agent.plan.episodePlaceholder"), "2");
+    await user.click(screen.getByRole("button", { name: "agent.plan.add" }));
+
+    await waitFor(() =>
+      expect(hoisted.addCalls).toEqual([
+        { project: "alpha", title: "生成第 2 集草图", stage: "sketches", episode: 2 },
+      ]),
+    );
+  });
+
+  it("disables run when no pending task has a stage", () => {
+    hoisted.items = hoisted.items.map((item) => ({ ...item, stage: null }));
+    render(<PlanPanel project="alpha" />);
+
+    expect(screen.getByRole("button", { name: /agent\.plan\.run/ })).toBeDisabled();
   });
 });

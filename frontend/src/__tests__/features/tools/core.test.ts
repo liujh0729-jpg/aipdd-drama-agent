@@ -44,6 +44,9 @@ describe("tools core TOOLS", () => {
       // [aipdd fork delta] 换脸直播：本机边车控制面板（非批量、无 freezone 任务），
       // 作为独立入口插在讲解类之前，音乐创作仍收尾。
       "face-swap-live",
+      // [aipdd fork delta] 动效大片：MG 案例 → 本机逐帧渲染成片 → 剪映草稿，
+      // 排在换脸直播之后、讲解类之前。
+      "motion-blockbuster",
       "whiteboard-animation",
       "explainer-video",
       // [aipdd fork delta req46] 音乐创作：菜单最后一项。
@@ -72,6 +75,8 @@ describe("tools core TOOLS", () => {
       "video-reverse-script",
       // [aipdd fork delta] 换脸直播独立菜单入口（不属任何分组），插在讲解类之前。
       "face-swap-live",
+      // [aipdd fork delta] 动效大片同样独立成一条菜单入口。
+      "motion-blockbuster",
       "explainer-class",
       // [aipdd fork delta req46] 音乐创作收尾。
       "music-create",
@@ -195,6 +200,18 @@ describe("tools core TOOLS", () => {
     expect(toolByKind("video-reverse-script").taskTypes).toEqual([
       "freezone_video_script_reverse",
     ]);
+    // [aipdd fork delta] 动效大片：渲染与交付是两个独立任务类型（一镜成片 / 一盘草稿），
+    // 页面源码由文本模型按图册契约生成（模型在面板内自管，留空走后端默认链），
+    // 案例来自随包图册而非批量素材 → accept 置 null，不并入任何分组。
+    expect(toolByKind("motion-blockbuster").modelKind).toBe("video");
+    expect(toolByKind("motion-blockbuster").accept).toBeNull();
+    expect(toolByKind("motion-blockbuster").taskTypes).toEqual([
+      "freezone_motion_stills",
+      "freezone_motion_render",
+      "freezone_motion_draft",
+    ]);
+    expect(toolByKind("motion-blockbuster").titleKey).toBe("tools.motionBlockbuster.title");
+    expect(toolGroupOf("motion-blockbuster")).toBeNull();
   });
 });
 

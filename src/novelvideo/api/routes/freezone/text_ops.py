@@ -1,7 +1,6 @@
 """freezone.text_ops 子模块（自 api/routes/freezone.py 拆分）。"""
 from __future__ import annotations
 
-import asyncio
 import json
 import shutil
 from pathlib import Path
@@ -32,6 +31,7 @@ from novelvideo.freezone.text_node import translate_freezone_text
 from novelvideo.project_context import ProjectContext
 from novelvideo.task_identity import project_task_state_key
 from novelvideo.task_identity import task_state_key
+from novelvideo.utils.async_ops import spawn_background
 
 from ._common import (TAG_FREEZONE_TEXT, logger)
 
@@ -216,7 +216,7 @@ def _start_freezone_text_translate_task(
                 metadata=metadata,
             )
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())
 
 
 def _start_freezone_text_generate_task(
@@ -319,7 +319,7 @@ def _start_freezone_text_generate_task(
                 metadata=metadata,
             )
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())
 
 
 @router.post(
@@ -698,7 +698,7 @@ def _start_freezone_story_script_task(
                 metadata=metadata,
             )
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())
 
 
 @router.post(
@@ -957,4 +957,4 @@ def _start_freezone_image_reverse_prompt_task(
                 metadata=metadata,
             )
 
-    asyncio.create_task(_runner())
+    spawn_background(_runner())

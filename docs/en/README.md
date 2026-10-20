@@ -18,10 +18,11 @@
 | [Product User Manual](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) | Full-featured UI operation manual (Feishu) |
 | [Self-Hosting Guide](guides/self-hosting.md) | Deploy / upgrade / back up |
 | [ffmpeg Guide](guides/ffmpeg.md) | Install / locate / licensing obligations |
+| [Motion feature film (MG)](guides/motion-feature-film.md) | Case gallery → frame-by-frame render → code-arranged score (-14 LUFS) → Jianying draft |
 | [Face Swap Live Guide](guides/face-swap-live.md) | Local sidecar engine / virtual camera / OBS / AGPL isolation |
 | [Telemetry Notes](guides/telemetry.md) | No data collected by default / optional tracing |
 | [Troubleshooting](guides/troubleshooting.md) | Common failures and how to diagnose them |
-| [Driving from an AI agent (MCP)](guides/mcp-claude-code.md) | ~47 MCP tools: full pipeline + canvases + Jianying/CapCut draft editing, `st-` unified key auth |
+| [Driving from an AI agent (MCP)](guides/mcp-claude-code.md) | 121 MCP tools: full pipeline + canvases + executable work plans + novel story source & chapters / motion graphics / episode exports + Jianying/CapCut draft editing, `st-` unified key auth |
 
 ## Concepts
 

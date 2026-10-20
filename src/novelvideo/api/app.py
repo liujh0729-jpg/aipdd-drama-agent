@@ -297,6 +297,23 @@ async def _backfill_model_alias_mappings() -> None:
         logger.warning("model alias mapping health check failed (non-fatal)", exc_info=True)
 
 
+def _single_user_exposure_bind_host() -> str | None:
+    """单用户 CE 旁路下「未确认仅回环」的绑定地址；None=无需告警。
+
+    FileAuthPort 在多用户开关关闭时免登录、把任何请求认定为本地 owner。
+    只有显式绑定回环（桌面端/自建脚本）才算本机信任域；CLI 与容器默认
+    0.0.0.0，局域网内任何人都是 owner——启动时对这类部署点名一次。
+    """
+    from novelvideo.shared.runtime_env import ce_multi_user, is_ce_effective
+
+    if ce_multi_user() or not is_ce_effective():
+        return None
+    bind_host = os.environ.get("NOVELVIDEO_API_HOST", "").strip().lower()
+    if bind_host in {"127.0.0.1", "localhost", "::1", "[::1]"}:
+        return None
+    return bind_host or "unset"
+
+
 @asynccontextmanager
 async def _lifespan(application: FastAPI):
     """ASGI lifespan：取代已弃用的 ``on_event("startup"/"shutdown")``。
@@ -318,6 +335,17 @@ async def _lifespan(application: FastAPI):
             from novelvideo.api.routes.auth import bootstrap_if_env_password
 
             await bootstrap_if_env_password()
+        elif (exposed_bind := _single_user_exposure_bind_host()) is not None:
+            logger.warning(
+                "CE single-user mode is ON: every request is trusted as local "
+                "owner without login (ST_CE_MULTI_USER off). Bind host is not "
+                "verifiably loopback-only (NOVELVIDEO_API_HOST=%r, CLI/container "
+                "default is 0.0.0.0): if this port is reachable from other "
+                "machines, they all get owner access. Keep it on 127.0.0.1 "
+                "(--host / NOVELVIDEO_API_HOST) or enable ST_CE_MULTI_USER=true "
+                "with real accounts before exposing.",
+                exposed_bind,
+            )
 
         await get_port("lifecycle").on_startup(register_as_worker=True)
 

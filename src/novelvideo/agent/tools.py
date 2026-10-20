@@ -142,14 +142,22 @@ def builtin_tool_schemas() -> list[dict[str, Any]]:
             "function": {
                 "name": TOOL_LOAD_SKILL,
                 "description": (
-                    "加载一个已安装技能（Skill）的完整说明。"
+                    "加载一个可用技能（Skill）的完整说明。"
                     "系统提示的技能摘要里列出了可用技能；"
                     "在准备执行与该技能相关的任务前，先调用本工具读取技能全文，再按技能指引工作。"
+                    "技能目录内的附加文件（如 references/tool-index.md）用 file 参数读取。"
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "name": {"type": "string", "description": "技能名（技能摘要中的名字）"},
+                        "file": {
+                            "type": "string",
+                            "description": (
+                                "可选：技能目录内的相对文件路径（如 references/tool-index.md）；"
+                                "不传则读取 SKILL.md。"
+                            ),
+                        },
                     },
                     "required": ["name"],
                 },
@@ -180,23 +188,45 @@ def builtin_tool_schemas() -> list[dict[str, Any]]:
                 "description": (
                     "维护当前项目的待办计划（制作任务清单，展示在「待办计划」面板）。"
                     "用户提出短剧/制作类需求时，先把工作拆解成任务用 add 写进计划；"
+                    "制作类任务带上 stage（以及可选 episode），执行器就能按计划自动推进；"
                     "完成一项就立刻用 complete 勾掉（传任务 id，也可用标题匹配）；"
-                    "确认作废的任务用 remove。不要用它代替直接回答。"
+                    "改阶段/集号用 update；确认作废的任务用 remove。不要用它代替直接回答。"
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["add", "complete", "remove"],
-                            "description": "add=新增任务；complete=标记完成；remove=删除任务",
+                            "enum": ["add", "complete", "remove", "update"],
+                            "description": (
+                                "add=新增任务；complete=标记完成；remove=删除任务；"
+                                "update=修改任务（阶段/集号/标题/完成状态）"
+                            ),
                         },
                         "items": {
                             "type": "array",
-                            "items": {"type": "string"},
+                            "items": {
+                                "anyOf": [
+                                    {"type": "string"},
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string"},
+                                            "title": {"type": "string"},
+                                            "stage": {
+                                                "type": "string",
+                                                "enum": list(plans.PLAN_STAGES),
+                                            },
+                                            "episode": {"type": "integer"},
+                                            "done": {"type": "boolean"},
+                                        },
+                                    },
+                                ]
+                            },
                             "description": (
-                                "add 传任务标题列表；complete/remove 传任务 id"
-                                "（也可传标题做匹配）"
+                                "add 传任务标题或 {title, stage, episode}；"
+                                "update 传 {id, stage?, episode?, title?, done?}；"
+                                "complete/remove 传任务 id（也可传标题做匹配）"
                             ),
                         },
                     },
@@ -489,6 +519,16 @@ def _run_load_skill(arguments: dict[str, Any], context: ToolContext) -> ToolResu
     name = str(arguments.get("name") or "").strip()
     if not name:
         return ToolResult(False, "加载失败：name 不能为空")
+    relative = str(arguments.get("file") or "").strip()
+    if relative:
+        try:
+            loaded_file = skills.read_skill_file(context.username, name, relative)
+        except skills.SkillError as exc:
+            return ToolResult(False, f"加载失败：{exc}")
+        if loaded_file is None:
+            return ToolResult(False, f"技能附件不存在：{name}/{relative}")
+        resolved, content = loaded_file
+        return ToolResult(True, f"# 技能文件：{resolved}/{relative}\n\n{content}")
     loaded = skills.read_skill_body(context.username, name)
     if loaded is None:
         available = [
@@ -496,11 +536,24 @@ def _run_load_skill(arguments: dict[str, Any], context: ToolContext) -> ToolResu
         ]
         hint = "、".join(available) if available else "（没有已启用的技能）"
         return ToolResult(False, f"技能不存在或未启用：{name}。可用技能：{hint}")
-    resolved, description, body = loaded
+    resolved, description, body, truncated = loaded
     text = f"# 技能：{resolved}\n"
     if description:
         text += f"{description}\n\n"
     text += body
+    if truncated:
+        text += (
+            f"\n\n（技能正文超过 {skills.SKILL_BODY_PROMPT_MAX_CHARS} 字符已截断；"
+            "需要后续内容时用 name + file 参数分段读取）"
+        )
+    extras = [
+        item
+        for item in skills.skill_files(context.username, name)
+        if item.lower() != skills.SKILL_FILENAME.lower()
+    ]
+    if extras:
+        text += "\n\n附加文件（需要时用 name + file 参数读取）：\n"
+        text += "\n".join(f"- {item}" for item in extras)
     return ToolResult(True, text)
 
 
@@ -515,18 +568,40 @@ def _run_save_memory(arguments: dict[str, Any], context: ToolContext) -> ToolRes
 
 
 def _run_update_plan(arguments: dict[str, Any], context: ToolContext) -> ToolResult:
-    """维护项目待办计划（add / complete / remove）。"""
+    """维护项目待办计划（add / update / complete / remove）。"""
     if context.project_dir is None:
         return ToolResult(False, "维护失败：当前会话未绑定项目，待办计划只在项目会话中可用。")
     action = str(arguments.get("action") or "").strip().lower()
     raw_items = arguments.get("items")
-    items = [str(item) for item in raw_items] if isinstance(raw_items, list) else []
-    items = [item for item in items if item.strip()]
+    raw_items = raw_items if isinstance(raw_items, list) else []
+    project_dir = Path(context.project_dir)
+
+    def _refs() -> list[Any]:
+        refs: list[Any] = []
+        for item in raw_items:
+            if isinstance(item, dict):
+                if item:
+                    refs.append(item)
+            elif str(item or "").strip():
+                refs.append(str(item))
+        return refs
+
+    items = _refs()
+    if action in ("complete", "remove"):
+        items = [
+            str(item.get("id") or item.get("title") or "")
+            if isinstance(item, dict)
+            else item
+            for item in items
+        ]
+        items = [item for item in items if item.strip()]
     if not items:
         return ToolResult(False, "维护失败：items 不能为空")
-    project_dir = Path(context.project_dir)
     if action == "add":
-        kept, added = plans.add_items(project_dir, items, source="agent")
+        try:
+            kept, added = plans.add_items(project_dir, items, source="agent")
+        except ValueError as exc:
+            return ToolResult(False, f"维护失败：{exc}")
         if not added:
             return ToolResult(
                 True,
@@ -538,6 +613,46 @@ def _run_update_plan(arguments: dict[str, Any], context: ToolContext) -> ToolRes
             True,
             f"已新增 {len(added)} 项待办：{titles}\n当前计划：\n" + plans.render_plan_items(kept),
         )
+    if action == "update":
+        updated: list[dict[str, Any]] = []
+        missing: list[str] = []
+        invalid: list[str] = []
+        for item in items:
+            if not isinstance(item, dict) or not str(item.get("id") or "").strip():
+                invalid.append(str(item))
+                continue
+            changes: dict[str, Any] = {}
+            if "title" in item:
+                changes["title"] = item.get("title")
+            if "done" in item:
+                changes["done"] = bool(item.get("done"))
+            if "stage" in item:
+                changes["stage"] = item.get("stage")
+            if "episode" in item:
+                changes["episode"] = item.get("episode")
+            try:
+                result = plans.update_item(
+                    project_dir, str(item["id"]).strip(), **changes
+                )
+            except ValueError as exc:
+                invalid.append(f"{item.get('id')}：{exc}")
+                continue
+            if result is None:
+                missing.append(str(item.get("id")))
+            else:
+                updated.append(result)
+        kept = plans.load_plan(project_dir)
+        parts: list[str] = []
+        if updated:
+            titles = "、".join(f"「{item['title']}」" for item in updated)
+            parts.append(f"已更新 {len(updated)} 项：{titles}")
+        if missing:
+            parts.append(f"未匹配到任务：{'、'.join(missing)}")
+        if invalid:
+            parts.append(f"参数不合法：{'；'.join(invalid)}")
+        if not parts:
+            return ToolResult(True, "没有需要更新的任务。")
+        return ToolResult(True, "\n".join(parts) + "\n当前计划：\n" + plans.render_plan_items(kept))
     if action == "complete":
         kept, completed, missing = plans.complete_items(project_dir, items)
         if not completed and not missing:
@@ -560,4 +675,6 @@ def _run_update_plan(arguments: dict[str, Any], context: ToolContext) -> ToolRes
         if missing:
             parts.append(f"未匹配到任务：{'、'.join(missing)}")
         return ToolResult(True, "\n".join(parts) + "\n当前计划：\n" + plans.render_plan_items(kept))
-    return ToolResult(False, f"维护失败：不支持的 action「{action}」（可用 add/complete/remove）")
+    return ToolResult(
+        False, f"维护失败：不支持的 action「{action}」（可用 add/update/complete/remove）"
+    )

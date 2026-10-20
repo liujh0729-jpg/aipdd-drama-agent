@@ -70,10 +70,55 @@ vi.mock("@/api/ops", () => ({
     cover_feature_id: "cf-1",
     formatted_lyrics: "[Verse]\n抽出来的词",
   })),
+  // [aipdd fork delta] 动效大片：面板 + 复用的案例图册 + 复用的剪映交付弹窗都从
+  // @/api/ops 直连，mock 必须给全这些出口（画幅集合同一处口径，测试里照抄后端三种）。
+  MOTION_ASPECT_RATIOS: new Set(["16:9", "9:16", "1:1"]),
+  listFreezoneMotionCases: vi.fn(async () => ({
+    assetBase: "",
+    version: "test",
+    categories: ["产品宣传片"],
+    methods: [],
+    modelHint: "",
+    renderContract: "渲染契约",
+    source: "",
+    cases: [],
+  })),
+  fetchFreezoneMotionPrompt: vi.fn(async () => "分镜规格 + 渲染契约"),
+  // 画风名录与案例名录共用这一个图册组件，Hooks 也各拉一份：mock 少给这一个出口，
+  // 面板一挂载就会在控制台报 fetch failed（走 EMPTY 兜底，断言不受影响，但噪声会掩盖真故障）。
+  listFreezoneMotionStyles: vi.fn(async () => ({
+    assetBase: "",
+    version: "test",
+    categories: [],
+    styles: [],
+  })),
+  fetchFreezoneMotionStylePrompt: vi.fn(async () => "画风规格 + 渲染契约"),
+  submitFreezoneMotionRender: vi.fn(async () => ({
+    task_type: "freezone_motion_render",
+    job_id: "motion-job-1",
+    task_key: "motion-render-key",
+  })),
+  listFreezoneMotionRenders: vi.fn(async () => []),
+  submitFreezoneMotionStills: vi.fn(async () => ({
+    task_type: "freezone_motion_stills",
+    job_id: "motion-stills-1",
+    task_key: "motion-stills-key",
+  })),
+  submitFreezoneMotionDraft: vi.fn(async () => ({
+    task_type: "freezone_motion_draft",
+    job_id: "motion-draft-1",
+    task_key: "motion-draft-key",
+  })),
+}));
+
+// 静帧预检的结果区从任务列表读「最近一次完成的 freezone_motion_stills」，
+// 默认空列表，用例里按需注入已完成任务（其余面板同样只读 data）。
+const tasksMock = vi.hoisted(() => ({
+  current: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("@/lib/queries/tasks", () => ({
-  useTasks: () => ({ data: { ok: true, data: [] } }),
+  useTasks: () => ({ data: { ok: true, data: tasksMock.current } }),
 }));
 
 // 视频/音频目录默认空，可按测试注入具体模型（如声明 video_edit 的 seedance-2.0-mini、
@@ -192,6 +237,10 @@ import {
   // [aipdd fork delta] 口播智能剪辑提交。
   submitFreezoneNarrationSmartEdit,
   submitFreezoneMediaCopywrite,
+  // [aipdd fork delta] 动效大片：案例图册清单、提示词回读、渲染、拍点预检与交付提交。
+  listFreezoneMotionCases,
+  submitFreezoneMotionRender,
+  submitFreezoneMotionStills,
   // [aipdd fork delta req46] 音乐创作：五模式提交 + 两步翻唱的抽取歌词。
   submitFreezoneMusicCreate,
   submitFreezoneMusicCoverPreprocess,
@@ -229,6 +278,7 @@ describe("ToolsPage", () => {
     visionModelsMock.current = [];
     musicModelsMock.current = [];
     mediakitConfiguredMock.current = false;
+    tasksMock.current = [];
   });
 
   it("renders the page title and every registered menu entry", () => {
@@ -252,6 +302,8 @@ describe("ToolsPage", () => {
       "图片去水印",
       "音视频提取文案",
       "视频反推剧本",
+      // [aipdd fork delta] 动效大片：案例图册 → 本机渲染成片 → 剪映交付。
+      "动效大片",
       "讲解类视频",
       // [aipdd fork delta] 内容创作：公众号文章编写与排版（排菜单最后）。
       "内容创作",
@@ -1874,6 +1926,263 @@ describe("ToolsPage", () => {
         sourceTool: "narration-smart-edit",
       }),
     );
+  });
+
+  it("motion-blockbuster: picks a gallery case and renders it as one local shot", async () => {
+    // [aipdd fork delta] 工具页复用案例图册 + 渲染端点：一条案例进来，出去一镜成片。
+    // 没选案例不许提交（后端会 400），选了就只送 case_id/subject —— 页面源码由
+    // 任务里服务端拼好的同一份契约提示词生成，前端不经手拼装。
+    const motionCase = {
+      id: "M43",
+      label: "苹果风产品宣传片",
+      category: "产品宣传片",
+      brief: "把产品界面做成发布片",
+      tags: [],
+      prompt_cn: "分镜规格",
+      cover: "M43/poster.webp",
+      posterReady: false,
+      videoReady: false,
+      resolution: "2880x2160",
+      durationSeconds: 40,
+      author: "x",
+      mediaFile: "",
+      mediaBytes: 0,
+    };
+    vi.mocked(listFreezoneMotionCases).mockResolvedValue({
+      assetBase: "",
+      version: "test",
+      categories: ["产品宣传片"],
+      methods: [],
+      modelHint: "",
+      renderContract: "渲染契约",
+      source: "",
+      cases: [motionCase],
+    });
+
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "动效大片" }));
+    expect(screen.getByText("① 渲染一镜成片")).toBeInTheDocument();
+    expect(screen.getByText("② 交付一盘剪映草稿")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开动效图册" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "渲染这一镜" }));
+    expect(submitFreezoneMotionRender).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "打开动效图册" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "查看苹果风产品宣传片的动效规格" }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "用这条" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "打开动效图册" })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("苹果风产品宣传片")).toBeInTheDocument();
+    // 提示词预览与任务用的是服务端拼好的同一份文本。
+    expect(screen.getByText("查看这条案例的完整提示词")).toBeInTheDocument();
+
+    await userEvent.type(
+      screen.getByPlaceholderText("例：把 Distilbook 的阅读界面做成 40 秒发布片"),
+      "阅读界面做成 40 秒发布片",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "渲染这一镜" }));
+
+    await waitFor(() =>
+      expect(submitFreezoneMotionRender).toHaveBeenCalledWith("demo", {
+        caseId: "M43",
+        subject: "阅读界面做成 40 秒发布片",
+        // 片名留空 → 回退案例名，资产库条目名不至于空着。
+        title: "苹果风产品宣传片",
+        modelText: undefined,
+        aspectRatio: "16:9",
+        resolution: "720p",
+        fps: 30,
+        durationS: null,
+        archiveToLibrary: true,
+        sourceTool: "motion-blockbuster",
+      }),
+    );
+  });
+
+  it("motion-blockbuster: exports beat stills before polishing the film", async () => {
+    const motionCase = {
+      id: "M43",
+      label: "苹果风产品宣传片",
+      category: "产品宣传片",
+      brief: "把产品发布做成一页代码动画",
+      tags: [],
+      prompt_cn: "分镜规格",
+      cover: "M43/poster.webp",
+      posterReady: false,
+      videoReady: false,
+      resolution: "2880x2160",
+      durationSeconds: 40,
+      author: "x",
+      mediaFile: "",
+      mediaBytes: 0,
+    };
+    vi.mocked(listFreezoneMotionCases).mockResolvedValue({
+      assetBase: "",
+      version: "test",
+      categories: ["产品宣传片"],
+      methods: [],
+      modelHint: "",
+      renderContract: "渲染契约",
+      source: "",
+      cases: [motionCase],
+    });
+
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "动效大片" }));
+
+    // 渲染契约第 4 条排在成片之前：预检按钮就在「渲染这一镜」旁边。
+    fireEvent.click(screen.getByRole("button", { name: "先按拍点出静帧" }));
+    expect(submitFreezoneMotionStills).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "打开动效图册" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "查看苹果风产品宣传片的动效规格" }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "用这条" }));
+    // 等图册关闭（案例真正落进面板状态）再提交，否则预检仍按「没选案例」被拦下。
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "打开动效图册" }),
+      ).not.toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "先按拍点出静帧" }));
+
+    await waitFor(() =>
+      expect(submitFreezoneMotionStills).toHaveBeenCalledWith("demo", {
+        caseId: "M43",
+        subject: "",
+        modelText: undefined,
+        // 画幅/清晰度沿用同一份选择：预检要检的就是这一镜成片会用的画布。
+        aspectRatio: "16:9",
+        resolution: "720p",
+        maxStills: 24,
+        sourceTool: "motion-blockbuster",
+      }),
+    );
+  });
+
+  it("motion-blockbuster: shows the latest beat pre-check inside the panel", async () => {
+    tasksMock.current = [
+      {
+        task_type: "freezone_motion_stills",
+        status: "completed",
+        created_at: "2026-10-19T01:00:00Z",
+        result: {
+          // 页面没写 window.EV：面板必须把「这张图对的是网格」说出来。
+          beat_grid: true,
+          page_url: "/static/freezone/_outputs/freezone_motion_stills/job-1/page.html",
+          stills: [
+            { at_seconds: 0, event_type: "open", url: "/static/beat-01.png" },
+            { at_seconds: 1.5, event_type: "", url: "/static/beat-02.png" },
+          ],
+        },
+      },
+    ];
+
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "动效大片" }));
+
+    expect(screen.getByText("最近一次拍点预检（2 张）")).toBeInTheDocument();
+    expect(screen.getByText(/等间隔网格/)).toBeInTheDocument();
+    expect(screen.getByText("0.00s · open")).toBeInTheDocument();
+    expect(screen.getByText("1.50s")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "拍点 0.00s 的静帧" }),
+    ).toHaveAttribute("src", "/static/beat-01.png");
+    expect(screen.getByRole("link", { name: "在浏览器打开这一页" })).toHaveAttribute(
+      "href",
+      "/static/freezone/_outputs/freezone_motion_stills/job-1/page.html",
+    );
+  });
+
+  it("motion-blockbuster: renders the pasted page itself, with no case and no model rewrite", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "动效大片" }));
+
+    const box = screen.getByPlaceholderText(
+      "粘贴完整单文件 HTML：自带 window.render(t) 与 window.DUR",
+    );
+    // 两边都空才算没来源：既没选案例也没粘页面时不许提交。
+    fireEvent.click(screen.getByRole("button", { name: "渲染这一镜" }));
+    expect(submitFreezoneMotionRender).not.toHaveBeenCalled();
+
+    const page = "<!doctype html><html><body>裸页面</body></html>";
+    await userEvent.type(box, page);
+    fireEvent.click(screen.getByRole("button", { name: "渲染这一镜" }));
+
+    await waitFor(() =>
+      expect(submitFreezoneMotionRender).toHaveBeenCalledWith("demo", {
+        html: page,
+        // 粘了页面就不再传案例：任务里那一步「让模型写这页」整个跳过，不出网。
+        caseId: undefined,
+        subject: "",
+        // 没选案例就没拿得到案例名：片名留空，由后端按任务命名。
+        title: "",
+        modelText: undefined,
+        aspectRatio: "16:9",
+        resolution: "720p",
+        fps: 30,
+        durationS: null,
+        archiveToLibrary: true,
+        sourceTool: "motion-blockbuster",
+      }),
+    );
+
+    // 预检读同一份来源：检的必须就是待会儿要渲的那一页。
+    fireEvent.click(screen.getByRole("button", { name: "先按拍点出静帧" }));
+    await waitFor(() =>
+      expect(submitFreezoneMotionStills).toHaveBeenCalledWith("demo", {
+        html: page,
+        caseId: undefined,
+        subject: "",
+        modelText: undefined,
+        aspectRatio: "16:9",
+        resolution: "720p",
+        maxStills: 24,
+        sourceTool: "motion-blockbuster",
+      }),
+    );
+  });
+
+  it("motion-blockbuster: loads the newest page source into the editor for a second pass", async () => {
+    tasksMock.current = [
+      {
+        task_type: "freezone_motion_render",
+        status: "completed",
+        created_at: "2026-10-19T02:00:00Z",
+        result: {
+          // 载入的是 .source.html（不带引导脚本），不是 Chrome 实际加载的那份。
+          page_source_url:
+            "/static/freezone/_outputs/freezone_motion_render/mg-1.source.html",
+        },
+      },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response("<html>改过的页面</html>", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "动效大片" }));
+    fireEvent.click(screen.getByRole("button", { name: "载入最近一次页面源码" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByPlaceholderText(
+          "粘贴完整单文件 HTML：自带 window.render(t) 与 window.DUR",
+        ),
+      ).toHaveValue("<html>改过的页面</html>"),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/static/freezone/_outputs/freezone_motion_render/mg-1.source.html",
+      { cache: "no-store" },
+    );
+    vi.unstubAllGlobals();
   });
 
 });

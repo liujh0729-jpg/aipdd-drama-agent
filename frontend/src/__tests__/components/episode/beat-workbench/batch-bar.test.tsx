@@ -306,6 +306,10 @@ vi.mock("@/components/episode/beat-workbench/render-plan-dialog", () => ({
   RenderPlanDialog: () => null,
 }));
 
+vi.mock("@/components/episode/beat-workbench/motion-draft-dialog", () => ({
+  MotionDraftDialog: () => null,
+}));
+
 vi.mock("sonner", () => ({
   toast: {
     loading: vi.fn(() => "toast-1"),

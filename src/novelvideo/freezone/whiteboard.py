@@ -31,6 +31,8 @@ from typing import Any, Callable
 import cv2
 import numpy as np
 
+from novelvideo.video_encoder import video_encode_args
+
 logger = logging.getLogger(__name__)
 
 # 暖米黄底（#F5EBD7 的 BGR 分量）——前景判定的参考色。
@@ -275,10 +277,7 @@ def _encode_frames_to_mp4(frames: list[np.ndarray], width: int, height: int, fps
         "-i",
         "pipe:0",
         "-an",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
+        *video_encode_args(),
         "-pix_fmt",
         "yuv420p",
         "-movflags",

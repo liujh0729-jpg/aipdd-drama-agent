@@ -9,6 +9,7 @@ dist/
 src-tauri/resources/python/
 src-tauri/resources/bin/
 src-tauri/resources/app/
+src-tauri/resources/hermes/
 
 # 保留随包提交的静态配置与模板（体积小、需版本管理）
 !src-tauri/resources/nginx.conf

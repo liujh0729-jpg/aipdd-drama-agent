@@ -14,6 +14,7 @@ import {
   submitFreezoneExplainerVideo,
   submitFreezoneVideoMix,
   submitFreezoneWhiteboardAnimation,
+  submitFreezoneMotionDraft,
 } from "@/api/ops";
 
 vi.mock("@/api/client", () => ({
@@ -148,5 +149,38 @@ describe("freezone numeric inputs normalize before submit", () => {
       box_width: 0.01, // gt=0：清空产生的 0 必须保底为最小正值
       box_height: 1,
     });
+  });
+
+  it("motion draft: caption rows and style keep 0 as a real value", async () => {
+    await submitFreezoneMotionDraft("project-1", {
+      clips: [
+        { source: "/static/a.mp4", caption: "   " },
+        { source: "/static/b.mp4", caption: "这一镜的字" },
+      ],
+      subtitles: [
+        { text: "  ", startS: 0 }, // 只剩空格的行不落轨：不该变成一条 0 长度字幕
+        { text: "第一条", startS: 0 },
+        { text: "尾句", startS: 4, durationS: 1 },
+      ],
+      textStyle: { size: 99, bold: true, yRatio: 0 },
+    });
+    const body = lastBody();
+    const clips = body.clips as Record<string, unknown>[];
+    expect(clips[0]).not.toHaveProperty("caption");
+    expect(clips[1]).toMatchObject({ caption: "这一镜的字" });
+    expect(body.subtitles).toEqual([
+      // 起点 0 是「从第一帧起」，不是「没填」，必须照样发出去。
+      { text: "第一条", start_seconds: 0 },
+      { text: "尾句", start_seconds: 4, duration_seconds: 1 },
+    ]);
+    // 字号越过上限压到 40；y_ratio=0 是合法的「贴顶」档，不被回落到 0.75。
+    expect(body.text_style).toEqual({ size: 40, bold: true, y_ratio: 0 });
+
+    await submitFreezoneMotionDraft("project-1", {
+      clips: [{ source: "/static/a.mp4" }],
+      textStyle: { size: 0 }, // 清空字号 → 回到默认档
+    });
+    expect(lastBody().text_style).toEqual({ size: 7, bold: true, y_ratio: 0.75 });
+    expect(lastBody().subtitles).toEqual([]);
   });
 });

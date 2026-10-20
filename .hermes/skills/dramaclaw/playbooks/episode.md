@@ -38,7 +38,7 @@ CP2 判定：脚本、场景/道具上下文足够推进草图；当前后端没
   - 若规划返回已给出角色与身份位信息，就以该返回为最终事实源收口
 
 **Step 10 固定主线**：
-- 可选创作入口：剧集工作台「故事」tab —— `dramaclaw_get_episode_story` / `dramaclaw_optimize_episode_story` / `dramaclaw_save_episode_story` → `dramaclaw_story_to_script`(ep=N) 转剧本；内容自动导入剧本模板并触发 `script_writer`（与直接生成同一任务），等价完成本步
+- 可选创作入口：剧集工作台「故事」tab —— `aipdd_drama_get_episode_story` / `aipdd_drama_optimize_episode_story` / `aipdd_drama_save_episode_story` → `aipdd_drama_story_to_script`(ep=N) 转剧本；内容自动导入剧本模板并触发 `script_writer`（与直接生成同一任务），等价完成本步
 - 用户先准备 `raw-content`
 - 若需要解说改写，先 `POST /rewrite/generate`，启动后立即收口；不要同一轮继续 `script/generate`
 - 只有改写稿已完成/已存在时，才调用当前后端实际存在的 `POST /script/generate`；启动后立即收口
@@ -51,7 +51,7 @@ CP2 判定：脚本、场景/道具上下文足够推进草图；当前后端没
   1. `GET /projects/{project}/scenes` 列项目场景库
   2. `GET /projects/{project}/episodes/{ep}/beats` 读取本集 beats
   3. 如需补场景 → `POST /projects/{project}/scenes`，body 使用当前后端字段：`{"name":"...","description":"...","environment_prompt":"..."}`
-  4. 本集道具规划 → `dramaclaw_plan_props`（`POST /projects/{project}/episodes/{ep}/props/plan`）
+  4. 本集道具规划 → `aipdd_drama_plan_props`（`POST /projects/{project}/episodes/{ep}/props/plan`）
   5. 道具列表 → `GET /projects/{project}/props`
 - 上述流程中同一轮最多执行一个写操作：补一个场景、启动一次道具规划、或执行当前 `next_step` 的一个任务；不要补多个场景后再启动道具规划。
 - 完成判定：脚本、场景/道具上下文足够推进草图；不要要求 `anchor_image_url`
@@ -63,7 +63,7 @@ CP2 判定：脚本、场景/道具上下文足够推进草图；当前后端没
 
 **Step 12.5**：`{"language":"en"}` 默认英文 SuperPower 模式，决定 video_mode + motion prompt
 
-**Step 18 音频生成**：使用 `dramaclaw_generate_audio`，即当前 `audio/generate` [ASYNC: `audio_generation_indextts2`]。旧 `/tts/generate` 已移除，不要调用。
+**Step 18 音频生成**：使用 `aipdd_drama_generate_audio`，即当前 `audio/generate` [ASYNC: `audio_generation_indextts2`]。旧 `/tts/generate` 已移除，不要调用。
 
 **局部音频更新**：
 - 当用户修改 beat 的 `audio_type`、`speaker`、`fish_speech_prompt` 或对白文本时，
@@ -81,7 +81,7 @@ CP2 判定：脚本、场景/道具上下文足够推进草图；当前后端没
 
 **Step 19 视频模型**：当前后端没有整集 `/videos/generate` 路由。默认用 `POST /episodes/{ep}/beats/{beat}/video` 单 beat 生成；如需整集片段，读取 beats 后只选择第一个未完成且前置满足的 beat，本轮最多启动这一个 beat。默认 `huimeng_seedance-1.0-pro-fast`。
 
-**Step 19-21**：分别为 `single_video`（逐 beat）、`compose_episode`、`dramaclaw_get_final_video`，**必须顺序执行**
+**Step 19-21**：分别为 `single_video`（逐 beat）、`compose_episode`、`aipdd_drama_get_final_video`，**必须顺序执行**
 
 ## 检查点规则（仅手动模式）
 

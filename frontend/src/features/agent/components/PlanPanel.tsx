@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Check, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Loader2, Pencil, Play, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   useAddAgentPlanItem,
   useAgentPlan,
   useDeleteAgentPlanItem,
+  useRunAgentPlan,
   useUpdateAgentPlanItem,
   type AgentPlanItem,
 } from "@/lib/queries/agent";
@@ -21,25 +22,76 @@ import { cn } from "@/lib/utils";
 
 import { agentErrorMessage } from "../core";
 
+/** 服务端 plans.PLAN_STAGE_ORDER 的前端镜像；order 即先决顺序。 */
+const STAGE_OPTIONS = [
+  "story",
+  "screenplay",
+  "ingest",
+  "characters",
+  "episodes",
+  "identities",
+  "script",
+  "scenes",
+  "props",
+  "sketches",
+  "frames",
+] as const;
+
+const PER_EPISODE_STAGES = new Set(["identities", "script", "scenes", "props", "sketches", "frames"]);
+
+const SELECT_CLASS =
+  "h-7 w-full rounded-lg border border-white/10 bg-white/[0.025] px-2 text-xs text-foreground outline-none focus:border-primary/50";
+
 export function PlanPanel({ project }: { project: string }) {
   const { t } = useTranslation();
   const plan = useAgentPlan(project);
   const addItem = useAddAgentPlanItem();
   const updateItem = useUpdateAgentPlanItem();
   const deleteItem = useDeleteAgentPlanItem();
+  const runPlan = useRunAgentPlan();
   const [draft, setDraft] = useState("");
+  const [stage, setStage] = useState("");
+  const [episode, setEpisode] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
 
   const items = plan.data?.data.items ?? [];
   const pending = items.filter((item) => !item.done).length;
+  const executablePending = items.filter((item) => !item.done && item.stage).length;
 
   const handleAdd = async () => {
     const title = draft.trim();
     if (!title || addItem.isPending) return;
+    const parsedEpisode = Number.parseInt(episode, 10);
     try {
-      await addItem.mutateAsync({ project, title });
+      await addItem.mutateAsync({
+        project,
+        title,
+        ...(stage ? { stage } : {}),
+        ...(stage && PER_EPISODE_STAGES.has(stage) && parsedEpisode > 0
+          ? { episode: parsedEpisode }
+          : {}),
+      });
       setDraft("");
+      setEpisode("");
+    } catch (error) {
+      toast.error(await agentErrorMessage(error));
+    }
+  };
+
+  const handleRun = async () => {
+    if (runPlan.isPending || executablePending === 0) return;
+    try {
+      const result = await runPlan.mutateAsync({ project, mode: "auto", budget_s: 90 });
+      if (result.status === "failed") {
+        toast.error(t("agent.plan.runFailed", { message: result.message || "" }));
+      } else if (result.status === "busy") {
+        toast.info(t("agent.plan.runBusy"));
+      } else if (result.status === "done") {
+        toast.success(t("agent.plan.runDone"));
+      } else {
+        toast.success(t("agent.plan.runProgress", { count: result.advanced?.length ?? 0 }));
+      }
     } catch (error) {
       toast.error(await agentErrorMessage(error));
     }
@@ -91,6 +143,33 @@ export function PlanPanel({ project }: { project: string }) {
         </Button>
       </div>
 
+      <div className="flex items-center gap-1.5">
+        <select
+          aria-label={t("agent.plan.stageLabel")}
+          title={t("agent.plan.stageHint")}
+          value={stage}
+          onChange={(event) => setStage(event.target.value)}
+          className={SELECT_CLASS}
+        >
+          <option value="">{t("agent.plan.manualStage")}</option>
+          {STAGE_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {t(`agent.plan.stages.${option}`)}
+            </option>
+          ))}
+        </select>
+        {PER_EPISODE_STAGES.has(stage) ? (
+          <Input
+            type="number"
+            min={1}
+            value={episode}
+            onChange={(event) => setEpisode(event.target.value)}
+            placeholder={t("agent.plan.episodePlaceholder")}
+            className="h-7 w-20 shrink-0 text-xs"
+          />
+        ) : null}
+      </div>
+
       {plan.isLoading ? (
         <div className="flex justify-center py-4">
           <Loader2 className="size-4 animate-spin text-muted-foreground" />
@@ -104,9 +183,31 @@ export function PlanPanel({ project }: { project: string }) {
         </div>
       ) : (
         <>
-          <span className="text-xs text-muted-foreground">
-            {t("agent.plan.count", { total: items.length, pending })}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              {t("agent.plan.count", { total: items.length, pending })}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              disabled={executablePending === 0 || runPlan.isPending}
+              title={
+                executablePending === 0
+                  ? t("agent.plan.runNeedsStage")
+                  : t("agent.plan.runHint")
+              }
+              onClick={() => void handleRun()}
+              className="h-6 shrink-0 gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 text-[10px] font-normal text-primary shadow-none hover:bg-primary/20 disabled:opacity-40"
+            >
+              {runPlan.isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Play className="size-3" />
+              )}
+              {runPlan.isPending ? t("agent.plan.running") : t("agent.plan.run")}
+              {executablePending > 0 ? ` · ${executablePending}` : ""}
+            </Button>
+          </div>
           <div className="space-y-1.5">
             {items.map((item) => (
               <PlanRow
@@ -194,13 +295,39 @@ function PlanRow({
           className="h-6 flex-1 text-xs"
         />
       ) : (
-        <span
-          className={cn(
-            "min-w-0 flex-1 break-words text-xs leading-5",
-            item.done ? "text-muted-foreground line-through" : "text-foreground",
-          )}
-        >
-          {item.title}
+        <span className="min-w-0 flex-1">
+          <span
+            className={cn(
+              "block break-words text-xs leading-5",
+              item.done ? "text-muted-foreground line-through" : "text-foreground",
+            )}
+          >
+            {item.title}
+          </span>
+          {item.stage || item.episode ? (
+            <span className="mt-0.5 flex flex-wrap items-center gap-1">
+              {item.stage ? (
+                <span className="rounded bg-primary/10 px-1 py-px text-[10px] leading-4 text-primary/90">
+                  {t(`agent.plan.stages.${item.stage}`, { defaultValue: item.stage })}
+                </span>
+              ) : null}
+              {item.episode ? (
+                <span className="rounded bg-white/[0.06] px-1 py-px text-[10px] leading-4 text-muted-foreground">
+                  {t("agent.plan.episode", { n: item.episode })}
+                </span>
+              ) : null}
+              {item.stage_inferred ? (
+                <span className="text-[10px] leading-4 text-muted-foreground/70">
+                  {t("agent.plan.inferred")}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
+          {item.last_error && !item.done ? (
+            <span className="mt-0.5 block break-words text-[10px] leading-4 text-red-400/90">
+              {item.last_error}
+            </span>
+          ) : null}
         </span>
       )}
 

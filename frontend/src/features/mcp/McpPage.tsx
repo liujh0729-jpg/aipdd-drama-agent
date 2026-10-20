@@ -23,7 +23,11 @@ import {
 
 import { SlidingTabs } from "@/components/nav/sliding-tabs";
 import { Button } from "@/components/ui/button";
-import { useAgentMcpServers, useSetAgentMcpServerEnabled } from "@/lib/queries/agent";
+import {
+  useAgentLocalTools,
+  useAgentMcpServers,
+  useSetAgentMcpServerEnabled,
+} from "@/lib/queries/agent";
 import { useAllProjectSummaries } from "@/lib/queries/projects";
 import { cn } from "@/lib/utils";
 
@@ -160,6 +164,9 @@ export function McpPage({ project }: { project?: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: projects } = useAllProjectSummaries();
+  // [aipdd fork delta] 后端运行形态：桌面/裸机起本机 Python，容器走 docker exec。
+  const localToolsQuery = useAgentLocalTools();
+  const runtime = localToolsQuery.data?.data.mcpRuntime;
   // [aipdd fork delta] 顶部分段切换（接入指南 / MCP 列表），与剧集页 tab 同一套视觉。
   const [tab, setTab] = useState<"overview" | "tools">("overview");
 
@@ -183,32 +190,37 @@ export function McpPage({ project }: { project?: string }) {
     return "http://localhost:8780";
   }, []);
 
-  // 本机 / 已从仓库安装依赖时的标准接入：uv run 启动 stdio MCP 服务器。
-  const configJson = useMemo(
-    () =>
-      JSON.stringify(
-        {
-          mcpServers: {
-            "aipdd-drama": {
-              command: "uv",
-              args: ["run", "python", "-m", "novelvideo.chat.aipdd_drama_mcp"],
-              env: {
-                AIPDD_DRAMA_API_URL: apiBase,
-                // 统一密钥：在「设置 → API 密钥」生成，与模型广场调用共用同一把。
-                AIPDD_DRAMA_AGENT_TOKEN: "<your-api-key>",
-                AIPDD_DRAMA_PROJECT_ID: projectId,
-              },
-            },
+  // [aipdd fork delta] 手动配置按运行形态生成：桌面版用随包 Python 直接启动
+  // （没有 uv 也没有仓库 checkout），源码运行才用 uv run。
+  const configJson = useMemo(() => {
+    const native = runtime?.mode === "native";
+    const env: Record<string, string> = {
+      AIPDD_DRAMA_API_URL: apiBase,
+      // 统一密钥：在「设置 → API 密钥」生成，与模型广场调用共用同一把。
+      AIPDD_DRAMA_AGENT_TOKEN: "<your-api-key>",
+      AIPDD_DRAMA_PROJECT_ID: projectId,
+    };
+    if (native && runtime?.pythonPath) env.PYTHONPATH = runtime.pythonPath;
+    return JSON.stringify(
+      {
+        mcpServers: {
+          "aipdd-drama": {
+            command: native ? runtime?.python || "python" : "uv",
+            args: native
+              ? ["-m", "novelvideo.chat.aipdd_drama_mcp"]
+              : ["run", "python", "-m", "novelvideo.chat.aipdd_drama_mcp"],
+            env,
           },
         },
-        null,
-        2,
-      ),
-    [apiBase, projectId],
-  );
+      },
+      null,
+      2,
+    );
+  }, [apiBase, projectId, runtime]);
 
   // 容器化部署时：让 MCP 客户端通过 docker exec 进入已运行的 api 容器内启动服务器。
   // api 容器没有内置接入用 env，这里显式带入容器内 API 地址、统一密钥占位与项目 id。
+  // 容器名取后端上报值（compose 可用 ST_CONTAINER_NAME 自定义，见 docker-compose.release.yml）。
   const dockerConfig = useMemo(
     () =>
       JSON.stringify(
@@ -225,7 +237,7 @@ export function McpPage({ project }: { project?: string }) {
                 "AIPDD_DRAMA_AGENT_TOKEN=<your-api-key>",
                 "-e",
                 `AIPDD_DRAMA_PROJECT_ID=${projectId}`,
-                "aipdd-drama-api",
+                runtime?.containerName || "aipdd-drama-api",
                 "python",
                 "-m",
                 "novelvideo.chat.aipdd_drama_mcp",
@@ -236,7 +248,7 @@ export function McpPage({ project }: { project?: string }) {
         null,
         2,
       ),
-    [projectId],
+    [projectId, runtime?.containerName],
   );
 
   // [aipdd fork delta] 画布（freezone）基础用法：按「用途 → 工具 → 参数」三要素列出，
@@ -373,6 +385,11 @@ export function McpPage({ project }: { project?: string }) {
                 </div>
                 <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t("mcp.step.configHint")}</p>
                 <CopyBlock code={configJson} label="mcp.json" />
+                {runtime?.mode === "native" ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                    {t("mcp.step.runtimeNative")}
+                  </p>
+                ) : null}
               </section>
 
               {/* Step 2: 环境变量 */}

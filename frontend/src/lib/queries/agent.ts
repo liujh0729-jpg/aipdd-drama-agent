@@ -6,6 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, uploadApi } from "@/lib/api";
+import { downloadBlobAsFile } from "@/lib/browserDownload";
 import { queryKeys } from "@/lib/query-keys";
 import type { OkResponse } from "@/types/api";
 
@@ -81,6 +82,9 @@ export interface AgentSkill {
   enabled: boolean;
   body?: string;
   truncated?: boolean;
+  /** 内置技能来自仓库 .hermes/skills，只读（可停用、不可删除）。 */
+  source?: "builtin" | "user";
+  files?: string[];
 }
 
 export type AgentMcpTransport = "stdio" | "http" | "sse";
@@ -97,6 +101,10 @@ export interface AgentMcpServer {
   headers: Record<string, string>;
   enabled: boolean;
   builtin: boolean;
+  /** 内置服务器的外部命令是否就绪（自添加服务器缺省视为可用）。 */
+  available?: boolean;
+  /** 不可用原因（直接展示给用户，含安装指引）。 */
+  unavailable_reason?: string;
   created_at: string;
   updated_at: string;
 }
@@ -355,11 +363,29 @@ export interface AgentPlanItem {
   created_at: string;
   updated_at: string;
   done_at: string | null;
+  /** 流水线里程碑；为空表示手工待办，执行器不会碰。 */
+  stage?: string | null;
+  /** 逐集阶段的集号；空表示全部集。 */
+  episode?: number | null;
+  stage_inferred?: boolean;
+  last_error?: string;
+  last_run_at?: string | null;
 }
 
 export interface AgentPlanPayload {
   items: AgentPlanItem[];
   max_items: number;
+}
+
+/** /agent/plan/run 的摘要：status=done/running/failed/busy/... */
+export interface AgentPlanRunSummary {
+  status: string;
+  message?: string;
+  advanced?: string[];
+  completed?: string[];
+  inferred?: string[];
+  remaining?: number;
+  next_action?: string;
 }
 
 export function useAgentPlan(project: string) {
@@ -377,7 +403,12 @@ export function useAgentPlan(project: string) {
 export function useAddAgentPlanItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { project: string; title: string }) =>
+    mutationFn: async (payload: {
+      project: string;
+      title: string;
+      stage?: string;
+      episode?: number;
+    }) =>
       (
         await api
           .post("api/v1/agent/plan/items", { json: payload, retry: 0 })
@@ -397,11 +428,19 @@ export function useUpdateAgentPlanItem() {
       itemId: string;
       title?: string;
       done?: boolean;
+      stage?: string | null;
+      episode?: number | null;
     }) =>
       (
         await api
           .patch(`api/v1/agent/plan/items/${encodeURIComponent(payload.itemId)}`, {
-            json: { project: payload.project, title: payload.title, done: payload.done },
+            json: {
+              project: payload.project,
+              ...("title" in payload ? { title: payload.title } : {}),
+              ...("done" in payload ? { done: payload.done } : {}),
+              ...("stage" in payload ? { stage: payload.stage } : {}),
+              ...("episode" in payload ? { episode: payload.episode } : {}),
+            },
             retry: 0,
           })
           .json<OkResponse<AgentPlanPayload & { item: AgentPlanItem }>>()
@@ -430,6 +469,30 @@ export function useDeleteAgentPlanItem() {
   });
 }
 
+/** 按计划执行：服务端 plan_runner 委托权威流水线计划器，推进到镜头首帧。 */
+export function useRunAgentPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      project: string;
+      mode?: "auto" | "manual" | "checkpoint";
+      approve?: boolean;
+      budget_s?: number;
+    }) =>
+      (
+        await api
+          .post("api/v1/agent/plan/run", {
+            json: { mode: "auto", ...payload },
+            retry: 0,
+          })
+          .json<OkResponse<AgentPlanRunSummary>>()
+      ).data,
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agentPlan(variables.project) });
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 技能
 // ---------------------------------------------------------------------------
@@ -443,6 +506,31 @@ export function useAgentSkills() {
         .json<OkResponse<AgentSkill[]>>(),
     retry: false,
   });
+}
+
+/** 技能详情（含 SKILL.md 正文）：name 为空时不发请求。 */
+export function useAgentSkillDetail(name: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.agentSkills(), "detail", name],
+    queryFn: ({ signal }) =>
+      api
+        .get(`api/v1/agent/skills/${encodeURIComponent(name ?? "")}`, { signal, retry: 0 })
+        .json<OkResponse<AgentSkill>>(),
+    enabled: Boolean(name),
+    retry: false,
+  });
+}
+
+/** 下载技能 zip 包（后端 Content-Disposition 带文件名，结构与安装器一致）。 */
+export async function downloadAgentSkill(name: string): Promise<void> {
+  const response = await api.get(
+    `api/v1/agent/skills/${encodeURIComponent(name)}/download`,
+    { timeout: 120_000 },
+  );
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const match = /filename="?([^"]+)"?/i.exec(disposition);
+  downloadBlobAsFile(blob, match?.[1] ?? `${name}.zip`);
 }
 
 export function useInstallAgentSkill() {
@@ -621,11 +709,22 @@ export interface AgentLocalTool {
   configPath: string;
 }
 
+/** 后端 MCP 运行形态（手动配置片段按它生成启动命令）。 */
+export interface AgentMcpRuntime {
+  mode: "docker" | "native";
+  /** 本机 Python 可执行文件（native 形态直接用它启动 MCP server）。 */
+  python: string;
+  pythonPath: string;
+  /** docker exec 目标容器名（docker 形态）。 */
+  containerName: string;
+}
+
 export interface AgentLocalToolsPayload {
   tools: AgentLocalTool[];
-  /** 宿主 home 是否挂载进容器（未挂载时检测不可用）。 */
+  /** 宿主 home 是否可用（未挂载/不可读时检测不可用）。 */
   hostHomeAvailable: boolean;
   hostHomePath: string;
+  mcpRuntime: AgentMcpRuntime;
 }
 
 export interface AgentLocalToolsActionResult {

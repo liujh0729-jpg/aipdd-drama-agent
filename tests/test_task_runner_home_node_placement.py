@@ -36,6 +36,12 @@ PLACEMENT_FREE_TASKS = {
     "freezone_channel_short_video",
     # [aipdd fork delta] 口播智能剪辑：与渠道短视频同构（payload 自带 project_dir），同属免放置集。
     "freezone_narration_smart_edit",
+    # [aipdd fork delta] 动效大片渲染：与讲解视频同构（payload 自带 project_dir + 页面全文，
+    # 产物只写进该目录），且渲染全在本机（Chrome + ffmpeg），不读 home node 状态。
+    "freezone_motion_render",
+    # [aipdd fork delta] 动效剪映草稿交付：payload 自带 project_dir 与成片绝对路径，
+    # 产物是一盘写进本地目录的剪映工程，与画布节点状态无关。
+    "freezone_motion_draft",
     "freezone_extract",
     "freezone_gen",
     "freezone_image_reverse_prompt",

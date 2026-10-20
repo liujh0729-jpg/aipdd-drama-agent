@@ -215,8 +215,10 @@ class HermesSdkClient:
         env: dict[str, str],
         model: str | None,
         username: str,
+        cli_args: list[str] | None = None,
     ) -> None:
         self._cli_path = cli_path
+        self._cli_args = list(cli_args or [])
         self._cwd = cwd
         self._env = env
         self._model = (model or "").strip() or None
@@ -225,6 +227,7 @@ class HermesSdkClient:
     def thread_start(self) -> "HermesSdkThread":
         return HermesSdkThread(
             cli_path=self._cli_path,
+            cli_args=self._cli_args,
             cwd=self._cwd,
             env=self._env,
             model=self._model,
@@ -235,6 +238,7 @@ class HermesSdkClient:
     def thread_resume(self, session_id: str) -> "HermesSdkThread":
         return HermesSdkThread(
             cli_path=self._cli_path,
+            cli_args=self._cli_args,
             cwd=self._cwd,
             env=self._env,
             model=self._model,
@@ -258,6 +262,7 @@ class HermesSdkThread:
         self,
         *,
         cli_path: Path,
+        cli_args: list[str] | None = None,
         cwd: Path,
         env: dict[str, str],
         model: str | None,
@@ -265,6 +270,10 @@ class HermesSdkThread:
         session_id: str | None,
     ) -> None:
         self._cli_path = cli_path
+        # Desktop ships the runtime as a --target 目录（不是 venv，规避 pyvenv.cfg
+        # 里的绝对路径）：此时 HERMES_CLI_ARGS 是 `-c <import …; main()>`，
+        # 由随包 Python 直接跑，不能再依赖 console script。
+        self._cli_args = list(cli_args or [])
         self._cwd = cwd
         self._env = env
         self._model = model
@@ -299,7 +308,7 @@ class HermesSdkThread:
         """Launch the hermes acp subprocess inside our sandbox."""
         if self._proc is not None:
             return
-        base_cmd = [str(self._cli_path), "acp"]
+        base_cmd = [str(self._cli_path), *self._cli_args, "acp"]
         # Wrap with OS sandbox (codex-linux-sandbox on Linux; sandbox-exec on macOS).
         sandboxed = wrap_command(base_cmd, SandboxSpec(user=self._username, hermes_home=self._cwd))
         _log.info("spawning hermes acp for user=%s (sandboxed=%s)", self._username,

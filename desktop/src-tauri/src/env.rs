@@ -76,6 +76,12 @@ impl RuntimePaths {
         self.rel("app/src")
     }
 
+    /// 随包 Hermes 运行时依赖目录（`uv pip install --target` 的产物）。
+    /// 不是 venv：`pyvenv.cfg` 里的 base 解释器是绝对路径，整包挪位置会失效。
+    pub fn hermes_site_packages(&self) -> PathBuf {
+        self.rel("hermes/site-packages")
+    }
+
     /// VectCut 服务源码目录。
     pub fn vectcut_src(&self) -> PathBuf {
         self.rel("app/services/vectcut")
@@ -162,6 +168,19 @@ impl RuntimePaths {
             // 不让解释器回落到用户 AppData 里的 site-packages / 全局 PYTHONPATH。
             env.push(("PYTHONNOUSERSITE".into(), "1".into()));
         }
+        // 随包 Hermes：console script 的 shim 写着构建机绝对解释器路径，便携
+        // Python 换位置后失效；与 API 服务同法，用 `-c` 直接调 hermes_cli。
+        // 依赖目录只用 HERMES_SITE_PACKAGES 交给子进程的 PYTHONPATH，
+        // 绝不并进 API 进程的 PYTHONPATH（两边 pin 的 pydantic/fastapi 不同）。
+        let hermes_site = self.hermes_site_packages();
+        if hermes_site.is_dir() {
+            env.push(("HERMES_CLI_PATH".into(), self.python().display().to_string()));
+            env.push((
+                "HERMES_CLI_ARGS".into(),
+                r#"-c "from hermes_cli.main import main; main()""#.into(),
+            ));
+            env.push(("HERMES_SITE_PACKAGES".into(), hermes_site.display().to_string()));
+        }
         env
     }
 
@@ -229,5 +248,58 @@ pub fn nginx_path_str(p: &Path) -> String {
         s.replace('\\', "/")
     } else {
         s
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_root(tag: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("dramaclaw-env-{tag}-{nanos}"));
+        std::fs::create_dir_all(root.join("resources")).unwrap();
+        std::fs::create_dir_all(root.join("app-data")).unwrap();
+        root
+    }
+
+    #[test]
+    fn base_env_wires_bundled_hermes_runtime() {
+        let root = temp_root("hermes");
+        let site = root.join("resources/hermes/site-packages");
+        std::fs::create_dir_all(&site).unwrap();
+
+        let paths = RuntimePaths::new(root.join("app-data"), root.join("resources")).unwrap();
+        let env: std::collections::HashMap<String, String> =
+            paths.base_env().into_iter().collect();
+
+        assert!(env["HERMES_CLI_PATH"].ends_with(if cfg!(windows) {
+            "python.exe"
+        } else {
+            "python3"
+        }));
+        assert_eq!(
+            env["HERMES_CLI_ARGS"],
+            r#"-c "from hermes_cli.main import main; main()""#
+        );
+        assert_eq!(PathBuf::from(&env["HERMES_SITE_PACKAGES"]), site);
+        // 依赖目录绝不能混进 API 进程自己的 PYTHONPATH。
+        assert_eq!(env["PYTHONPATH"], paths.backend_src().display().to_string());
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn base_env_omits_hermes_when_runtime_absent() {
+        let root = temp_root("no-hermes");
+        let paths = RuntimePaths::new(root.join("app-data"), root.join("resources")).unwrap();
+        let env: std::collections::HashMap<String, String> =
+            paths.base_env().into_iter().collect();
+        assert!(!env.contains_key("HERMES_CLI_PATH"));
+        assert!(!env.contains_key("HERMES_SITE_PACKAGES"));
+        std::fs::remove_dir_all(&root).ok();
     }
 }

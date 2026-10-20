@@ -59,6 +59,7 @@ from novelvideo.api.routes import (  # noqa: E402
     model_gateway,
     openai_proxy,
     pipeline,
+    motion,
     product_surfaces,
     projects,
     prompt_library,
@@ -128,6 +129,8 @@ api_router.include_router(generation.router, tags=["generation"])
 api_router.include_router(tasks.router, tags=["tasks"])
 api_router.include_router(files.router, tags=["files"])
 api_router.include_router(styles.router, tags=["styles"])
+# [aipdd fork delta] 动效大片图册素材：海报随包、原片按需取，免鉴权（img/video 不带 token）。
+api_router.include_router(motion.router, tags=["motion-gallery"])
 # [aipdd fork delta] 设置 → 3D 世界：运行时按需安装 world 依赖 + 开关 + 下载源。
 api_router.include_router(world.router, tags=["admin-world"])
 # [aipdd fork delta] 设置 → 换脸直播：本机引擎按需部署 + 开关 + 控制转发（AGPL 边车隔离）。

@@ -77,6 +77,21 @@ CE 固定**单本地用户**，项目数据全部在本地：
 
 所有文本 / 图片 / 视频 / 音频模型经一个 **OpenAI 兼容网关**接入（自带网关或官方 key），详见[配置模型供应商](../getting-started/configuring-models.md)。
 
+## 动效大片（MG）链路
+
+`freezone/` 下三个自研模块串成一条本机渲染线，不走外部剪辑服务、不下载素材库：
+
+| 模块 | 职责 |
+|---|---|
+| `motion_templates` / `motion_media` | 37 案例图册目录（随包 `motion_templates.json` + 海报）与**原片按需缓存**（`MOTION_GALLERY_ASSET_BASE` / `MOTION_GALLERY_MIRROR`） |
+| `motion_render`（`page` / `chrome` / `capturer` / `encoder` / `pipeline`） | 校验模型产出的动画页契约（`window.render(t)` / `window.DUR` / `window.EV`），注入确定性时钟，用包内 Chrome 经 CDP 逐帧截图，PNG 流直接 pipe 给 ffmpeg（`image2pipe`，帧不落盘）；编码器按 `-encoders` 实测选，不硬编 |
+| `motion_audio` | 从 `window.EV` 反推拍点网格（中位间隔 + 倍频折叠到 45–180 BPM、相位对齐动作），numpy 现场合成配乐，两趟 `loudnorm` 归一到 -14 LUFS / -1 dBTP 后 `-c:v copy` 合轨 |
+| `motion_draft` | 自研剪映 10.2 草稿写手：整根 `draft_content.json` + `Timelines/<uuid>/` + 镜像，整数微秒，视频 / 旁白 / BGM 分轨（同轨不许重叠），清 `.locked` |
+
+渲染产出的 `*.motion.json` sidecar 记录拍点与音频引擎口径，是草稿导出的唯一事实来源。桌面版依赖包内 `resources/bin/`（ffmpeg、可选 Chrome），详见 [desktop/README.md](../../../desktop/README.md)。
+
+出片链路共用一处编码器解析：`src/novelvideo/video_encoder.py` 探本机 `ffmpeg -encoders` 后按 `libx264 → h264_videotoolbox → h264_mf → libopenh264` 取第一个可用的（x264 走 CRF，其余走码率模式）。MG 的 `motion_render/encoder.py` 和整集合成、`jobs.py` 那批一键工具都从这里取 `-c:v`，所以随包的 LGPL 构建（无 x264）不会把任何一条链路带崩；取舍与例外见 [ffmpeg 指南](../guides/ffmpeg.md)。
+
 ## 技术栈
 
 Python + FastAPI（REST API，`:8780`）· CLI `novelvideo` · React 前端 · Docker Compose 自托管。

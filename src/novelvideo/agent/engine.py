@@ -41,7 +41,11 @@ _TOOL_RULES = (
     "- 调用 agent_load_skill 加载技能后，严格按技能正文的指引工作。\n"
     "- 用户偏好、重要设定等值得长期记住的信息，调用 agent_save_memory 保存。\n"
     "- 用户提出短剧/制作类需求时，先用 agent_update_plan 把工作拆解成待办任务；"
+    "制作类任务带上 stage（必要时带 episode），让计划可以被自动执行；"
     "每完成一项就立刻勾掉（complete），让「待办计划」面板始终反映真实进度。\n"
+    "- 用户说「按计划执行 / 执行计划 / 自动完成计划」时，先调用 aipdd_drama_get_plan "
+    "读取计划，再调用 aipdd_drama_run_plan 自动推进；它会按真实产物回勾任务，"
+    "只推进到镜头首帧，不生成视频。\n"
     "- 涉及项目数据（角色、剧集、素材等）时，使用 MCP 工具查询真实数据，不要凭空编造。"
 )
 
@@ -346,10 +350,8 @@ class AgentEngine:
         name = str(call.get("name") or "")
         arguments = call.get("arguments")
         arguments_error = str(call.get("arguments_error") or "")
-        server_name = ""
-        if name.startswith("mcp__"):
-            matched = next((item for item in hub.tools if item["qualified_name"] == name), None)
-            server_name = str(matched.get("server_name") or "") if matched else ""
+        matched = hub.resolve_tool(name)
+        server_name = str(matched.get("server_name") or "") if matched else ""
         emit(
             {
                 "type": "tool_start",
@@ -370,9 +372,17 @@ class AgentEngine:
             executed = await agent_tools.execute_builtin_tool(
                 name, arguments if isinstance(arguments, dict) else {}, tool_context
             )
-            result = executed if executed is not None else agent_tools.ToolResult(
-                False, f"未知工具：{name}"
-            )
+            if executed is not None:
+                result = executed
+            elif matched is not None:
+                # 技能文档/用户习惯写裸工具名；唯一命中 MCP 工具时按全名转发。
+                try:
+                    text = await hub.call(name, arguments if isinstance(arguments, dict) else {})
+                    result = agent_tools.ToolResult(True, text or "（工具无输出）")
+                except mcp.McpServerError as exc:
+                    result = agent_tools.ToolResult(False, f"MCP 工具调用失败：{exc}")
+            else:
+                result = agent_tools.ToolResult(False, f"未知工具：{name}")
         for media in result.media:
             emit({"type": "media", "media": media})
         emit(

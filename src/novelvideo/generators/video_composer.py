@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from novelvideo.config import get_video_config
 from novelvideo.task_backend.cancel import TaskCancelled, TaskTimedOut
 from novelvideo.task_backend.subprocesses import run_project_subprocess
+from novelvideo.video_encoder import pick_h264_encoder, video_encode_args
 
 
 def _run_video_subprocess(cmd: list[str], *, timeout: int = 30 * 60) -> subprocess.CompletedProcess:
@@ -149,7 +150,7 @@ class VideoComposer:
         self.width = width or config["width"]
         self.height = height or config["height"]
         self.fps = fps or config["fps"]
-        self.codec = config["codec"]
+        self.codec = pick_h264_encoder()[0]
         self.audio_codec = config["audio_codec"]
         self.bitrate = config["bitrate"]
 
@@ -657,7 +658,7 @@ class MoviePyComposer:
             final_clip.write_videofile(
                 output_path,
                 fps=self.fps,
-                codec="libx264",
+                codec=pick_h264_encoder()[0],
                 audio_codec="aac",
             )
 
@@ -786,8 +787,7 @@ async def adjust_video_duration(
                 f"[0:v]setpts={stretch_ratio}*PTS[v];[0:a]atempo={speed_factor}[a]",
                 "-map", "[v]",
                 "-map", "[a]",
-                "-c:v", "libx264",
-                "-preset", "fast",
+                *video_encode_args(preset="fast"),
                 "-c:a", "aac",
                 output_path,
             ]
@@ -803,8 +803,7 @@ async def adjust_video_duration(
                 "-y",
                 "-i", video_path,
                 "-vf", f"tpad=stop_mode=clone:stop_duration={freeze_duration}",
-                "-c:v", "libx264",
-                "-preset", "fast",
+                *video_encode_args(preset="fast"),
                 "-c:a", "aac",
                 output_path,
             ]

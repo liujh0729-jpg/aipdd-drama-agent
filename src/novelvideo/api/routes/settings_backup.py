@@ -36,7 +36,8 @@ def _app_version() -> str:
     try:
         from importlib.metadata import version as _pkg_version
 
-        return str(_pkg_version("novelvideo"))
+        # 发行包名是 supertale-ce（pyproject）；旧名 novelvideo 已不存在。
+        return str(_pkg_version("supertale-ce"))
     except Exception:  # noqa: BLE001 - 版本号只是信息位，取不到就回退环境/空
         return str(os.environ.get("DRAMACLAW_VERSION", "")).strip()
 

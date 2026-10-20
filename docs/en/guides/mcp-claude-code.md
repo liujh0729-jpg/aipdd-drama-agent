@@ -10,9 +10,16 @@ batch suite (video remake / short-video mixing / whiteboard animation /
 explainer motion video / channel short video / WeChat Official Account article writing & publish /
 idea-to-video / narration smart edit / voice synth / lip-sync / person replace / watermark removal /
 Douyin copy extract), one-click
-automation (story→storyboard step driver, batch shot videos by beat range), and the
+automation (story→storyboard step driver, batch shot videos by beat range), the
 canvas (freezone) image / image-edit / video / audio / text-script / resource
-catalog verbs — as 100
+catalog verbs, environment auto-install (`aipdd_drama_env_setup`: probe runtime
+dependencies → action plan → per-item install), environment and code self-heal
+(`aipdd_drama_self_heal`: on failure, the default text model analyzes the
+symptom; `diagnose` is read-only, `repair` applies whitelisted fixes only),
+executable work plans (`aipdd_drama_get_plan` /
+`aipdd_drama_update_plan` / `aipdd_drama_run_plan`), novel story-source read/save,
+chapter read/save and ingest, the motion-graphic (MG) catalog / render / stills /
+Jianying draft chain, and final-video / episode-pack export — as 122
 tools. Any MCP-speaking agent (**Claude Code**, Codex, etc.) can use it to build
 a drama end to end.
 
@@ -86,11 +93,29 @@ claude mcp list        # dramaclaw → ✓ connected
 > set the `.mcp.json` command to
 > `docker compose exec -T -e DRAMACLAW_API_URL=http://localhost:8780 -e DRAMACLAW_CE_OWNER=1 api python -m novelvideo.chat.dramaclaw_mcp`.
 
+### In-app MCP page: config generated for your runtime
+
+**MCP → Local agent tools** connects Workbuddy / Claude Code / Cursor / Codex to this
+instance in one click. The entry it writes depends on how the app runs:
+
+- **Docker deployment**: `docker exec -i <container> python -m novelvideo.chat.aipdd_drama_mcp`,
+  where the container name comes from `AIPDD_DRAMA_MCP_CONTAINER` (default
+  `aipdd-drama-api`, matching the release compose files);
+- **Desktop app (exe / dmg)**: the bundled Python runs the server directly
+  (`sys.executable -m …`) with the token and project in the entry's `env` — no Docker
+  or uv required.
+
+Built-in servers (Chrome DevTools / Blender / ComfyUI) are marked available or not for
+the current machine: if `chrome-devtools-mcp` or `uvx` is missing, the page shows
+"unavailable" with the install command, and agent turns stop trying to spawn it.
+Installing the command restores it on the next request — no config edit needed.
+
 ## What the agent can do
 
 The tools cover the full pipeline. A typical end-to-end run:
 
-1. `aipdd_drama_post` → `/projects/{p}/ingest/upload` + `/ingest/start` — ingest a manuscript
+1. `aipdd_drama_start_ingest` → `/projects/{p}/ingest/start` — ingest an uploaded manuscript
+   (the multipart upload itself stays in the web/client; `aipdd_drama_post` can still call the endpoint)
 2. `aipdd_drama_build_characters` → extract the cast
 3. `aipdd_drama_plan_episodes` → segment into episodes
 4. `aipdd_drama_plan_identities` → per-episode identities
@@ -179,6 +204,34 @@ The tools cover the full pipeline. A typical end-to-end run:
     `aipdd_drama_get_run_status` (aggregate pipeline progress with running / failed / completed
     tasks and per-episode shot counts), `aipdd_drama_cancel_run` (stop an episode's in-flight
     tasks), and `aipdd_drama_suggest_config` (recommend a generation config with rationale).
+19. Executable work plans (user writes the plan → the agent does the work):
+    `aipdd_drama_update_plan` (add / update / complete / remove; an item with a `stage`
+    milestone — story / screenplay / ingest / characters / episodes / identities / script /
+    scenes / props / sketches / frames — and an optional `episode` becomes executable;
+    items without a stage stay manual to-dos), `aipdd_drama_get_plan` (read the plan, open
+    count and executable items, so the agent confirms before acting), and
+    `aipdd_drama_run_plan` (`mode=auto` keeps advancing within `budget_s`; `manual` advances
+    one step; `checkpoint` previews only). The runner reuses the same backend planner and
+    ticks items off real artifacts (story text, characters, episodes, identities, shot
+    script, scenes/props, sketches, first frames), so repeated calls are idempotent and
+    completed items never re-run. It also stops at shot first frames and **never generates
+    video**. The HTTP side is `GET/POST/PATCH/DELETE /api/v1/agent/plan*` plus
+    `POST /api/v1/agent/plan/run`; the Agent page's plan panel shows stages and can run it.
+20. Novel story source / chapters / motion / exports: `aipdd_drama_get_story_source` /
+    `aipdd_drama_save_story_source` (the entry point when the user pastes a whole novel
+    into the Agent; validated the same way as the web import), `aipdd_drama_get_chapters`
+    (chapter structure; metadata only by default, `chapter=N` returns one body),
+    `aipdd_drama_update_chapter` (save a chapter body; the title line is preserved),
+    `aipdd_drama_start_ingest` (start
+    `ingest_fast` for a file already in `uploads/`; pair with
+    `aipdd_drama_list_ingest_uploads`). Motion graphics: `aipdd_drama_motion_cases` /
+    `aipdd_drama_motion_styles` (case and style catalogs; pass an id for the full prompt),
+    `aipdd_drama_motion_renders` (finished clips), `aipdd_drama_motion_render` (one MG clip,
+    `freezone_motion_render`), `aipdd_drama_motion_stills` (beat stills preflight,
+    `freezone_motion_stills`), `aipdd_drama_motion_draft` (clips → Jianying draft,
+    `freezone_motion_draft`). Exports: `aipdd_drama_get_subtitles` (one episode's SRT) and
+    `aipdd_drama_export_episode` (`kind=video` saves the final mp4, `kind=zip` saves the
+    episode resource pack; streamed to disk and returns the local path).
 
 Generation is **asynchronous**: a tool call starts a task, then the agent polls
 `aipdd_drama_pipeline_status` / `aipdd_drama_list_tasks` / `aipdd_drama_get_task` until
@@ -195,6 +248,19 @@ are an escape hatch for any endpoint not covered by a curated verb.
 > `…/freezone/canvases/{canvas_id}`, and trigger the node-equivalent image
 > generation with `aipdd_drama_post('/projects/{p}/freezone/gen', {…})` — exactly
 > what the web canvas does.
+
+> **Motion feature film (MG)** has dedicated verbs: `aipdd_drama_motion_cases` /
+> `aipdd_drama_motion_styles` read the case and style catalogs (pass `case_id` /
+> `style_id` for the full prompt), `aipdd_drama_motion_render` starts a render
+> (paste `html`, or pass `case_id`/`style_id` + `subject` and let the text model
+> write the page), `aipdd_drama_motion_stills` captures beat stills as a
+> preflight, `aipdd_drama_motion_renders` lists finished films (the source of
+> truth is the on-disk `*.motion.json` sidecars, not the task records), and
+> `aipdd_drama_motion_draft` exports a Jianying / CapCut 10.2 draft. Task types
+> are `freezone_motion_render` / `freezone_motion_stills` / `freezone_motion_draft`;
+> poll with `aipdd_drama_get_task(task_type=..., episode=0, scope=<job_id>)`.
+> This chain needs a local Chrome and ffmpeg — see the
+> [MG guide](motion-feature-film.md).
 
 ## Security notes
 

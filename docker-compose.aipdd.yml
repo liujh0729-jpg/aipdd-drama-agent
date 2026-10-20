@@ -26,6 +26,8 @@ services:
     environment:
       # CE inline 模式：无控制面 / Redis / Celery，任务在进程内跑。
       ST_EDITION: ce
+      # 与 container_name 保持同一真源：MCP 手动配置里的 docker exec 目标。
+      AIPDD_DRAMA_MCP_CONTAINER: aipdd-drama-api
       ST_CONTROL_PLANE_DSN: ""
       # [aipdd fork delta] CE 最小可用多用户隔离：登录制，账户/会话存在
       # /data/state/local/auth.db。配了 .env 的 ST_LOCAL_PASSWORD 才自动引导

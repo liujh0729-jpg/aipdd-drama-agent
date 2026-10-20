@@ -9,7 +9,9 @@ from fastapi.testclient import TestClient
 # [aipdd fork delta] 新增 character.face_mat 后为 20 条；新增 director 组 3 条后为 23 条；
 # 新增 director novel（整本故事→多集剧本）3 条后为 26 条。
 # [aipdd fork delta] 新增 freezone.story_version.system（故事版基础提示词）后为 27 条。
-KEY_TOTAL = 27
+# [aipdd fork delta] 动效大片图册 37 条案例按清单登记（motion.<case_id>）后为 64 条。
+# [aipdd fork delta] 画风图册 66 条风格按清单登记（motion-style.<style_id>）后为 130 条。
+KEY_TOTAL = 130
 
 
 @pytest.fixture()
@@ -61,6 +63,9 @@ def test_registry_shape_is_stable(library_db) -> None:
         "director",
         "freezone",
         "grid",
+        "motion",
+        # 画风图册单独一组：与案例共用一组会挤成 100 多条，没法浏览。
+        "motion_style",
     )
     for entry in entries:
         assert entry.default.strip() == entry.default
@@ -80,6 +85,63 @@ def test_story_version_prompt_entry_registered(library_db) -> None:
     assert "创作要求：{user_requirement}" in entry.default
     rendered = library_db.render_prompt(key, user_requirement="开场三个镜头")
     assert "开场三个镜头" in rendered
+
+
+def test_motion_gallery_cases_are_registered_from_the_manifest(library_db) -> None:
+    """动效图册每条案例都进库，且默认文字与清单现拼的那条一致（同一出处）。"""
+    from novelvideo.freezone.motion_templates import (
+        compose_motion_prompt,
+        load_motion_cases,
+        motion_prompt_key,
+    )
+
+    cases = load_motion_cases()
+    entries = [e for e in library_db.prompt_entries() if e.group == "motion"]
+    assert len(entries) == len(cases)
+    assert [e.key for e in entries] == [motion_prompt_key(c["id"]) for c in cases]
+    for entry, case in zip(entries, cases):
+        assert entry.label == case["label"]
+        assert entry.description == case["brief"]
+        assert entry.variables == ()
+        assert entry.default == compose_motion_prompt(case["id"]).rstrip()
+
+
+def test_motion_prompt_override_reaches_the_gallery(library_db) -> None:
+    """改库里的动效条目后，图册取用的那条提示词要跟着变（不是只改展示）。"""
+    # route_helpers 顶层 import novelvideo.api.schemas，而 api 包又会回头 import
+    # route_helpers —— 先让 api 包初始化完再取辅助函数，否则撞上这个既有环。
+    import novelvideo.api  # noqa: F401
+    from novelvideo.freezone import route_helpers
+    from novelvideo.freezone.motion_templates import motion_prompt_key
+
+    key = motion_prompt_key("M43")
+    library_db.set_prompt_override(key, "只保留主体与节奏，其余自由发挥")
+    try:
+        built = route_helpers.build_freezone_motion_prompt("M43")
+        assert built == "只保留主体与节奏，其余自由发挥\n"
+    finally:
+        library_db.reset_prompt_override(key)
+    assert built != route_helpers.build_freezone_motion_prompt("M43")
+
+
+def test_motion_style_prompt_override_reaches_the_gallery(library_db) -> None:
+    """画风图册与案例同一口径：改库里的风格条目，图册复制的和按风格出片用的都跟着变。"""
+    import novelvideo.api  # noqa: F401
+    from novelvideo.freezone import motion_styles, route_helpers
+
+    key = motion_styles.motion_style_prompt_key("ink-wash")
+    library_db.set_prompt_override(key, "只留墨色浓淡与呼吸感，其余自由发挥")
+    try:
+        assert (
+            route_helpers.build_freezone_motion_style_prompt("ink-wash")
+            == "只留墨色浓淡与呼吸感，其余自由发挥\n"
+        )
+    finally:
+        library_db.reset_prompt_override(key)
+    # 复位后回到「风格规格 + 渲染契约」那份拼装文字。
+    assert route_helpers.build_freezone_motion_style_prompt("ink-wash") == (
+        motion_styles.compose_motion_style_prompt("ink-wash").rstrip() + "\n"
+    )
 
 
 def test_unknown_key_is_a_programming_error(library_db) -> None:
@@ -186,6 +248,8 @@ def test_api_lists_updates_and_resets(prompt_client: TestClient) -> None:
         "director",
         "freezone",
         "grid",
+        "motion",
+        "motion_style",
     ]
     assert len(payload["items"]) == KEY_TOTAL
     first = payload["items"][0]
