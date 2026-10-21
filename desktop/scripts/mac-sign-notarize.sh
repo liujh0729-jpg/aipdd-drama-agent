@@ -62,33 +62,41 @@ find "$APP" -type f -perm -u+x ! -name '*.dylib' ! -name '*.so' ! -name '*.so.*'
 # 1c) Chrome for Testing 子树：Google chrome-for-testing zip 里的 helpers/framework 主件都是 ad-hoc
 #     linker-signed（无 Team ID、无时间戳、无 hardened runtime），Apple 公证对每个 Mach-O 都要求
 #     Developer ID + 时间戳 + 硬化运行时，ad-hoc 一律拒绝。必须整棵子树重签。
-#     归一化（见 1c-i）后 framework 变成标准 versioned 布局，可安全用 --force --deep 深签；未归一化前直接 --deep 会报「bundle format is ambiguous」/「unsealed contents」。
-#     entitlements 用我们已有的（allow-jit / allow-unsigned-executable-memory / disable-library-validation
-#     / allow-dyld-environment-variables）覆盖 Chrome 渲染进程 JIT 需求。
+#     ★ 关键结论（Chrome 156 实测）：保持 Google 原始 versioned framework 布局，不要做任何
+#       「归一化」搬动。原始布局的 Libraries/ 与 Helpers/ 本就是 codesign 认可的 framework 嵌套
+#       代码目录，--force --deep 能递归 seal 它们；历史上把 Libraries/Helpers 搬进 Resources、
+#       删顶层 Info.plist 反而让 bundle 根出现「unsealed contents present in the root directory of
+#       an embedded framework」导致公证反复 Invalid。entitlements 用我们已有的（allow-jit /
+#       allow-unsigned-executable-memory / disable-library-validation / allow-dyld-environment-variables）
+#       覆盖 Chrome 渲染进程 JIT 需求。
 #
-#     正确顺序（归一化由 normalize-chrome-framework.sh 提供单一事实源；本处仅防御性再调一次）：
-#       1c-i)   调 normalize-chrome-framework.sh 把 framework 整理成标准 versioned 布局
-#                （幂等：prepare-resources.sh 已在解压后就地整理过，这里近乎空操作）。
-#       1c-ii)  签 Chrome 子树内的「松散 Mach-O」：所有 .dylib/.so，以及被归一化移入
-#                Resources/** 的裸可执行件（app_mode_loader / chrome_crashpad_handler /
-#                web_app_shortcut_copier 等）。★ 这些既不在 --deep 递归的代码位置、又不是任何
-#                bundle 的 CFBundleExecutable，必须显式签，否则全新构建会漏签导致公证 Invalid。
-#       1c-iii) 签 Chrome 顶层 .app（--force --deep）：在 bundle 上下文签 chrome 主件、framework
-#                主件（versioned bundle seal）与 framework/Helpers 内的 helper .app，并把 1c-ii
-#                签好的松散件哈希进 seal。顺序「先内后外、先签后 seal」由 --deep 自动完成。
+#     正确顺序（对原始结构）：
+#       1c-ii)  就地签「松散 Mach-O」：framework 的 Versions/Current/Libraries/** 里的 .dylib，以及
+#                Versions/Current/Helpers 顶层的裸可执行件（app_mode_loader / chrome_crashpad_handler /
+#                web_app_shortcut_copier）。★ 这些既不是 bundle、又不在 --deep 递归签名的名单里，
+#                必须显式就地签，否则全新构建会漏签导致公证 Invalid。
+#                ⚠️ 谓词必须精确锁到 framework 的 Versions/Current/{Libraries,Helpers}，绝不能写成
+#                   宽泛的 */Resources/*：Chrome 整体就装在宿主 App 的 Contents/Resources/… 下，宽谓词
+#                   会命中子树里每一个文件——包括 framework/chrome/helper .app 主件；对这些 bundle 主件
+#                   单独 codesign 会要求父 bundle 已签而报「code object is not signed at all / In
+#                   subcomponent …Helper.app」直接失败（全新下载的 Chrome 必踩）。
+#       1c-iii) 单步 --force --deep 签 Chrome 顶层 .app：在 bundle 上下文递归签 framework 主件、
+#                Helpers 内的 .app，并把 1c-ii 签好的松散件哈希进 seal。顺序「先内后外、先签后 seal」
+#                由 --deep 自动完成，无需再单独 deep 签 framework。
 #       1c-iv)  显式 --verify --deep --strict 校验 Chrome 子树（外层 .app 的 --deep 不会递归进
 #                Contents/Resources/**/Chrome.app，必须单独验，否则白跑一轮公证）。
 while IFS= read -r -d '' chrome_root; do
   log "1c) 重签 Chrome 子树：$chrome_root"
-  # 1c-i) 归一化 framework（幂等，单一事实源在 normalize-chrome-framework.sh）
-  bash "$SCRIPT_DIR/normalize-chrome-framework.sh" "$chrome_root"
-  # 1c-ii) 签松散 Mach-O：dylib/.so 全域 + 任何 Resources/** 下的 Mach-O（含被移入的裸件）。
+  # 1c-ii) 就地签松散 Mach-O：framework 的 Versions/Current/Libraries/** + Helpers 顶层裸件（非 .app）。
   #        bundle 主件（chrome/framework/helper .app）留给下面 --force --deep 在 bundle 上下文签。
-  { find "$chrome_root" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) -print0
-    find "$chrome_root" -type f -path '*/Resources/*' -print0
-  } | sort -zu | sign_files_parallel \
-    || { echo "Chrome 子树松散 Mach-O 批量签名失败：$chrome_root" >&2; exit 1; }
-  # 1c-iii) 签 Chrome 顶层 .app（--force --deep，在 bundle 上下文签主件并 seal 全部子件）
+  fw_vc="$chrome_root/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/Current"
+  if [[ -d "$fw_vc" ]]; then
+    { find "$fw_vc/Libraries" -type f -print0 2>/dev/null
+      find "$fw_vc/Helpers" -maxdepth 1 -type f -print0 2>/dev/null
+    } | sort -zu | sign_files_parallel \
+      || { echo "Chrome 子树松散 Mach-O 批量签名失败：$chrome_root" >&2; exit 1; }
+  fi
+  # 1c-iii) 单步 --force --deep 签 Chrome 顶层 .app（保持原始结构，不搬动、不归一化）
   codesign --force --deep --options runtime --timestamp \
            --entitlements "$ENTITLEMENTS" \
            --sign "$SIGN_IDENTITY" "$chrome_root"

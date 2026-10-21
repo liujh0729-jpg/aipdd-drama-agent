@@ -357,13 +357,10 @@ if [[ -n "$CFT_VER" ]]; then
   unzip -oq "$CFT_ZIP" -d "$RES/bin"
   [[ -d "$RES/bin/chrome-${CFT}" ]] || { echo "Chromium 包内未找到 chrome-${CFT}/：$(ls "$RES/bin")" >&2; exit 8; }
   mv "$RES/bin/chrome-${CFT}" "$RES/bin/chrome"
-  # 解压后立即把 Chrome framework 归一化成「标准 versioned 布局 + 签名友好」：
-  #   删顶层 Info.plist、Libraries/ 与 Helpers 裸件并入 Resources/——否则后续
-  #   codesign --deep 会报「unsealed contents present in the root directory」，公证反复 Invalid。
-  #   单一事实源见 normalize-chrome-framework.sh；mac 侧签名脚本会再幂等调一次。
-  if [[ "$GOOS" == darwin ]]; then
-    bash "$SCRIPT_DIR/normalize-chrome-framework.sh" "$RES/bin/chrome"
-  fi
+  # ★ 不要对 Chrome framework 做任何「归一化」搬动：Google 原始 versioned 布局本身就是
+  #   codesign 可正常密封的；历史上删顶层 Info.plist、把 Libraries/Helpers 搬进 Resources
+  #   反而制造了「unsealed contents present in the root directory of an embedded framework」。
+  #   签名阶段（mac-sign-notarize.sh 1c）就地补齐松散 Mach-O 后直接 --force --deep 即可。
   # 运行期后端连 CDP：需由编排器以 --remote-debugging-port 启动该 Chrome，并把它的路径
   # 通过环境变量交给后端。见 desktop/README「Chromium/CDP 接线」TODO。
   log "Chromium $CFT_VER 已内置 resources/bin/chrome（CDP 接线见 README）"
