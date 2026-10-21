@@ -14,7 +14,7 @@ macOS `.app/.dmg`（及后续 Windows `.exe`），**弃用 Docker/Colima**：用
 ┌─────────────────────────── Tauri App (Rust) ───────────────────────────┐
 │  进程编排 orchestrator：按序启动 / 端口探活 / 崩溃自愈 / 日志采集 / 逆序退出     │
 │  启动卡窗口 (panel)            主窗口 → http://127.0.0.1:8080 (加载前端)      │
-│  诊断窗口 (console，仅失败时由启动卡「查看详细信息」打开)                       │
+│  诊断窗口 (console，主窗口菜单「服务与存储…」/ 启动失败时启动卡「查看详细信息」)  │
 │  模型下载器 (tokio+reqwest, 断点续传/sha256/进度)                             │
 └──────────────┬───────────────────┬──────────────────┬──────────────────┘
    std::process│         std::process│        std::process│
@@ -27,7 +27,8 @@ macOS `.app/.dmg`（及后续 Windows `.exe`），**弃用 Docker/Colima**：用
 
 - 主窗口只加载 `http://127.0.0.1:8080`，由内置 **nginx** 托管前端 `dist` 并反代后端，
   因此 **React 前端业务代码零改动**（相对路径 `/api/v1`、`/gateway/v1`、`/static` 原样可用）。
-- 所有服务读写路径通过 **环境变量**指向 `app-data`（见 §4），后端已高度 env 化，改动集中在编排壳。
+- 所有服务读写路径通过 **环境变量**指向数据根（默认 `app-data`，可整体迁移到其他磁盘，见 §4.2），
+  后端已高度 env 化，改动集中在编排壳。
 
 ### 对需求文档的事实校正（勘查代码得出）
 1. `services/vectcut` 是 **Python**（`requirements.txt`，HTTP `:9001`，compose 默认不启动），**不是 Go**；
@@ -49,7 +50,7 @@ macOS `.app/.dmg`（及后续 Windows `.exe`），**弃用 Docker/Colima**：用
 desktop/
   panel/                 无构建静态页：启动卡 + 诊断窗口（两个 HTML 共用 app.js）
     index.html           启动卡（Photoshop 式 splash）：品牌 + 版本 + 百分比 + 一行阶段文字 + 平台网址
-    console.html         运行期诊断：服务卡片 + 日志 + 单服务重启（启动失败时打开）
+    console.html         运行期诊断：服务卡片 + 端口健康 + 存储位置迁移 + 日志 + 卸载
     app.js  logo.png
   scripts/
     prepare-resources.sh      三架构便携运行时准备（Python/Go/nginx/ffmpeg/Chromium/Hermes）
@@ -68,7 +69,8 @@ desktop/
     resources/             打包真正读取的目录：nginx.conf / model-manifest.json / nginx/ 为静态提交，
                            bin / python / app 为 prepare 生成
     src/
-      main.rs              入口：目录/窗口/生命周期/命令
+      main.rs              入口：目录/窗口/菜单/生命周期/命令
+      datadir.rs           数据根解析、配置指针、迁移/校验/回退、旧数据清理
       orchestrator.rs      进程编排（启停顺序/探活/自愈/退出）
       env.rs               路径与环境变量注入（APP_DATA_PATH/APP_RESOURCE_PATH → NOVELVIDEO_*）
       probe.rs             端口探活
@@ -150,6 +152,42 @@ Tauri 计算并注入两类目录，再派生后端既有的 env：
 > 声音口径也不受影响（实测归一后 `-14.05 LUFS / -1.00 dBTP`）。装机版实测：`VideoComposer().codec`
 > 从 `libx264` 变成 `h264_mf`，同一条命令 `exit 0` 且 ffprobe 回读 `h264,320,30`。取舍与例外（老链路
 > argv 跑的是 PATH 上那台裸 `ffmpeg`）见 [ffmpeg 指南](../docs/zh/guides/ffmpeg.md)。
+
+### 4.2 安装目录与数据根（C 盘空间不足时整体换盘）
+
+桌面版把「程序」和「运行期数据」拆成两部分，各自可以落到其他磁盘：
+
+| 内容 | 默认位置 | 能否换盘 | 说明 |
+|---|---|---|---|
+| 程序与随包环境（桌面壳 exe、便携 Python、nginx、Chromium、前端 dist、Hermes） | `%LOCALAPPDATA%\AIPDD DramaClaw` | ✅ 安装向导「选择安装位置」页改任意盘 | 安装后只读；约 2.4GB，是 C 盘占用的大头 |
+| 运行期数据（state / output / runtime / logs / models / gateway / pycache / 按需安装的 venv） | `%APPDATA%\work.aipdd.dramaclaw` | ✅ 诊断窗口「存储位置」→「更改位置」 | 模型、成片与日志默认长在这里，可迁移到 D/E 盘 |
+| 指针配置 `data-root.json` | `%APPDATA%\work.aipdd.dramaclaw\data-root.json` | ❌ 固定（仅几 KB） | 记录当前数据根；自定义盘不可用时靠它回退与救援 |
+
+> 必须留在 C 盘的只有 WebView2 Runtime、开始菜单/快捷方式/HKCU 卸载项，以及这份指针配置；这些不迁移。
+> 安装目录本身也含 `resources\`（随包 Python/Chromium 等），所以**装到其他盘后再改数据根**，两项都换才彻底。
+
+**安装器 / 卸载器**
+
+- NSIS 安装向导包含「选择安装位置」页（`src-tauri/windows/installer.nsi` 的 `MUI_PAGE_DIRECTORY`），
+  默认位置随 `installMode`（currentUser → `%LOCALAPPDATA%`；perMachine → Program Files）。
+- 安装器同时写出 `uninstall.exe`（开始菜单 `AIPDD` 目录 + HKCU 卸载项）。
+- 卸载器只删安装目录与快捷方式；**运行期数据（含自定义数据根）默认保留**，避免误删模型与成片。
+- 诊断窗口底部另有「卸载应用」（Windows）：二次确认后拉起同一份 `uninstall.exe` 再退出桌面壳。
+
+**数据根配置与迁移**
+
+- 配置文件：`{app_data_dir}\data-root.json`，字段 `data_root`（当前生效）、`migrate_from`（待迁移源）、
+  `delete_source`、`last_error`。
+- 环境变量 `DRAMACLAW_DATA_ROOT` 优先级最高；设置后界面会禁用「更改位置」，避免两套口径互相覆盖。
+- 迁移流程（诊断窗口「更改位置」）：选目标目录 → 二次确认（默认勾选「一并迁移现有数据」）→ 写 pending
+  配置 → 停服并重启壳 → 启动早期复制并逐文件/字节校验 → 提交配置 → 可选删除旧数据 → 再重启绑定新根。
+  目标目录必须是空目录或带 `.dramaclaw-data` 标记（`copying`/`ready`），不会覆盖无关数据。
+- 失败保护：目标盘不可写/掉线时**不提交配置**，回退旧数据根继续启动，并把原因写进 `last_error` 与日志；
+  若自定义盘启动时就不可用，则用 `blocked` 状态停住服务并提示「重新检测 / 改用默认位置」，绝不静默在 C 盘新建一套。
+- 同盘迁移（如仅换一级目录）允许；盘符根目录、与旧根互相包含、与安装目录重叠的目标会被拒绝。
+
+**入口**：主窗口菜单「应用 → 服务与存储…」。主窗口加载的是 nginx 托管的 HTTP 页面（远程来源），
+拿不到 Tauri IPC，所以入口由 Rust 原生菜单直接打开诊断窗口；启动失败时启动卡的「查看详细信息」仍可用。
 
 ---
 
@@ -279,7 +317,8 @@ cd desktop
 cargo tauri dev
 ```
 - dev 不签名；子进程用系统真实路径，逻辑与 prod 一致。
-- 启动期界面只有启动卡（无日志）。要看实时日志/状态：启动失败时点卡片上的「查看详细信息」打开诊断窗口，
+- 启动期界面只有启动卡（无日志）。要看实时日志/状态：主窗口菜单「应用 → 服务与存储…」，
+  或启动失败时点卡片上的「查看详细信息」打开诊断窗口，
   其底部「复制日志目录路径」给出的就是 `app-data/logs/`。
 
 ---
@@ -322,6 +361,16 @@ cargo tauri dev
 | `port_health` | `WATCH_PORTS` 逐个给出 `free`/`ours`/`external` + 外部占用者 `pid(程序名)` | console |
 | `release_ports` | 一键释放：只终止受管端口上的**外部**监听进程，我方 pid 一律不动 | console |
 | `restart_to_default` | 先释放外部占用，再 `restart_all()`（内部 `reset_web_port()` 把站点收回 8080），最后把主窗口 `navigate` 到新地址 | console |
+| `data_root_info` | 当前数据根 / 默认根 / 来源（default/custom/env/pending/fallback）/ 安装目录 / 卸载器路径 / 阻断原因 | console |
+| `choose_data_root` | 打开系统目录选择框，返回目标路径（取消为 null） | console |
+| `apply_data_root{path,migrate,deleteSource}` | 校验目标、写 pending 配置并重启；`migrate` 默认 true | console |
+| `reset_data_root` | 清除自定义数据根（两段式确认后重启回默认） | console |
+| `restart_app` | 自定义数据盘不可用时的「重新检测」 | console |
+| `uninstall_app` | Windows：确认后拉起 `uninstall.exe` 并退出桌面壳 | console |
+
+主窗口菜单（Rust 原生菜单，非 Web IPC）：`menu:console` 打开诊断窗口，`menu:quit` 退出应用。
+主窗口是远程 HTTP 来源，`capabilities/default.json` 的 `windows` 列表虽然包含 `main`，但没有配置
+`remote.urls`，因此该页面上的 `invoke` 会被 ACL 拒绝——管理动作只能经原生菜单进入诊断窗口完成。
 
 事件（Rust `emit`→Web 侧 `listen`）：
 - `boot://progress` `{stage,message,progress}` — 启动卡的全部数据来源：`check` / `start:<svc>` /
@@ -374,8 +423,10 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
 
 - **Web 侧零 shell 能力**：进程编排全在 Rust 用 `std::process`，前端 JS 无法触发任何命令执行。
 - `capabilities/default.json` 仅授予 `main` / `panel`（启动卡）/ `console`（诊断窗口）三个窗口的
-  窗口/事件最小权限；不注册 shell/updater 插件。
-- 资源目录只读；业务只写 `app-data`。
+  窗口/事件最小权限；不注册 shell/updater 插件。主窗口加载的远程地址未列入 `remote.urls`，
+  因此站点页面无法调用任何自定义命令；存储迁移/卸载入口走原生菜单 + 诊断窗口。
+- 资源目录只读；业务只写数据根（默认 `app-data`，可迁移）。迁移/删除只作用于校验通过的目录，
+  旧数据在新数据校验完成、配置提交前不会被删。
 - `entitlements.plist` 放开 `disable-library-validation` 等，便携 Python 才能 dlopen 第三方 `.so`。
 - 密钥/凭据只经环境或钥匙串读取，绝不入库（`gitleaks` pre-commit 兜底）。
 
@@ -532,7 +583,12 @@ macOS 的安装逻辑同源（`prepare-resources.sh mac-arm64|mac-x64`），但*
   260 字符上限；用短目录（如 `D:\DramaClaw`）或开启「Win32 长路径」组策略。
 - **端口被占用**：web 端口（默认 8080）被占时**会自动避让到 8081…8089**，无需手动处理；只有 8080–8089 全被占、或非 web 服务端口（8780/3000/9001）被占时才会报错。报错多为仍在运行的 Docker/Colima 旧栈占用，先 `docker-compose -f docker-compose.aipdd.yml down` 或关掉占用进程；启动卡会转琥珀色错误态并给出提示（诊断窗口另有「端口健康」一键释放与重启回默认，见下）。
 - **某服务一直「启动中/异常」**：启动卡在 180s 超时后报错，点「查看详细信息」进诊断窗口看该服务日志（红色为 stderr）。FastAPI 首次冷启动（import 依赖）可能较慢。
-- **日志位置**：`app-data/logs/{nginx,gateway,vectcut,api}.log` + `app-data/nginx/{access,error}.log`；诊断窗口底部「复制日志目录路径」。
+- **C 盘空间不足**：程序安装位置在安装向导「选择安装位置」页改盘；运行期数据在主窗口菜单
+  「应用 → 服务与存储…」→「存储位置」→「更改位置」迁移到其他盘（勾选「一并迁移现有数据」，
+  完成后可再勾选删除旧数据）。详见 §4.2。
+- **自定义数据盘不可用**（移动硬盘未插、盘符变化）：启动会被阻断并给出原因；插回磁盘点「重新检测」，
+  或点「改用默认位置」回退。两种操作都**不会删除**旧数据根里的文件。
+- **日志位置**：`<数据根>/logs/{nginx,gateway,vectcut,api}.log` + `<数据根>/nginx/{access,error}.log`（默认数据根为 `app-data`，迁移后跟随新根）；诊断窗口底部「复制日志目录路径」。
 - **主窗口打不开**：服务未全就绪时主窗口不会出现，启动卡也就不会自动关闭；先按卡上提示解决失败服务，
   或在诊断窗口点「打开主界面」/单服务「重启」。
 - **启动卡没有「×」以外的关闭方式**：它是无边框窗口，右上角「×」即整程序退出（走 `app.exit`，

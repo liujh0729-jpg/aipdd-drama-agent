@@ -10,6 +10,7 @@
 //! 安全：进程编排全在 Rust 侧用 std::process 完成，Web 侧无任何 shell 能力。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod datadir;
 mod downloader;
 mod env;
 mod error;
@@ -21,8 +22,11 @@ mod probe;
 mod proc;
 
 use std::sync::Arc;
+use std::time::Duration;
 
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::env::RuntimePaths;
 use crate::models::{BootEvent, LogLine, ServiceId, ServiceState};
@@ -46,13 +50,22 @@ const DARK_BG: tauri::window::Color = tauri::window::Color(10, 12, 18, 255);
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let handle = app.handle().clone();
 
-            // 目录：app-data（可写）与 resource（只读内置资源）。
-            let app_data = handle.path().app_data_dir()?;
+            // 目录：home 是平台 app-data（固定，只放配置指针）；实际数据根可由用户
+            // 改到其他磁盘，runtime 资源仍是只读安装目录。
+            let home = handle.path().app_data_dir()?;
             let resource = handle.path().resource_dir()?;
-            let paths = Arc::new(RuntimePaths::new(app_data, resource)?);
+            let install_dir = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                .unwrap_or_default();
+            let (store, root) = datadir::resolve(home, install_dir);
+            let store = Arc::new(store);
+            let paths = Arc::new(RuntimePaths::new(root, resource)?);
+            handle.manage(store);
 
             let orc = Orchestrator::new(handle.clone(), paths.clone());
             handle.manage(orc);
@@ -73,8 +86,7 @@ fn main() {
 
             // 后台启动全栈；就绪后打开主窗口。
             let boot_handle = handle.clone();
-            let boot_paths = paths.clone();
-            std::thread::spawn(move || boot_sequence(boot_handle, boot_paths));
+            std::thread::spawn(move || boot_sequence(boot_handle));
 
             Ok(())
         })
@@ -91,8 +103,23 @@ fn main() {
             app_version,
             port_health,
             release_ports,
-            restart_to_default
+            restart_to_default,
+            data_root_info,
+            choose_data_root,
+            apply_data_root,
+            reset_data_root,
+            restart_app,
+            uninstall_app
         ])
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            // 主窗口加载的是 nginx 托管的 Web 站点（远程来源拿不到 Tauri IPC），
+            // 所以管理入口放在原生菜单里，由 Rust 直接开诊断窗口。
+            "menu:console" => {
+                let _ = open_console_window(app.clone());
+            }
+            "menu:quit" => app.exit(0),
+            _ => {}
+        })
         .build(tauri::generate_context!())
         .expect("初始化 AIPDD DramaClaw 桌面壳失败")
         .run(|app_handle, event| {
@@ -106,26 +133,37 @@ fn main() {
         });
 }
 
-/// 后台启动序列：先并行拉起模型下载，再串行启动服务，全绿则开主窗口。
-fn boot_sequence(handle: AppHandle, _paths: Arc<RuntimePaths>) {
+/// 后台启动序列：先处理待办的数据迁移，再并行拉起模型下载，最后串行启动服务。
+fn boot_sequence(handle: AppHandle) {
+    let orc = handle.state::<Arc<Orchestrator>>().inner().clone();
+    let store = handle.state::<Arc<datadir::DataRootState>>().inner().clone();
+
+    let info = store.info();
+    if info.blocked {
+        // 配置的数据位置不可用时不能偷偷在默认位置新建一套数据，宁可不启动并提示救援入口。
+        orc.report_boot_error(
+            info.last_error
+                .as_deref()
+                .unwrap_or("存储位置不可用，已暂停启动；请在诊断窗口更改存储位置"),
+        );
+        return;
+    }
+    if store.has_pending() {
+        // 成功会重启进程，不返回；失败已回退旧配置，继续用旧位置启动。
+        datadir::run_pending_migration(&handle, &store, &orc);
+    }
+
     // 模型下载（清单缺失则跳过）。放在独立 tokio 任务，与本地服务启动并行。
-    {
-        let orc_paths = handle
-            .state::<Arc<Orchestrator>>()
-            .paths()
-            .clone();
-        if let Ok(entries) = downloader::load_manifest(&orc_paths.model_manifest()) {
-            if !entries.is_empty() {
-                let models_dir = orc_paths.models_dir();
-                let app_for_dl = handle.clone();
-                tauri::async_runtime::spawn(async move {
-                    downloader::ensure_models(app_for_dl, entries, models_dir).await;
-                });
-            }
+    if let Ok(entries) = downloader::load_manifest(&orc.paths().model_manifest()) {
+        if !entries.is_empty() {
+            let models_dir = orc.paths().models_dir();
+            let app_for_dl = handle.clone();
+            tauri::async_runtime::spawn(async move {
+                downloader::ensure_models(app_for_dl, entries, models_dir).await;
+            });
         }
     }
 
-    let orc = handle.state::<Arc<Orchestrator>>();
     match orc.start_all() {
         Ok(()) => {
             // 先等启动卡把百分比补满并自报收尾（最多 SPLASH_FINISH_WAIT），再开主窗口：
@@ -166,6 +204,26 @@ fn wait_splash_finished() {
     }
 }
 
+/// 主窗口菜单：常驻的「服务与存储」入口（数据位置迁移、端口健康、日志、卸载）。
+fn build_main_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let console = MenuItem::with_id(
+        handle,
+        "menu:console",
+        "服务与存储…",
+        true,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(handle, "menu:quit", "退出", true, Some("CmdOrCtrl+Q"))?;
+    let separator = PredefinedMenuItem::separator(handle)?;
+    let app_menu = Submenu::with_items(
+        handle,
+        "应用",
+        true,
+        &[&console, &separator, &quit],
+    )?;
+    Menu::with_items(handle, &[&app_menu])
+}
+
 /// 创建（或聚焦）加载前端的主窗口。
 fn open_main_window(handle: &AppHandle) -> Result<(), String> {
     if let Some(w) = handle.get_webview_window("main") {
@@ -174,7 +232,7 @@ fn open_main_window(handle: &AppHandle) -> Result<(), String> {
     }
     let addr = app_url(handle.state::<Arc<Orchestrator>>().web_port());
     let url: url::Url = addr.parse().map_err(|_| format!("无效地址：{addr}"))?;
-    WebviewWindowBuilder::new(handle, "main", WebviewUrl::External(url))
+    let window = WebviewWindowBuilder::new(handle, "main", WebviewUrl::External(url))
         .title("AIPDD DramaClaw")
         .inner_size(1440.0, 900.0)
         .min_inner_size(1024.0, 680.0)
@@ -182,6 +240,10 @@ fn open_main_window(handle: &AppHandle) -> Result<(), String> {
         .focused(true)
         .build()
         .map_err(|e| e.to_string())?;
+    // 菜单只是管理入口，挂载失败不能挡住主界面。
+    if let Ok(menu) = build_main_menu(handle) {
+        let _ = window.set_menu(menu);
+    }
     Ok(())
 }
 
@@ -217,8 +279,8 @@ fn open_app_window(handle: AppHandle) -> Result<(), String> {
     open_main_window(&handle)
 }
 
-/// 打开（或聚焦）运行期诊断窗口：服务卡片 + 日志 + 单服务重启。
-/// 启动卡只在失败时露出「查看详细信息」按钮指向这里，正常启动路径看不到日志。
+/// 打开（或聚焦）运行期诊断窗口：服务卡片 + 端口健康 + 存储位置 + 日志 + 卸载。
+/// 两个入口：主窗口菜单「服务与存储…」；启动失败时启动卡的「查看详细信息」。
 #[tauri::command]
 fn open_console_window(handle: AppHandle) -> Result<(), String> {
     if let Some(w) = handle.get_webview_window("console") {
@@ -227,9 +289,9 @@ fn open_console_window(handle: AppHandle) -> Result<(), String> {
     }
     WebviewWindowBuilder::new(&handle, "console", WebviewUrl::App("console.html".into()))
         .title("AIPDD DramaClaw · 服务状态")
-        .inner_size(620.0, 700.0)
+        .inner_size(760.0, 860.0)
         .background_color(DARK_BG)
-        .min_inner_size(440.0, 480.0)
+        .min_inner_size(520.0, 560.0)
         .resizable(true)
         .focused(true)
         .build()
@@ -360,6 +422,132 @@ fn restart_to_default(handle: AppHandle, orc: State<'_, Arc<Orchestrator>>) -> R
         open_main_window(&handle)?;
     }
     Ok(())
+}
+
+// ---------- 存储位置 / 卸载 ----------
+
+#[tauri::command]
+fn data_root_info(store: State<'_, Arc<datadir::DataRootState>>) -> datadir::DataRootInfo {
+    store.info()
+}
+
+/// 原生文件夹选择器。回调在主线程完成，这里用轮询等待，避免阻塞命令线程。
+#[tauri::command]
+async fn choose_data_root(handle: AppHandle) -> Result<Option<String>, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    handle
+        .dialog()
+        .file()
+        .set_title("选择数据存放位置（建议选空间充足的磁盘）")
+        .pick_folder(move |picked| {
+            let _ = tx.send(picked);
+        });
+
+    let deadline = std::time::Instant::now() + Duration::from_secs(600);
+    let picked = loop {
+        match rx.try_recv() {
+            Ok(p) => break p,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => break None,
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                if std::time::Instant::now() >= deadline {
+                    break None;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        }
+    };
+    match picked {
+        Some(fp) => fp
+            .into_path()
+            .map(|p| Some(p.display().to_string()))
+            .map_err(|e| format!("无法解析所选文件夹：{e}")),
+        None => Ok(None),
+    }
+}
+
+/// 写入切换配置 → 关闭服务 → 重启。迁移模式下本次仍从旧位置启动，
+/// 重启后的启动早期完成复制与切换（见 datadir::run_pending_migration）。
+#[tauri::command]
+fn apply_data_root(
+    handle: AppHandle,
+    store: State<'_, Arc<datadir::DataRootState>>,
+    orc: State<'_, Arc<Orchestrator>>,
+    path: String,
+    migrate: Option<bool>,
+    delete_source: Option<bool>,
+) -> Result<(), String> {
+    let target = std::path::PathBuf::from(path.trim());
+    if path.trim().is_empty() {
+        return Err("请选择目标文件夹".into());
+    }
+    let current = orc.paths().app_data.clone();
+    datadir::prepare_switch(
+        &store,
+        &current,
+        &target,
+        migrate.unwrap_or(true),
+        delete_source.unwrap_or(false),
+    )?;
+    restart_after_shutdown(handle, orc.inner().clone());
+    Ok(())
+}
+
+/// 救援入口：自定义位置所在磁盘长期不可用时，先恢复到默认位置让应用能启动。
+/// 不迁移也不删除旧数据，旧位置的数据仍在原磁盘。
+#[tauri::command]
+fn reset_data_root(
+    handle: AppHandle,
+    store: State<'_, Arc<datadir::DataRootState>>,
+    orc: State<'_, Arc<Orchestrator>>,
+) -> Result<(), String> {
+    datadir::reset_to_default(&store)?;
+    restart_after_shutdown(handle, orc.inner().clone());
+    Ok(())
+}
+
+/// 仅重启应用（例如插回磁盘后重新检测存储位置）。
+#[tauri::command]
+fn restart_app(handle: AppHandle, orc: State<'_, Arc<Orchestrator>>) {
+    restart_after_shutdown(handle, orc.inner().clone());
+}
+
+/// Windows 安装版：退出应用并拉起 NSIS 卸载程序（应用数据由卸载器勾选项决定）。
+#[tauri::command]
+fn uninstall_app(
+    handle: AppHandle,
+    store: State<'_, Arc<datadir::DataRootState>>,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let exe = store.info().uninstaller.ok_or_else(|| {
+            "未找到卸载程序：开发运行或绿色版请直接删除安装目录。".to_string()
+        })?;
+        // 先退再卸：用批处理延迟 2 秒启动卸载器，避免它看到本进程仍在运行。
+        let script = std::env::temp_dir().join("dramaclaw-uninstall.cmd");
+        let body = format!("@echo off\r\ntimeout /t 2 /nobreak >nul\r\nstart \"\" \"{exe}\"\r\n");
+        std::fs::write(&script, body).map_err(|e| format!("无法创建卸载脚本：{e}"))?;
+        std::process::Command::new("cmd")
+            .arg("/C")
+            .arg(&script)
+            .spawn()
+            .map_err(|e| format!("无法启动卸载程序：{e}"))?;
+        handle.exit(0);
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (handle, store);
+        Err("仅 Windows 安装版支持应用内卸载；macOS 请将 App 拖入废纸篓。".into())
+    }
+}
+
+fn restart_after_shutdown(handle: AppHandle, orc: Arc<Orchestrator>) {
+    std::thread::spawn(move || {
+        orc.shutdown();
+        // 留一点时间让前端收到命令返回值并渲染「正在重启」。
+        std::thread::sleep(Duration::from_millis(600));
+        handle.restart();
+    });
 }
 
 fn parse_id(s: &str) -> Option<ServiceId> {

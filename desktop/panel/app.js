@@ -9,6 +9,8 @@
 //   command get_status / restart_service / open_app_window / logs_dir_path
 //   command get_boot_state -> BootEvent|null / recent_logs{limit} -> LogLine[]   （补订阅前的事件历史；recent_logs 给 console）
 //   command port_health -> PortStatus[] / release_ports -> ReleaseResult[] / restart_to_default   （console：端口健康 / 释放 / 重启回默认）
+//   command data_root_info / choose_data_root / apply_data_root / reset_data_root / restart_app / uninstall_app
+//   （console：存储位置迁移到其他磁盘 + 应用内卸载）
 "use strict";
 
 const VIEW = window.PANEL_VIEW === "console" ? "console" : "splash";
@@ -134,6 +136,28 @@ if (VIEW === "console") {
   const modelsEl = document.getElementById("models");
   const openAppBtn = document.getElementById("openApp");
   const porthRows = document.getElementById("porthRows");
+  // 存储位置：数据根可迁到其他磁盘；安装目录只读展示；非安装版不显示卸载按钮。
+  const storeBadge = document.getElementById("storeBadge");
+  const storePath = document.getElementById("storePath");
+  const installPath = document.getElementById("installPath");
+  const storeHint = document.getElementById("storeHint");
+  const storeChange = document.getElementById("storeChange");
+  const storeRetry = document.getElementById("storeRetry");
+  const storeReset = document.getElementById("storeReset");
+  const storeConfirm = document.getElementById("storeConfirm");
+  const storeTargetEl = document.getElementById("storeTarget");
+  const storeMigrate = document.getElementById("storeMigrate");
+  const storeDelete = document.getElementById("storeDelete");
+  const storeWarn = document.getElementById("storeWarn");
+  const storeApply = document.getElementById("storeApply");
+  const storeCancel = document.getElementById("storeCancel");
+  const uninstallBtn = document.getElementById("uninstall");
+  let storeInfo = null;
+  let storeTarget = null;
+  const STORE_BADGE = {
+    default: "默认位置", custom: "自定义位置", env: "环境变量",
+    pending: "迁移待完成", fallback: "不可用",
+  };
   // 端口健康：状态文案与色点映射（复用 .dot 的 data-s 语义：ready=绿 / crashed=红 / stopped=灰）。
   const PH_STATE = { free: "空闲", ours: "运行中", external: "被外部占用" };
   const PH_DOT = { free: "stopped", ours: "ready", external: "crashed" };
@@ -238,6 +262,88 @@ if (VIEW === "console") {
     let s = killed.length ? `已终止 ${killed.join(", ")}` : "无外部占用";
     if (failed.length) s += `；失败 ${failed.join(", ")}`;
     return s;
+  }
+
+  // ---------- 存储位置 ----------
+  function renderStorage(info) {
+    if (!info) return;
+    storeInfo = info;
+    storePath.textContent = info.current || "—";
+    storePath.title = info.current || "";
+    installPath.textContent = info.install_dir || "—";
+    installPath.title = info.install_dir || "";
+    storeBadge.textContent = STORE_BADGE[info.source] || info.source;
+
+    const blocked = !!info.blocked;
+    storeRetry.classList.toggle("hidden", !blocked);
+    // 环境变量优先于配置，应用内「改回默认」写不进去，只保留「重新检测」。
+    storeReset.classList.toggle("hidden", !blocked || info.env_override);
+    storeChange.classList.toggle("hidden", blocked || info.env_override);
+
+    let hint = "";
+    let cls = "";
+    if (blocked) {
+      hint = info.env_override
+        ? (info.last_error || "环境变量指定的存储位置不可用。") +
+          " 请修正或移除 DRAMACLAW_DATA_ROOT 后重新启动应用；旧数据仍在原磁盘。"
+        : (info.last_error || "存储位置不可用，服务已暂停。") +
+          " 旧数据仍在原磁盘：插回磁盘后点「重新检测」；确实不再使用时可改回默认位置（空白环境）。";
+      cls = "err";
+    } else if (info.source === "pending") {
+      hint = "已选择新位置，重启后会自动迁移；迁移完成前仍使用旧位置。";
+    } else if (info.source === "env") {
+      hint = "由环境变量 DRAMACLAW_DATA_ROOT 指定，应用内不可更改。";
+    } else if (info.source === "custom") {
+      hint = "模型、数据库、成片、日志与可选环境都在此目录；更换位置会迁移现有数据。";
+    } else {
+      hint = "默认在 C 盘用户目录；可更改到其他磁盘以释放 C 盘空间。";
+    }
+    if (!blocked && info.last_error) {
+      hint += ` 上次迁移失败：${info.last_error}`;
+      cls = "err";
+    }
+    storeHint.textContent = hint;
+    storeHint.className = "store-hint" + (cls ? " " + cls : "");
+
+    uninstallBtn.classList.toggle("hidden", !info.uninstaller);
+    uninstallBtn.title = info.uninstaller ? `卸载程序：${info.uninstaller}` : "";
+  }
+
+  async function refreshStorage() {
+    try {
+      renderStorage(await invoke("data_root_info"));
+    } catch (e) {
+      if (storeHint) storeHint.textContent = "当前版本不支持存储位置管理";
+    }
+  }
+
+  function syncStoreOptions() {
+    const migrate = storeMigrate.checked;
+    storeDelete.disabled = !migrate;
+    storeWarn.textContent = migrate
+      ? "迁移会先完整复制并校验，成功后按勾选删除旧位置；期间应用关闭，完成后自动重启。"
+      : "不迁移：新位置是空白环境（模型需重新下载、需重新登录），旧数据保留在原处。";
+    storeApply.textContent = migrate ? "开始迁移并重启" : "切换并重启（不迁移）";
+  }
+
+  function showStoreConfirm(target) {
+    storeTarget = target;
+    storeTargetEl.textContent = target;
+    storeConfirm.classList.remove("hidden");
+    storeWarn.textContent = "";
+    syncStoreOptions();
+  }
+
+  async function chooseStore() {
+    storeChange.disabled = true;
+    try {
+      const target = await invoke("choose_data_root");
+      if (target) showStoreConfirm(target);
+    } catch (e) {
+      appendLine({ service: "system", stream: "system", line: `选择文件夹失败：${e}`, ts: Date.now() });
+    } finally {
+      storeChange.disabled = false;
+    }
   }
 
   // ---------- 日志 ----------
@@ -389,6 +495,97 @@ if (VIEW === "console") {
     }
   });
 
+  // ---------- 存储位置控件 ----------
+  if (storeChange) storeChange.addEventListener("click", chooseStore);
+  if (storeRetry) storeRetry.addEventListener("click", async () => {
+    storeRetry.disabled = true;
+    try {
+      await invoke("restart_app");
+    } catch (e) {
+      appendLine({ service: "system", stream: "system", line: `重启失败：${e}`, ts: Date.now() });
+      storeRetry.disabled = false;
+    }
+  });
+
+  let resetArmed = false;
+  let resetTimer = 0;
+  function disarmReset() {
+    resetArmed = false;
+    storeReset.textContent = "改用默认位置";
+  }
+  if (storeReset) storeReset.addEventListener("click", async () => {
+    if (!resetArmed) {
+      resetArmed = true;
+      storeReset.textContent = "确认改用默认位置？";
+      resetTimer = setTimeout(disarmReset, 6000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    storeReset.disabled = true;
+    try {
+      await invoke("reset_data_root");
+      storeHint.textContent = "正在重启并改用默认位置（旧位置的数据不会被删除）…";
+      storeHint.className = "store-hint ok";
+    } catch (e) {
+      appendLine({ service: "system", stream: "system", line: `改回默认失败：${e}`, ts: Date.now() });
+      storeReset.disabled = false;
+      disarmReset();
+    }
+  });
+
+  if (storeMigrate) storeMigrate.addEventListener("change", syncStoreOptions);
+  if (storeCancel) storeCancel.addEventListener("click", () => {
+    storeConfirm.classList.add("hidden");
+    storeTarget = null;
+  });
+  if (storeApply) storeApply.addEventListener("click", async () => {
+    if (!storeTarget) return;
+    const migrate = storeMigrate.checked;
+    storeApply.disabled = true;
+    storeCancel.disabled = true;
+    try {
+      await invoke("apply_data_root", {
+        path: storeTarget,
+        migrate,
+        deleteSource: migrate && storeDelete.checked,
+      });
+      storeConfirm.classList.add("hidden");
+      storeHint.textContent = migrate
+        ? "正在关闭服务并重启，重启后开始迁移（可在启动卡查看进度）…"
+        : "正在关闭服务并重启，重启后使用新位置（空白环境）…";
+      storeHint.className = "store-hint ok";
+    } catch (e) {
+      storeWarn.textContent = `无法切换：${e}`;
+      storeApply.disabled = false;
+      storeCancel.disabled = false;
+    }
+  });
+
+  // ---------- 卸载（仅 Windows 安装版） ----------
+  let uninstallArmed = false;
+  let uninstallTimer = 0;
+  function disarmUninstall() {
+    uninstallArmed = false;
+    uninstallBtn.textContent = "卸载应用";
+    uninstallBtn.disabled = false;
+  }
+  if (uninstallBtn) uninstallBtn.addEventListener("click", async () => {
+    if (!uninstallArmed) {
+      uninstallArmed = true;
+      uninstallBtn.textContent = "再次点击确认卸载";
+      uninstallTimer = setTimeout(disarmUninstall, 6000);
+      return;
+    }
+    clearTimeout(uninstallTimer);
+    uninstallBtn.disabled = true;
+    try {
+      await invoke("uninstall_app");
+    } catch (e) {
+      appendLine({ service: "system", stream: "system", line: `卸载失败：${e}`, ts: Date.now() });
+      disarmUninstall();
+    }
+  });
+
   // ---------- 初始化 ----------
   // 本窗口通常在启动失败之后才被打开，那一刻的实时事件已经过去了：
   // 先按命令把「最后一条启动事件 + 日志尾巴」补回来，再挂监听收增量。
@@ -404,6 +601,7 @@ if (VIEW === "console") {
     } catch (e) { /* 同上 */ }
     await refreshStatus();
     await refreshPortHealth();
+    await refreshStorage();
     setInterval(refreshStatus, 2000);        // 服务状态：事件为主，轮询兜底
     setInterval(refreshPortHealth, 5000);    // 端口健康：会起 lsof/netstat，放慢节奏
   }

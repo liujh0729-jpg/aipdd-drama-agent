@@ -92,6 +92,28 @@
     .ph-row.free .ph-owner { color: var(--muted); }
     button.warn { border-color: var(--err); color: #ffd7d7; }
     button.primary { background: var(--accent); border-color: var(--accent); color: #06070a; font-weight: 600; }
+    .hidden { display: none !important; }
+    /* 存储位置：数据根可切到其他磁盘（模型/数据库/成片/日志），安装目录只读展示。 */
+    .storage { padding: 4px 16px 8px; display: grid; gap: 8px; }
+    .store-rows { display: grid; gap: 6px; }
+    .store-row {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+      padding: 8px 12px; display: flex; align-items: center; gap: 10px; font-size: 13px;
+    }
+    .store-k { color: var(--muted); flex: none; width: 64px; font-size: 12px; }
+    .store-v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .store-hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .store-hint.err { color: var(--err); }
+    .store-hint.ok { color: var(--ok); }
+    .store-confirm {
+      border: 1px solid var(--accent); border-radius: 10px; background: #141a26;
+      padding: 10px 12px; display: grid; gap: 8px; font-size: 13px;
+    }
+    .store-confirm .target { color: var(--fg); word-break: break-all; }
+    .store-confirm label { display: flex; align-items: flex-start; gap: 8px; color: var(--muted); font-size: 12px; }
+    .store-confirm label input { margin-top: 2px; }
+    .store-warn { color: var(--warn); font-size: 12px; }
+    .store-actions { display: flex; gap: 8px; justify-content: flex-end; }
   </style>
 </head>
 <body>
@@ -119,6 +141,40 @@
     <div class="porth-rows" id="porthRows"></div>
   </div>
 
+  <div class="storage" id="storage">
+    <div class="porth-head">
+      <h2>存储位置</h2>
+      <span class="badge" id="storeBadge">…</span>
+      <span class="grow"></span>
+      <button id="storeRetry" class="hidden">重新检测</button>
+      <button id="storeReset" class="warn hidden">改用默认位置</button>
+      <button id="storeChange">更改…</button>
+    </div>
+    <div class="store-rows">
+      <div class="store-row">
+        <span class="store-k">数据</span>
+        <span class="store-v" id="storePath">…</span>
+      </div>
+      <div class="store-row">
+        <span class="store-k">程序安装</span>
+        <span class="store-v" id="installPath">…</span>
+      </div>
+    </div>
+    <div class="store-hint" id="storeHint"></div>
+    <div class="store-confirm hidden" id="storeConfirm">
+      <div>新位置：<span class="target" id="storeTarget"></span></div>
+      <label><input type="checkbox" id="storeMigrate" checked />
+        迁移现有数据（模型 / 数据库 / 成片 / 日志；耗时取决于数据量）</label>
+      <label><input type="checkbox" id="storeDelete" checked />
+        迁移并校验成功后删除旧位置的数据（释放原盘空间）</label>
+      <div class="store-warn" id="storeWarn"></div>
+      <div class="store-actions">
+        <button id="storeCancel">取消</button>
+        <button id="storeApply" class="primary">开始迁移并重启</button>
+      </div>
+    </div>
+  </div>
+
   <div class="models hidden" id="models"></div>
 
   <div class="logwrap">
@@ -140,6 +196,7 @@
   <footer>
     <button id="openApp" disabled>打开主界面</button>
     <span class="grow"></span>
+    <button id="uninstall" class="warn hidden">卸载应用</button>
     <button id="copyLogs">复制日志目录路径</button>
   </footer>
 

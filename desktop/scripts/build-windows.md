@@ -99,6 +99,12 @@ powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 - 默认 `installMode=currentUser`，免管理员权限、写 HKCU，产物在
   `src-tauri\target\x86_64-pc-windows-msvc\release\bundle\nsis\AIPDD DramaClaw_<版本>_x64-setup.exe`，
   含桌面快捷方式、开始菜单项（目录 `AIPDD`）、卸载程序 —— 均由 Tauri 内置 NSIS 模板提供。
+- 安装向导固定包含**「选择安装位置」页**（本地模板 `src-tauri/windows/installer.nsi` 的
+  `MUI_PAGE_DIRECTORY`），用户可把约 2.4GB 的程序与随包环境装到 D/E 盘；实际装到 `$INSTDIR`，
+  卸载器与 HKCU 卸载项都记这个路径。`tauri.conf.json` 里没有 `allowToChangeInstallationDirectory`
+  —— 那是 Tauri v1 的字段，v2 的 `NsisConfig` 会拒绝未知字段。
+- 运行期数据不在安装目录：默认 `%APPDATA%\work.aipdd.dramaclaw`，可在应用内
+  「应用 → 服务与存储… → 存储位置」迁移到其他盘（不含在安装包里，需单独操作）。
 
 ### 3.1 NSIS 的 2GB SOLID 数据块上限（实测踩过，已用本地模板分叉绕开）
 
@@ -232,8 +238,11 @@ signtool verify /pa /v "…\AIPDD DramaClaw_2.1.7_x64-setup.exe"
   属后端适配项，不在本次桌面壳改动内。
 - **Chromium 目录**数百 MB；不需要抖音 CDP 时 `SKIP_CHROMIUM=1`。CDP 接线仍是未决项（README §12）。
 - **杀软扫描**：NSIS 包内上千个文件在安装时被实时扫描，首装明显变慢；签名可显著缓解。
-- **首次运行数据**：app-data 落在 `%APPDATA%\work.aipdd.dramaclaw`，卸载器默认不删
-  （模型/产物/日志），需要彻底清理时手动删该目录。
+- **首次运行数据**：数据根默认落在 `%APPDATA%\work.aipdd.dramaclaw`，可在应用内迁移到其他盘
+  （指针配置仍留在 `%APPDATA%\work.aipdd.dramaclaw\data-root.json`）。卸载器**默认不删任何数据根**
+  （模型/产物/日志），自定义盘更不会被自动清理；需要彻底清理时按诊断窗口显示的路径手动删。
+- **安装到其他盘**：安装向导的目录页直接选 D/E 盘即可；程序与随包 Python/Chromium 全在 `$INSTDIR`，
+  卸载按该路径删除。运行期数据需另在应用内迁移（见 §3 与 README §4.2）。
 - **包内 `.pyc`**：`prepare-resources.sh` 里 `uv sync` 之后，`resources/` 已带 158 个
   `__pycache__`（1 193 个 `.pyc`）。它们是**构建产物、随包分发**，卸载器认得了、能删干净
   （实测装机 28 735 个文件，卸载后不剩这些）。运行期新生成的 bytecode 走

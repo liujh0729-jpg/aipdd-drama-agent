@@ -444,6 +444,21 @@ impl Orchestrator {
         self.emit_boot("error", message, 0.0);
     }
 
+    /// 启动前阶段（如数据迁移）推进启动卡：与 start_all 同一事件通道，进度同样留档。
+    pub fn report_boot(&self, stage: &str, message: impl Into<String>, progress: f32) {
+        self.emit_boot(stage, message, progress);
+    }
+
+    /// 系统级日志：走独立日志管道，诊断窗口打开时能补看到（不依赖控制台输出）。
+    pub fn log_system(&self, line: impl Into<String>) {
+        let _ = self.log_tx.send(LogLine {
+            service: "system".into(),
+            stream: "system".into(),
+            line: line.into(),
+            ts: logs::now_ms(),
+        });
+    }
+
     /// 是否已完成整套启动（预留：面板/主窗口可据此 gating；当前无调用方）。
     #[allow(dead_code)]
     pub fn is_booted(&self) -> bool {

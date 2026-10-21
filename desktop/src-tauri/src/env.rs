@@ -200,7 +200,7 @@ impl RuntimePaths {
 /// 路径规范化，Python 的 site 初始化与各第三方程序对它的支持并不一致，是出包后的隐性故障源。
 /// 这里只做前缀剥离（路径本身已是绝对规范路径，无需再 canonicalize）。
 #[cfg(windows)]
-fn native_path(path: PathBuf) -> PathBuf {
+pub(crate) fn native_path(path: PathBuf) -> PathBuf {
     let s = path.display().to_string();
     if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
         return PathBuf::from(format!(r"\\{rest}"));
@@ -212,7 +212,7 @@ fn native_path(path: PathBuf) -> PathBuf {
 }
 
 #[cfg(not(windows))]
-fn native_path(path: PathBuf) -> PathBuf {
+pub(crate) fn native_path(path: PathBuf) -> PathBuf {
     path
 }
 
