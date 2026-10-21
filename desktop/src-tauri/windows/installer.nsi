@@ -1,14 +1,17 @@
 ; =============================================================================
 ; FORK of the built-in Tauri NSIS template, selected by
 ;   tauri.conf.json -> bundle.windows.nsis.template = "windows/installer.nsi"
-; ONLY difference from upstream is the SetCompressor line below (no /SOLID):
-;   upstream tauri-bundler 2.10.2, src/bundle/windows/nsis/installer.nsi
-;   sha256 166f9677d42e81c7f712a1bf80d9d8c089c21d2967d8398474768b5eac14b494, 984 lines
-; Why: makensis is a 32-bit program. SOLID merges every file into ONE data block,
-; and mapping a block >2GB fails. Our bundled resources are 2.39 GB uncompressed
-; (portable Python + Chromium + ffmpeg/ffprobe + Go gateway), so SOLID aborts with
-;   "Internal compiler error #12345: error mmapping datablock to N"
-; See scripts/build-windows.md 3.1 for the measured numbers.
+; Differences from upstream:
+;  1. SetCompressor line below (no /SOLID):
+;     upstream tauri-bundler 2.10.2, src/bundle/windows/nsis/installer.nsi
+;     sha256 166f9677d42e81c7f712a1bf80d9d8c089c21d2967d8398474768b5eac14b494, 984 lines
+;     Why: makensis is a 32-bit program. SOLID merges every file into ONE data block,
+;     and mapping a block >2GB fails. Our bundled resources are 2.39 GB uncompressed
+;     (portable Python + Chromium + ffmpeg/ffprobe + Go gateway), so SOLID aborts with
+;       "Internal compiler error #12345: error mmapping datablock to N"
+;     See scripts/build-windows.md 3.1 for the measured numbers.
+;  2. Docker Desktop optional-component page (docker-hooks.nsh), inserted after the
+;     directory page. Hook file is UTF-8 BOM; keep this file itself ASCII-only.
 ; NOTE: keep this file ASCII-only -- makensis decodes a BOM-less script with the
 ; system code page, so non-ASCII comments here would be mis-decoded.
 ; WARNING: after upgrading tauri-cli, diff this file against the new upstream template
@@ -94,6 +97,11 @@ Var UpdateMode
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
+
+; Docker page controls and state live in docker-hooks.nsh (UTF-8 strings).
+!ifmacrodef DOCKER_FUNCTIONS
+  !insertmacro DOCKER_FUNCTIONS
+!endif
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -407,6 +415,11 @@ FunctionEnd
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !insertmacro MUI_PAGE_DIRECTORY
 
+; 5b. Optional Docker Desktop component (skipped for silent/passive/update)
+!ifmacrodef DOCKER_PAGE
+  !insertmacro DOCKER_PAGE
+!endif
+
 ; 6. Start menu shortcut page
 Var AppStartMenuFolder
 !if "${STARTMENUFOLDER}" != ""
@@ -492,6 +505,11 @@ FunctionEnd
 {{#each language_files}}
   !include "{{this}}"
 {{/each}}
+
+; Docker page strings need the language tables above to be loaded.
+!ifmacrodef DOCKER_LANGSTRINGS
+  !insertmacro DOCKER_LANGSTRINGS
+!endif
 
 Function .onInit
   ${GetOptions} $CMDLINE "/P" $PassiveMode

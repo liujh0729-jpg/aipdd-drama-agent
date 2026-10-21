@@ -37,7 +37,8 @@
       "resources/app/services/**/*",
       "resources/app/.hermes/**/*",
       "resources/hermes/**/*",
-      "resources/python/**/*"
+      "resources/python/**/*",
+      "resources/docker/*"
     ],
 
     "icon": [
@@ -73,7 +74,8 @@
         "startMenuFolder": "AIPDD",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
-        "template": "windows/installer.nsi"
+        "template": "windows/installer.nsi",
+        "installerHooks": "windows/docker-hooks.nsh"
       }
     }
   }

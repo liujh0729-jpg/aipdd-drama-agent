@@ -148,6 +148,32 @@ Error failed to bundle project: `Failed to bundle app with makensis`
 `.app` 里从来就没有过 `bin/chrome`，只是没人装过包去核对。现已显式补
 `"resources/bin/chrome/**/*"`；今后往 `resources/bin/` 放**目录**时必须同步加一条 `**/*`。
 
+### 3.3 可选组件：Docker Desktop（2.3.1 起）
+
+安装向导在「选择安装位置」之后新增「可选组件」页（UI 与 LangStrings 在
+`src-tauri/windows/docker-hooks.nsh`，UTF-8 BOM；模板里插入 `Page custom PageDocker PageLeaveDocker`
+和对应函数）：
+
+- 默认勾选。未装 Docker 时显示「安装 Docker Desktop（约 650 MB）」，并说明需要管理员权限、
+  安装完成后需要重启，附 Docker 订阅服务协议链接。
+- 检测到已安装（卸载注册表项，或 `Docker Desktop.exe` 路径）时，勾选项保持勾选但**置灰**，
+  显示「已检测到 Docker Desktop，将跳过安装」，不会重复安装。
+- 静默 `/S`、被动 `/P`、升级 `/UPDATE` 一律跳过该页和 Docker 安装，不阻塞无人值守升级。
+- 勾选后，安装阶段调用随包脚本 `resources\docker\docker-install.ps1`：
+  - 从 Docker 官方地址
+    `https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe` 下载
+    （2026-10-21 实测 650,507,696 B）。支持 Range 断点续传、3 次重试，进度写入 NSIS 详细日志。
+  - 运行前强制校验 Authenticode：`Status=Valid` 且签名主体包含 `Docker Inc`
+    （当前为 `CN=Docker Inc, O=Docker Inc, ...`），主版本号 >= 4。校验不过直接失败，绝不执行。
+  - `Start-Process -Verb RunAs -Wait` 提权运行，静默参数 `install --quiet --accept-license`；
+    UAC 被取消映射为退出码 1223，`3010`（需要重启）按成功处理。
+  - Docker 安装失败只弹提示并写日志，**不 Abort 主程序安装**；成功后提示重启电脑。
+- 国内没有稳定的 Docker Desktop 镜像：2026-10 实测清华、USTC、NJU、华为、腾讯、阿里等路径
+  要么 403/404，要么只有 Docker Engine 静态二进制或 2021 年的旧 Docker Toolbox。因此不做镜像
+  硬编码，统一走官方源；若企业内网要换自定义源，必须保留 Docker Inc. 签名校验，不能只换 URL。
+- 不把 Docker Desktop 直接塞进安装包：会再增加约 650MB，且 Docker Desktop 需要 UAC、
+  WSL2/虚拟化与单独的许可证接受，可选下载安装是唯一合理形态。
+
 手动执行等价命令（排障时用）：
 
 ```powershell

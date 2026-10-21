@@ -1,8 +1,9 @@
 # AIPDD DramaClaw 桌面端（Tauri v2）
 
 把现有「React/Vite 前端 + 多服务后端」以 **Tauri v2 桌面壳 + 便携 Python** 的方式打包成
-macOS `.app/.dmg`（及后续 Windows `.exe`），**弃用 Docker/Colima**：用户下载拖入 Applications
-即可用，无需自行安装 Python/Docker/Colima/系统依赖。
+macOS `.app/.dmg`（及后续 Windows `.exe`），**主程序不依赖 Docker/Colima**：用户下载拖入
+Applications 即可用，无需自行安装 Python/Docker/Colima/系统依赖。Windows 安装向导另提供
+**可选的 Docker Desktop**，供需要容器化附加能力的用户顺带安装（见 §4.2）。
 
 > 需求原文见 `../需求/基于现有项目改造为 Tauri macOS 桌面应用.md`（路线 1：便携 Python 目录方案）。
 
@@ -173,6 +174,10 @@ Tauri 计算并注入两类目录，再派生后端既有的 env：
 - 安装器同时写出 `uninstall.exe`（开始菜单 `AIPDD` 目录 + HKCU 卸载项）。
 - 卸载器只删安装目录与快捷方式；**运行期数据（含自定义数据根）默认保留**，避免误删模型与成片。
 - 诊断窗口底部另有「卸载应用」（Windows）：二次确认后拉起同一份 `uninstall.exe` 再退出桌面壳。
+- 目录页之后还有「可选组件」页（默认勾选）：可顺带安装 Docker Desktop（约 650 MB、需管理员、
+  装完需重启）；已安装时置灰并跳过。安装包从 Docker 官方源下载、校验 Docker Inc. 数字签名后
+  才提权运行；静默/被动/升级安装自动跳过，Docker 失败不影响主程序安装。AIPDD 主程序本身不依赖
+  Docker，这一项只服务容器化附加能力。
 
 **数据根配置与迁移**
 

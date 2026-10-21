@@ -1,20 +1,26 @@
 ---
 version: 2.3.1
-attention: medium
+attention: low
 ---
 # v2.3.1
 
 ## User-facing Highlights (zh)
 
+- **安装向导可选安装 Docker Desktop**: Windows 安装向导在「选择安装位置」之后新增「可选组件」页，默认勾选安装 Docker Desktop（约 650 MB，需管理员权限，装完需重启）。检测到已安装时勾选项置灰并显示「已检测到 Docker Desktop，将跳过安装」，不重复安装；页面附 Docker 订阅服务协议链接。安装包从 Docker 官方地址下载并校验 Docker Inc. 数字签名后才提权运行；跳过或安装失败都不影响主程序安装。静默、被动与 /UPDATE 升级安装会跳过 Docker 可选组件。
 - **安装位置可选其他盘**: Windows 安装向导提供「选择安装位置」页，程序与随包环境（便携 Python / Chromium / nginx 等，约 2.4GB）可装到 D/E 盘，不再默认挤占 C 盘。
 - **数据根可迁移**: 主窗口菜单「应用 → 服务与存储…」打开桌面服务窗口，在「存储位置」里可把模型、成片、日志、状态等运行期数据整体迁到其他磁盘；逐文件校验后再切换，失败自动回退旧位置。
 - **卸载入口**: 安装包自带卸载程序；桌面服务窗口提供「卸载应用」（Windows），二次确认后拉起同一份卸载器。卸载默认保留运行期数据，避免误删模型与成片。
 
 ## User-facing Highlights (en)
 
+- **Optional Docker Desktop in the Windows installer**: A new Optional Components page after the install-directory step offers Docker Desktop (about 650 MB, administrator rights, reboot required), checked by default. If Docker Desktop is already installed, the option is greyed out and shows "Docker Desktop detected - installation will be skipped". The page links to Docker's Subscription Service Agreement. The package is downloaded from Docker's official server and its Docker Inc. signature is verified before elevation. Skipping or a failed Docker install never blocks the main application; silent, passive and /UPDATE installs skip this component.
 - **Choose another drive at install time**: The Windows installer now exposes a directory page, so the app and bundled runtime (portable Python / Chromium / nginx, about 2.4GB) can be installed on D/E instead of C.
 - **Relocatable data root**: The desktop console (Application -> Services & Storage...) can move models, renders, logs and state to another disk, with per-file verification before switching and automatic fallback to the old root on failure.
 - **Uninstall entry**: The installer bundles an uninstaller, and the desktop console adds an in-app Uninstall App action (Windows) that launches it after confirmation. Runtime data is preserved by default.
+
+## Notes
+
+- Windows x64 安装器专项更新（含可选 Docker Desktop）；应用与后端代码未变。macOS dmg 需在 Mac 构建机上另行出包。
 
 ## Fixes
 
