@@ -51,6 +51,8 @@ def test_motion_cases_envelope_keeps_data_a_bare_list(monkeypatch, tmp_path) -> 
     assert payload["version"] == motion_templates.get_motion_manifest_version()
     first = payload["data"][0]
     assert first["poster_ready"] is motion_media.has_poster(first["id"])
+    assert first["preview_ready"] is motion_media.has_preview(first["id"])
+    assert first["preview_version"] == motion_media.preview_cache_token(first["id"])
     for field in ("label", "category", "brief", "prompt_cn", "cover", "tags", "media"):
         assert field in first
 
@@ -87,6 +89,41 @@ def test_bundled_poster_is_served_and_unknown_case_is_404(monkeypatch, tmp_path)
     assert response.content == poster
     assert response.headers["content-type"] == motion_media.sniff_content_type(poster)
     assert client.get("/api/v1/motion-gallery/no_such/poster.webp").status_code == 404
+
+
+def test_bundled_preview_is_served_with_range_support(monkeypatch, tmp_path) -> None:
+    """随包小样片走同一条 Range 通路：卡片悬停和详情自动播放都靠它。"""
+    client = _client(monkeypatch, tmp_path)
+    case = motion_templates.load_motion_cases()[0]
+    assert motion_media.has_preview(case["id"]) is True
+    blob = motion_media.preview_path(case["id"]).read_bytes()
+    url = f"/api/v1/motion-gallery/{case['id']}/preview.mp4"
+
+    full = client.get(url)
+    assert full.status_code == 200
+    assert full.content == blob
+    assert full.headers["content-type"] == "video/mp4"
+    assert full.headers["accept-ranges"] == "bytes"
+
+    partial = client.get(url, headers={"Range": "bytes=0-99"})
+    assert partial.status_code == 206
+    assert partial.content == blob[:100]
+    assert partial.headers["content-range"] == f"bytes 0-99/{len(blob)}"
+
+    assert client.get("/api/v1/motion-gallery/no_such/preview.mp4").status_code == 404
+
+
+def test_preview_ready_tracks_the_bundled_file(monkeypatch, tmp_path) -> None:
+    client = _client(monkeypatch, tmp_path)
+    cases_url = "/api/v1/projects/58/freezone/motion/cases"
+    first = client.get(cases_url).json()["data"][0]
+    assert first["preview_ready"] is True
+
+    # 安装包缺了 motion_previews 时不能谎报可播：前端据此退回海报。
+    monkeypatch.setattr(motion_media, "PACKAGE_PREVIEW_ROOT", tmp_path / "missing")
+    body = client.get(cases_url).json()
+    assert all(case["preview_ready"] is False for case in body["data"])
+    assert all(case["preview_version"] == "" for case in body["data"])
 
 
 @pytest.mark.parametrize(

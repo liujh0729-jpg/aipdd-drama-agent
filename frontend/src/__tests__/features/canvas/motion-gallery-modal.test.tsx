@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ClaymoreLab
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { FreezoneMotionCase, FreezoneMotionStyle } from "@/api/ops";
 import { MotionGalleryModal } from "@/features/canvas/ui/MotionGalleryModal";
@@ -28,6 +28,8 @@ function makeCase(id: string, label: string, category: string): FreezoneMotionCa
     prompt_cn: `${label}的分镜规格第一行\n${label}的分镜规格第二行`,
     cover: `${id}/poster.webp`,
     posterReady: true,
+    previewReady: true,
+    previewVersion: "123",
     videoReady: true,
     resolution: "1920x1080",
     durationSeconds: 29.4,
@@ -97,6 +99,10 @@ describe("MotionGalleryModal", () => {
     fetchStylePrompt.mockResolvedValue("完整风格提示词");
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders one card per case with the same-origin poster url", () => {
     renderModal();
 
@@ -115,6 +121,38 @@ describe("MotionGalleryModal", () => {
       "src",
       "https://cdn.example.com/motion/N22/poster.webp",
     );
+  });
+
+  it("plays the bundled preview on hover from the local API, not the CDN", () => {
+    // jsdom 没实现 play()：换成可观察的 Promise，顺便证明悬停真的触发了播放。
+    const play = vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockResolvedValue(undefined);
+    renderModal({ assetBase: "https://cdn.example.com/motion/" });
+    const card = screen.getByRole("button", { name: "查看苹果风产品宣传片的动效规格" });
+
+    expect(card.querySelector("video")).toHaveAttribute(
+      "src",
+      "/api/v1/motion-gallery/M43/preview.mp4?v=123",
+    );
+    fireEvent.mouseEnter(card.parentElement as HTMLElement);
+    expect(play).toHaveBeenCalled();
+  });
+
+  it("autoplays the bundled preview in the detail view", () => {
+    const play = vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockResolvedValue(undefined);
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "查看苹果风产品宣传片的动效规格" }));
+
+    // <video> 不是可标注元素，getByLabelText 搜不到，按属性直接取这条预览。
+    expect(
+      document.querySelector(
+        'video[data-motion-preview][aria-label="苹果风产品宣传片 的动效预览"]',
+      ),
+    ).toHaveAttribute("src", "/api/v1/motion-gallery/M43/preview.mp4?v=123");
+    expect(play).toHaveBeenCalled();
   });
 
   it("falls back to a placeholder block when the bundled poster is missing", () => {
@@ -194,7 +232,8 @@ describe("MotionGalleryModal", () => {
     await waitFor(() => expect(fetchPrompt).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "播放原片" }));
 
-    const video = document.querySelector("video");
+    // 详情里的随包小样片也带 src：只看没有预览标记的那个（播放器自己的 video）。
+    const video = document.querySelector("video:not([data-motion-preview])");
     expect(video?.getAttribute("src")).toContain(
       `/api/v1/motion-gallery/M43/${encodeURIComponent("M43_产品原片.mp4")}`,
     );

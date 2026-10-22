@@ -6587,6 +6587,8 @@
       "renderCase": "Render with this case",
       "renderStyle": "Render with this style",
       "playVideo": "Play the original",
+      "previewBadge": "Motion preview",
+      "previewAlt": "Motion preview of {{label}}",
       "videoUnavailable": "Originals are not bundled; configure the asset mirror to play them",
       "methodWhere": "Where it lands in this system: ",
       "contractTitle": "Render contract",

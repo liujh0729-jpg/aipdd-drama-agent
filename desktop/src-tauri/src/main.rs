@@ -45,6 +45,10 @@ const SPLASH_FINISH_WAIT: std::time::Duration = std::time::Duration::from_millis
 /// 启动卡自报「百分比已跑满并停留完毕」的旗标（前端 → Rust）。
 static SPLASH_DONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// 启动卡错误态的「重试启动」防重入：一次只允许跑一轮重试。
+static BOOT_RETRY_IN_PROGRESS: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 /// DESIGN.md 暗色 background token（#0a0c12），窗口底色与页面底色取齐避免首帧白闪。
 const DARK_BG: tauri::window::Color = tauri::window::Color(10, 12, 18, 255);
 
@@ -99,6 +103,7 @@ fn main() {
             open_console_window,
             quit_app,
             splash_finished,
+            retry_boot,
             logs_dir_path,
             app_version,
             port_health,
@@ -164,6 +169,12 @@ fn boot_sequence(handle: AppHandle) {
         }
     }
 
+    boot_services(&handle);
+}
+
+/// 起服务 → 等启动卡收尾 → 开主窗口。首次启动与「重试启动」共用同一条收尾路径。
+fn boot_services(handle: &AppHandle) {
+    let orc = handle.state::<Arc<Orchestrator>>().inner().clone();
     match orc.start_all() {
         Ok(()) => {
             // 先等启动卡把百分比补满并自报收尾（最多 SPLASH_FINISH_WAIT），再开主窗口：
@@ -172,18 +183,57 @@ fn boot_sequence(handle: AppHandle) {
             let t = std::time::Instant::now();
             wait_splash_finished();
             boot_trace(&format!("收尾等待 {}ms", t.elapsed().as_millis()));
-            if let Err(e) = open_main_window(&handle) {
+            if let Err(e) = open_main_window(handle) {
                 orc.report_boot_error(&format!("打开主窗口失败：{e}"));
                 return;
             }
             // 主界面已经起来，启动卡就该消失——不是留在旁边当第二个窗口。
-            close_splash(&handle);
+            close_splash(handle);
         }
         Err(e) => {
             let (_kind, msg) = e.to_ui();
             orc.report_boot_error(&msg);
         }
     }
+}
+
+/// 启动失败后由启动卡调用：停掉上一轮残留、重置端口，再完整重走一次服务启动。
+/// 命令立即返回，进度/结果继续走 boot://progress，前端不必在 IPC 里等几十秒。
+#[tauri::command]
+fn retry_boot(handle: AppHandle) -> Result<(), String> {
+    if BOOT_RETRY_IN_PROGRESS.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return Err("正在重试启动，请稍候…".into());
+    }
+    let h = handle.clone();
+    std::thread::spawn(move || {
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let orc = h.state::<Arc<Orchestrator>>().inner().clone();
+            let store = h.state::<Arc<datadir::DataRootState>>().inner().clone();
+            let info = store.info();
+            orc.report_boot("retry", "正在重试启动…", 0.02);
+            if info.blocked {
+                orc.report_boot_error(
+                    info.last_error
+                        .as_deref()
+                        .unwrap_or("存储位置不可用，已暂停启动；请在诊断窗口更改存储位置"),
+                );
+                return;
+            }
+            // 上一轮可能停在「nginx 失败、后续服务未起」或「某服务超时但进程还在」，
+            // 重试不能叠加第二套进程：先全部回收，再把 web 端口重置回默认重新自检。
+            orc.prepare_retry();
+            SPLASH_DONE.store(false, std::sync::atomic::Ordering::SeqCst);
+            boot_services(&h);
+        }));
+        if outcome.is_err() {
+            if let Some(orc) = h.try_state::<Arc<Orchestrator>>() {
+                orc.clear_starting();
+                orc.report_boot_error("重试启动时发生内部错误，请退出后重新启动应用。");
+            }
+        }
+        BOOT_RETRY_IN_PROGRESS.store(false, std::sync::atomic::Ordering::SeqCst);
+    });
+    Ok(())
 }
 
 /// 关掉启动卡。此时主窗口已在建，故 close 触发的「所有窗口关闭即退出」不会误杀进程。

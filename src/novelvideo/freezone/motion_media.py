@@ -36,6 +36,7 @@ from novelvideo.freezone.motion_templates import load_motion_cases
 logger = logging.getLogger(__name__)
 
 POSTER_BASENAME = "poster.webp"
+PREVIEW_BASENAME = "preview.mp4"
 MIRROR_ENV = "MOTION_GALLERY_MIRROR"
 # 清单没登记字节数时的下载上限：镜像换错内容（或被人改成错误页/大文件）时，
 # 边下边判，不把状态卷写满再报错。
@@ -43,6 +44,8 @@ MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024
 
 # 随包海报的根目录；与清单里 cover 的相对路径（`<case_id>/poster.webp`）对齐。
 PACKAGE_POSTER_ROOT = Path(__file__).with_name("motion_posters")
+# 随包小样片：480p/几秒/无声，卡片悬停与详情首屏用它，不占原片那 0.75 GB。
+PACKAGE_PREVIEW_ROOT = Path(__file__).with_name("motion_previews")
 
 _RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$", re.IGNORECASE)
 
@@ -83,6 +86,18 @@ def poster_path(case_id: str) -> Optional[Path]:
     return target
 
 
+def preview_path(case_id: str) -> Optional[Path]:
+    """小样片的随包路径；清单里没有这条案例时 None。"""
+    case = get_case(case_id)
+    if not case:
+        return None
+    root = PACKAGE_PREVIEW_ROOT.resolve()
+    target = (root / case_id / PREVIEW_BASENAME).resolve()
+    if not target.is_relative_to(root):
+        return None
+    return target
+
+
 def get_case(case_id: str) -> Optional[dict]:
     for case in load_motion_cases():
         if case["id"] == case_id:
@@ -96,6 +111,11 @@ def mirror_base() -> str:
 
 def has_poster(case_id: str) -> bool:
     path = poster_path(case_id)
+    return bool(path and path.is_file())
+
+
+def has_preview(case_id: str) -> bool:
+    path = preview_path(case_id)
     return bool(path and path.is_file())
 
 
@@ -121,6 +141,17 @@ def video_ready(case_id: str) -> bool:
 def poster_cache_token(case_id: str) -> str:
     """mtime_ns 做 cache-busting：换海报后 URL 变，浏览器不会命中旧缓存。"""
     path = poster_path(case_id)
+    if not path or not path.is_file():
+        return ""
+    try:
+        return str(path.stat().st_mtime_ns)
+    except OSError:
+        return ""
+
+
+def preview_cache_token(case_id: str) -> str:
+    """小样片的版本号；重截后 URL 跟着变，避免浏览器回放旧片。"""
+    path = preview_path(case_id)
     if not path or not path.is_file():
         return ""
     try:

@@ -6585,6 +6585,8 @@
       "renderCase": "このケースでレンダリング",
       "renderStyle": "この画風でレンダリング",
       "playVideo": "原版を再生",
+      "previewBadge": "モーションプレビュー",
+      "previewAlt": "{{label}} のモーションプレビュー",
       "videoUnavailable": "原版動画は同梱されません。素材ミラーを設定すると再生できます",
       "methodWhere": "本システムでの実装先：",
       "contractTitle": "本システムのレンダリング規約",

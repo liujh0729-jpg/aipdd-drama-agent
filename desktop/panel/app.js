@@ -36,6 +36,7 @@ if (VIEW === "splash") {
   const pctEl = document.getElementById("pct");
   const barEl = document.getElementById("bar");
   const verEl = document.getElementById("ver");
+  const retryEl = document.getElementById("retry");
 
   let lastPct = 0;         // 已显示到的比例（单调不回退）
   let target = 0;          // Rust 事件给出的真实阶段进度
@@ -84,9 +85,21 @@ if (VIEW === "splash") {
 
   function onBoot(ev) {
     const { stage, message, progress } = ev;
+    if (stage === "retry") {
+      // 重试：把错误态复位成启动态，进度从 0 重新按真实阶段爬。
+      card.dataset.s = "booting";
+      finishing = false;
+      lastPct = 0;
+      target = 0;
+      render();
+      retryEl.disabled = true;
+      stageEl.textContent = message || "正在重试启动…";
+      return;
+    }
     if (stage === "error") {
       card.dataset.s = "error";
       stageEl.textContent = message || "启动失败";
+      retryEl.disabled = false;
       return;
     }
     if (stage === "ready") {
@@ -106,6 +119,21 @@ if (VIEW === "splash") {
   });
   document.getElementById("detail").addEventListener("click", () => {
     invoke("open_console_window").catch(() => {});
+  });
+  retryEl.addEventListener("click", async () => {
+    retryEl.disabled = true;
+    card.dataset.s = "booting";
+    finishing = false;
+    lastPct = 0;
+    target = 0;
+    render();
+    stageEl.textContent = "正在重试启动…";
+    try {
+      await invoke("retry_boot");
+    } catch (e) {
+      retryEl.disabled = false;
+      stageEl.textContent = `无法重试：${e}`;
+    }
   });
 
   (async () => {
@@ -401,7 +429,10 @@ if (VIEW === "console") {
   function TROUBLESHOOT(msg) {
     const m = (msg || "").toString();
     if (m.includes("端口")) {
-      return "端口被占用：请关闭占用 8080/8780/3000/9001 的程序（常见于仍在运行的 Docker/Colima 旧栈），或重启后重试。";
+      return "端口被占用：请关闭占用 8080/8780/3000/9001 的程序（常见于仍在运行的 Docker/Colima 旧栈），或回启动卡点「重试启动」。";
+    }
+    if (m.includes("启动后立即退出") || m.includes("退出码") || m.includes("被系统终止")) {
+      return "服务启动瞬间退出：多为端口被抢占、配置损坏，或安全软件拦截了未签名程序（首启 nginx.exe 最常见）。回启动卡点「重试启动」；仍失败请查看下方 stderr，并在安全软件中允许安装目录后重试。";
     }
     if (m.includes("内置可执行") || m.includes("Missing") || m.includes("损坏")) {
       return "内置二进制缺失或架构不匹配：确认下载的是本机对应架构（Apple 芯片 / Intel）的安装包，或重新安装。";
@@ -410,7 +441,7 @@ if (VIEW === "console") {
       return "权限不足：确认应用对“文稿/应用数据”目录有读写权限；首次运行被隔离时按系统提示允许。";
     }
     if (m.includes("未") && (m.includes("就绪") || m.includes("超时"))) {
-      return "服务未在超时内就绪：多为便携 Python 冷启动或依赖缺失。看下方日志的具体报错（api/gateway 红色为 stderr）。";
+      return "服务在限时内未就绪：nginx 超时通常是端口被占或安全软件拦截；Python 服务多为冷启动或依赖缺失。可回启动卡点「重试启动」，并查看下方日志的具体报错。";
     }
     return "查看下方服务日志定位错误；仍无法解决请保留日志后反馈。";
   }

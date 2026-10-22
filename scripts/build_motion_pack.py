@@ -33,19 +33,34 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
+# 随包 ffmpeg 是 LGPL 构建，不含 libx264：编码器必须走仓库统一的那条探测阶梯，
+# 不能在这里写死 -c:v libx264。
+from novelvideo.video_encoder import NoH264Encoder, pick_h264_encoder  # noqa: E402
 DEFAULT_MANIFEST = REPO_ROOT / "src" / "novelvideo" / "freezone" / "motion_templates.json"
 DEFAULT_POSTERS = REPO_ROOT / "src" / "novelvideo" / "freezone" / "motion_posters"
+DEFAULT_PREVIEWS = REPO_ROOT / "src" / "novelvideo" / "freezone" / "motion_previews"
 # 本机没装 ffmpeg 时用随包的桌面包二进制。
 BUNDLED_FFMPEG = REPO_ROOT / "desktop" / "src-tauri" / "resources" / "bin" / "ffmpeg.exe"
 
 POSTER_MAX_EDGE = 1280
 POSTER_QUALITY = 78
 POSTER_SAMPLE_SECONDS = 1.0
+# 图册卡片悬停、详情首屏和工具面板都先放这段小样片：6 秒、480p、无声，37 条合计
+# 十兆上下。原片仍然按需取，样片只回答「这片子动起来是什么样」。
+PREVIEW_BASENAME = "preview.mp4"
+PREVIEW_SECONDS = 6.0
+PREVIEW_MAX_EDGE = 480
+PREVIEW_CRF = 31
+# 非 x264 编码器（h264_mf / libopenh264）不认 -crf，只能按码率。
+PREVIEW_BITRATE = "600k"
+PREVIEW_FPS = 24
 # 开头一秒钟常常是片头淡入、纯黑或只有一颗点的空白构图（M08、M43 都是），拿它当
 # 海报在图墙里看着像坏图。所以按片长取几个候选点，抽完比一下画面明暗离散度，
 # 取最有内容的那一帧。
@@ -130,6 +145,58 @@ def extract_poster(
     return out.stat().st_size
 
 
+def preview_start(duration: float | None, seconds: float) -> float:
+    """样片起点：跳过片头空白（取片长 8%），又不让样片越过片尾。"""
+    if not duration or duration <= 0:
+        return 0.0
+    head = min(max(duration * 0.08, 0.4), max(duration - seconds - 0.2, 0.0))
+    return round(head, 3)
+
+
+def extract_preview(
+    ffmpeg: str,
+    video: Path,
+    out: Path,
+    duration: float | None,
+    seconds: float,
+    max_edge: int,
+    crf: int,
+) -> int:
+    """截一段无声小样片（H.264/MP4）回字节数。
+
+    图册卡片悬停和工具面板要的是「动起来大概什么样」，不是给原片做备份：480p、
+    24fps、去掉音轨，37 条加起来仍是个位数到十兆级，能跟着安装包走。
+    """
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(f"{out.stem}.part{out.suffix}")
+    start = preview_start(duration, seconds)
+    vf = (
+        f"fps={PREVIEW_FPS},"
+        f"scale={max_edge}:{max_edge}:force_original_aspect_ratio=decrease:force_divisible_by=2"
+    )
+    try:
+        encoder, rateless = pick_h264_encoder(executable=ffmpeg)
+    except NoH264Encoder as exc:
+        raise SystemExit(str(exc)) from exc
+    encode_args = ["-c:v", encoder]
+    if rateless:
+        encode_args += ["-preset", "veryfast", "-crf", str(crf)]
+    else:
+        encode_args += ["-b:v", PREVIEW_BITRATE]
+    try:
+        subprocess.run(
+            [ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+             "-ss", f"{start}", "-i", str(video), "-t", f"{seconds}",
+             "-an", "-vf", vf, *encode_args,
+             "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(tmp)],
+            check=True,
+        )
+        os.replace(tmp, out)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return out.stat().st_size
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as fh:
@@ -203,15 +270,30 @@ def main() -> None:
     parser.add_argument("--lark-cli", default="lark-cli", help="lark-cli 可执行文件，默认取 PATH")
     parser.add_argument("--ffmpeg", type=Path, help="ffmpeg 可执行文件，默认 PATH 再退包内")
     parser.add_argument("--posters-out", type=Path, default=DEFAULT_POSTERS)
+    parser.add_argument(
+        "--previews-out",
+        type=Path,
+        help="同时生成图册悬停/详情用的小样片（默认不生成）；建议指到 motion_previews",
+    )
     parser.add_argument("--pack-out", type=Path, help="把原片复制成可上传的目录包")
     parser.add_argument("--ids", help="只处理这些案例 id，逗号分隔")
     parser.add_argument("--ss", type=float, default=POSTER_SAMPLE_SECONDS, help="抽帧时间点（秒）")
     parser.add_argument("--max-edge", type=int, default=POSTER_MAX_EDGE)
     parser.add_argument("--quality", type=int, default=POSTER_QUALITY)
     parser.add_argument(
+        "--preview-seconds", type=float, default=PREVIEW_SECONDS, help="样片时长（秒）"
+    )
+    parser.add_argument("--preview-max-edge", type=int, default=PREVIEW_MAX_EDGE)
+    parser.add_argument("--preview-crf", type=int, default=PREVIEW_CRF)
+    parser.add_argument(
         "--skip-existing-posters",
         action="store_true",
         help="已有海报的案例不再抽帧（重跑时省时，但仍会算 sha256）",
+    )
+    parser.add_argument(
+        "--skip-existing-previews",
+        action="store_true",
+        help="已有样片的案例不再重截",
     )
     args = parser.parse_args()
 
@@ -231,6 +313,7 @@ def main() -> None:
     if videos_dir is None and not args.download:
         raise SystemExit("要给原片：--videos-dir 指目录，或 --download 从飞书拉")
     posters_dir = args.posters_out.expanduser()
+    previews_dir = args.previews_out.expanduser() if args.previews_out else None
     pack_dir = args.pack_out.expanduser() if args.pack_out else None
     download_root = videos_dir or (REPO_ROOT / "dist" / "motion_videos")
 
@@ -238,6 +321,8 @@ def main() -> None:
     digest_by_id: dict[str, str] = {}
     posters_written = 0
     poster_bytes = 0
+    previews_written = 0
+    preview_bytes = 0
     for index, case in enumerate(cases, start=1):
         case_id = str(case["id"])
         file_name = str(case["media"].get("file") or "")
@@ -283,6 +368,24 @@ def main() -> None:
             poster_bytes += written
             print(f"        海报 {written // 1024} KB → {poster}", flush=True)
 
+        if previews_dir is not None:
+            preview = previews_dir / case_id / PREVIEW_BASENAME
+            if preview.is_file() and args.skip_existing_previews:
+                print("        样片已存在，跳过截取", flush=True)
+            else:
+                written = extract_preview(
+                    ffmpeg,
+                    source,
+                    preview,
+                    case.get("duration_seconds"),
+                    args.preview_seconds,
+                    args.preview_max_edge,
+                    args.preview_crf,
+                )
+                previews_written += 1
+                preview_bytes += written
+                print(f"        样片 {written // 1024} KB → {preview}", flush=True)
+
         if pack_dir is not None and file_name:
             copied = copy_into_pack(source, pack_dir / case_id / file_name)
             print(f"        素材包{'已复制' if copied else '已在位'} {file_name}", flush=True)
@@ -299,6 +402,8 @@ def main() -> None:
         )
 
     print(f"完成：抽帧 {posters_written} 张（共 {poster_bytes // 1024} KB），清单回填 {changed} 条 sha256")
+    if previews_dir is not None:
+        print(f"样片：截取 {previews_written} 条（共 {preview_bytes // 1024} KB）")
     if missing:
         print(f"缺原片：{missing}")
         print("补法：--download 从飞书拉，或把已下载的目录用 --videos-dir 传进来。")

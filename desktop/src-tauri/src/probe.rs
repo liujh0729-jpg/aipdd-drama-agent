@@ -1,36 +1,12 @@
 //! 端口探活。就绪判定以 TCP 连接成功为主，另提供 HTTP 健康检查辅助。
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// 单次 TCP 连接探活（短超时）。
 pub fn port_open(port: u16) -> bool {
     let addr: SocketAddr = ([127, 0, 0, 1], port).into();
     TcpStream::connect_timeout(&addr, Duration::from_millis(400)).is_ok()
-}
-
-/// 轮询直到端口可连或超时。
-pub fn wait_port_open(port: u16, timeout: Duration) -> bool {
-    wait_port_open_cb(port, timeout, &mut |_| {})
-}
-
-/// 同 `wait_port_open`，但每轮探活未命中后回调一次累计耗时，供启动卡把百分比
-/// 在段内平滑推上去（否则端口要等 30 秒才开的服务会让进度条整段僵住）。
-pub fn wait_port_open_cb(
-    port: u16,
-    timeout: Duration,
-    on_wait: &mut dyn FnMut(Duration),
-) -> bool {
-    let started = Instant::now();
-    let deadline = started + timeout;
-    while Instant::now() < deadline {
-        if port_open(port) {
-            return true;
-        }
-        std::thread::sleep(Duration::from_millis(300));
-        on_wait(started.elapsed());
-    }
-    false
 }
 
 /// 端口是否已被“别的进程”占用（用于启动前的冲突自检）。
@@ -41,14 +17,22 @@ pub fn port_in_use(port: u16) -> bool {
 
 /// 端口能否被本机绑定（用于「选端口」而不是「等服务就绪」：bind 比 connect 探活可靠，
 /// 不会把「有人监听但拒绝连接」误判为可用）。监听器借出即释放，不占用端口。
+///
+/// 必须按 `0.0.0.0` 通配地址试绑：nginx 监听的是通配地址，只测 `127.0.0.1`
+/// 会把「仅绑定了某个具体网卡 / IPv6 双栈」的占用误判为空闲。
 pub fn port_bindable(port: u16) -> bool {
-    TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port))).is_ok()
+    TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).is_ok()
 }
 
 /// 从 `start` 起连续探测 `span` 个端口，返回第一个可绑定的。
 /// 全被占时返回 None（调用方自行决定报错文案）。
 pub fn find_free_port(start: u16, span: u16) -> Option<u16> {
-    (start..start.saturating_add(span)).find(|&p| port_bindable(p))
+    find_free_port_between(start, start.saturating_add(span))
+}
+
+/// 在 `[start, end)` 内找第一个可绑定端口（nginx 自动换端口重试用）。
+pub fn find_free_port_between(start: u16, end: u16) -> Option<u16> {
+    (start..end).find(|&p| port_bindable(p))
 }
 
 /// 轻量 HTTP GET 健康检查（不引入额外依赖，手工拼请求，仅判断 2xx）。
@@ -79,8 +63,8 @@ mod tests {
 
     #[test]
     fn port_bindable_flips_with_a_real_listener() {
-        // 绑上即可见 false，释放后回到 true（监听器 drop 才断言得准）。
-        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        // 与 nginx 一样占通配地址：绑上即可见 false，释放后回到 true。
+        let l = TcpListener::bind("0.0.0.0:0").unwrap();
         let port = l.local_addr().unwrap().port();
         assert!(!port_bindable(port));
         drop(l);
@@ -90,10 +74,18 @@ mod tests {
     #[test]
     fn find_free_port_skips_the_occupied_start() {
         // 起点被自己占住，探测必须往后让；用系统分配的临时端口避免撞开发环境真服务。
-        let occupied = TcpListener::bind("127.0.0.1:0").unwrap();
+        let occupied = TcpListener::bind("0.0.0.0:0").unwrap();
         let start = occupied.local_addr().unwrap().port();
         let found = find_free_port(start, 16).expect("临时端口段内应有可用端口");
         assert_ne!(found, start, "被占用的起点不应被选中");
         assert!(port_bindable(found));
+    }
+
+    #[test]
+    fn find_free_port_between_respects_upper_bound() {
+        let occupied = TcpListener::bind("0.0.0.0:0").unwrap();
+        let start = occupied.local_addr().unwrap().port();
+        // 区间只包含被占端口时不能越界去选后面的空闲端口。
+        assert_eq!(find_free_port_between(start, start + 1), None);
     }
 }

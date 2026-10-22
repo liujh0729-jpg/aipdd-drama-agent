@@ -87,6 +87,7 @@ if (-not $SkipChecks) {
         'app\src\novelvideo\freezone\motion_templates.json',
         'app\src\novelvideo\freezone\motion_styles.json',
         'app\src\novelvideo\freezone\motion_posters',
+        'app\src\novelvideo\freezone\motion_previews',
         'app\services\faceswap\server.py',
         'app\.hermes\plugins\dramaclaw\plugin.yaml',
         'hermes\site-packages\hermes_cli\main.py'

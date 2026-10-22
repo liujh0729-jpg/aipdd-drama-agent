@@ -87,7 +87,7 @@ wave3 归档说明里。
 |---|---|---|
 | `MOTION_GALLERY_MANIFEST` | 内置 `freezone/motion_templates.json` | 换一套案例图册时指到外部 JSON。读坏了回落内置那份并打 warning;内置那份读不出来才报错(那是打包坏了)。 |
 | `MOTION_STYLE_MANIFEST` | 内置 `freezone/motion_styles.json` | 画风图册(66 条)是另一份独立清单,只换画面观感、不动案例分镜结构。回落口径与上面那条完全一致:外部读坏→回落内置并打 warning,内置那份读不出来才报错。 |
-| `MOTION_GALLERY_ASSET_BASE` | `/api/v1/motion-gallery` | 海报/原片的地址前缀。把 37 条原片(~0.7 GB,不随包)放到 OSS/CDN 后指过去,前端直接按 `<前缀>/<清单相对路径>` 取。 |
+| `MOTION_GALLERY_ASSET_BASE` | `/api/v1/motion-gallery` | 海报/原片的地址前缀。把 37 条原片(~0.7 GB,不随包)放到 OSS/CDN 后指过去,前端直接按 `<前缀>/<清单相对路径>` 取。**随包小样片不走这个前缀**:它固定按同源 `/api/v1/motion-gallery/<case>/preview.mp4` 取,外部 CDN 只需放海报与原片。 |
 | `MOTION_GALLERY_MIRROR` | 空 | 原片按需取源:本机缓存没有时从 `<MIRROR>/<相对路径>` 拉一次、校验 sha256 后落进状态卷再回给前端。不设则未缓存的原片不显示(只影响看片,不影响取提示词)。 |
 | `ST_CHROME_CDP_URL` | 空 | 连一个现成的调试实例,渲染任务不再自己拉浏览器。不设时按部署形态取默认:本机/桌面为 `http://127.0.0.1:9222`,容器为 `http://host.docker.internal:9222`。与抖音详情、内置 Chrome MCP 同一变量。 |
 | `ST_CHROME_PATH` | 空 | 指到某个 Chrome/Chromium 可执行文件,由渲染任务拉起临时无头实例。指了但文件不存在会吵,不会静默找不到。 |

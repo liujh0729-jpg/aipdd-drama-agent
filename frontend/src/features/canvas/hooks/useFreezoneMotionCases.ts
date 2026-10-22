@@ -125,3 +125,17 @@ export function motionVideoUrl(
   // 浏览器截断或转义成对不上的路径，镜像/缓存两边都取不到。
   return resolveMotionAssetUrl(`${dir}${encodeURIComponent(item.mediaFile)}`, assetBase);
 }
+
+/**
+ * 随包小样片地址：始终走本机 API，不拼 `assetBase`。
+ *
+ * 小样片是安装包里的新产物，OSS/CDN 镜像上只有海报与原片；跟着 assetBase 走
+ * 会在配了镜像的部署里 404。版本号取后端给的 mtime，重截后自动换 URL。
+ */
+export function motionPreviewUrl(item: FreezoneMotionCase): string {
+  if (!item.previewReady) return "";
+  const version = item.previewVersion
+    ? `?v=${encodeURIComponent(item.previewVersion)}`
+    : "";
+  return `/api/v1/motion-gallery/${encodeURIComponent(item.id)}/preview.mp4${version}`;
+}

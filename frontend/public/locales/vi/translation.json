@@ -6587,6 +6587,8 @@
       "renderCase": "Render theo ví dụ này",
       "renderStyle": "Render theo phong cách này",
       "playVideo": "Phát bản gốc",
+      "previewBadge": "Xem trước chuyển động",
+      "previewAlt": "Xem trước chuyển động của {{label}}",
       "videoUnavailable": "Video gốc không đi kèm gói; cần thiết lập mirror tài nguyên để phát",
       "methodWhere": "Trong hệ thống này nằm ở: ",
       "contractTitle": "Hợp đồng render",

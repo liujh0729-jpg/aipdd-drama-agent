@@ -1908,6 +1908,10 @@ export interface FreezoneMotionCase {
   cover: string;
   /** 随包海报是否真的在（缺图时前端不显示破图）。 */
   posterReady: boolean;
+  /** 随包动效小样片是否可用：卡片悬停、详情首屏与工具面板直接播它。 */
+  previewReady: boolean;
+  /** 小样片 mtime 版本，拼进 URL 做缓存失效。 */
+  previewVersion: string;
   /** 这条案例的原片现在放得出来吗：本机已缓存，或配了镜像可以现取。 */
   videoReady: boolean;
   resolution: string;
@@ -1955,6 +1959,8 @@ function coerceMotionCase(entry: Record<string, unknown>): FreezoneMotionCase | 
     prompt_cn: pickString(entry, "prompt_cn", "prompt", "spec") ?? "",
     cover: pickString(entry, "cover", "poster") ?? "",
     posterReady: pickBoolean(entry, "poster_ready", "posterReady") ?? false,
+    previewReady: pickBoolean(entry, "preview_ready", "previewReady") ?? false,
+    previewVersion: pickString(entry, "preview_version", "previewVersion") ?? "",
     videoReady: pickBoolean(entry, "video_ready", "videoReady") ?? false,
     resolution: pickString(entry, "resolution") ?? "",
     durationSeconds: pickNumber(entry, "duration_seconds", "durationSeconds"),

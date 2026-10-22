@@ -16,11 +16,11 @@
 | **渲染** | 模型产出的是一张会动的网页,不是一个视频文件 | `motion_render/`：引导脚本接管时钟,CDP 逐帧截图,ffmpeg `image2pipe` 流式编码 |
 | **交付** | 渲染一次只出一镜,剪辑要的是整条时间线 | `motion_audio/`（配乐）+ `motion_draft/`（剪映 10.2 草稿） |
 
-素材口径（海报随包、原片按需取）写在 [环境变量参考](../reference/environment-variables.md#动效大片mg) 里：37 条原片约 0.7 GB,不进安装包。
+素材口径（海报与小样片随包、原片按需取）写在 [环境变量参考](../reference/environment-variables.md#动效大片mg) 里：37 条原片约 0.7 GB,不进安装包；每条的 6 秒、480p、无音轨小样片（`motion_previews/<case_id>/preview.mp4`,合计约 15 MB）随包,图册悬停、详情与工具页选中卡直接播这一段,不用等原片下载。
 
 ## 2. 怎么用
 
-1. **分镜页 → 动效大片**：打开图册,海报即本地随包的图；点「取用提示词」拿到该案例的分镜规格 + 本系统渲染契约（契约只在图册清单里存一份,提示词库、图册、渲染任务取到的是同一份文字）。
+1. **分镜页 → 动效大片**：打开图册,海报即本地随包的图,鼠标移到卡片上播该案例的小样片,点开详情自动循环播放；点「取用提示词」拿到该案例的分镜规格 + 本系统渲染契约（契约只在图册清单里存一份,提示词库、图册、渲染任务取到的是同一份文字）。
 2. **逐镜生成 MG**：模型按契约产出页面后提交渲染任务（`POST …/freezone/motion/render`）。可调宽/高、帧率、时长,以及**配乐开关 `music`（默认开）**。任务进度：0.12 起页 → 0.94 逐帧 → 0.95 编曲归一 → 0.97 登记资产。
 3. **导出剪映草稿**：`POST …/freezone/motion/draft`,把选中的成片按顺序贴到主视频轨,每镜自报的拍点落成剪映打点,可选再垫旁白与整片 BGM,整盘复制进本机剪映工程目录。
 
@@ -63,7 +63,8 @@
 | GET | `/api/v1/projects/{p}/freezone/motion/renders` | 已渲染成片清单（「导出剪映草稿」的候选,直接扫渲染目录连 sidecar 一起读回） |
 | POST | `/api/v1/projects/{p}/freezone/motion/render` | 提交一镜渲染（`music` 控制是否配乐） |
 | POST | `/api/v1/projects/{p}/freezone/motion/draft` | 逐镜成片 → 剪映草稿（可带旁白与 BGM） |
-| GET | `/api/v1/motion-gallery/{case_id}/{filename}` | 海报/原片托管 + 按需取源缓存（支持 Range） |
+| GET | `/api/v1/motion-gallery/{case_id}/{filename}` | 海报/小样片/原片托管 + 按需取源缓存（支持 Range）；`preview.mp4` 只读取随包文件,`preview_ready` / `preview_version` 由目录接口逐条给出 |
+| GET | `/api/v1/motion-gallery/{case_id}/preview.mp4` | 随包小样片（6 秒 / 480p / 无音轨,Range 可分片）,卡片悬停与详情直接播这一段 |
 
 ## 6. 三种交付形态
 

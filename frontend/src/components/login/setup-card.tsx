@@ -160,10 +160,12 @@ export function SetupCard() {
           </p>
         ) : null}
 
-        <button type="submit" className={styles.btn} disabled={isSubmitting}>
-          <span>{isSubmitting ? t("auth.setup.submitting") : t("auth.setup.submit")}</span>
-          <ArrowRight className={styles.btnArrow} strokeWidth={2.4} aria-hidden="true" />
-        </button>
+        <div className={styles.formActions}>
+          <button type="submit" className={styles.btn} disabled={isSubmitting}>
+            <span>{isSubmitting ? t("auth.setup.submitting") : t("auth.setup.submit")}</span>
+            <ArrowRight className={styles.btnArrow} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        </div>
       </form>
     </div>
   );

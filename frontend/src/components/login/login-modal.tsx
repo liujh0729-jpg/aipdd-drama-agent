@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { useSetupStatus } from "@/lib/queries/admin-users";
 import { phoneOtpEntryVisible } from "@/lib/runtime-config";
 import { loginModalShowcaseVideo } from "./cinematic/media";
 import { LoginCard } from "./login-card";
@@ -21,6 +22,10 @@ export function LoginModal({ open, onClose, onAuthenticated }: LoginModalProps) 
   const { t } = useTranslation();
   const reducedMotion = useReducedMotion();
   const otpEntryVisible = phoneOtpEntryVisible();
+  // 空库时 LoginCard 里换成初始化表单，这里要同步收起营销标题栏：那 220px
+  // 会把提交按钮顶出可点区域（1920×1080 下按钮落在遮罩下面，只有回车能提交）。
+  const setupStatus = useSetupStatus();
+  const needsSetup = Boolean(setupStatus.data?.data?.needs_setup);
 
   useEffect(() => {
     if (!open) return;
@@ -46,10 +51,11 @@ export function LoginModal({ open, onClose, onAuthenticated }: LoginModalProps) 
           transition={{ duration: 0.18, ease: "easeOut" }}
           role="dialog"
           aria-modal="true"
-          aria-label={t("auth.login")}
+          aria-label={needsSetup ? t("auth.setup.title") : t("auth.login")}
         >
           <motion.div
             className={styles.loginDialog}
+            data-setup={needsSetup ? "true" : undefined}
             initial={{ opacity: 0, scale: 0.98, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 10 }}
@@ -84,19 +90,21 @@ export function LoginModal({ open, onClose, onAuthenticated }: LoginModalProps) 
 
             <section className={styles.loginPanel}>
               <div className={styles.loginPanelInner}>
-                <header className={styles.loginPanelHeader}>
-                  <img
-                    className={styles.loginPanelBrand}
-                    src="/brand/dramaclaw-wordmark.png"
-                    alt="AIPDD 画布"
-                  />
-                  <h2 className={styles.loginPanelTitle}>{t("auth.modal.title")}</h2>
-                  <p className={styles.loginPanelSubtitle}>{t("auth.modal.subtitle")}</p>
-                </header>
+                {needsSetup ? null : (
+                  <header className={styles.loginPanelHeader}>
+                    <img
+                      className={styles.loginPanelBrand}
+                      src="/brand/dramaclaw-wordmark.png"
+                      alt="AIPDD 画布"
+                    />
+                    <h2 className={styles.loginPanelTitle}>{t("auth.modal.title")}</h2>
+                    <p className={styles.loginPanelSubtitle}>{t("auth.modal.subtitle")}</p>
+                  </header>
+                )}
 
                 <LoginCard onAuthenticated={onAuthenticated} />
 
-                {otpEntryVisible ? (
+                {otpEntryVisible && !needsSetup ? (
                   <div className={styles.loginApplyRow}>
                     <span>{t("auth.modal.otpRegistration")}</span>
                   </div>

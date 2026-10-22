@@ -80,6 +80,7 @@ import { useFreezoneVisionModels } from "@/features/canvas/hooks/useFreezoneVisi
 // 实现，工具页不再各写一份 —— 图册的门禁、提示词拼法、草稿的旁白互斥规则都要改一处生效。
 import { MotionGalleryModal, MotionStyleSwatch } from "@/features/canvas/ui/MotionGalleryModal";
 import {
+  motionPreviewUrl,
   resolveMotionAssetUrl,
   useFreezoneMotionCases,
   useFreezoneMotionStyles,
@@ -4143,6 +4144,9 @@ function MotionBlockbusterPanel({ project }: { project: string }) {
   const poster = caseItem
     ? resolveMotionAssetUrl(caseItem.cover, motion.assetBase)
     : "";
+  // 选中的案例先播随包小样片：只给一张 64px 海报时，用户看不出这条片子动起来
+  // 是什么样。小样片缺失才退回海报。
+  const casePreview = caseItem ? motionPreviewUrl(caseItem) : "";
   // 选中的那条：两种图册都当成一页 MG 的规格来源，只是案例给分镜结构、画风给观感。
   const selected = caseItem ?? styleItem;
   const selectedTitle = title.trim() || selected?.label || "";
@@ -4280,7 +4284,23 @@ function MotionBlockbusterPanel({ project }: { project: string }) {
           </Label>
           {selected ? (
             <div className="flex items-start gap-3 rounded-lg border border-border bg-white/[0.02] p-2">
-              {caseItem && caseItem.posterReady && poster ? (
+              {caseItem && casePreview ? (
+                <div className="relative w-40 shrink-0 overflow-hidden rounded-md bg-black">
+                  <video
+                    key={caseItem.id}
+                    src={casePreview}
+                    muted
+                    loop
+                    playsInline
+                    autoPlay
+                    preload="metadata"
+                    className="aspect-video w-full object-contain"
+                  />
+                  <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/60 px-1 py-0.5 text-[10px] font-medium text-white/88">
+                    {t("canvas.motionGallery.previewBadge")}
+                  </span>
+                </div>
+              ) : caseItem && caseItem.posterReady && poster ? (
                 <img
                   src={poster}
                   alt={caseItem.label}

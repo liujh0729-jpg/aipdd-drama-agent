@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::io::Write as _;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::atomic::{AtomicU16, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -22,8 +22,18 @@ use crate::logs;
 use crate::models::*;
 use crate::{probe, proc};
 
-/// 冷启动（含便携 Python 首次 import torch）预留较宽松的就绪超时。
-const START_TIMEOUT: Duration = Duration::from_secs(180);
+/// FastAPI 冷启动（含便携 Python 首次 import torch）保留较宽松的就绪超时。
+const API_START_TIMEOUT: Duration = Duration::from_secs(180);
+/// nginx 是原生二进制，正常 1s 内即可监听。25s 只用于覆盖首次运行时安全软件
+/// 扫描未签名程序；超时立刻报错，不再让用户对着 3 分钟的空白进度条。
+const NGINX_START_TIMEOUT: Duration = Duration::from_secs(25);
+/// Go / Python 辅助服务的就绪预算：比 nginx 宽，但远小于 API 的冷启动预算。
+const SERVICE_START_TIMEOUT: Duration = Duration::from_secs(90);
+/// nginx 启动失败（端口竞态 / 被安全软件拦截）时最多尝试的端口数。
+const NGINX_START_ATTEMPTS: u8 = 2;
+/// 失败信息里附带的服务日志行数与单行长度上限，避免错误弹窗变成日志墙。
+const LOG_TAIL_LINES: usize = 6;
+const LOG_LINE_MAX_CHARS: usize = 240;
 /// 崩溃自愈的最大连续重启次数，超过则放弃并置 Crashed，等待人工在面板点“重启”。
 const MAX_RESTARTS: u32 = 5;
 /// 内存日志尾巴的容量上限，与面板侧缓冲同量级（约 2000 行 ≈ 几百 KB）。
@@ -47,6 +57,9 @@ struct Managed {
 struct Supervisor {
     services: HashMap<ServiceId, Managed>,
     shutting_down: bool,
+    /// start_all / restart_all 期间为 true：此时由编排主流程负责起停与判错，
+    /// 监控线程暂停自动重启，避免与「换端口重试 / 全量重试」互相抢进程。
+    starting: bool,
     booted: bool,
     /// 最近若干行日志的内存尾巴。诊断窗口是按需才创建的，事件在那之前就流过去了，
     /// 没有这份缓冲的话「查看详细信息」打开时会是空白。
@@ -65,6 +78,10 @@ pub struct Orchestrator {
     /// 之后 nginx 渲染/探活/重启/诊断展示全部跟随这个值，主窗口地址同源——
     /// 运行期绝不重新扫描，否则重启后窗口会失联。
     web_port: Arc<AtomicU16>,
+    /// 本次 nginx 启动前 `nginx/logs/error.log` 的字节长度。nginx 的 bind / 配置
+    /// 错误只写这份文件（不在 stdout 捕获的 nginx.log 里），从该偏移往后读才能
+    /// 只取本轮启动新增的报错，不把上次运行的旧错误混进错误详情。
+    nginx_error_offset: AtomicU64,
 }
 
 impl Orchestrator {
@@ -73,21 +90,19 @@ impl Orchestrator {
         let shared = Arc::new(Mutex::new(Supervisor {
             services: HashMap::new(),
             shutting_down: false,
+            starting: false,
             booted: false,
             log_tail: Vec::new(),
             last_boot: None,
         }));
-        let default_web_port = SERVICE_SPECS
-            .iter()
-            .find(|s| s.id == ServiceId::Nginx)
-            .map(|s| s.port)
-            .unwrap_or(8080);
+        let initial_web_port = default_web_port();
         let orc = Arc::new(Self {
             app: app.clone(),
             paths,
             shared: shared.clone(),
             log_tx: log_tx.clone(),
-            web_port: Arc::new(AtomicU16::new(default_web_port)),
+            web_port: Arc::new(AtomicU16::new(initial_web_port)),
+            nginx_error_offset: AtomicU64::new(0),
         });
         // 监控线程持 Arc<Self>，复用完整 restart/shutdown 逻辑；随 shutting_down 退出循环释放。
         {
@@ -119,12 +134,7 @@ impl Orchestrator {
 
     /// 把 web 端口重置回默认（释放外部占用后「重启回默认」用：8080 一空就能重新 binds）。
     fn reset_web_port(&self) {
-        let base = SERVICE_SPECS
-            .iter()
-            .find(|s| s.id == ServiceId::Nginx)
-            .map(|s| s.port)
-            .unwrap_or(8080);
-        self.web_port.store(base, Ordering::SeqCst);
+        self.web_port.store(default_web_port(), Ordering::SeqCst);
     }
 
     /// 释放完默认端口后整套重启：按启动顺序逐个 restart_one（Nginx 会用重置后的
@@ -132,14 +142,20 @@ impl Orchestrator {
     /// 非可选服务任一重启失败即中断；可选服务（VectCut）失败忽略。
     pub fn restart_all(&self) -> Result<()> {
         self.reset_web_port();
+        self.shared.lock().unwrap().starting = true;
+        let mut result = Ok(());
         for spec in ordered_specs() {
             if spec.optional {
                 let _ = self.restart_one(spec.id);
                 continue;
             }
-            self.restart_one(spec.id)?;
+            if let Err(e) = self.restart_one(spec.id) {
+                result = Err(e);
+                break;
+            }
         }
-        Ok(())
+        self.shared.lock().unwrap().starting = false;
+        result
     }
 
     /// Nginx 的端口是启动时动态解析的，其余服务照抄静态规格；
@@ -156,6 +172,17 @@ impl Orchestrator {
 
     /// 串行启动全套服务。全部非可选服务就绪返回 Ok；否则带结构化错误返回。
     pub fn start_all(&self) -> Result<()> {
+        {
+            let mut sup = self.shared.lock().unwrap();
+            sup.starting = true;
+            sup.booted = false;
+        }
+        let result = self.start_all_inner();
+        self.shared.lock().unwrap().starting = false;
+        result
+    }
+
+    fn start_all_inner(&self) -> Result<()> {
         // 0) 给启动卡一个起点，别让窗口空着像卡死。
         self.emit_boot("check", "正在检查运行环境与端口…", 0.02);
 
@@ -176,11 +203,7 @@ impl Orchestrator {
                 return Err(DesktopError::PortOccupied(spec.port));
             }
         }
-        let base_web_port = SERVICE_SPECS
-            .iter()
-            .find(|s| s.id == ServiceId::Nginx)
-            .map(|s| s.port)
-            .unwrap_or(8080);
+        let base_web_port = default_web_port();
         let port = probe::find_free_port(base_web_port, WEB_PORT_SPAN)
             .ok_or(DesktopError::PortOccupied(base_web_port))?;
         self.web_port.store(port, Ordering::SeqCst);
@@ -201,7 +224,12 @@ impl Orchestrator {
                 format!("正在启动 {}…", spec.id.display()),
                 boot_window(spec.id).0,
             );
-            match self.start_one(&spec) {
+            let outcome = if spec.id == ServiceId::Nginx {
+                self.start_nginx(&spec)
+            } else {
+                self.start_one(&spec)
+            };
+            match outcome {
                 Ok(()) => {}
                 Err(e) => {
                     if spec.optional {
@@ -217,6 +245,47 @@ impl Orchestrator {
         self.shared.lock().unwrap().booted = true;
         self.emit_boot("ready", "全部服务已就绪", 1.0);
         Ok(())
+    }
+
+    /// nginx 专用启动：失败即暴露；若是端口竞态 / 首启拦截，换下一个空闲端口再试一次。
+    /// 只允许在 `start_all` 阶段换端口——那时主窗口还没加载，换端口不会让窗口失联。
+    fn start_nginx(&self, spec: &ServiceSpec) -> Result<()> {
+        let base = default_web_port();
+        let upper = base.saturating_add(WEB_PORT_SPAN);
+        let mut last_err: Option<DesktopError> = None;
+        self.capture_nginx_error_offset();
+
+        for attempt in 0..NGINX_START_ATTEMPTS {
+            let current = self.resolve_spec(spec);
+            match self.start_one(&current) {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    let retryable = matches!(
+                        e,
+                        DesktopError::ServiceExited { .. } | DesktopError::StartupTimeout { .. }
+                    );
+                    last_err = Some(e);
+                    if !retryable || attempt + 1 >= NGINX_START_ATTEMPTS {
+                        break;
+                    }
+                    // 超时场景子进程可能还活着，先回收再换端口，避免两套 nginx 抢站点目录。
+                    self.discard_service(ServiceId::Nginx);
+                    let Some(next) =
+                        probe::find_free_port_between(current.port.saturating_add(1), upper)
+                    else {
+                        break;
+                    };
+                    self.web_port.store(next, Ordering::SeqCst);
+                    self.emit_boot(
+                        "check",
+                        format!("端口 {} 启动失败，改用 {next} 重试…", current.port),
+                        boot_window(ServiceId::Nginx).0,
+                    );
+                }
+            }
+        }
+
+        Err(last_err.unwrap_or_else(|| DesktopError::PortOccupied(base)))
     }
 
     fn start_one(&self, spec: &ServiceSpec) -> Result<()> {
@@ -240,8 +309,58 @@ impl Orchestrator {
             );
         }
         self.emit_state_of(spec.id);
+        self.wait_ready(spec)
+    }
 
-        if probe::wait_port_open_cb(spec.port, START_TIMEOUT, &mut |elapsed| {
+    /// 等待端口就绪，同时盯着子进程是否已经退出。
+    /// 旧实现只等端口，nginx 秒退也要等满超时；现在秒退立刻带退出码 + 日志尾巴报错。
+    fn wait_ready(&self, spec: &ServiceSpec) -> Result<()> {
+        let timeout = startup_timeout(spec.id);
+        let started = Instant::now();
+        loop {
+            // 先判进程：若它已退出，哪怕端口恰好被别的进程接走也不能算本服务就绪。
+            let exited = {
+                let mut sup = self.shared.lock().unwrap();
+                match sup.services.get_mut(&spec.id) {
+                    Some(m) => match m.child.try_wait() {
+                        Ok(Some(status)) => Some(exit_label(status)),
+                        _ => None,
+                    },
+                    None => Some("进程已回收".to_string()),
+                }
+            };
+            if let Some(code) = exited {
+                // 给日志读线程一点时间把管道里最后几行落盘。
+                std::thread::sleep(Duration::from_millis(120));
+                let err = DesktopError::ServiceExited {
+                    service: spec.id.display().to_string(),
+                    code,
+                    detail: log_detail(self.log_tail(spec.id)),
+                };
+                self.mark_failed(spec.id, &err);
+                return Err(err);
+            }
+
+            if probe::port_open(spec.port) {
+                if let Some(m) = self.shared.lock().unwrap().services.get_mut(&spec.id) {
+                    m.status = ServiceStatus::Ready;
+                }
+                self.emit_state_of(spec.id);
+                return Ok(());
+            }
+
+            let elapsed = started.elapsed();
+            if elapsed >= timeout {
+                let err = DesktopError::StartupTimeout {
+                    service: spec.id.display().to_string(),
+                    port: spec.port,
+                    secs: timeout.as_secs(),
+                    detail: log_detail(self.log_tail(spec.id)),
+                };
+                self.mark_failed(spec.id, &err);
+                return Err(err);
+            }
+
             // 探活期间按「已耗时 / 该服务期望耗时」渐近推进：端口要等几秒才开的服务
             // （api 冷启动要 import 整套 Python 依赖）不能让百分比整段僵住。
             self.emit_boot(
@@ -249,19 +368,74 @@ impl Orchestrator {
                 format!("正在启动 {}…", spec.id.display()),
                 boot_progress(spec.id, elapsed.as_secs_f32()),
             );
-        }) {
-            if let Some(m) = self.shared.lock().unwrap().services.get_mut(&spec.id) {
-                m.status = ServiceStatus::Ready;
-            }
-            self.emit_state_of(spec.id);
-            Ok(())
-        } else {
-            Err(DesktopError::StartupTimeout {
-                service: spec.id.display().to_string(),
-                port: spec.port,
-                secs: START_TIMEOUT.as_secs(),
-            })
+            std::thread::sleep(Duration::from_millis(300));
         }
+    }
+
+    fn mark_failed(&self, id: ServiceId, err: &DesktopError) {
+        if let Some(m) = self.shared.lock().unwrap().services.get_mut(&id) {
+            m.status = ServiceStatus::Crashed;
+            m.last_error = Some(err.to_string());
+        }
+        self.emit_state_of(id);
+    }
+
+    /// 丢掉一个受管服务：从状态表移除并回收进程树（重试换端口前用）。
+    fn discard_service(&self, id: ServiceId) {
+        let m = self.shared.lock().unwrap().services.remove(&id);
+        if let Some(m) = m {
+            terminate_managed(m);
+        }
+    }
+
+    /// 读该服务落盘日志的最后若干行，拼进错误信息；读不到就返回空串。
+    fn log_tail(&self, id: ServiceId) -> String {
+        let path = self.paths.logs_dir().join(format!("{}.log", id.as_str()));
+        let raw = std::fs::read(path).unwrap_or_default();
+        let mut tail = tail_lines(&raw, LOG_TAIL_LINES);
+        if id == ServiceId::Nginx {
+            let err_path = self.paths.app_data.join("nginx").join("logs").join("error.log");
+            if let Ok(all) = std::fs::read(&err_path) {
+                let offset = self.nginx_error_offset.load(Ordering::SeqCst);
+                let err_tail = tail_from(&all, offset, LOG_TAIL_LINES);
+                if !err_tail.is_empty() {
+                    if !tail.is_empty() {
+                        tail.push_str(" | ");
+                    }
+                    tail.push_str("nginx 错误日志：");
+                    tail.push_str(&err_tail);
+                }
+            }
+        }
+        tail
+    }
+
+    /// 记下 nginx error.log 当前长度；启动失败时只展示这之后新增的报错。
+    fn capture_nginx_error_offset(&self) {
+        let path = self.paths.app_data.join("nginx").join("logs").join("error.log");
+        let len = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        self.nginx_error_offset.store(len, Ordering::SeqCst);
+    }
+
+    /// 全部服务停掉但保持编排器可再次启动（启动卡的「重试启动」用）。
+    /// 与 shutdown 的区别：不置 shutting_down、不关监控线程，随后还能 start_all。
+    pub fn prepare_retry(&self) {
+        {
+            let mut sup = self.shared.lock().unwrap();
+            sup.starting = true;
+            sup.booted = false;
+        }
+        let mut ordered = ordered_specs();
+        ordered.sort_by_key(|s| std::cmp::Reverse(s.order));
+        for spec in ordered {
+            self.discard_service(spec.id);
+        }
+        self.reset_web_port();
+    }
+
+    /// 重试线程异常退出时复位启动闸门；否则监控线程会永久停止崩溃自愈。
+    pub fn clear_starting(&self) {
+        self.shared.lock().unwrap().starting = false;
     }
 
     /// 构造并 spawn 一个服务子进程（管道接管输出）。
@@ -339,6 +513,10 @@ impl Orchestrator {
             .ok_or_else(|| DesktopError::MissingBinary(format!("unknown service {id:?}")))?;
         let spec = self.resolve_spec(&spec);
 
+        if id == ServiceId::Nginx {
+            self.capture_nginx_error_offset();
+        }
+
         // 先杀旧进程树；提前记下重启次数（old 随后被 terminate 移走）。
         let old = {
             let mut sup = self.shared.lock().unwrap();
@@ -376,24 +554,9 @@ impl Orchestrator {
         }
         self.emit_state_of(id);
 
-        if probe::wait_port_open(spec.port, START_TIMEOUT) {
-            if let Some(m) = self.shared.lock().unwrap().services.get_mut(&id) {
-                m.status = ServiceStatus::Ready;
-            }
-            self.emit_state_of(id);
-            Ok(())
-        } else {
-            if let Some(m) = self.shared.lock().unwrap().services.get_mut(&id) {
-                m.status = ServiceStatus::Crashed;
-                m.last_error = Some("重启后未在超时内就绪".into());
-            }
-            self.emit_state_of(id);
-            Err(DesktopError::StartupTimeout {
-                service: spec.id.display().to_string(),
-                port: spec.port,
-                secs: START_TIMEOUT.as_secs(),
-            })
-        }
+        // 运行期重启绝不换端口（主窗口已加载在 web_port 上），但同样要
+        // 失败即暴露：进程秒退带日志，最长等待按服务类型收敛。
+        self.wait_ready(&spec)
     }
 
     /// 全部服务的当前状态快照（按启动顺序，端口展示真实值）。
@@ -527,6 +690,59 @@ fn map_spawn_err(spec: &ServiceSpec, e: std::io::Error) -> DesktopError {
     }
 }
 
+fn default_web_port() -> u16 {
+    SERVICE_SPECS
+        .iter()
+        .find(|s| s.id == ServiceId::Nginx)
+        .map(|s| s.port)
+        .unwrap_or(8080)
+}
+
+/// 各服务的就绪预算：nginx 原生二进制必须短，Python 主服务冷启动才需要长预算。
+fn startup_timeout(id: ServiceId) -> Duration {
+    match id {
+        ServiceId::Nginx => NGINX_START_TIMEOUT,
+        ServiceId::Api => API_START_TIMEOUT,
+        ServiceId::Gateway | ServiceId::Vectcut => SERVICE_START_TIMEOUT,
+    }
+}
+
+fn exit_label(status: std::process::ExitStatus) -> String {
+    match status.code() {
+        Some(code) => format!("退出码 {code}"),
+        None => "被系统终止".to_string(),
+    }
+}
+
+fn log_detail(tail: String) -> String {
+    if tail.is_empty() {
+        String::new()
+    } else {
+        format!("最近日志：{tail}")
+    }
+}
+
+/// 从日志原文提取最后 `max` 行非空内容，单行截断，避免错误信息过长。
+fn tail_lines(raw: &[u8], max: usize) -> String {
+    let text = String::from_utf8_lossy(raw);
+    let mut lines: Vec<String> = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(|l| l.chars().take(LOG_LINE_MAX_CHARS).collect())
+        .collect();
+    if lines.len() > max {
+        lines.drain(0..lines.len() - max);
+    }
+    lines.join(" | ")
+}
+
+/// 只取 `offset` 之后新写入的内容再抽尾巴；offset 超过文件长度时视为无新增。
+fn tail_from(raw: &[u8], offset: u64, max: usize) -> String {
+    let start = usize::try_from(offset).unwrap_or(usize::MAX).min(raw.len());
+    tail_lines(&raw[start..], max)
+}
+
 /// 优雅停一棵进程树：SIGTERM → 最多等 2s → SIGKILL + kill()。
 fn terminate_managed(mut m: Managed) {
     proc::terminate_tree(m.pid);
@@ -616,7 +832,7 @@ mod tests {
 
     #[test]
     fn boot_progress_rather_than_stalls_before_the_timeout() {
-        // 旧模型按「离 180s 超时多久」算，服务 2s 就就绪时百分比只爬到区间底。
+        // 旧模型按「离统一超时多久」算，服务 2s 就就绪时百分比只爬到区间底。
         // 新模型按各服务期望耗时爬：耗时=1×期望就该走完区间的六成以上。
         for sid in [
             ServiceId::Nginx,
@@ -640,6 +856,42 @@ mod tests {
             assert!(boot_progress(sid, exp * 3.0) > boot_progress(sid, exp));
             assert!(boot_progress(sid, -5.0) >= win.0);
         }
+    }
+
+    #[test]
+    fn nginx_gets_a_short_budget_while_api_keeps_the_cold_start_budget() {
+        // nginx 秒级可起：超过 30s 仍未监听就该报错，而不是拖满 3 分钟。
+        assert!(startup_timeout(ServiceId::Nginx) <= Duration::from_secs(30));
+        assert!(startup_timeout(ServiceId::Nginx) < startup_timeout(ServiceId::Gateway));
+        // Python 主服务冷启动仍保留长预算。
+        assert_eq!(startup_timeout(ServiceId::Api), Duration::from_secs(180));
+        assert!(startup_timeout(ServiceId::Vectcut) >= Duration::from_secs(60));
+    }
+
+    #[test]
+    fn tail_lines_keeps_the_newest_lines_and_caps_width() {
+        let mut raw = String::new();
+        for i in 0..10 {
+            raw.push_str(&format!("line-{i}\n"));
+        }
+        assert_eq!(tail_lines(raw.as_bytes(), 3), "line-7 | line-8 | line-9");
+
+        let long = "x".repeat(500);
+        let out = tail_lines(long.as_bytes(), 2);
+        assert_eq!(out.chars().count(), LOG_LINE_MAX_CHARS);
+
+        assert_eq!(tail_lines(b"", 6), "");
+        assert_eq!(tail_lines(b"\n\n  \n", 6), "");
+    }
+
+    #[test]
+    fn tail_from_skips_bytes_written_before_the_attempt() {
+        let raw = b"old error\nnew error-1\nnew error-2\n";
+        let offset = b"old error\n".len() as u64;
+        assert_eq!(tail_from(raw, offset, 2), "new error-1 | new error-2");
+        // offset 落在文件末尾之后（例如日志被轮转清空）不 panic，按无新增处理。
+        assert_eq!(tail_from(raw, raw.len() as u64 + 64, 2), "");
+        assert_eq!(tail_from(raw, 0, 1), "new error-2");
     }
 }
 
@@ -703,19 +955,22 @@ fn monitor_loop(orc: Arc<Orchestrator>, log_rx: Receiver<LogLine>) {
         }
 
         // 2) 判活：锁内仅标记崩溃并挑出需重启者。
+        //    启动 / 全量重启期间跳过：主流程正在自己起停并判错，避免两边抢进程。
         let mut to_restart: Vec<ServiceId> = Vec::new();
         {
             let mut sup = orc.shared.lock().unwrap();
             if sup.shutting_down {
                 break;
             }
-            for (id, m) in sup.services.iter_mut() {
-                if matches!(m.status, ServiceStatus::Ready | ServiceStatus::Starting) {
-                    if let Ok(Some(_)) = m.child.try_wait() {
-                        m.status = ServiceStatus::Crashed;
-                        m.last_error = Some("进程意外退出".into());
-                        if m.restarts < MAX_RESTARTS {
-                            to_restart.push(*id);
+            if !sup.starting {
+                for (id, m) in sup.services.iter_mut() {
+                    if matches!(m.status, ServiceStatus::Ready | ServiceStatus::Starting) {
+                        if let Ok(Some(_)) = m.child.try_wait() {
+                            m.status = ServiceStatus::Crashed;
+                            m.last_error = Some("进程意外退出".into());
+                            if m.restarts < MAX_RESTARTS {
+                                to_restart.push(*id);
+                            }
                         }
                     }
                 }

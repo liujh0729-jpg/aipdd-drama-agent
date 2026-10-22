@@ -6585,6 +6585,8 @@
       "renderCase": "Rendre avec ce cas",
       "renderStyle": "Rendre avec ce style",
       "playVideo": "Lire l'original",
+      "previewBadge": "Aperçu animé",
+      "previewAlt": "Aperçu animé de {{label}}",
       "videoUnavailable": "Les originaux ne sont pas inclus ; configurez le miroir de ressources pour les lire",
       "methodWhere": "Où cela se traduit dans ce système : ",
       "contractTitle": "Contrat de rendu",

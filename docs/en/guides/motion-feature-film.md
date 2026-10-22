@@ -16,11 +16,11 @@ Variables are listed in the [Environment Variable Reference](../reference/enviro
 | **Render** | The model produces a moving web page, not a video file | `motion_render/`: a bootstrap takes over the clock, CDP captures frames, ffmpeg encodes them through `image2pipe` |
 | **Delivery** | One render yields one shot; an editor needs the whole timeline | `motion_audio/` (score) + `motion_draft/` (Jianying 10.2 draft) |
 
-Asset policy (posters bundled, originals on demand) is in the [Environment Variable Reference](../reference/environment-variables.md#motion-feature-film-mg): the 37 originals are ~0.7 GB and stay out of the installer.
+Asset policy (posters and preview clips bundled, originals on demand) is in the [Environment Variable Reference](../reference/environment-variables.md#motion-feature-film-mg): the 37 originals are ~0.7 GB and stay out of the installer. Each case also ships a 6-second, 480p, muted preview (`motion_previews/<case_id>/preview.mp4`, ~15 MB total), so hovering a card, opening its detail view or selecting it in the tools page plays real motion immediately instead of waiting for the original.
 
 ## 2. How to use it
 
-1. **Storyboard page → motion feature film**: open the gallery (posters are bundled, served locally); "use prompt" gives you that case's shot spec plus this system's render contract — the contract is stored once per catalog, so the prompt library, the gallery and the render task all read the same text.
+1. **Storyboard page → motion feature film**: open the gallery (posters are bundled, served locally); hovering a card plays its bundled preview, and the detail view loops it automatically. "Use prompt" gives you that case's shot spec plus this system's render contract — the contract is stored once per catalog, so the prompt library, the gallery and the render task all read the same text.
 2. **Generate MG per shot**: once the model produces the page, a render task is submitted (`POST …/freezone/motion/render`). Width/height, fps and duration are adjustable, as is the **score switch `music` (on by default)**. Progress: 0.12 page up → 0.94 frames → 0.95 arrange & normalize → 0.97 register asset.
 3. **Export the Jianying draft**: `POST …/freezone/motion/draft` places the selected films in order on the main video track, turns each shot's self-reported beats into Jianying markers, optionally adds narration and a whole-film BGM bed, then copies the project into the local Jianying project directory.
 
@@ -63,7 +63,8 @@ Written from scratch — no pyJianYingDraft, no VectCut:
 | GET | `/api/v1/projects/{p}/freezone/motion/renders` | Rendered films (candidates for "export draft"; scans the render directory and reads each sidecar) |
 | POST | `/api/v1/projects/{p}/freezone/motion/render` | Render one shot (`music` controls whether it gets a score) |
 | POST | `/api/v1/projects/{p}/freezone/motion/draft` | Per-shot films → Jianying draft (optional narration and BGM) |
-| GET | `/api/v1/motion-gallery/{case_id}/{filename}` | Poster/original serving + on-demand mirror cache (Range aware) |
+| GET | `/api/v1/motion-gallery/{case_id}/{filename}` | Poster/preview/original serving + on-demand mirror cache (Range aware); `preview.mp4` reads only the bundled file, and the catalog reports `preview_ready` / `preview_version` per case |
+| GET | `/api/v1/motion-gallery/{case_id}/preview.mp4` | Bundled 6-second 480p preview clip (no audio, Range friendly) used by card hover, detail view and the selected-case card |
 
 ## 6. The three delivery forms
 

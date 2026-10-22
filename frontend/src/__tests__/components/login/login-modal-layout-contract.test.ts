@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const modal = readFileSync("src/components/login/login-modal.tsx", "utf8");
+const setup = readFileSync("src/components/login/setup-card.tsx", "utf8");
 const media = readFileSync("src/components/login/cinematic/media.ts", "utf8");
 const stage = readFileSync("src/components/login/login-stage.tsx", "utf8");
 const css = readFileSync("src/components/login/login.module.css", "utf8");
@@ -55,13 +56,27 @@ describe("login modal layout contract", () => {
   it("explains that OTP login creates an account without a separate application", () => {
     expect(modal).toContain('t("auth.modal.otpRegistration")');
     expect(modal).toContain("phoneOtpEntryVisible()");
-    expect(modal).toMatch(/otpEntryVisible\s*\?\s*\([\s\S]*?loginApplyRow/);
+    expect(modal).toMatch(
+      /otpEntryVisible(?:\s*&&\s*!needsSetup)?\s*\?\s*\([\s\S]*?loginApplyRow/,
+    );
     expect(modal).not.toContain("businessWechatQrUrl");
     expect(modal).not.toContain('role="tooltip"');
   });
 
   it("removes the media panel on narrow mobile screens", () => {
     expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.loginMedia\s*\{\s*display: none;/);
+  });
+
+  it("keeps the setup submit button reachable without the marketing header", () => {
+    expect(modal).toContain("useSetupStatus");
+    expect(modal).toContain('data-setup={needsSetup ? "true" : undefined}');
+    expect(modal).toMatch(/needsSetup \? null : \([\s\S]*?loginPanelHeader/);
+    expect(modal).toContain("otpEntryVisible && !needsSetup");
+    expect(setup).toContain("styles.formActions");
+    expect(css).toMatch(/\.formActions\s*\{[\s\S]*?position:\s*sticky;[\s\S]*?bottom:\s*0/);
+    expect(css).toMatch(
+      /\.loginDialog\[data-setup="true"\] \.loginPanel\s*\{[\s\S]*?padding-top:\s*56px/,
+    );
   });
 
   it("reserves a stable GitHub star value slot before the API responds", () => {

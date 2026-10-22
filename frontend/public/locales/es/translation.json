@@ -6585,6 +6585,8 @@
       "renderCase": "Renderizar con este caso",
       "renderStyle": "Renderizar con este estilo",
       "playVideo": "Reproducir el original",
+      "previewBadge": "Vista previa animada",
+      "previewAlt": "Vista previa animada de {{label}}",
       "videoUnavailable": "Los originales no se incluyen; configura el espejo de assets para reproducirlos",
       "methodWhere": "Dónde aterriza en este sistema: ",
       "contractTitle": "Contrato de render",

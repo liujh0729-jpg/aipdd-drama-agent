@@ -90,6 +90,8 @@ async def freezone_motion_cases(
         {
             **case,
             "poster_ready": motion_media.has_poster(case["id"]),
+            "preview_ready": motion_media.has_preview(case["id"]),
+            "preview_version": motion_media.preview_cache_token(case["id"]),
             "video_ready": motion_media.video_ready(case["id"]),
         }
         for case in manifest["cases"]

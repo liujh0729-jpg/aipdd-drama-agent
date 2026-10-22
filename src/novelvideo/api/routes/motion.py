@@ -18,6 +18,34 @@ router = APIRouter()
 
 _POSTER_CACHE_CONTROL = "public, max-age=300"
 _VIDEO_CACHE_CONTROL = "public, max-age=86400"
+_PREVIEW_CACHE_CONTROL = "public, max-age=86400"
+
+
+def _stream_video(path, request: Request, cache_control: str):
+    """视频统一出口：整段 200 / 单段 Range 206，预览片与原片共用。"""
+    size = path.stat().st_size
+    media_type = motion_media.media_type_for(path.name)
+    range_header = request.headers.get("range", "")
+    if not range_header:
+        return StreamingResponse(
+            motion_media.open_chunk(path, 0, size),
+            media_type=media_type,
+            headers=motion_media.video_headers(size, cache_control),
+        )
+
+    span = motion_media.parse_range(range_header, size)
+    if span is None:
+        return Response(
+            status_code=416,
+            headers={"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes"},
+        )
+    start, end = span
+    return StreamingResponse(
+        motion_media.open_chunk(path, start, end - start + 1),
+        status_code=206,
+        media_type=media_type,
+        headers=motion_media.video_partial_headers(start, end, size, cache_control),
+    )
 
 
 @router.get("/motion-gallery/{case_id}/{filename}", include_in_schema=False)
@@ -37,30 +65,14 @@ async def get_motion_gallery_asset(case_id: str, filename: str, request: Request
             headers={"Cache-Control": _POSTER_CACHE_CONTROL},
         )
 
+    if filename == motion_media.PREVIEW_BASENAME:
+        preview = motion_media.preview_path(case_id)
+        if preview is None or not preview.is_file():
+            raise HTTPException(status_code=404, detail="Preview not found")
+        return _stream_video(preview, request, _PREVIEW_CACHE_CONTROL)
+
     path = await motion_media.resolve_video(case_id, filename)
     if path is None:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    size = path.stat().st_size
-    media_type = motion_media.media_type_for(filename)
-    range_header = request.headers.get("range", "")
-    if not range_header:
-        return StreamingResponse(
-            motion_media.open_chunk(path, 0, size),
-            media_type=media_type,
-            headers=motion_media.video_headers(size, _VIDEO_CACHE_CONTROL),
-        )
-
-    span = motion_media.parse_range(range_header, size)
-    if span is None:
-        return Response(
-            status_code=416,
-            headers={"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes"},
-        )
-    start, end = span
-    return StreamingResponse(
-        motion_media.open_chunk(path, start, end - start + 1),
-        status_code=206,
-        media_type=media_type,
-        headers=motion_media.video_partial_headers(start, end, size, _VIDEO_CACHE_CONTROL),
-    )
+    return _stream_video(path, request, _VIDEO_CACHE_CONTROL)

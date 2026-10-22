@@ -12,11 +12,21 @@ pub enum DesktopError {
     MissingBinary(String),
 
     /// 依赖服务在超时窗口内未就绪。
-    #[error("服务 {service}（端口 {port}）在 {secs}s 内未就绪。")]
+    #[error("服务 {service}（端口 {port}）在 {secs}s 内未就绪。{detail}")]
     StartupTimeout {
         service: String,
         port: u16,
         secs: u64,
+        detail: String,
+    },
+
+    /// 子进程在端口就绪前退出（端口冲突 / 配置错误 / 安全软件拦截）。
+    /// 必须立刻报错：等满超时只会让用户对着空进度条卡几分钟。
+    #[error("服务 {service} 启动后立即退出（{code}）。{detail}")]
+    ServiceExited {
+        service: String,
+        code: String,
+        detail: String,
     },
 
     /// 权限不足：无法在 app-data 写文件，或无法执行某二进制。
@@ -42,6 +52,7 @@ impl DesktopError {
             DesktopError::PortOccupied(_) => "port-occupied",
             DesktopError::MissingBinary(_) => "missing-binary",
             DesktopError::StartupTimeout { .. } => "startup-timeout",
+            DesktopError::ServiceExited { .. } => "service-exited",
             DesktopError::Permission(_) => "permission",
             DesktopError::Download(_) => "download",
             DesktopError::Io(_) => "io",

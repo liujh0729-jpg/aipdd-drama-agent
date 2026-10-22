@@ -6587,6 +6587,8 @@
       "renderCase": "按这条案例渲染",
       "renderStyle": "按这条画风渲染",
       "playVideo": "播放原片",
+      "previewBadge": "动效预览",
+      "previewAlt": "{{label}} 的动效预览",
       "videoUnavailable": "原片不随包发布，配好素材镜像后才能播放",
       "methodWhere": "在本系统里落在：",
       "contractTitle": "本系统渲染契约",

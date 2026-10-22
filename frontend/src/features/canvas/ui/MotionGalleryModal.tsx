@@ -14,6 +14,7 @@ import {
   type FreezoneMotionStyle,
 } from '@/api/ops';
 import {
+  motionPreviewUrl,
   motionVideoUrl,
   resolveMotionAssetUrl,
 } from '@/features/canvas/hooks/useFreezoneMotionCases';
@@ -90,6 +91,113 @@ function PosterImage({
       onError={() => setFailed(true)}
       className={className}
     />
+  );
+}
+
+/**
+ * 随包小样片：卡片悬停、详情首屏与工具面板共用。只在 active 时播，暂停后回到
+ * 首帧；片源加载出第一帧前保持透明，底下那张海报继续兜底，避免黑屏一闪。
+ */
+function MotionPreviewVideo({
+  item,
+  active,
+  className = '',
+  label,
+}: {
+  item: FreezoneMotionCase;
+  active: boolean;
+  className?: string;
+  label?: string;
+}) {
+  const source = motionPreviewUrl(item);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(false);
+  }, [source]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (active) {
+      const played = video.play();
+      if (played && typeof played.catch === 'function') {
+        played.catch(() => undefined);
+      }
+      return;
+    }
+    video.pause();
+    try {
+      video.currentTime = 0;
+    } catch {
+      // 元数据还没到；下次播放自然会从片头开始。
+    }
+  }, [active, source]);
+
+  if (!source || failed) return null;
+  const visible = active && ready;
+  return (
+    <video
+      ref={videoRef}
+      data-motion-preview="1"
+      src={source}
+      muted
+      loop
+      playsInline
+      preload="none"
+      aria-hidden={label ? undefined : true}
+      aria-label={label}
+      onPlaying={() => setReady(true)}
+      onError={() => setFailed(true)}
+      className={`${className} transition-opacity duration-300 ${
+        visible ? 'opacity-100' : 'opacity-0'
+      }`}
+    />
+  );
+}
+
+/** 案例卡片/详情的主画面：海报打底，样片加载好后覆盖上去。 */
+function MotionCaseMedia({
+  item,
+  assetBase,
+  alt,
+  active,
+  badgeLabel,
+  className = '',
+}: {
+  item: FreezoneMotionCase;
+  assetBase: string;
+  alt: string;
+  active: boolean;
+  badgeLabel: string;
+  className?: string;
+}) {
+  return (
+    <div className={`relative block overflow-hidden bg-black/45 ${className}`}>
+      <MotionPoster
+        alt={alt}
+        assetBase={assetBase}
+        className="absolute inset-0 h-full w-full object-contain"
+        item={item}
+      />
+      <MotionPreviewVideo
+        item={item}
+        active={active}
+        className="absolute inset-0 h-full w-full object-contain"
+      />
+      {item.previewReady ? (
+        <span
+          className={`pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-[6px] bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white/88 transition-opacity duration-200 ${
+            active ? 'opacity-0' : 'opacity-100'
+          }`}
+        >
+          <Play className="size-2.5 fill-current" />
+          {badgeLabel}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -179,6 +287,7 @@ export function MotionGalleryModal({
   const [category, setCategory] = useState<string>(ALL_CATEGORIES);
   const [detail, setDetail] = useState<DetailRef | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [hoveredCaseId, setHoveredCaseId] = useState<string | null>(null);
   const [playing, setPlaying] = useState<{ case: FreezoneMotionCase; url: string } | null>(
     null,
   );
@@ -361,18 +470,31 @@ export function MotionGalleryModal({
   const renderCard = (item: FreezoneMotionCase) => (
     <div
       key={item.id}
+      onMouseEnter={() => setHoveredCaseId(item.id)}
+      onMouseLeave={() =>
+        setHoveredCaseId((current) => (current === item.id ? null : current))
+      }
+      onFocus={() => setHoveredCaseId(item.id)}
+      onBlur={() =>
+        setHoveredCaseId((current) => (current === item.id ? null : current))
+      }
       className="group relative overflow-hidden rounded-[var(--ui-radius-lg)] border border-[rgb(var(--text-rgb)/0.10)] bg-[rgb(var(--text-rgb)/0.04)] shadow-[var(--ui-shadow-panel)] transition-[border-color,box-shadow] duration-300 ease-out hover:border-[rgb(var(--accent-rgb)/0.40)] hover:shadow-[var(--ui-shadow-panel),var(--ui-glow-accent)] focus-within:border-[rgb(var(--accent-rgb)/0.40)]"
     >
       <button
         type="button"
-        onClick={() => setDetail({ id: item.id, kind: 'case' })}
+        onClick={() => {
+          setHoveredCaseId(null);
+          setDetail({ id: item.id, kind: 'case' });
+        }}
         aria-label={t('canvas.motionGallery.detailAria', { label: item.label })}
         className="block w-full cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgb(var(--accent-rgb))]"
       >
-        <MotionPoster
+        <MotionCaseMedia
+          active={hoveredCaseId === item.id}
           alt={t('canvas.motionGallery.posterAlt', { label: item.label })}
           assetBase={assetBase}
-          className="aspect-video w-full bg-black/45 object-contain"
+          badgeLabel={t('canvas.motionGallery.previewBadge')}
+          className="aspect-video w-full"
           item={item}
         />
       </button>
@@ -518,14 +640,29 @@ export function MotionGalleryModal({
         {entry ? (
           <div className="flex min-h-0 gap-4 overflow-hidden p-4">
             <div className="flex min-h-0 flex-1 flex-col gap-3">
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[var(--ui-radius-lg)] border border-[rgb(var(--text-rgb)/0.08)] bg-black/55">
+              <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[var(--ui-radius-lg)] border border-[rgb(var(--text-rgb)/0.08)] bg-black/55">
                 {detailCase ? (
-                  <MotionPoster
-                    alt={t('canvas.motionGallery.posterAlt', { label: detailCase.label })}
-                    assetBase={assetBase}
-                    className="max-h-full w-full object-contain"
-                    item={detailCase}
-                  />
+                  <>
+                    <MotionPoster
+                      alt={t('canvas.motionGallery.posterAlt', { label: detailCase.label })}
+                      assetBase={assetBase}
+                      className="max-h-full w-full object-contain"
+                      item={detailCase}
+                    />
+                    <MotionPreviewVideo
+                      active
+                      className="absolute inset-0 h-full w-full object-contain"
+                      item={detailCase}
+                      label={t('canvas.motionGallery.previewAlt', {
+                        label: detailCase.label,
+                      })}
+                    />
+                    {detailCase.previewReady ? (
+                      <span className="pointer-events-none absolute left-3 top-3 rounded-[6px] bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white/88">
+                        {t('canvas.motionGallery.previewBadge')}
+                      </span>
+                    ) : null}
+                  </>
                 ) : (
                   <MotionStyleSwatch
                     alt={t('canvas.motionGallery.paletteAlt', { label: detailStyle?.label ?? '' })}
