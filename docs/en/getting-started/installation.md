@@ -5,7 +5,7 @@
 
 > Set up the runtime environment for DramaClaw CE on macOS / Windows / Linux. If you just want the fastest path to running it, go straight to [Quickstart](quickstart.md); this guide covers per-platform prerequisites and the two installation methods (Docker and local development).
 
-DramaClaw CE is a single-machine service that needs **no PostgreSQL / Redis**. Docker brings up `api` + `newapi` (LocalNewAPI) + `web`; models are served through the DramaClaw official gateway by default, or through LocalNewAPI once you switch to Custom mode in Settings. Nothing runs models on your machine, so an ordinary machine is enough.
+DramaClaw CE is a single-machine service that needs **no PostgreSQL / Redis**. Docker brings up `api` + `newapi` (LocalAPI) + `web`; models are served through the DramaClaw official gateway by default, or through LocalAPI once you switch to Custom mode in Settings. Nothing runs models on your machine, so an ordinary machine is enough.
 
 ## Pick one of two installation methods
 
@@ -75,9 +75,9 @@ CE defaults to `ST_EDITION=ce`, no-login single local user, and in-process inlin
 curl http://localhost:8780/api/v1/config   # a 200 response means it's working
 ```
 
-### 4. Gateway (only for Custom / LocalNewAPI + Official Hybrid mode)
+### 4. Gateway (only for Custom / LocalAPI + Official Hybrid mode)
 
-Official mode needs nothing else. For the other two modes the API expects a gateway on `127.0.0.1:3000` (the `NEWAPI_ADMIN_BASE_URL` default in `.env`) whose SQLite file is `./state/newapi/one-api.db`, which is what **Initialize** in Settings writes to. Build and run the vendored gateway from source with that directory mounted:
+Official mode needs nothing else. For the other two modes the API expects a gateway on `127.0.0.1:3000` (the `LOCALAPI_ADMIN_BASE_URL` default in `.env`) whose SQLite file is `./state/newapi/one-api.db`, which is what **Initialize** in Settings writes to. Build and run the vendored gateway from source with that directory mounted:
 
 ```bash
 mkdir -p state/newapi

@@ -18,9 +18,9 @@
 
 | 现象 | 排查 |
 |---|---|
-| **模型调用全报错** | 在「设置 → 模型与渠道」确认当前渠道已配置；官方渠道检查 DC key，LocalNewAPI 检查服务、runtime token 和上游渠道。 |
-| **某个环节报"模型不存在"** | LocalNewAPI 中没有对应逻辑模型映射，或目标渠道未启用。详见[配置模型供应商](../getting-started/configuring-models.md)。 |
-| **结构化环节报 `Exceeded maximum output retries`**（角色抽取、剧本规划等），纯文本环节正常 | 上游没有返回 function/tool call。任务日志（v2.0.3 起）会打出重试提示和底层原因。自己做 Chat Completions 格式转换的中转站（Codex2API 及类似的 Codex 反代）已知会在 `/v1/chat/completions` 上丢掉 `tool_calls`：到 LocalNewAPI 后台给该渠道开启 **ChatCompletions → Responses Compatibility**（`chat_completions_to_responses_policy`），让 LocalNewAPI 用 `/v1/responses` 发往上游。见 #490。 |
+| **模型调用全报错** | 在「设置 → 模型与渠道」确认当前渠道已配置；官方渠道检查 DC key，LocalAPI 检查服务、runtime token 和上游渠道。 |
+| **某个环节报"模型不存在"** | LocalAPI 中没有对应逻辑模型映射，或目标渠道未启用。详见[配置模型供应商](../getting-started/configuring-models.md)。 |
+| **结构化环节报 `Exceeded maximum output retries`**（角色抽取、剧本规划等），纯文本环节正常 | 上游没有返回 function/tool call。任务日志（v2.0.3 起）会打出重试提示和底层原因。自己做 Chat Completions 格式转换的中转站（Codex2API 及类似的 Codex 反代）已知会在 `/v1/chat/completions` 上丢掉 `tool_calls`：到 LocalAPI 后台给该渠道开启 **ChatCompletions → Responses Compatibility**（`chat_completions_to_responses_policy`），让 LocalAPI 用 `/v1/responses` 发往上游。见 #490。 |
 | **文本模型超时** | 调大 `NEWAPI_TEXT_TIMEOUT_SECONDS`(默认 120);内网网关被系统代理拦截时设 `NEWAPI_TEXT_TRUST_ENV=false`。 |
 | **参考图功能不可用** | 需配 `OSS_RELAY_AK/SK`;纯文本→成片流程可不配。 |
 

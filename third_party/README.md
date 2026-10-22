@@ -14,7 +14,7 @@ application's ELv2 terms to anything in this folder.
 
 | Component | Upstream | Pinned commit | License | Notes |
 |---|---|---|---|---|
-| `dramaclaw-gateway/` | https://github.com/dramaclaw/dramaclaw-gateway | `main` @ `6f990d84` | **AGPL-3.0-only** | OpenAI-compatible inference gateway (LocalNewAPI), a fork of [QuantumNous/new-api](https://github.com/QuantumNous/new-api). Built as its **own Docker service** — never imported by the app. Carries `LICENSE` + `NOTICE`. |
+| `dramaclaw-gateway/` | https://github.com/dramaclaw/dramaclaw-gateway | `main` @ `6f990d84` | **AGPL-3.0-only** | OpenAI-compatible inference gateway (LocalAPI), a fork of [QuantumNous/new-api](https://github.com/QuantumNous/new-api). Built as its **own Docker service** — never imported by the app. Carries `LICENSE` + `NOTICE`. |
 | `ml-sharp/` | https://github.com/apple/ml-sharp | `1eaa0468` | **LicenseRef-Apple-Sample-Code** | SHARP depth/3D code (the optional `world` extra). |
 | `ml-sharp/LICENSE_MODEL` | (same) | — | **LicenseRef-Apple-ML-Research-Model** | ⚠️ The released **model weights** are research / non-commercial only. No weights are vendored here (they are fetched separately at runtime); review that license before commercial use. |
 | `DA-2/` | https://github.com/EnVision-Research/DA-2 | `d6598385` | **Apache-2.0** | DA-2 depth model (the optional `world` extra). |

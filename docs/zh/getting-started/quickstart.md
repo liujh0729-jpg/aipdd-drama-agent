@@ -5,12 +5,12 @@
 
 > 本地跑起 AIPDD-Agent-Claw,产出第一个结果。
 
-AIPDD-Agent-Claw 是社区版(CE),单机运行、无需 PostgreSQL / Redis。默认 `docker compose` 起三个服务:`api`(创作后端,:8780)、`newapi`(LocalNewAPI,切到自定义/LocalNewAPI + 官方混合模式前闲置)、`web`(浏览器界面,:8080);模型默认走 **AIPDD 官方网关**,填一个 DC key 即用。
+AIPDD-Agent-Claw 是社区版(CE),单机运行、无需 PostgreSQL / Redis。默认 `docker compose` 起三个服务:`api`(创作后端,:8780)、`newapi`(LocalAPI,切到自定义/LocalAPI + 官方混合模式前闲置)、`web`(浏览器界面,:8080);模型默认走 **AIPDD 官方网关**,填一个 DC key 即用。
 
 ## 前置
 
 - Docker(Desktop 或 Engine),支持 `docker compose`。
-- 一个 **DC key** —— 到 <https://susciyuan.com> 注册 / 购买；也可以改用 CE 随附的 LocalNewAPI。
+- 一个 **DC key** —— 到 <https://susciyuan.com> 注册 / 购买；也可以改用 CE 随附的 LocalAPI。
 
 ## 步骤
 
@@ -41,7 +41,7 @@ docker compose ps   # api, newapi, web 应该都在运行
 
 ## 想使用自己的模型渠道？
 
-LocalNewAPI 随 `docker compose up -d` 一起启动。在「设置 → 模型与渠道 → 自定义」中初始化并填写上游 key、保存模型映射。地址和 runtime token 会写入本机 `settings.db`，不写入 `.env`。详见[配置模型供应商](configuring-models.md)。
+LocalAPI 随 `docker compose up -d` 一起启动。在「设置 → 模型与渠道 → 自定义」中初始化并填写上游 key、保存模型映射。地址和 runtime token 会写入本机 `settings.db`，不写入 `.env`。详见[配置模型供应商](configuring-models.md)。
 
 ## 下一步
 

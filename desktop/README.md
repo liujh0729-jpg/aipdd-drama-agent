@@ -121,7 +121,7 @@ Tauri 计算并注入两类目录，再派生后端既有的 env：
 | `ST_EDITION` | `ce` | 后端（CE inline 任务，无 Redis/Celery） |
 | `ST_CE_MULTI_USER` / `ST_COOKIE_SECURE` | `true` / `false` | 本地 http 登录制 |
 | `ST_REDIS_URL` / `ST_CELERY_*` | 空 | 单进程内联 |
-| `NEWAPI_BASE_URL` | `http://127.0.0.1:3000` | 后端→网关 |
+| `LOCALAPI_BASE_URL` | `http://127.0.0.1:3000` | 后端→网关 |
 | `PYTHONPATH` | `…/app/src` | FastAPI 导入 novelvideo |
 | `PORT` / `SQL_DSN` | `3000` / 空(内置 SQLite) | 网关 |
 | `VECTCUT_PORT` | `9001` | VectCut |

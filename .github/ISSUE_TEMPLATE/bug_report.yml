@@ -46,7 +46,7 @@ body:
       label: "部署方式 / Deployment"
       options:
         - "Docker Compose（官方 DC key / official DC key）"
-        - "Docker Compose（LocalNewAPI / self-hosted gateway）"
+        - "Docker Compose（LocalAPI / self-hosted gateway）"
         - "本地源码 / Local from source"
         - "其他 / Other"
     validations:

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Elastic-2.0
 // Copyright (c) 2026 ClaymoreLab
 // [aipdd fork delta] 官方网关的注册入口不能写死域名：站点地址只能从后端下发的
-// model-gateway/config（official.baseUrl，取数据库 / NEWAPI_BASE_URL）派生。
+// model-gateway/config（official.baseUrl，取数据库 / LOCALAPI_BASE_URL）派生。
 // 这里既钉住派生规则，也扫一遍生产源码，防止有人把域名重新硬编码回去。
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";

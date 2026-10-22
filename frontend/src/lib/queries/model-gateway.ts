@@ -272,7 +272,7 @@ export interface NewApiDatabaseConfigInput {
 }
 
 export interface InitCustomNewApiInput {
-  /** 可选；不传则后端用 NEWAPI_BASE_URL 环境变量。 */
+  /** 可选；不传则后端用 LOCALAPI_BASE_URL 环境变量。 */
   newApiBaseUrl?: string;
   database?: NewApiDatabaseConfigInput;
   setupUsername?: string;

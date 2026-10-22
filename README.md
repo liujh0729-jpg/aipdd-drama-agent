@@ -297,7 +297,7 @@ The edge isn't "more generation" — it's organizing the whole short-drama produ
 
 ## System Requirements
 
-AIPDD-Agent-Claw runs all inference through an **OpenAI-compatible gateway** — LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) routing to providers you configure. Nothing runs models on your machine, so the local footprint is light. An ordinary laptop or a small VPS is enough.
+AIPDD-Agent-Claw runs all inference through an **OpenAI-compatible gateway** — LocalAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) routing to providers you configure. Nothing runs models on your machine, so the local footprint is light. An ordinary laptop or a small VPS is enough.
 
 | Item | Requirement |
 |---|---|
@@ -306,9 +306,9 @@ AIPDD-Agent-Claw runs all inference through an **OpenAI-compatible gateway** —
 | **Disk** | A few GB for images plus generated media/state under the `ce-data` volume (no hard minimum) |
 | **OS** | macOS (Apple Silicon / Intel), Windows (Docker Desktop + WSL2 backend), Linux (Docker Engine + compose plugin) |
 | **Docker** | Docker + `docker compose` |
-| **Ports** | `8080` web UI · `8780` REST API · `3000` LocalNewAPI admin UI (host-only by default, can be widened) |
+| **Ports** | `8080` web UI · `8780` REST API · `3000` LocalAPI admin UI (host-only by default, can be widened) |
 | **Datastores** | None required — no Postgres, Redis, Celery or Ray. Tasks run in-process; state lives on the local filesystem (SQLite + files) |
-| **Network** | Outbound access to the official gateway `susciyuan.com`, and/or to the model providers you configure in LocalNewAPI |
+| **Network** | Outbound access to the official gateway `susciyuan.com`, and/or to the model providers you configure in LocalAPI |
 
 > **Build-time needs more than run-time.** The first Docker build compiles the frontend and installs Python/media deps inside the container; give the Docker VM **≥ 8 GB memory** (below that the `vite` build gets OOM-killed with a `SIGKILL`) and **≥ 40 GB disk**. The one-click installers size this for you automatically.
 >
@@ -346,20 +346,20 @@ cd aipdd-drama-agent
 cp .env.example .env
 # Edit .env — set PROMPT_EXPORT_PASSWORD to a non-default value.
 
-docker compose up -d --build   # builds and starts three services: api / newapi (LocalNewAPI) / web
+docker compose up -d --build   # builds and starts three services: api / newapi (LocalAPI) / web
 ```
 
 Only this repo's code changed? `docker compose up -d --build api web`. Only the vendored gateway? `docker compose up -d --build newapi`. Want to build the gateway from your own checkout instead of the vendored copy? Set `DRAMACLAW_GATEWAY_SRC` in `.env` to that path.
 
 Open the app at <http://localhost:8080>; the REST API is at <http://localhost:8780>. In **Settings → Models & Channels** pick one of:
 
-- **Official** — paste your DC key (get one at <https://susciyuan.com>); no model mapping needed. LocalNewAPI stays idle.
-- **Custom** — one click initializes LocalNewAPI; then add your own upstream channels.
-- **LocalNewAPI + Official Hybrid** — official for the main pipeline, LocalNewAPI for extra channels.
+- **Official** — paste your DC key (get one at <https://susciyuan.com>); no model mapping needed. LocalAPI stays idle.
+- **Custom** — one click initializes LocalAPI; then add your own upstream channels.
+- **LocalAPI + Official Hybrid** — official for the main pipeline, LocalAPI for extra channels.
 
 Full steps in the [Quick Start](docs/en/getting-started/quickstart.md).
 
-> LocalNewAPI's port binds only to `127.0.0.1` by default; set `ST_NEWAPI_BIND=0.0.0.0` in `.env` if you need remote access to it.
+> LocalAPI's port binds only to `127.0.0.1` by default; set `ST_NEWAPI_BIND=0.0.0.0` in `.env` if you need remote access to it.
 
 ### Cloud host / VPS (Linux) — shared or public deployment
 
@@ -377,7 +377,7 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **Ports.** `8080` web UI · `8780` REST API · `3000` LocalNewAPI admin (bound to `127.0.0.1` by default). Put a **reverse proxy with TLS** (Caddy / Nginx / Traefik) in front of `8080` and keep `8780` / `3000` internal; open only `80` / `443` in the firewall / security group.
+- **Ports.** `8080` web UI · `8780` REST API · `3000` LocalAPI admin (bound to `127.0.0.1` by default). Put a **reverse proxy with TLS** (Caddy / Nginx / Traefik) in front of `8080` and keep `8780` / `3000` internal; open only `80` / `443` in the firewall / security group.
 - **First build needs room** — give the host ≥ 8 GB RAM and ≥ 40 GB disk, or the frontend build gets OOM-killed.
 - **Sign in.** If you set `ST_LOCAL_PASSWORD` in `.env`, use account `local` with that password. Leave it empty and the first page you see is an **initialization form** — set your own username and initial password there (no password to dig out of the logs).
 - **Multi-user?** CE is single-owner by design: until `ST_CE_MULTI_USER` is on, every request is trusted as the local owner **without login** — keep `8780` behind the reverse proxy or bind it to `127.0.0.1` (`--host` / `NOVELVIDEO_API_HOST`); startup logs a warning when the bind is not verifiably loopback-only. To serve several users, enable `ST_CE_MULTI_USER` and put real auth + HTTPS in front. Full production notes: [Self-hosting guide](docs/en/guides/self-hosting.md).
@@ -396,7 +396,7 @@ uv run novelvideo api --port 8780   # start the REST API (CE defaults to inline 
 
 Frontend in a second terminal: `cd frontend && pnpm install && pnpm dev`.
 
-**Gateway.** In **Official** mode you need nothing else. For **Custom** or **LocalNewAPI + Official Hybrid** the API expects a gateway on `127.0.0.1:3000` whose SQLite file is `./state/newapi/one-api.db` (that is what "Initialize" in Settings writes to; `NEWAPI_ADMIN_BASE_URL` in `.env` already points there). Build and run the vendored gateway from source with that directory mounted:
+**Gateway.** In **Official** mode you need nothing else. For **Custom** or **LocalAPI + Official Hybrid** the API expects a gateway on `127.0.0.1:3000` whose SQLite file is `./state/newapi/one-api.db` (that is what "Initialize" in Settings writes to; `LOCALAPI_ADMIN_BASE_URL` in `.env` already points there). Build and run the vendored gateway from source with that directory mounted:
 
 ```bash
 mkdir -p state/newapi
@@ -419,9 +419,9 @@ Whichever install path you chose, the app comes up the same way:
    - If you set `ST_LOCAL_PASSWORD` in `.env`, sign in as account `local` with that password.
    - Otherwise the database has no account yet, so page one is the **initialization form**: set your username and initial password there. That first account becomes the super admin, the form closes for good afterwards, and more users are added under **Settings → Users**.
 3. **Connect your models** — go to **Settings → Models & Channels** and pick one mode (details in [Supported Models & Providers](#supported-models)):
-   - **Official** — paste a DC key from <https://susciyuan.com>; every model is already mapped, LocalNewAPI stays idle.
-   - **Custom** — one click initializes LocalNewAPI, then add your own provider channels (API keys + model IDs) in its admin UI.
-   - **LocalNewAPI + Official Hybrid** — official models for the main pipeline, your extra channels alongside.
+   - **Official** — paste a DC key from <https://susciyuan.com>; every model is already mapped, LocalAPI stays idle.
+   - **Custom** — one click initializes LocalAPI, then add your own provider channels (API keys + model IDs) in its admin UI.
+   - **LocalAPI + Official Hybrid** — official models for the main pipeline, your extra channels alongside.
 4. **Start creating** — two ways into the same asset library:
    - **Series pipeline**: ingest a manuscript or screenplay (Fountain supported), then let AIPDD-Agent-Claw plan episodes, write scripts, draw storyboards and first frames, synthesize voice-over and cut the final film. Each stage is an independent task in the **Task Center** — run sequentially, skip, or resume from any checkpoint.
    - **Canvas**: open the infinite canvas and drop / connect nodes (image, video, audio, script, 3D set…) to explore freely, then promote the results you like back into a series.
@@ -435,8 +435,8 @@ Stay current: re-double-click the **Start** launcher to restart; check the runni
 AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models connect through an **OpenAI-compatible gateway**, so the same pipeline can ride **AIPDD's low-cost idle compute**, the official hosted models, **any NewAPI channel you wire in**, or **your own GPU via ComfyUI local compute**. Pick the mode in **Settings → Models & Channels**:
 
 - **Official (recommended)** — paste your DC key (get one at NewAPI), save, done. The official gateway already ships every model mapping DramaClaw needs; nothing to configure.
-- **Custom** — one click initializes LocalNewAPI, then add your own provider channels (API keys, model IDs) in its admin UI. Every model DramaClaw calls goes through your channels.
-- **LocalNewAPI + Official Hybrid** — keep the official models for the main pipeline and add extra channels (for example a local ComfyUI video workflow) through LocalNewAPI.
+- **Custom** — one click initializes LocalAPI, then add your own provider channels (API keys, model IDs) in its admin UI. Every model DramaClaw calls goes through your channels.
+- **LocalAPI + Official Hybrid** — keep the official models for the main pipeline and add extra channels (for example a local ComfyUI video workflow) through LocalAPI.
 
 > 🧠 **Bring your own compute — lower cost, stay in control.** The gateway is built so *you* choose where each generation runs:
 > - **AIPDD idle compute (cut costs).** Connecting the **AIPDD** channel lets generation ride the platform's **idle compute pool**, so heavy batch drama work runs at a fraction of on-demand pricing — the single biggest lever on production cost. Register at <https://www.aipdd.work> to get an AIPDD API key, then add it as a channel in **Settings → Models & Channels**.
@@ -448,13 +448,13 @@ AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models
 
 Full walkthrough in [Configuring Models](docs/en/getting-started/configuring-models.md).
 
-### LocalNewAPI: dramaclaw-gateway
+### LocalAPI: dramaclaw-gateway
 
-The `newapi` service in `docker-compose.yml` is [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), AIPDD-Agent-Claw's own fork of [New API](https://github.com/QuantumNous/new-api). It speaks the **DC-Media** contract AIPDD-Agent-Claw uses for image / video / audio (media roles, references, first / last frames) and converts each request into the provider's native API. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) on Docker Hub, pinned by `DRAMACLAW_GATEWAY_VERSION` in `.env`. It stays idle in Official mode and is only used once you switch to **Custom** or **LocalNewAPI + Official Hybrid**.
+The `newapi` service in `docker-compose.yml` is [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), AIPDD-Agent-Claw's own fork of [New API](https://github.com/QuantumNous/new-api). It speaks the **DC-Media** contract AIPDD-Agent-Claw uses for image / video / audio (media roles, references, first / last frames) and converts each request into the provider's native API. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) on Docker Hub, pinned by `DRAMACLAW_GATEWAY_VERSION` in `.env`. It stays idle in Official mode and is only used once you switch to **Custom** or **LocalAPI + Official Hybrid**.
 
 Provider adapters shipped in the gateway today (see the [channel support matrix](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md) for verification status): ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Want another provider? The gateway has a [scaffold generator and contribution guide](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
 
-| Stage                | Official mode                          | Custom / Hybrid mode (LocalNewAPI)                    |
+| Stage                | Official mode                          | Custom / Hybrid mode (LocalAPI)                    |
 |----------------------|----------------------------------------------------|-----------------------------------------------------------|
 | **Text / LLM**       | `DC-*-LLM` models, no mapping needed               | any OpenAI-compatible chat channel                        |
 | **Image**            | gpt-image · nano-banana                            | any image channel registered in the gateway              |

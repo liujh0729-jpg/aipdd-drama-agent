@@ -22,7 +22,7 @@
 In CE, the selected channel, gateway address, and token are written by
 **Settings → Models & Channels** to the local `settings.db`; they are not
 configured through environment variables. The official channel has a fixed
-address, while the local channel uses the bundled LocalNewAPI.
+address, while the local channel uses the bundled LocalAPI.
 
 | Variable | Default | Description |
 |---|---|---|

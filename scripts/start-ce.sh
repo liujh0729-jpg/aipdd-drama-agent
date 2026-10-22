@@ -49,7 +49,7 @@ if [ ! -f ".env" ]; then
   if [ -f ".env.example" ]; then
     cp .env.example .env
     echo "Created .env from .env.example."
-    echo "Edit .env and set NEWAPI_BASE_URL / NEWAPI_API_KEY for generation features."
+    echo "Edit .env and set LOCALAPI_BASE_URL / LOCALAPI_API_KEY for generation features."
   else
     echo ".env.example is missing; continuing with shell environment only." >&2
   fi
@@ -74,8 +74,8 @@ export NOVELVIDEO_API_URL="http://127.0.0.1:${api_port}"
 export DRAMACLAW_API_URL="$NOVELVIDEO_API_URL"
 export SUPERTALE_API_URL="$NOVELVIDEO_API_URL"
 
-if [ "${NEWAPI_API_KEY:-}" = "your_newapi_token" ] || [ -z "${NEWAPI_API_KEY:-}" ]; then
-  echo "Warning: NEWAPI_API_KEY is not configured. API can start, but AI generation will fail." >&2
+if [ "${LOCALAPI_API_KEY:-}" = "your_newapi_token" ] || [ -z "${LOCALAPI_API_KEY:-}" ]; then
+  echo "Warning: LOCALAPI_API_KEY is not configured. API can start, but AI generation will fail." >&2
 fi
 
 if ! command -v ffmpeg >/dev/null 2>&1; then

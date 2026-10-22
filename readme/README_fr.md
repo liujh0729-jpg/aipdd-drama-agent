@@ -287,7 +287,7 @@ L'avantage n'est pas « générer plus » — c'est d'organiser toute la boucle 
 
 ## Configuration requise
 
-DramaClaw fait tourner toute l'inférence via une **passerelle compatible OpenAI** — soit le service de passerelle officiel DramaClaw, soit LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) qui route vers les fournisseurs que vous configurez. Rien n'exécute de modèles sur votre machine, donc l'empreinte locale est légère. Un ordinateur portable ordinaire ou un petit VPS suffit.
+DramaClaw fait tourner toute l'inférence via une **passerelle compatible OpenAI** — soit le service de passerelle officiel DramaClaw, soit LocalAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) qui route vers les fournisseurs que vous configurez. Rien n'exécute de modèles sur votre machine, donc l'empreinte locale est légère. Un ordinateur portable ordinaire ou un petit VPS suffit.
 
 | Élément | Exigence |
 |---|---|
@@ -296,9 +296,9 @@ DramaClaw fait tourner toute l'inférence via une **passerelle compatible OpenAI
 | **Disque** | Quelques Go pour les images plus les médias/état générés sous le volume `ce-data` (pas de minimum dur) |
 | **OS** | macOS (Apple Silicon / Intel), Windows (Docker Desktop + backend WSL2), Linux (Docker Engine + plugin compose) |
 | **Docker** | Docker + `docker compose` |
-| **Ports** | `8080` UI web · `8780` API REST · `3000` UI admin LocalNewAPI (hôte-only par défaut, élargissable) |
+| **Ports** | `8080` UI web · `8780` API REST · `3000` UI admin LocalAPI (hôte-only par défaut, élargissable) |
 | **Bases de données** | Aucune requise — pas de Postgres, Redis, Celery ni Ray. Les tâches tournent en-process ; l'état vit sur le système de fichiers local (SQLite + fichiers) |
-| **Réseau** | Accès sortant vers la passerelle officielle `susciyuan.com`, et/ou vers les fournisseurs de modèles configurés dans LocalNewAPI |
+| **Réseau** | Accès sortant vers la passerelle officielle `susciyuan.com`, et/ou vers les fournisseurs de modèles configurés dans LocalAPI |
 
 > Le développement local (hors Docker) requiert en plus Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg`. Prérequis complets dans le [guide d'auto-hébergement](../docs/en/guides/self-hosting.md).
 
@@ -327,17 +327,17 @@ Aucune commande de terminal. Récupérez le code (clone ou **Télécharger le ZI
 
 Chaque Release GitHub publie des images multi-arch (amd64/arm64) sur Docker Hub.
 
-**Build depuis les sources (par défaut)** — clonez DramaClaw et LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) côte à côte ; `docker compose up -d --build` construit les trois services depuis ces deux checkouts.
+**Build depuis les sources (par défaut)** — clonez DramaClaw et LocalAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) côte à côte ; `docker compose up -d --build` construit les trois services depuis ces deux checkouts.
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalNewAPI, construit depuis ../dramaclaw-gateway
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalAPI, construit depuis ../dramaclaw-gateway
 cd dramaclaw
 
 cp .env.example .env
 # Éditez .env — fixez PROMPT_EXPORT_PASSWORD à une valeur non par défaut.
 
-docker compose up -d --build   # construit et démarre trois services : api / newapi (LocalNewAPI) / web
+docker compose up -d --build   # construit et démarre trois services : api / newapi (LocalAPI) / web
 ```
 
 Les deux checkouts sont de simples repos git : éditez, `git pull`, recompilez. Seul le code DramaClaw a changé ? `docker compose up -d --build api web`. Seule la passerelle ? `docker compose up -d --build newapi`. Passerelle clonée ailleurs, ou vous préférez que Docker la récupère depuis git ? Fixez `DRAMACLAW_GATEWAY_SRC` dans `.env` vers ce chemin ou vers `https://github.com/dramaclaw/dramaclaw-gateway.git#main`.
@@ -350,15 +350,15 @@ docker compose -f docker-compose.release.yml up -d
 
 Ouvrez l'app sur <http://localhost:8080> ; l'API REST est sur <http://localhost:8780>. Dans **Settings → Models & Channels**, choisissez l'un de :
 
-- **Official** — collez votre clé DC (obtenez-en une sur <https://susciyuan.com>) ; aucune correspondance de modèles requise. LocalNewAPI reste inactif.
-- **Custom** — un clic initialise LocalNewAPI ; ajoutez ensuite vos propres canaux amont.
-- **LocalNewAPI + Official Hybrid** — officiel pour le pipeline principal, LocalNewAPI pour des canaux supplémentaires.
+- **Official** — collez votre clé DC (obtenez-en une sur <https://susciyuan.com>) ; aucune correspondance de modèles requise. LocalAPI reste inactif.
+- **Custom** — un clic initialise LocalAPI ; ajoutez ensuite vos propres canaux amont.
+- **LocalAPI + Official Hybrid** — officiel pour le pipeline principal, LocalAPI pour des canaux supplémentaires.
 
 Étapes complètes dans le [Démarrage rapide](../docs/en/getting-started/quickstart.md).
 
 Épinglez les versions ou changez de registre dans `.env` (`DRAMACLAW_VERSION`, `DRAMACLAW_GATEWAY_VERSION`, `DRAMACLAW_IMAGE_PREFIX`) — cela ne s'applique qu'au mode image (`docker-compose.release.yml`). Chine continentale : fixez `DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` et épinglez les deux versions (le miroir ACR ne porte que des tags épinglés).
 
-> Vous migrez depuis un ancien checkout ? Pour le build source, d'abord `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (la passerelle est désormais construite depuis ce checkout voisin ; sans elle le build s'arrête avec `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` ont été supprimés — utilisez `docker-compose.yml` (build source) / `docker-compose.release.yml` (images). Les noms de services et les volumes `ce-data` / `newapi-data` sont inchangés ; les données existantes sont réutilisées telles quelles. Le port de LocalNewAPI ne se lie plus qu'à `127.0.0.1` par défaut ; fixez `ST_NEWAPI_BIND=0.0.0.0` dans `.env` si vous devez y accéder à distance.
+> Vous migrez depuis un ancien checkout ? Pour le build source, d'abord `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (la passerelle est désormais construite depuis ce checkout voisin ; sans elle le build s'arrête avec `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` ont été supprimés — utilisez `docker-compose.yml` (build source) / `docker-compose.release.yml` (images). Les noms de services et les volumes `ce-data` / `newapi-data` sont inchangés ; les données existantes sont réutilisées telles quelles. Le port de LocalAPI ne se lie plus qu'à `127.0.0.1` par défaut ; fixez `ST_NEWAPI_BIND=0.0.0.0` dans `.env` si vous devez y accéder à distance.
 
 ### Hôte cloud / VPS (Linux) — déploiement partagé ou public
 
@@ -376,7 +376,7 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **Ports.** `8080` UI web · `8780` REST API · `3000` admin LocalNewAPI (lié à `127.0.0.1` par défaut). Mettez un **proxy inverse avec TLS** (Caddy / Nginx / Traefik) devant `8080` et gardez `8780` / `3000` internes ; n'ouvrez que `80` / `443` dans le firewall / groupe de sécurité.
+- **Ports.** `8080` UI web · `8780` REST API · `3000` admin LocalAPI (lié à `127.0.0.1` par défaut). Mettez un **proxy inverse avec TLS** (Caddy / Nginx / Traefik) devant `8080` et gardez `8780` / `3000` internes ; n'ouvrez que `80` / `443` dans le firewall / groupe de sécurité.
 - **Le premier build a besoin de place** — donnez à l'hôte ≥ 8 Go de RAM et ≥ 40 Go de disque, sinon le build du frontend sera tué par OOM.
 - **Connectez-vous** comme compte machine unique `local` avec `ST_LOCAL_PASSWORD` (ou le mot de passe à usage unique affiché dans `docker compose -f docker-compose.aipdd.yml logs api` au premier démarrage).
 - **Multi-utilisateur ?** CE est mono-propriétaire par conception. Pour servir plusieurs utilisateurs, activez `ST_CE_MULTI_USER` et mettez une vraie authentification + HTTPS devant. Notes de production complètes : [Guide d'auto-hébergement](../docs/en/guides/self-hosting.md).
@@ -395,7 +395,7 @@ uv run novelvideo api --port 8780   # démarre l'API REST (CE par défaut en tâ
 
 Frontend dans un second terminal : `cd frontend && pnpm install && pnpm dev`.
 
-**Passerelle.** En mode **Official**, vous n'avez besoin de rien d'autre. En mode **Custom** ou **LocalNewAPI + Official Hybrid**, l'API attend une passerelle sur `127.0.0.1:3000` dont le fichier SQLite est `./state/newapi/one-api.db` (c'est là qu'« Initialize » dans les Settings écrit ; `NEWAPI_ADMIN_BASE_URL` dans `.env` y pointe déjà). Démarrez l'image publiée avec ce répertoire monté :
+**Passerelle.** En mode **Official**, vous n'avez besoin de rien d'autre. En mode **Custom** ou **LocalAPI + Official Hybrid**, l'API attend une passerelle sur `127.0.0.1:3000` dont le fichier SQLite est `./state/newapi/one-api.db` (c'est là qu'« Initialize » dans les Settings écrit ; `LOCALAPI_ADMIN_BASE_URL` dans `.env` y pointe déjà). Démarrez l'image publiée avec ce répertoire monté :
 
 ```bash
 mkdir -p state/newapi
@@ -417,9 +417,9 @@ Quelle que soit la voie d'installation choisie, l'application se lance de la mê
    - Si vous avez défini `ST_LOCAL_PASSWORD` dans `.env`, connectez-vous au compte `local` avec ce mot de passe.
    - Sinon (variable laissée vide) le backend **ne** crée **pas** de compte à votre place — la première page est le **formulaire d'initialisation**, définissez vous-même votre nom d'utilisateur et votre mot de passe initial. Le premier compte devient super-administrateur et le formulaire se ferme définitivement ; ajoutez ensuite des utilisateurs dans **Paramètres → Utilisateurs**.
 3. **Connectez vos modèles** — allez dans **Settings → Models & Channels** et choisissez un mode (détails dans [Modèles & fournisseurs pris en charge](#supported-models)) :
-   - **Officiel** — collez une clé DC depuis <https://susciyuan.com> ; tous les modèles sont déjà mappés, LocalNewAPI reste inactif.
-   - **Personnalisé** — un clic initialise LocalNewAPI, puis ajoutez vos propres canaux amont (clés API + IDs de modèle) dans son UI d'admin.
-   - **Hybride LocalNewAPI + Officiel** — officiel pour le pipeline principal, LocalNewAPI pour des canaux supplémentaires.
+   - **Officiel** — collez une clé DC depuis <https://susciyuan.com> ; tous les modèles sont déjà mappés, LocalAPI reste inactif.
+   - **Personnalisé** — un clic initialise LocalAPI, puis ajoutez vos propres canaux amont (clés API + IDs de modèle) dans son UI d'admin.
+   - **Hybride LocalAPI + Officiel** — officiel pour le pipeline principal, LocalAPI pour des canaux supplémentaires.
 4. **Créez** — deux voies vers la même bibliothèque d'assets :
    - **Pipeline Série** : ingérez un manuscrit ou un scénario (Fountain pris en charge), puis laissez AIPDD-Agent-Claw planifier les épisodes, écrire les scénarios, dessiner les storyboards et premières images, synthétiser la voix off et monter le film final. Chaque étape est une tâche indépendante dans le **Centre de tâches** — exécutez en séquence, sautez, ou reprenez depuis n'importe quel checkpoint.
    - **Canvas** : ouvrez le canvas infini et déposez / connectez des nœuds (image, vidéo, audio, scénario, plateau 3D…) pour explorer librement, puis promouvez les résultats qui vous plaisent dans une série.
@@ -433,8 +433,8 @@ Restez à jour : re-double-cliquez le lanceur **Start** pour redémarrer ; véri
 DramaClaw reste neutre en modèles — tous les modèles texte / image / vidéo / audio se connectent via une **passerelle compatible OpenAI**. Choisissez le mode dans **Settings → Models & Channels** :
 
 - **Official (recommandé)** — collez votre clé DC (obtenez-en une sur <https://susciyuan.com>), enregistrez, terminé. La passerelle officielle fournit déjà toutes les correspondances de modèles dont DramaClaw a besoin ; rien à configurer.
-- **Custom** — un clic initialise LocalNewAPI, puis ajoutez vos propres canaux fournisseurs (clés API, IDs de modèles) dans son UI d'admin. Chaque modèle appelé par DramaClaw passe par vos canaux.
-- **LocalNewAPI + Official Hybrid** — gardez les modèles officiels pour le pipeline principal et ajoutez des canaux (par exemple un workflow vidéo ComfyUI local) via LocalNewAPI.
+- **Custom** — un clic initialise LocalAPI, puis ajoutez vos propres canaux fournisseurs (clés API, IDs de modèles) dans son UI d'admin. Chaque modèle appelé par DramaClaw passe par vos canaux.
+- **LocalAPI + Official Hybrid** — gardez les modèles officiels pour le pipeline principal et ajoutez des canaux (par exemple un workflow vidéo ComfyUI local) via LocalAPI.
 
 > 🧠 **Apportez votre propre calcul — moins cher, mieux maîtrisé.** La passerelle est conçue pour que *vous* choisissiez où s'exécute chaque génération :
 > - **Calcul inactif d'AIPDD (réduction des coûts).** Connecter le canal **AIPDD** permet à la génération de tourner sur le **pool de calcul inactif** de la plateforme ; les tâches lourdes de séries par lot ne coûtent qu'une fraction du prix à la demande — le levier le plus efficace pour baisser le coût de production. Inscrivez-vous sur <https://www.aipdd.work> pour obtenir une clé API AIPDD, puis ajoutez-la comme canal dans **Settings → Models & Channels**.
@@ -446,13 +446,13 @@ DramaClaw reste neutre en modèles — tous les modèles texte / image / vidéo 
 
 Parcours complet dans [Configurer les modèles](../docs/en/getting-started/configuring-models.md).
 
-### LocalNewAPI : dramaclaw-gateway
+### LocalAPI : dramaclaw-gateway
 
-Le service `newapi` de `docker-compose.yml` est [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), le fork propre de DramaClaw de [New API](https://github.com/QuantumNous/new-api). Il parle le contrat **DC-Media** que DramaClaw utilise pour l'image / la vidéo / l'audio (rôles média, références, premières / dernières images) et convertit chaque requête dans l'API native du fournisseur. Image : [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) sur Docker Hub, épinglée par `DRAMACLAW_GATEWAY_VERSION` dans `.env`. Elle reste inactive en mode Official et n'est utilisée qu'une fois passé en **Custom** ou **LocalNewAPI + Official Hybrid**.
+Le service `newapi` de `docker-compose.yml` est [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), le fork propre de DramaClaw de [New API](https://github.com/QuantumNous/new-api). Il parle le contrat **DC-Media** que DramaClaw utilise pour l'image / la vidéo / l'audio (rôles média, références, premières / dernières images) et convertit chaque requête dans l'API native du fournisseur. Image : [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) sur Docker Hub, épinglée par `DRAMACLAW_GATEWAY_VERSION` dans `.env`. Elle reste inactive en mode Official et n'est utilisée qu'une fois passé en **Custom** ou **LocalAPI + Official Hybrid**.
 
 Adaptateurs fournisseurs livrés aujourd'hui dans la passerelle (voir la [matrice de support des canaux](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md) pour le statut de vérification) : ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Vous voulez un autre fournisseur ? La passerelle a un [générateur de squelette et un guide de contribution](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
 
-| Étape             | Mode Official                              | Mode Custom / Hybrid (LocalNewAPI)                    |
+| Étape             | Mode Official                              | Mode Custom / Hybrid (LocalAPI)                    |
 |----------------------|----------------------------------------------------|-----------------------------------------------------------|
 | **Texte / LLM**  | modèles `DC-*-LLM`, aucune correspondance       | tout canal chat compatible OpenAI                        |
 | **Image**        | gpt-image · nano-banana                            | tout canal image enregistré dans la passerelle           |

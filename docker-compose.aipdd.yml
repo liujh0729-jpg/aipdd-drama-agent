@@ -2,7 +2,7 @@
 # 全部源码构建、零外部镜像；SQLite、CE inline、无 PostgreSQL。拉下即用。
 #   用法： docker-compose -f docker-compose.aipdd.yml up -d --build
 #   拓扑与 env 对齐 docker-compose.release.yml。
-#   首启打开 http://localhost:8080 → 设置 → 模型与渠道：选「自定义」一键初始化 LocalNewAPI，
+#   首启打开 http://localhost:8080 → 设置 → 模型与渠道：选「自定义」一键初始化 LocalAPI，
 #   再在网关里把 aipdd / susciyuan / comfyui 作为上游渠道开通、同步模型、按组件绑定默认模型。
 #   可选剪辑服务 VectCut（剪映/CapCut 草稿组装，见 services/vectcut/）：默认不启动，需要时
 #     docker-compose -f docker-compose.aipdd.yml --profile vectcut up -d vectcut
@@ -48,10 +48,10 @@ services:
       # 运行时用哪个网关由应用设置（settings.db 的 model_gateway_mode）决定，CE 不回退到 env。
       # [aipdd fork delta req41] 这里**不预填任何站点地址**（旧默认曾钉过一个具体域名）：
       # 网关在哪是部署者在「设置 → 模型与渠道」里填的数据，换网关 / 换域名都不该改编排文件。
-      # 留空 = 未配置；需要 env 兜底时在 .env 写 NEWAPI_BASE_URL=<你的网关地址>。
-      NEWAPI_BASE_URL: "${NEWAPI_BASE_URL:-}"
-      # 以下四项供 provisioner 一键初始化 LocalNewAPI（compose 强制覆盖 .env 里的 127.0.0.1 地址）。
-      NEWAPI_ADMIN_BASE_URL: http://newapi:3000
+      # 留空 = 未配置；需要 env 兜底时在 .env 写 LOCALAPI_BASE_URL=<你的网关地址>。
+      LOCALAPI_BASE_URL: "${LOCALAPI_BASE_URL:-}"
+      # 以下四项供 provisioner 一键初始化 LocalAPI（compose 强制覆盖 .env 里的 127.0.0.1 地址）。
+      LOCALAPI_ADMIN_BASE_URL: http://newapi:3000
       NEWAPI_SQL_DSN: local
       NEWAPI_SQLITE_PATH: /newapi-data/one-api.db
       NEWAPI_ADMIN_USERNAME: root
@@ -132,7 +132,7 @@ services:
       newapi:
         condition: service_started
 
-  # LocalNewAPI（OpenAI 兼容）：源码构建自仓内 vendored 的 ./third_party/dramaclaw-gateway
+  # LocalAPI（OpenAI 兼容）：源码构建自仓内 vendored 的 ./third_party/dramaclaw-gateway
   #（AGPL-3.0，见 third_party/README.md）。零外部镜像，拉下即用；网关源码可改用外部 checkout：
   #   .env 设 DRAMACLAW_GATEWAY_SRC=<路径>。
   newapi:

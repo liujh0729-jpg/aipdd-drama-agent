@@ -5,12 +5,12 @@
 
 > Run AIPDD-Agent-Claw locally and produce your first result.
 
-AIPDD-Agent-Claw is the Community Edition (CE): it runs on a single machine with no PostgreSQL / Redis required. By default `docker compose` brings up three services: `api` (the creation backend, :8780), `newapi` (LocalNewAPI, idle until you switch to Custom or LocalNewAPI + Official Hybrid mode), and `web` (the browser UI, :8080). Models are served through the **AIPDD official gateway** by default — paste in a DC key and you're ready to go.
+AIPDD-Agent-Claw is the Community Edition (CE): it runs on a single machine with no PostgreSQL / Redis required. By default `docker compose` brings up three services: `api` (the creation backend, :8780), `newapi` (LocalAPI, idle until you switch to Custom or LocalAPI + Official Hybrid mode), and `web` (the browser UI, :8080). Models are served through the **AIPDD official gateway** by default — paste in a DC key and you're ready to go.
 
 ## Prerequisites
 
 - Docker (Desktop or Engine) with `docker compose` support.
-- A **DC key** — sign up / purchase at <https://susciyuan.com>; alternatively use the bundled LocalNewAPI.
+- A **DC key** — sign up / purchase at <https://susciyuan.com>; alternatively use the bundled LocalAPI.
 
 ## Steps
 
@@ -41,7 +41,7 @@ docker compose ps   # api, newapi, and web should all be running
 
 ## Want to use your own model channels?
 
-LocalNewAPI starts together with `docker compose up -d`. Initialize it and configure upstream keys and model mappings under Settings → Models & Channels → Custom. Its address and runtime token are stored in local `settings.db`, not `.env`. See [Configuring Model Providers](configuring-models.md).
+LocalAPI starts together with `docker compose up -d`. Initialize it and configure upstream keys and model mappings under Settings → Models & Channels → Custom. Its address and runtime token are stored in local `settings.db`, not `.env`. See [Configuring Model Providers](configuring-models.md).
 
 ## Next steps
 

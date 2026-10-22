@@ -287,7 +287,7 @@ DramaClaw は **AI ドラマのためのソース公開型プロダクション�
 
 ## システム要件
 
-DramaClaw はすべての推論を **OpenAI 互換ゲートウェイ** 経由で実行します —— 公式 DramaClaw ゲートウェイサービス、またはプロバイダ構成でルーティングする LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway))。モデルはあなたのマシンでは動かないため、ローカルの負荷は軽量です。通常のノート PC や小さな VPS で十分です。
+DramaClaw はすべての推論を **OpenAI 互換ゲートウェイ** 経由で実行します —— 公式 DramaClaw ゲートウェイサービス、またはプロバイダ構成でルーティングする LocalAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway))。モデルはあなたのマシンでは動かないため、ローカルの負荷は軽量です。通常のノート PC や小さな VPS で十分です。
 
 | 項目 | 要件 |
 |---|---|
@@ -296,9 +296,9 @@ DramaClaw はすべての推論を **OpenAI 互換ゲートウェイ** 経由で
 | **ディスク** | イメージ数 GB + 生成されたメディア/状態（`ce-data` ボリューム配下。厳密な最小値なし） |
 | **OS** | macOS (Apple Silicon / Intel)、Windows (Docker Desktop + WSL2 バックエンド)、Linux (Docker Engine + compose プラグイン) |
 | **Docker** | Docker + `docker compose` |
-| **ポート** | `8080` Web UI · `8780` REST API · `3000` LocalNewAPI 管理 UI（既定は host-only、拡張可） |
+| **ポート** | `8080` Web UI · `8780` REST API · `3000` LocalAPI 管理 UI（既定は host-only、拡張可） |
 | **データストア** | 不要 —— Postgres、Redis、Celery、Ray なし。タスクはインプロセス実行、状態はローカルファイルシステム（SQLite + ファイル） |
-| **ネットワーク** | 公式ゲートウェイ `susciyuan.com` へのアウトバウンドアクセス、および/または LocalNewAPI で構成するモデルプロバイダへ |
+| **ネットワーク** | 公式ゲートウェイ `susciyuan.com` へのアウトバウンドアクセス、および/または LocalAPI で構成するモデルプロバイダへ |
 
 > ローカル開発（非 Docker）では追加で Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg` が必要です。完全な前提条件は [Self-hosting guide](../docs/en/guides/self-hosting.md) を参照。
 
@@ -327,17 +327,17 @@ DramaClaw はすべての推論を **OpenAI 互換ゲートウェイ** 経由で
 
 すべての GitHub Release はマルチアーキ（amd64/arm64）イメージを Docker Hub へ公開します。
 
-**ソースビルド（既定）** — DramaClaw と LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) を並べて clone；`docker compose up -d --build` がその 2 チェックアウトから 3 サービスをビルドします。
+**ソースビルド（既定）** — DramaClaw と LocalAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) を並べて clone；`docker compose up -d --build` がその 2 チェックアウトから 3 サービスをビルドします。
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalNewAPI, ../dramaclaw-gateway からビルド
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalAPI, ../dramaclaw-gateway からビルド
 cd dramaclaw
 
 cp .env.example .env
 # .env を編集 — PROMPT_EXPORT_PASSWORD をデフォルト以外に設定。
 
-docker compose up -d --build   # 3 サービスをビルドして起動: api / newapi (LocalNewAPI) / web
+docker compose up -d --build   # 3 サービスをビルドして起動: api / newapi (LocalAPI) / web
 ```
 
 両チェックアウトは通常の git リポジトリ：編集し、`git pull`、再ビルド。DramaClaw のコードだけ変わった？ `docker compose up -d --build api web`。ゲートウェイだけ？ `docker compose up -d --build newapi`。ゲートウェイを他所へ clone した、または git から取得させたい？ `.env` の `DRAMACLAW_GATEWAY_SRC` にそのパスか `https://github.com/dramaclaw/dramaclaw-gateway.git#main` を設定。
@@ -350,15 +350,15 @@ docker compose -f docker-compose.release.yml up -d
 
 <http://localhost:8080> でアプリを開き、REST API は <http://localhost:8780>。 **Settings → Models & Channels** で次から 1 つ選択：
 
-- **Official** — DC キーを貼るだけ（<https://susciyuan.com> で取得）；モデルマッピング不要。LocalNewAPI は待機したまま。
-- **Custom** — ワンクリックで LocalNewAPI を初期化；その後自分のアップストリームチャネルを追加。
-- **LocalNewAPI + Official Hybrid** — メインパイプラインは公式、追加チャネルは LocalNewAPI。
+- **Official** — DC キーを貼るだけ（<https://susciyuan.com> で取得）；モデルマッピング不要。LocalAPI は待機したまま。
+- **Custom** — ワンクリックで LocalAPI を初期化；その後自分のアップストリームチャネルを追加。
+- **LocalAPI + Official Hybrid** — メインパイプラインは公式、追加チャネルは LocalAPI。
 
 完全な手順は [Quick Start](../docs/en/getting-started/quickstart.md)。
 
 `.env` でバージョン固定やレジストリ切替が可能（`DRAMACLAW_VERSION`、`DRAMACLAW_GATEWAY_VERSION`、`DRAMACLAW_IMAGE_PREFIX`）—— これはイメージモード（`docker-compose.release.yml`）のみに適用。中国本土：`DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` を設定し両バージョンを固定（ACR ミラーは固定タグのみ）。
 
-> 古いチェックアウトから移行中？ ソースビルドではまず `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway`（ゲートウェイは隣のチェックアウトからビルドされ、無いとビルドが `unable to prepare context` で停止）。`docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` は削除されました —— `docker-compose.yml`（ソースビルド）/ `docker-compose.release.yml`（イメージ）を使用。サービス名と `ce-data` / `newapi-data` ボリュームは変わらず、既存データはそのまま再利用。LocalNewAPI のポートは既定で `127.0.0.1` のみにバインド；リモートアクセスが必要なら `.env` で `ST_NEWAPI_BIND=0.0.0.0`。
+> 古いチェックアウトから移行中？ ソースビルドではまず `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway`（ゲートウェイは隣のチェックアウトからビルドされ、無いとビルドが `unable to prepare context` で停止）。`docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` は削除されました —— `docker-compose.yml`（ソースビルド）/ `docker-compose.release.yml`（イメージ）を使用。サービス名と `ce-data` / `newapi-data` ボリュームは変わらず、既存データはそのまま再利用。LocalAPI のポートは既定で `127.0.0.1` のみにバインド；リモートアクセスが必要なら `.env` で `ST_NEWAPI_BIND=0.0.0.0`。
 
 ### クラウドホスト / VPS（Linux）—— 共有または公開デプロイ
 
@@ -376,7 +376,7 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **ポート。** `8080` Web UI · `8780` REST API · `3000` LocalNewAPI 管理面（デフォルトは `127.0.0.1` のみ）。`8080` の前に **TLS 付きリバースプロキシ**（Caddy / Nginx / Traefik）を置き、`8780` / `3000` は内部に留め、ファイアウォール / セキュリティグループでは `80` / `443` のみ開放します。
+- **ポート。** `8080` Web UI · `8780` REST API · `3000` LocalAPI 管理面（デフォルトは `127.0.0.1` のみ）。`8080` の前に **TLS 付きリバースプロキシ**（Caddy / Nginx / Traefik）を置き、`8780` / `3000` は内部に留め、ファイアウォール / セキュリティグループでは `80` / `443` のみ開放します。
 - **初回ビルドは余裕を持たせる** —— ホストに RAM ≥ 8 GB、ディスク ≥ 40 GB を確保してください。でないとフロントエンドのビルドが OOM で kill されます。
 - **ログイン** は単一マシンアカウント `local`、パスワードは `ST_LOCAL_PASSWORD`（または初回起動時に `docker compose -f docker-compose.aipdd.yml logs api` に出力される使い捨てパスワード）。
 - **マルチユーザー？** CE は設計上シングルオーナーです。複数ユーザーに提供するなら `ST_CE_MULTI_USER` を有効にし、その前に本物の認証 + HTTPS を置いてください。本番の完全な注意書きは [セルフホスティングガイド](../docs/en/guides/self-hosting.md)。
@@ -395,7 +395,7 @@ uv run novelvideo api --port 8780   # REST API 起動（CE は既定でインラ
 
 フロントエンドは別のターミナルで：`cd frontend && pnpm install && pnpm dev`。
 
-**ゲートウェイ。** **Official** モードでは他に必要なものはありません。**Custom** や **LocalNewAPI + Official Hybrid** では、API は `127.0.0.1:3000` にゲートウェイを期待し、その SQLite は `./state/newapi/one-api.db`（設定の "Initialize" がここに書き込む；`.env` の `NEWAPI_ADMIN_BASE_URL` は既にここを指します）。ディレクトリをマウントして公開済みイメージを実行：
+**ゲートウェイ。** **Official** モードでは他に必要なものはありません。**Custom** や **LocalAPI + Official Hybrid** では、API は `127.0.0.1:3000` にゲートウェイを期待し、その SQLite は `./state/newapi/one-api.db`（設定の "Initialize" がここに書き込む；`.env` の `LOCALAPI_ADMIN_BASE_URL` は既にここを指します）。ディレクトリをマウントして公開済みイメージを実行：
 
 ```bash
 mkdir -p state/newapi
@@ -417,9 +417,9 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - `.env` で `ST_LOCAL_PASSWORD` を設定していれば、アカウント `local` とそのパスワードでログインします。
    - 空のままならバックエンドはアカウントを作りません：最初の画面が**初期化フォーム**になり、ユーザー名と初期パスワードを自分で設定します。最初のアカウントがスーパー管理者になり、このフォームは二度と開きません。以降のユーザー追加は **設定 → ユーザー管理** です。
 3. **モデルを接続** —— **Settings → Models & Channels** でいずれか 1 モードを選びます（詳細は [サポートするモデルとプロバイダ](#supported-models)）：
-   - **公式** —— <https://susciyuan.com> の DC key を貼り付け。全モデルがすでにマッピング済みで、LocalNewAPI は待機のまま。
-   - **カスタム** —— ワンクリックで LocalNewAPI を初期化し、その管理 UI にご自分のアップストリームチャネル（API key + モデル ID）を追加。
-   - **LocalNewAPI + 公式ハイブリッド** —— 主パイプラインは公式、追加チャネルは LocalNewAPI。
+   - **公式** —— <https://susciyuan.com> の DC key を貼り付け。全モデルがすでにマッピング済みで、LocalAPI は待機のまま。
+   - **カスタム** —— ワンクリックで LocalAPI を初期化し、その管理 UI にご自分のアップストリームチャネル（API key + モデル ID）を追加。
+   - **LocalAPI + 公式ハイブリッド** —— 主パイプラインは公式、追加チャネルは LocalAPI。
 4. **創作を始める** —— 同じアセットライブラリに通じる 2 つの入口：
    - **剧集パイプライン**：小説または脚本を投入（Fountain 対応）すると、AIPDD-Agent-Claw が話数の計画、脚本作成、絵コンテとファーストフレームの描画、吹き替え合成、最終動画のカットまで担います。各段階は**タスクセンター**内の独立タスク —— 順番に、スキップ、または任意のチェックポイントから再開できます。
    - **キャンバス**：無限キャンバスを開き、ノード（画像、動画、音声、脚本、3D セット……）をドラッグ / 接続して自由に探究し、気に入った結果を剧集へ格上げします。
@@ -433,8 +433,8 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 DramaClaw はモデル中立 —— すべてのテキスト / 画像 / 動画 / 音声モデルは **OpenAI 互換ゲートウェイ** 経由で接続。**Settings → Models & Channels** でモードを選択：
 
 - **Official（推奨）** — DC キーを貼る（<https://susciyuan.com> で取得）、保存、完了。公式ゲートウェイには DramaClaw の必要な全モデルマッピングが用意済み；設定は一切不要。
-- **Custom** — ワンクリックで LocalNewAPI を初期化、その後管理 UI で自分のプロバイダチャネル（API キー、モデル ID）を追加。DramaClaw が呼ぶ全モデルがあなたのチャネルを経由。
-- **LocalNewAPI + Official Hybrid** — メインパイプラインは公式モデルを維持し、LocalNewAPI 経由で追加チャネル（例：ローカル ComfyUI 動画ワークフロー）を追加 。
+- **Custom** — ワンクリックで LocalAPI を初期化、その後管理 UI で自分のプロバイダチャネル（API キー、モデル ID）を追加。DramaClaw が呼ぶ全モデルがあなたのチャネルを経由。
+- **LocalAPI + Official Hybrid** — メインパイプラインは公式モデルを維持し、LocalAPI 経由で追加チャネル（例：ローカル ComfyUI 動画ワークフロー）を追加 。
 
 > 🧠 **計算資源を自分で選ぶ — コスト削減、制御も維持。** ゲートウェイは、各生成をどこで実行するか *あなた自身* が選べるよう設計されています：
 > - **AIPDD の遊休計算資源（コスト削減）。** **AIPDD** チャネルに接続すると、生成をプラットフォームの**遊休計算資源プール**上で実行でき、負荷の大きい短編ドラマの一括処理をオンデマンド価格の数分の一でこなせます —— 制作コストを下げる最大のレバーです。<https://www.aipdd.work> で登録して AIPDD API Key を取得し、**Settings → Models & Channels**でチャネルとして追加してください。
@@ -446,13 +446,13 @@ DramaClaw はモデル中立 —— すべてのテキスト / 画像 / 動画 /
 
 完全な手順は [Configuring Models](../docs/en/getting-started/configuring-models.md)。
 
-### LocalNewAPI: dramaclaw-gateway
+### LocalAPI: dramaclaw-gateway
 
-`docker-compose.yml` の `newapi` サービスは、[New API](https://github.com/QuantumNous/new-api) の DramaClaw 独自フォークである [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway) です。これは画像 / 動画 / 音声のための **DC-Media** コントラクト（メディアロール、リファレンス、最初 / 最後のフレーム）を話し、各リクエストをプロバイダのネイティブ API へ変換します。イメージ：Docker Hub の [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)、`.env` の `DRAMACLAW_GATEWAY_VERSION` で固定。Official モードでは待機し、**Custom** や **LocalNewAPI + Official Hybrid** に切り替えて初めて使われます。
+`docker-compose.yml` の `newapi` サービスは、[New API](https://github.com/QuantumNous/new-api) の DramaClaw 独自フォークである [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway) です。これは画像 / 動画 / 音声のための **DC-Media** コントラクト（メディアロール、リファレンス、最初 / 最後のフレーム）を話し、各リクエストをプロバイダのネイティブ API へ変換します。イメージ：Docker Hub の [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)、`.env` の `DRAMACLAW_GATEWAY_VERSION` で固定。Official モードでは待機し、**Custom** や **LocalAPI + Official Hybrid** に切り替えて初めて使われます。
 
 現在ゲートウェイに同梱のプロバイダアダプタ（検証状況は[チャネル対応マトリクス](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md)参照）：ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno。他のプロバイダが必要？ ゲートウェイには[スキャフォールド生成器と貢献ガイド](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md)があります。
 
-| ステージ             | Official モード                                | Custom / Hybrid モード（LocalNewAPI）              |
+| ステージ             | Official モード                                | Custom / Hybrid モード（LocalAPI）              |
 |----------------------|----------------------------------------------------|-----------------------------------------------------------|
 | **テキスト / LLM**   | `DC-*-LLM` モデル、マッピング不要                | あらゆる OpenAI 互換チャットチャネル                     |
 | **画像**             | gpt-image · nano-banana                            | ゲートウェイ登録のあらゆる画像チャネル                   |

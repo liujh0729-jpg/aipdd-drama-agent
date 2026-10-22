@@ -5,7 +5,7 @@
 
 > 用 Docker 部署、配置、升级、备份 DramaClaw CE。
 
-CE 三个容器：`api` + `newapi`（LocalNewAPI，切到自定义/LocalNewAPI + 官方混合模式前闲置）+ `web`，**无 PostgreSQL / 无 Redis / 无 Celery**（`ST_EDITION=ce`，任务在进程内 inline 执行）。模型默认走 DramaClaw 官方网关。
+CE 三个容器：`api` + `newapi`（LocalAPI，切到自定义/LocalAPI + 官方混合模式前闲置）+ `web`，**无 PostgreSQL / 无 Redis / 无 Celery**（`ST_EDITION=ce`，任务在进程内 inline 执行）。模型默认走 DramaClaw 官方网关。
 
 仓库里有两份 compose 文件，**两者都全部源码构建、不拉任何已发布镜像**。`docker-compose.release.yml` 是三服务运行定义（env / 端口 / 卷 / 健康检查）的唯一来源，并且自带各自的 `build:` 块；`docker-compose.yml`（默认入口）只是 `extends` 它。DramaClaw 网关已 vendored 进仓（`third_party/dramaclaw-gateway`，AGPL-3.0），**无需再单独 clone**。用 `docker compose up -d --build` 构建。
 
@@ -35,7 +35,7 @@ cp .env.example .env
 
 | 项 | 值 | 说明 |
 |---|---|---|
-| 服务 | `api` + `newapi` + `web` | 无 PG/Redis；`newapi` 是 LocalNewAPI，由 vendored 的 `third_party/dramaclaw-gateway` 构建 |
+| 服务 | `api` + `newapi` + `web` | 无 PG/Redis；`newapi` 是 LocalAPI，由 vendored 的 `third_party/dramaclaw-gateway` 构建 |
 | 构建上下文 | `api` = `.` · `newapi` = `${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}` · `web` = `./frontend` | 本地构建镜像名 `aipdd/api`、`aipdd/gateway`、`aipdd/web`；零外部镜像 |
 | 网关源码 | `third_party/dramaclaw-gateway`（vendored） | 想改用自己的 checkout 构建：`.env` 设 `DRAMACLAW_GATEWAY_SRC=<路径>` |
 | 端口 | `8780:8780` | REST API。发布到所有网卡；单用户信任开启时（未启用 `ST_CE_MULTI_USER`）任何请求都免登录被当成本地 owner——请把 8780 挡在反代/防火墙之后，或只绑 `127.0.0.1`。绑定未被确认为仅回环时，启动日志会告警 |
@@ -47,16 +47,16 @@ cp .env.example .env
 
 > ⚠️ **密钥类默认值（如 `PROMPT_EXPORT_PASSWORD=change_me`）必须改。** 模型网关见 [模型配置](#模型配置)。
 
-分组（`.env.example` 内有逐项注释）：LocalNewAPI provisioner、参考媒体 OSS relay（OSS_RELAY_*）、Cognee 知识图谱、文本/图片/视频/音频各模型、图像与视频基础参数、UI、输出目录。渠道、网关地址和 token 通过网页保存到 `settings.db`。
+分组（`.env.example` 内有逐项注释）：LocalAPI provisioner、参考媒体 OSS relay（OSS_RELAY_*）、Cognee 知识图谱、文本/图片/视频/音频各模型、图像与视频基础参数、UI、输出目录。渠道、网关地址和 token 通过网页保存到 `settings.db`。
 
 ### 模型配置
 
 推荐与备选(详见 [配置模型供应商](../getting-started/configuring-models.md)):
 
 - **A. DC 官方 key(推荐)**：默认 compose 已走官方网关。起栈后开 `http://localhost:8080` → 设置 → 模型与渠道 → 「官方」→ 粘贴 DC key 保存即用,**无需映射模型**。到 <https://susciyuan.com> 取 key。
-- **B. LocalNewAPI**：LocalNewAPI 已在运行；到 设置 → 模型与渠道 → 自定义，点初始化，然后在「LocalNewAPI」页配置上游渠道和模型映射。
+- **B. LocalAPI**：LocalAPI 已在运行；到 设置 → 模型与渠道 → 自定义，点初始化，然后在「LocalAPI」页配置上游渠道和模型映射。
 
-LocalNewAPI 需把 DramaClaw 逻辑模型映射到真实上游模型。参考图功能需要 `OSS_RELAY_AK/SK`（纯文本流程可暂不配）。
+LocalAPI 需把 DramaClaw 逻辑模型映射到真实上游模型。参考图功能需要 `OSS_RELAY_AK/SK`（纯文本流程可暂不配）。
 
 ## 4. 起停
 
@@ -88,7 +88,7 @@ docker run --rm -v dramaclaw-ce_ce-data:/data -v "$PWD":/backup alpine \
 
 然后照常起服务（`docker compose up -d`）。数据卷备份已包含生成媒体；`.env` 仍需单独备份。
 
-- `newapi-data` 卷存放 LocalNewAPI 的 SQLite 数据库（上游渠道、密钥、token），不可再生——按同样方式备份：
+- `newapi-data` 卷存放 LocalAPI 的 SQLite 数据库（上游渠道、密钥、token），不可再生——按同样方式备份：
 
 ```bash
 docker run --rm -v dramaclaw-ce_newapi-data:/data -v "$PWD":/backup alpine \
@@ -142,7 +142,7 @@ docker compose up -d
 | `docker compose up -d --build`（源码构建、旁边放一个 `../dramaclaw-gateway` clone） | 同一命令；网关现在取自 vendored 的 `third_party/dramaclaw-gateway`，无需旁边再 clone |
 | `docker compose -f docker-compose.release.yml up -d`（镜像模式） | 镜像模式已退役——`docker-compose.release.yml` 现在也源码构建；加 `--build` |
 | `docker compose -f docker-compose.selfhosted.yml ...` / `docker-compose.selfhosted.release.yml ...` | 改用 `docker-compose.yml` / `docker-compose.release.yml`（均源码构建）；`newapi-data` 卷复用，先备份 |
-| `.env` 里的 `NEWAPI_BASE_URL` / `NEWAPI_API_KEY` / `ST_*_PORT` / `INSTALL_WORLD` / `NEWAPI_PROVISIONER_ENABLED` | 含义不变，继续生效 |
+| `.env` 里的 `LOCALAPI_BASE_URL` / `LOCALAPI_API_KEY` / `ST_*_PORT` / `INSTALL_WORLD` / `NEWAPI_PROVISIONER_ENABLED` | 含义不变，继续生效 |
 
 ## 7. 排错
 
@@ -150,7 +150,7 @@ docker compose up -d
 |---|---|
 | 容器起不来 | `docker compose logs api`；多半是 `.env` 网关地址/Key 未改或不可达 |
 | 8780 端口占用 | 改 compose `ports` 左值，如 `8888:8780` |
-| 3000 端口被占用（LocalNewAPI 起不来） | **[aipdd fork] `docker-compose.aipdd.yml` 不映射 3000**，本项只见于上游那两个编排文件。上游默认只绑 `127.0.0.1`，`.env` 设 `ST_NEWAPI_PORT=<空闲端口>` 后重启即可；`api` 不等网关健康，不会被卡住。 |
+| 3000 端口被占用（LocalAPI 起不来） | **[aipdd fork] `docker-compose.aipdd.yml` 不映射 3000**，本项只见于上游那两个编排文件。上游默认只绑 `127.0.0.1`，`.env` 设 `ST_NEWAPI_PORT=<空闲端口>` 后重启即可；`api` 不等网关健康，不会被卡住。 |
 | 模型调用报错 | 确认网关可达、`*_MODEL` 名在网关后台存在 |
 
 ## 相关

@@ -363,7 +363,7 @@ Mở ứng dụng tại <http://localhost:8080>; REST API ở <http://localhost:
 
 - **Official** — dán DC key của bạn (lấy tại <https://susciyuan.com>); không cần ánh xạ model. Gateway đi kèm ở trạng thái chờ.
 - **Custom** — một cú bấm khởi tạo gateway `newapi` đi kèm; sau đó thêm các kênh upstream của riêng bạn.
-- **LocalNewAPI + Official Hybrid** — official cho pipeline chính, gateway đi kèm cho các kênh bổ sung.
+- **LocalAPI + Official Hybrid** — official cho pipeline chính, gateway đi kèm cho các kênh bổ sung.
 
 Các bước đầy đủ trong [Bắt đầu nhanh](../docs/en/getting-started/quickstart.md).
 
@@ -387,7 +387,7 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **Cổng.** `8080` UI web · `8780` REST API · `3000` admin LocalNewAPI (mặc định chỉ bind `127.0.0.1`). Đặt một **reverse proxy kèm TLS** (Caddy / Nginx / Traefik) trước `8080` và giữ `8780` / `3000` nội bộ; chỉ mở `80` / `443` trên firewall / nhóm bảo mật.
+- **Cổng.** `8080` UI web · `8780` REST API · `3000` admin LocalAPI (mặc định chỉ bind `127.0.0.1`). Đặt một **reverse proxy kèm TLS** (Caddy / Nginx / Traefik) trước `8080` và giữ `8780` / `3000` nội bộ; chỉ mở `80` / `443` trên firewall / nhóm bảo mật.
 - **Build đầu cần chỗ** — cấp cho host ≥ 8 GB RAM và ≥ 40 GB đĩa, nếu không build frontend sẽ bị OOM giết.
 - **Đăng nhập** bằng tài khoản máy đơn `local` với `ST_LOCAL_PASSWORD` (hoặc mật khẩu một lần in ra trong `docker compose -f docker-compose.aipdd.yml logs api` ở lần khởi động đầu).
 - **Nhiều người dùng?** CE thiết kế một chủ sở hữu. Để phục vụ nhiều người, bật `ST_CE_MULTI_USER` và đặt xác thức thật + HTTPS phía trước. Ghi chú production đầy đủ: [Hướng dẫn tự lưu trữ](../docs/en/guides/self-hosting.md).
@@ -406,7 +406,7 @@ uv run novelvideo api --port 8780   # khởi động REST API (CE mặc định 
 
 Frontend ở một terminal thứ hai: `cd frontend && pnpm install && pnpm dev`.
 
-**Gateway.** Ở chế độ **Official** bạn không cần gì thêm. Với **Custom** hoặc **LocalNewAPI + Official Hybrid**, API cần một gateway ở `127.0.0.1:3000` với file SQLite là `./state/newapi/one-api.db` (đó là nơi nút "Initialize" trong Settings ghi vào; `NEWAPI_ADMIN_BASE_URL` trong `.env` đã trỏ sẵn tới đó). Hoặc chạy image đã phát hành với thư mục đó được mount:
+**Gateway.** Ở chế độ **Official** bạn không cần gì thêm. Với **Custom** hoặc **LocalAPI + Official Hybrid**, API cần một gateway ở `127.0.0.1:3000` với file SQLite là `./state/newapi/one-api.db` (đó là nơi nút "Initialize" trong Settings ghi vào; `LOCALAPI_ADMIN_BASE_URL` trong `.env` đã trỏ sẵn tới đó). Hoặc chạy image đã phát hành với thư mục đó được mount:
 
 ```bash
 mkdir -p state/newapi
@@ -428,9 +428,9 @@ Dù bạn chọn lối cài nào, ứng dụng đều khởi lên như nhau:
    - Nếu bạn đặt `ST_LOCAL_PASSWORD` trong `.env`, đăng nhập bằng tài khoản `local` và mật khẩu đó.
    - Nếu để trống, backend **không** tạo tài khoản hộ bạn: màn hình đầu tiên là **form khởi tạo**, hãy tự đặt tên đăng nhập và mật khẩu ban đầu. Tài khoản đầu tiên là super admin, form đóng vĩnh viễn sau đó; thêm người vào **Cài đặt → Quản lý người dùng**.
 3. **Kết nối model** — vào **Cài đặt → Model & Kênh** và chọn một chế độ (chi tiết ở [Model & nhà cung cấp được hỗ trợ](#supported-models)):
-   - **Chính thức** — dán một DC key từ <https://susciyuan.com>; mọi model đã được map, LocalNewAPI nghỉ.
-   - **Tùy chỉnh** — một chạm khởi tạo LocalNewAPI, rồi thêm kênh upstream của bạn (API key + model ID) trong UI admin của nó.
-   - **Hỗn hợp LocalNewAPI + Chính thức** — chính thức cho pipeline chính, LocalNewAPI cho các kênh bổ sung.
+   - **Chính thức** — dán một DC key từ <https://susciyuan.com>; mọi model đã được map, LocalAPI nghỉ.
+   - **Tùy chỉnh** — một chạm khởi tạo LocalAPI, rồi thêm kênh upstream của bạn (API key + model ID) trong UI admin của nó.
+   - **Hỗn hợp LocalAPI + Chính thức** — chính thức cho pipeline chính, LocalAPI cho các kênh bổ sung.
 4. **Bắt đầu sáng tạo** — hai lối vào cùng một thư viện asset:
    - **Pipeline Series**: nạp một bản thảo hoặc kịch bản (hỗ trợ Fountain), để AIPDD-Agent-Claw lên kế hoạch tập, viết kịch bản, vẽ storyboard và khung đầu, tổng hợp lồng tiếng và dựng thành phim hoàn chỉnh. Mỗi giai đoạn là một tác vụ độc lập trong **Trung tâm tác vụ** — chạy tuần tự, bỏ qua, hoặc tiếp tục từ bất kỳ checkpoint nào.
    - **Canvas**: mở canvas vô hạn và thả / nối các nút (ảnh, video, audio, kịch bản, trường quay 3D…) để khám phá tự do, rồi nâng kết quả bạn thích trở lại thành series.
@@ -445,7 +445,7 @@ DramaClaw giữ trung lập về model — mọi model text / ảnh / video / â
 
 - **Official (khuyến nghị)** — dán DC key của bạn (lấy tại <https://susciyuan.com>), lưu, xong. Gateway chính thức đã có sẵn mọi ánh xạ model mà DramaClaw cần; không phải cấu hình gì.
 - **Custom** — một cú bấm khởi tạo `dramaclaw-gateway` đi kèm, rồi thêm các kênh nhà cung cấp của riêng bạn (API key, model ID) trong giao diện quản trị của nó. Mọi model DramaClaw gọi đều đi qua kênh của bạn.
-- **LocalNewAPI + Official Hybrid** — giữ các model official cho pipeline chính và thêm các kênh bổ sung (ví dụ một workflow video ComfyUI cục bộ) qua gateway đi kèm.
+- **LocalAPI + Official Hybrid** — giữ các model official cho pipeline chính và thêm các kênh bổ sung (ví dụ một workflow video ComfyUI cục bộ) qua gateway đi kèm.
 
 > 🧠 **Tự chọn nơi tính toán — rẻ hơn, chủ động hơn.** Gateway được thiết kế để *chính bạn* quyết định mỗi lượt sinh chạy ở đâu:
 > - **Năng lực tính toán nhàn rỗi của AIPDD (giảm chi phí).** Kết nối kênh **AIPDD** cho phép việc sinh chạy trên **bể tính toán nhàn rỗi** của nền tảng, nên các công đoạn short-drama nặng chỉ tốn một phần nhỏ so với giá theo yêu cầu — đòn bẩy lớn nhất để hạ chi phí sản xuất. Đăng ký tại <https://www.aipdd.work> để lấy API key AIPDD, rồi thêm nó làm một kênh trong **Cài đặt → Model & Kênh**.
@@ -459,7 +459,7 @@ Hướng dẫn đầy đủ trong [Cấu hình model](../docs/en/getting-started
 
 ### Gateway đi kèm: dramaclaw-gateway
 
-Dịch vụ `newapi` trong `docker-compose.yml` là [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), fork riêng của DramaClaw từ [New API](https://github.com/QuantumNous/new-api). Nó hiểu giao thức **DC-Media** mà DramaClaw dùng cho ảnh / video / âm thanh (vai trò media, tham chiếu, khung hình đầu / cuối) và chuyển đổi mỗi yêu cầu sang API gốc của nhà cung cấp. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) trên Docker Hub, ghim bởi `DRAMACLAW_GATEWAY_VERSION` trong `.env`. Nó ở trạng thái chờ trong chế độ Official và chỉ được dùng khi bạn chuyển sang **Custom** hoặc **LocalNewAPI + Official Hybrid**.
+Dịch vụ `newapi` trong `docker-compose.yml` là [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), fork riêng của DramaClaw từ [New API](https://github.com/QuantumNous/new-api). Nó hiểu giao thức **DC-Media** mà DramaClaw dùng cho ảnh / video / âm thanh (vai trò media, tham chiếu, khung hình đầu / cuối) và chuyển đổi mỗi yêu cầu sang API gốc của nhà cung cấp. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) trên Docker Hub, ghim bởi `DRAMACLAW_GATEWAY_VERSION` trong `.env`. Nó ở trạng thái chờ trong chế độ Official và chỉ được dùng khi bạn chuyển sang **Custom** hoặc **LocalAPI + Official Hybrid**.
 
 Các adapter nhà cung cấp có sẵn trong gateway hiện nay (xem [ma trận hỗ trợ kênh](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md) để biết trạng thái xác minh): ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Muốn thêm nhà cung cấp khác? Gateway có [trình tạo scaffold và hướng dẫn đóng góp](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
 

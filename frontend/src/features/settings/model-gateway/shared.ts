@@ -113,7 +113,7 @@ function getResponseErrorMessage(response: unknown, fallback: string): string {
 }
 
 /** [aipdd fork delta] 官方注册入口不能写死域名。
- * 站点地址以后端配置为准（数据库 / NEWAPI_BASE_URL，随 model-gateway/config 下发，
+ * 站点地址以后端配置为准（数据库 / LOCALAPI_BASE_URL，随 model-gateway/config 下发，
  * 形如 https://gateway.example/v1），这里只取协议 + 域名当作首页；
  * 地址缺失或非法就返回空串，由调用方决定不渲染链接。 */
 export function officialSiteUrl(baseUrl: string | undefined): string {

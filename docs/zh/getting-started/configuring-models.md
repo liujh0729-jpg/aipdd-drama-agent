@@ -13,7 +13,7 @@ DramaClaw CE 通过 NewAPI 兼容网关调用文本、视觉理解、Embedding�
 |---|---|---|
 | 官方 | 直接使用 官方网关提供的模型 | 只需 DC Key |
 | 自定义 | 所有模型都通过自定义 NewAPI 配置 | 初始化 NewAPI、供应商渠道、业务模型、Embedding、媒体模型 |
-| LocalNewAPI + 官方混合 | 官方模型照常使用，同时新增本地 ComfyUI 视频模型，或用本地模型覆盖同名官方模型 | 官方 DC Key、LocalNewAPI、ComfyUI URL 和 Workflow |
+| LocalAPI + 官方混合 | 官方模型照常使用，同时新增本地 ComfyUI 视频模型，或用本地模型覆盖同名官方模型 | 官方 DC Key、LocalAPI、ComfyUI URL 和 Workflow |
 
 配置完成后点击对应模式的启用按钮。更换模式、Key 或模型后，新任务会读取新配置；正在运行的任务不会中途切换。
 
@@ -31,7 +31,7 @@ DramaClaw CE 通过 NewAPI 兼容网关调用文本、视觉理解、Embedding�
 
 ### 更新官方媒体模型列表
 
-官方模式和 LocalNewAPI + 官方混合模式会显示当前官方模型列表的版本、模型数量和来源：
+官方模式和 LocalAPI + 官方混合模式会显示当前官方模型列表的版本、模型数量和来源：
 
 - 点击 **立即检查更新**，可以从 DramaClaw 官方发布地址获取最新模型列表并立即应用。
 - **自动更新官方模型列表**默认关闭。开启后，后端默认每 5 分钟检查一次；打开对应设置面板时也会立即检查。
@@ -57,22 +57,22 @@ DramaClaw CE 通过 NewAPI 兼容网关调用文本、视觉理解、Embedding�
 
 ### 1. 启动本地服务
 
-使用仓库的 compose 文件（LocalNewAPI 始终包含在内）：
+使用仓库的 compose 文件（LocalAPI 始终包含在内）：
 
 ```bash
 docker compose up -d
 ```
 
-它会启动 DramaClaw API、Web 和 LocalNewAPI。默认情况下 DramaClaw 在容器网络中访问 LocalNewAPI；浏览器访问的宿主机端口可以不同，不需要把内部地址改成浏览器地址。
+它会启动 DramaClaw API、Web 和 LocalAPI。默认情况下 DramaClaw 在容器网络中访问 LocalAPI；浏览器访问的宿主机端口可以不同，不需要把内部地址改成浏览器地址。
 
-仓库编排已经启用设置页所需的初始化和渠道管理能力。LocalNewAPI 的 SQLite 数据保存在 Compose 的 `newapi-data` 卷中；LocalNewAPI 容器内路径是 `/data/one-api.db`，DramaClaw API 通过共享卷中的 `/newapi-data/one-api.db` 管理它。通常不需要手动填写 SQLite 路径或数据库 DSN。
+仓库编排已经启用设置页所需的初始化和渠道管理能力。LocalAPI 的 SQLite 数据保存在 Compose 的 `newapi-data` 卷中；LocalAPI 容器内路径是 `/data/one-api.db`，DramaClaw API 通过共享卷中的 `/newapi-data/one-api.db` 管理它。通常不需要手动填写 SQLite 路径或数据库 DSN。
 
-### 2. 初始化 LocalNewAPI
+### 2. 初始化 LocalAPI
 
 打开 **自定义**。如果状态为“等待初始化”：
 
 1. 为全新的 NewAPI 设置 root 管理员密码并确认，密码至少 8 位。
-2. 点击 **初始化 LocalNewAPI**。
+2. 点击 **初始化 LocalAPI**。
 
 初始化会：
 
@@ -146,7 +146,7 @@ DramaClaw 不保存管理员密码。初始化完成后请自行保管该密码�
 
 #### 供应商渠道
 
-点击 **渠道管理** 打开当前 LocalNewAPI 支持的供应商目录。渠道类型及能力从 `/api/channel/types` 动态读取，每个供应商只能添加一次。目录支持按名称搜索，以及按文本、视觉理解、Embedding、图片、视频、音频和音乐等能力筛选；刚添加的渠道会显示在已配置渠道列表顶部。渠道目录加载失败时，先确认 LocalNewAPI 正常运行，再点击 **重新加载**。
+点击 **渠道管理** 打开当前 LocalAPI 支持的供应商目录。渠道类型及能力从 `/api/channel/types` 动态读取，每个供应商只能添加一次。目录支持按名称搜索，以及按文本、视觉理解、Embedding、图片、视频、音频和音乐等能力筛选；刚添加的渠道会显示在已配置渠道列表顶部。渠道目录加载失败时，先确认 LocalAPI 正常运行，再点击 **重新加载**。
 
 业务模型、Embedding 和媒体模型的渠道选择框会按照用途筛选：例如视频模型只列出支持视频能力的渠道，文本模型只列出支持文本能力的渠道。已有配置或暂时缺少能力元数据的渠道仍会保留，便于检查和修正，不会在升级后直接消失。
 
@@ -209,13 +209,13 @@ Embedding 模型和维度在项目创建时绑定。修改配置只自动影响�
 
 ### 5. ComfyUI 配置
 
-在 **自定义** 模式中，ComfyUI 通过 **高级配置 → 供应商渠道** 添加。在 **LocalNewAPI + 官方混合** 模式中，通过独立的 **ComfyUI 配置** 添加。两种模式读取同一个 LocalNewAPI 和 SQLite 数据，也使用相同的渠道编辑器。
+在 **自定义** 模式中，ComfyUI 通过 **高级配置 → 供应商渠道** 添加。在 **LocalAPI + 官方混合** 模式中，通过独立的 **ComfyUI 配置** 添加。两种模式读取同一个 LocalAPI 和 SQLite 数据，也使用相同的渠道编辑器。
 
-点击 **渠道管理**，从渠道目录添加 ComfyUI 后，渠道下方会出现 **ComfyUI Workflows** 区域。只有这时才显示 **载入 MiniMax H3 模板**；没有添加 ComfyUI 的用户不会看到模板入口。载入模板会填入三条初始 Workflow，并在 Base URL 为空时填入 `http://127.0.0.1:8188`，但不会覆盖已有的非空地址或同 ID Workflow。载入后仍需保存渠道和视频模型配置，才会写入 LocalNewAPI。
+点击 **渠道管理**，从渠道目录添加 ComfyUI 后，渠道下方会出现 **ComfyUI Workflows** 区域。只有这时才显示 **载入 MiniMax H3 模板**；没有添加 ComfyUI 的用户不会看到模板入口。载入模板会填入三条初始 Workflow，并在 Base URL 为空时填入 `http://127.0.0.1:8188`，但不会覆盖已有的非空地址或同 ID Workflow。载入后仍需保存渠道和视频模型配置，才会写入 LocalAPI。
 
 每个 ComfyUI 渠道配置需要：
 
-- 一个 DramaClaw 使用的模型名称。该名称会注册到 LocalNewAPI，并显示在画布中。
+- 一个 DramaClaw 使用的模型名称。该名称会注册到 LocalAPI，并显示在画布中。
 - ComfyUI 服务地址；本机默认是 `http://127.0.0.1:8188`。
 - 一条或多条 Workflow。每条包含唯一的 **Workflow ID** 和从 ComfyUI 导出的 **API Format Workflow JSON**，不能使用浏览器工作流 JSON。
 - 该模型的媒体能力，例如支持模式、比例、分辨率、时长和参考素材数量。
@@ -228,13 +228,13 @@ MiniMax H3 模板使用模型名 `MiniMax-H3-local`，内置文生、首帧和�
 
 删除单条 Workflow 只删除该路由，不会自动删除统一模型。需要彻底移除时，点击仅在已配置后显示的 **清除 ComfyUI 配置**，确认后会删除本地和 NewAPI 中的 ComfyUI 渠道、Workflow 及对应媒体模型映射；项目和已生成媒体不会被删除。
 
-## LocalNewAPI + 官方混合模式
+## LocalAPI + 官方混合模式
 
 混合模式用于保留官方网关，同时让指定视频模型从本地 ComfyUI 生成：
 
 1. 先在 **官方** 保存 DC Key。
 2. 在 **自定义** 中初始化一次 NewAPI；同一个 SQLite 不需要重复初始化。
-3. 打开 **LocalNewAPI + 官方混合**。
+3. 打开 **LocalAPI + 官方混合**。
 4. 打开独立的 **ComfyUI 配置**，点击 **渠道管理** 并从目录中添加 ComfyUI。
 5. 在该渠道的 **ComfyUI Workflows** 区域载入 MiniMax H3 模板；也可以填写自己的本地视频模型名称，再添加一条或多条 Workflow ID 和 **API Format Workflow JSON**。本机默认地址是 `http://127.0.0.1:8188`。
 6. 保存视频配置并启用混合模式。
@@ -275,7 +275,7 @@ Bucket 无需公开读；DramaClaw 使用临时签名 URL 授权上游读取。
 | 添加媒体模型时提示缺少供应商 Key | 对应供应商渠道尚未真正写入 NewAPI；先保存/更新渠道，再保存媒体模型。 |
 | NewAPI 报 `No available channel for model ...` | 检查逻辑模型映射、渠道是否启用、上游模型名及分组。 |
 | 走 Codex 类中转站（Codex2API 等）时结构化环节报 `Exceeded maximum output retries` | 中转站在 `/v1/chat/completions` 上丢掉了 `tool_calls`。到 NewAPI 后台给该渠道开启 **ChatCompletions → Responses Compatibility**。详见[排错指南](../guides/troubleshooting.md#模型--网关类)。 |
-| LocalNewAPI 初始化失败 | 检查 LocalNewAPI 服务、SQLite 挂载、目录权限和 `NEWAPI_PROVISIONER_ENABLED`。 |
+| LocalAPI 初始化失败 | 检查 LocalAPI 服务、SQLite 挂载、目录权限和 `NEWAPI_PROVISIONER_ENABLED`。 |
 | 画布没有显示新增模型 | 确认模型已启用、媒体类型正确、已保存全部配置并刷新页面。 |
 | 模型控件与实际能力不一致 | 检查媒体模型的 `config`，尤其是分辨率、比例、模式和参考素材上限。 |
 | 知识图谱 embedding 失败 | 检查 embedding Key、上游模型、维度和批量大小；429 表示上游限流。 |
@@ -288,6 +288,6 @@ Bucket 无需公开读；DramaClaw 使用临时签名 URL 授权上游读取。
 
 - `src/novelvideo/official_media_models.json`：CE 官方媒体模型与能力。
 - `.env.example`：环境变量参考。
-- `docker-compose.yml`（源码构建）/ `docker-compose.release.yml`（镜像）：部署文件（api + LocalNewAPI + web），网关模式在设置页选择。
+- `docker-compose.yml`（源码构建）/ `docker-compose.release.yml`（镜像）：部署文件（api + LocalAPI + web），网关模式在设置页选择。
 - [自托管手册](../guides/self-hosting.md)
 - [环境变量参考](../reference/environment-variables.md)

@@ -324,7 +324,7 @@ DramaClaw هو **خط إنتاج مفتوح المصدر للدراما بالذ
 
 <div dir="rtl">
 
-يشغّل DramaClaw كل الاستدلال عبر **بوابة متوافقة مع OpenAI** — إما خدمة البوابة الرسمية من DramaClaw أو LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) التوجيهية إلى المورّدين الذين تضبطهم. لا تُشغَّل النماذج على جهازك، لذا البصمة المحلية خفيفة. يكفي حاسوب محمول عادي أو خادم VPS صغير.
+يشغّل DramaClaw كل الاستدلال عبر **بوابة متوافقة مع OpenAI** — إما خدمة البوابة الرسمية من DramaClaw أو LocalAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) التوجيهية إلى المورّدين الذين تضبطهم. لا تُشغَّل النماذج على جهازك، لذا البصمة المحلية خفيفة. يكفي حاسوب محمول عادي أو خادم VPS صغير.
 
 </div>
 
@@ -335,9 +335,9 @@ DramaClaw هو **خط إنتاج مفتوح المصدر للدراما بالذ
 | **القرص** | بضعة جيجابايت للصور إضافة إلى الوسائط/الحالة المُولَّدة تحت مجلد `ce-data` (حدّ أدنى صارم غير مفروض) |
 | **نظام التشغيل** | macOS (Apple Silicon / Intel)، وWindows (Docker Desktop + خلفية WSL2)، وLinux (Docker Engine + إضافة compose) |
 | **Docker** | Docker + `docker compose` |
-| **المنافذ** | `8080` واجهة ويب · `8780` واجهة REST API · `3000` واجهة إدارة LocalNewAPI (على المضيف فقط افتراضياً، يمكن توسيعها) |
+| **المنافذ** | `8080` واجهة ويب · `8780` واجهة REST API · `3000` واجهة إدارة LocalAPI (على المضيف فقط افتراضياً، يمكن توسيعها) |
 | **مخازن البيانات** | لا شيء مطلوب — لا Postgres ولا Redis ولا Celery ولا Ray. تعمل المهام داخل العملية، وتقيم الحالة على النظام المحلي للملفات (SQLite + ملفات) |
-| **الشبكة** | وصول صادر إلى البوابة الرسمية `susciyuan.com`، و/أو إلى مورّدي النماذج الذين تضبطهم في LocalNewAPI |
+| **الشبكة** | وصول صادر إلى البوابة الرسمية `susciyuan.com`، و/أو إلى مورّدي النماذج الذين تضبطهم في LocalAPI |
 
 > يتطلّب التطوير المحلي (خارج Docker) كذلك Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg`. المتطلبات الكاملة في [دليل الاستضافة الذاتية](../docs/en/guides/self-hosting.md).
 
@@ -370,17 +370,17 @@ DramaClaw هو **خط إنتاج مفتوح المصدر للدراما بالذ
 
 </div>
 
-**البناء من المصدر (افتراضي)** — استنسخ DramaClaw وLocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) جنباً إلى جنب؛ يبني `docker compose up -d --build` الخدمات الثلاث من عمليتَي الاستنساخ هاتين.
+**البناء من المصدر (افتراضي)** — استنسخ DramaClaw وLocalAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) جنباً إلى جنب؛ يبني `docker compose up -d --build` الخدمات الثلاث من عمليتَي الاستنساخ هاتين.
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalNewAPI, built from ../dramaclaw-gateway
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalAPI, built from ../dramaclaw-gateway
 cd dramaclaw
 
 cp .env.example .env
 # Edit .env — set PROMPT_EXPORT_PASSWORD to a non-default value.
 
-docker compose up -d --build   # builds and starts three services: api / newapi (LocalNewAPI) / web
+docker compose up -d --build   # builds and starts three services: api / newapi (LocalAPI) / web
 ```
 
 <div dir="rtl">
@@ -399,9 +399,9 @@ docker compose -f docker-compose.release.yml up -d
 
 افتح التطبيق على <http://localhost:8080>؛ واجهة REST API على <http://localhost:8780>. في **الإعدادات ← ضبط النماذج** اختر أحد:
 
-- **رسمي** — الصق مفتاح DC الخاص بك (احصل عليه من <https://susciyuan.com>)؛ لا حاجة لخرائط نماذج. تبقى LocalNewAPI خاملة.
-- **مخصّص** — نقرة واحدة تهيّئ LocalNewAPI؛ ثم أضف قنواتك المصدرية الخاصة.
-- **مزيج LocalNewAPI + الرسمي** — الرسمي للخط الرئيسي، وLocalNewAPI للقنوات الإضافية.
+- **رسمي** — الصق مفتاح DC الخاص بك (احصل عليه من <https://susciyuan.com>)؛ لا حاجة لخرائط نماذج. تبقى LocalAPI خاملة.
+- **مخصّص** — نقرة واحدة تهيّئ LocalAPI؛ ثم أضف قنواتك المصدرية الخاصة.
+- **مزيج LocalAPI + الرسمي** — الرسمي للخط الرئيسي، وLocalAPI للقنوات الإضافية.
 
 الخطوات الكاملة في [البدء السريع](../docs/en/getting-started/quickstart.md).
 
@@ -409,7 +409,7 @@ docker compose -f docker-compose.release.yml up -d
 
 </div>
 
-> تنتقل من استنساخ أقدم؟ للبناء من المصدر، أولاً `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (تُبنى البوابة الآن من عملية الاستنساخ الشقيقة هذه؛ وبدونها يتوقّف البناء برسالة `unable to prepare context`). حُذِف `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` — استخدم `docker-compose.yml` (بناء من المصدر) / `docker-compose.release.yml` (صور). أسماء الخدمات ومجلّدا `ce-data` / `newapi-data` دون تغيّر؛ تُعاد استخدام البيانات القائمة كما هي. منفذ LocalNewAPI يربط الآن بـ `127.0.0.1` فقط افتراضياً؛ اضبط `ST_NEWAPI_BIND=0.0.0.0` في `.env` إن احتجت وصولاً بعيداً إليه.
+> تنتقل من استنساخ أقدم؟ للبناء من المصدر، أولاً `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (تُبنى البوابة الآن من عملية الاستنساخ الشقيقة هذه؛ وبدونها يتوقّف البناء برسالة `unable to prepare context`). حُذِف `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` — استخدم `docker-compose.yml` (بناء من المصدر) / `docker-compose.release.yml` (صور). أسماء الخدمات ومجلّدا `ce-data` / `newapi-data` دون تغيّر؛ تُعاد استخدام البيانات القائمة كما هي. منفذ LocalAPI يربط الآن بـ `127.0.0.1` فقط افتراضياً؛ اضبط `ST_NEWAPI_BIND=0.0.0.0` في `.env` إن احتجت وصولاً بعيداً إليه.
 
 <div dir="rtl">
 
@@ -429,7 +429,7 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **المنافذ.** `8080` واجهة الويب · `8780` واجهة REST API · `3000` إدارة LocalNewAPI (مرتبط بـ `127.0.0.1` افتراضيًا). ضع **وكيلًا عكسيًا مع TLS** (Caddy / Nginx / Traefik) أمام `8080` وأبقِ `8780` / `3000` داخليين؛ افتح `80` / `443` فقط في الجدار الناري / مجموعة الأمان.
+- **المنافذ.** `8080` واجهة الويب · `8780` واجهة REST API · `3000` إدارة LocalAPI (مرتبط بـ `127.0.0.1` افتراضيًا). ضع **وكيلًا عكسيًا مع TLS** (Caddy / Nginx / Traefik) أمام `8080` وأبقِ `8780` / `3000` داخليين؛ افتح `80` / `443` فقط في الجدار الناري / مجموعة الأمان.
 - **أول البناء يحتاج متّسعًا** — خصّص للمضيف ≥ 8 GB ذاكرة و≥ 40 GB قرصًا، وإلا قُتل بناء الواجهة الأمامية بنفاد الذاكرة.
 - **الدخول** بحساب الآلة الواحدة `local` باستخدام `ST_LOCAL_PASSWORD` (أو كلمة المرور لمرة واحدة المطبوعة في `docker compose -f docker-compose.aipdd.yml logs api` عند أول تشغيل).
 - **متعدد المستخدمين؟** نسخة المجتمع مصمّمة لمالك واحد. لخدمة عدة مستخدمين فعّل `ST_CE_MULTI_USER` وضع مصادقة حقيقية + HTTPS في المقدّمة. ملاحظات الإنتاج الكاملة: [دليل الاستضافة الذاتية](../docs/en/guides/self-hosting.md).
@@ -452,7 +452,7 @@ uv run novelvideo api --port 8780   # start the REST API (CE defaults to inline 
 
 الواجهة الأمامية في طرفية ثانية: `cd frontend && pnpm install && pnpm dev`.
 
-**البوابة.** في الوضع **الرسمي** لا تحتاج شيئاً آخر. أما في **المخصّص** أو **مزيج LocalNewAPI + الرسمي** فتتوقّع الواجهة بوابة على `127.0.0.1:3000` وملف SQLite الخاص بها هو `./state/newapi/one-api.db` (إلى هذا تكتب «تهيئة» في الإعدادات؛ ويشير `NEWAPI_ADMIN_BASE_URL` في `.env` إلى هناك مسبقاً). شغّل صورة منشورة مع تركيب هذا الدليل:
+**البوابة.** في الوضع **الرسمي** لا تحتاج شيئاً آخر. أما في **المخصّص** أو **مزيج LocalAPI + الرسمي** فتتوقّع الواجهة بوابة على `127.0.0.1:3000` وملف SQLite الخاص بها هو `./state/newapi/one-api.db` (إلى هذا تكتب «تهيئة» في الإعدادات؛ ويشير `LOCALAPI_ADMIN_BASE_URL` في `.env` إلى هناك مسبقاً). شغّل صورة منشورة مع تركيب هذا الدليل:
 
 </div>
 
@@ -480,9 +480,9 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - إذا ضبطت `ST_LOCAL_PASSWORD` في `.env` فسجّل الدخول بالحساب `local` وتلك كلمة المرور.
    - إذا تركتها فارغة فالخادم **لا** ينشئ حسابًا نيابةً عنك: أول شاشة هي **نموذج التهيئة**، اضبط فيها اسم المستخدم وكلمة المرور الأولية. أول حساب يكون مديرًا أعلى ويُغلق النموذج نهائيًا؛ تُضاف الحسابات لاحقًا من **الإعدادات → إدارة المستخدمين**.
 3. **اربط نماذجك** — اذهب إلى **الإعدادات ← إعداد النموذج** واختر وضعًا (التفاصيل في [النماذج والموردون المدعومون](#supported-models)):
-   - **رسمي** — الصق مفتاح DC من <https://susciyuan.com>؛ كل النماذج معيّنة مسبقًا ويبقى LocalNewAPI خاملًا.
-   - **مخصّص** — نقرة واحدة تهيّئ LocalNewAPI ثم أضف قنواتك العلوية الخاصة (مفاتيح API ومعرّفات النماذج) في واجهة إدارته.
-   - **Hybrid LocalNewAPI + الرسمي** — الرسمي للمسار الرئيسي وLocalNewAPI لقنوات إضافية.
+   - **رسمي** — الصق مفتاح DC من <https://susciyuan.com>؛ كل النماذج معيّنة مسبقًا ويبقى LocalAPI خاملًا.
+   - **مخصّص** — نقرة واحدة تهيّئ LocalAPI ثم أضف قنواتك العلوية الخاصة (مفاتيح API ومعرّفات النماذج) في واجهة إدارته.
+   - **Hybrid LocalAPI + الرسمي** — الرسمي للمسار الرئيسي وLocalAPI لقنوات إضافية.
 4. **ابدأ الإبداع** — بابهان إلى مكتبة الأصول نفسها:
    - **مسار المسلسل**: أدخل مخطوطة أو سيناريو (Fountain مدعوم) ودع AIPDD-Agent-Claw يخطّط الحلقات ويكتب النصوص ويرسم اللوحات والإطارات الأولى ويركّب التعليق الصوتي ويقصّ الفيلم النهائي. كل مرحلة مهمة مستقلة في **مركز المهام** — شغّلها بالترتيب أو تخطّاها أو استأنف من أي نقطة تحكّم.
    - **اللوحة**: افتح اللوحة اللانهائية وألقِ / اربط عُقدًا (صورة، فيديو، صوت، نص، مشهد ثلاثي الأبعاد…) للاستكشاف بحرية، ثم ارفع ما يعجبك إلى مسلسل.
@@ -498,8 +498,8 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 يبقى DramaClaw محايداً تجاه النماذج — كل نماذج النص/الصورة/الفيديو/الصوت تتصل عبر **بوابة متوافقة مع OpenAI**. اختر الوضع في **الإعدادات ← ضبط النماذج**:
 
 - **رسمي (مُوصى به)** — الصق مفتاح DC (احصل عليه من <https://susciyuan.com>)، واحفظ، وانتهى. تشحن البوابة الرسمية مسبقاً كل خرائط النماذج التي يحتاجها DramaClaw؛ لا شيء للضبط.
-- **مخصّص** — نقرة واحدة تهيّئ LocalNewAPI، ثم أضف قنوات مورّديك الخاصة (مفاتيح API، معرّفات نماذج) في واجهة إدارتها. كل نموذج يستدعيه DramaClaw يمرّ عبر قنواتك.
-- **مزيج LocalNewAPI + الرسمي** — احتفظ بالنماذج الرسمية للخط الرئيسي وأضف قنوات إضافية (مثل سير عمل فيديو ComfyUI محلي) عبر LocalNewAPI.
+- **مخصّص** — نقرة واحدة تهيّئ LocalAPI، ثم أضف قنوات مورّديك الخاصة (مفاتيح API، معرّفات نماذج) في واجهة إدارتها. كل نموذج يستدعيه DramaClaw يمرّ عبر قنواتك.
+- **مزيج LocalAPI + الرسمي** — احتفظ بالنماذج الرسمية للخط الرئيسي وأضف قنوات إضافية (مثل سير عمل فيديو ComfyUI محلي) عبر LocalAPI.
 
 > 🧠 **اختر مصدر الحوسبة بنفسك — تكلفة أقل وتحكم أكبر.** صُمّمت البوابة لتختار *أنت* أين تعمل كل عملية توليد:
 > - **طاقة AIPDD الخاملة (خفض التكلفة).** ربط قناة **AIPDD** يسمح للتوليد بالعمل على **مجموعة الحوسبة الخاملة** في المنصّة، فتُنفَّذ مهام المسلسلات الثقيلة بدُفعات بجزء يسير من التسعير عند الطلب — أكبر رافعة لخفض تكلفة الإنتاج. سجّل في <https://www.aipdd.work> للحصول على مفتاح AIPDD API، ثم أضِفَه كقناة في **Settings → Models & Channels**.
@@ -513,11 +513,11 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 </div>
 
-### LocalNewAPI: dramaclaw-gateway
+### LocalAPI: dramaclaw-gateway
 
 <div dir="rtl">
 
-خدمة `newapi` في `docker-compose.yml` هي [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway)، تفرّع DramaClaw الخاص من [New API](https://github.com/QuantumNous/new-api). تتحدّث تعاقد **DC-Media** الذي يستخدمه DramaClaw للصور/الفيديو/الصوت (أدوار الوسائط، المراجع، الإطار الأول/الأخير) وتحوّل كل طلب إلى واجهة المورّد الأصلية. الصورة: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) على Docker Hub، مثبّتة بـ `DRAMACLAW_GATEWAY_VERSION` في `.env`. تبقى خاملة في الوضع الرسمي ولا تُستخدم إلا حين تتحوّل إلى **المخصّص** أو **مزيج LocalNewAPI + الرسمي**.
+خدمة `newapi` في `docker-compose.yml` هي [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway)، تفرّع DramaClaw الخاص من [New API](https://github.com/QuantumNous/new-api). تتحدّث تعاقد **DC-Media** الذي يستخدمه DramaClaw للصور/الفيديو/الصوت (أدوار الوسائط، المراجع، الإطار الأول/الأخير) وتحوّل كل طلب إلى واجهة المورّد الأصلية. الصورة: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) على Docker Hub، مثبّتة بـ `DRAMACLAW_GATEWAY_VERSION` في `.env`. تبقى خاملة في الوضع الرسمي ولا تُستخدم إلا حين تتحوّل إلى **المخصّص** أو **مزيج LocalAPI + الرسمي**.
 
 </div>
 
@@ -527,7 +527,7 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 </div>
 
-| المرحلة | الوضع الرسمي | الوضع المخصّص/المختلط (LocalNewAPI) |
+| المرحلة | الوضع الرسمي | الوضع المخصّص/المختلط (LocalAPI) |
 |---|---|---|
 | **النص / LLM** | نماذج `DC-*-LLM`، بلا خرائط مطلوبة | أي قناة دردشة متوافقة مع OpenAI |
 | **الصور** | gpt-image · nano-banana | أي قناة صور مسجّلة في البوابة |

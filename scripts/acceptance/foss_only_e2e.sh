@@ -31,7 +31,7 @@ gateway_configured=${gateway_check##*:}
 
 if [ "$gateway_configured" != 1 ]; then
   echo "FOSS_ONLY requires a configured CE NewAPI gateway (source=$gateway_source)." >&2
-  echo "Open Settings → Models & Channels and configure the official or LocalNewAPI channel." >&2
+  echo "Open Settings → Models & Channels and configure the official or LocalAPI channel." >&2
   exit 2
 fi
 

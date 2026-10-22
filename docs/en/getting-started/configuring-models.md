@@ -13,7 +13,7 @@ After startup, open `http://localhost:8080` and go to **Settings → Models & Ch
 |---|---|---|
 | Official | Use the models provided by the official gateway | DC Key only |
 | Custom | Route every model through your NewAPI configuration | NewAPI initialization, providers, feature models, embedding, and media models |
-| LocalNewAPI + Official Hybrid | Keep official models while adding Local ComfyUI video models or overriding official models with matching IDs | Official DC Key, LocalNewAPI, ComfyUI URL, and workflows |
+| LocalAPI + Official Hybrid | Keep official models while adding Local ComfyUI video models or overriding official models with matching IDs | Official DC Key, LocalAPI, ComfyUI URL, and workflows |
 
 Enable the intended mode after configuring it. New jobs read the latest mode, key, and mappings. Jobs already running do not switch gateways midway.
 
@@ -31,7 +31,7 @@ The official image/video list and its resolutions, aspect ratios, durations, and
 
 ### Update the official media model catalog
 
-Official and LocalNewAPI + Official Hybrid modes show the current catalog version, model count, and source:
+Official and LocalAPI + Official Hybrid modes show the current catalog version, model count, and source:
 
 - Click **Check for Updates** to fetch the latest catalog from DramaClaw's official publishing URL and apply it immediately.
 - **Automatically update the official model catalog** is off by default. When enabled, the backend checks every five minutes by default and also checks immediately when the corresponding settings panel opens.
@@ -57,22 +57,22 @@ To obtain a DC Key, visit <https://susciyuan.com>.
 
 ### 1. Start the local stack
 
-Use the repository compose file (LocalNewAPI is always part of it):
+Use the repository compose file (LocalAPI is always part of it):
 
 ```bash
 docker compose up -d
 ```
 
-It starts the DramaClaw API, web frontend, and LocalNewAPI. DramaClaw normally reaches LocalNewAPI through the container network. The browser-facing host port may differ and does not need to replace the internal URL.
+It starts the DramaClaw API, web frontend, and LocalAPI. DramaClaw normally reaches LocalAPI through the container network. The browser-facing host port may differ and does not need to replace the internal URL.
 
-The repository compose file enables the setup and channel-management features required by the settings UI. The LocalNewAPI SQLite database is stored in the Compose `newapi-data` volume. Its path is `/data/one-api.db` inside the LocalNewAPI container, while the DramaClaw API manages it through the shared `/newapi-data/one-api.db` mount. Normally you do not enter a SQLite path or DSN manually.
+The repository compose file enables the setup and channel-management features required by the settings UI. The LocalAPI SQLite database is stored in the Compose `newapi-data` volume. Its path is `/data/one-api.db` inside the LocalAPI container, while the DramaClaw API manages it through the shared `/newapi-data/one-api.db` mount. Normally you do not enter a SQLite path or DSN manually.
 
-### 2. Initialize LocalNewAPI
+### 2. Initialize LocalAPI
 
 Open **Custom**. When it shows “Initialization required”:
 
 1. Set and confirm a root account password of at least eight characters for a fresh NewAPI instance.
-2. Click **Initialize LocalNewAPI**.
+2. Click **Initialize LocalAPI**.
 
 Initialization:
 
@@ -146,7 +146,7 @@ Use Advanced Settings to adjust individual results after applying a profile.
 
 #### Provider channels
 
-Click **Manage Channels** to open the provider catalog supported by the current LocalNewAPI instance. Provider types and capabilities are loaded dynamically from `/api/channel/types`, and each provider can be added once. Search by provider name or filter by text, vision, embedding, image, video, audio, and music capabilities. A newly added provider appears first in the configured-channel list. If the catalog fails to load, verify LocalNewAPI is running and click **Reload**.
+Click **Manage Channels** to open the provider catalog supported by the current LocalAPI instance. Provider types and capabilities are loaded dynamically from `/api/channel/types`, and each provider can be added once. Search by provider name or filter by text, vision, embedding, image, video, audio, and music capabilities. A newly added provider appears first in the configured-channel list. If the catalog fails to load, verify LocalAPI is running and click **Reload**.
 
 Provider selectors for feature, embedding, and media models are filtered by their purpose. For example, video models list video-capable providers, while text features list text-capable providers. Existing selections and providers with temporarily unavailable capability metadata remain visible for inspection and correction instead of disappearing after an upgrade.
 
@@ -209,13 +209,13 @@ The **Model ID** is DramaClaw’s stable identifier. **Upstream Model** is the a
 
 ### 5. ComfyUI Configuration
 
-In **Custom** mode, add ComfyUI through **Advanced Settings → Provider Channels**. In **LocalNewAPI + Official Hybrid**, add it through the separate **ComfyUI Configuration** section. Both modes use the same LocalNewAPI and SQLite data and the same channel editor.
+In **Custom** mode, add ComfyUI through **Advanced Settings → Provider Channels**. In **LocalAPI + Official Hybrid**, add it through the separate **ComfyUI Configuration** section. Both modes use the same LocalAPI and SQLite data and the same channel editor.
 
-Click **Manage Channels** and add ComfyUI from the provider catalog to reveal the **ComfyUI Workflows** area beneath that channel. **Load MiniMax H3 Template** appears only there, so users who do not add ComfyUI never see the shortcut. Loading the template adds three starter workflows and fills `http://127.0.0.1:8188` when Base URL is empty. It does not replace a non-empty URL or an existing workflow with the same ID. Save the channel and video-model configuration afterward to persist the result to LocalNewAPI.
+Click **Manage Channels** and add ComfyUI from the provider catalog to reveal the **ComfyUI Workflows** area beneath that channel. **Load MiniMax H3 Template** appears only there, so users who do not add ComfyUI never see the shortcut. Loading the template adds three starter workflows and fills `http://127.0.0.1:8188` when Base URL is empty. It does not replace a non-empty URL or an existing workflow with the same ID. Save the channel and video-model configuration afterward to persist the result to LocalAPI.
 
 Each ComfyUI channel configuration needs:
 
-- One model name used by DramaClaw. It is registered in LocalNewAPI and displayed in XiaHua.
+- One model name used by DramaClaw. It is registered in LocalAPI and displayed in XiaHua.
 - The ComfyUI service URL; the local default is `http://127.0.0.1:8188`.
 - One or more workflows. Each workflow has a unique **Workflow ID** and a ComfyUI **API Format Workflow JSON** export; browser workflow JSON is not accepted.
 - Media capabilities for the model, including modes, ratios, resolutions, durations, and reference-media limits.
@@ -228,13 +228,13 @@ The MiniMax H3 template uses the model name `MiniMax-H3-local` and includes text
 
 Deleting one workflow removes only that route; it does not automatically delete the unified model. To remove everything, use **Clear ComfyUI configuration**, which appears only after ComfyUI is configured. After confirmation, it removes the ComfyUI channel, workflows, and related media model mappings from local settings and NewAPI. Existing projects and generated media are preserved.
 
-## LocalNewAPI + Official Hybrid mode
+## LocalAPI + Official Hybrid mode
 
 Hybrid mode keeps the official gateway while generating selected video models through Local ComfyUI:
 
 1. Save the DC Key under **Official**.
 2. Initialize NewAPI once under **Custom**; the same SQLite database is reused.
-3. Open **LocalNewAPI + Official Hybrid**.
+3. Open **LocalAPI + Official Hybrid**.
 4. Open the separate **ComfyUI Configuration** section, click **Manage Channels**, and add ComfyUI from the catalog.
 5. Load the MiniMax H3 template from that channel's **ComfyUI Workflows** area. Alternatively, enter a local video model name and add one or more Workflow IDs with **API Format Workflow JSON**. The local default URL is `http://127.0.0.1:8188`.
 6. Save video configuration and enable Hybrid mode.
@@ -275,7 +275,7 @@ Enter Cloud name, API Key, API Secret, and an optional folder. Find them under *
 | Adding a media model says its provider key is missing | The provider channel was not persisted to NewAPI. Save/update the channel before saving media models. |
 | NewAPI reports `No available channel for model ...` | Check the logical mapping, channel status, upstream model name, and group. |
 | Structured steps fail with `Exceeded maximum output retries` behind a Codex-backed relay (Codex2API etc.) | The relay drops `tool_calls` on `/v1/chat/completions`. Enable **ChatCompletions → Responses Compatibility** for that channel in the NewAPI admin. See the [troubleshooting guide](../guides/troubleshooting.md#model--gateway). |
-| LocalNewAPI initialization fails | Check the LocalNewAPI service, SQLite mount, directory permissions, and `NEWAPI_PROVISIONER_ENABLED`. |
+| LocalAPI initialization fails | Check the LocalAPI service, SQLite mount, directory permissions, and `NEWAPI_PROVISIONER_ENABLED`. |
 | A new model is absent from XiaHua | Verify it is enabled, has the correct media type, the complete configuration was saved, and the page was refreshed. |
 | Controls do not match model capabilities | Check the media model `config`, especially resolutions, ratios, modes, and reference limits. |
 | Knowledge-graph embedding fails | Check the key, upstream model, dimensions, and batch size. HTTP 429 means upstream rate limiting. |
@@ -288,6 +288,6 @@ Enter Cloud name, API Key, API Secret, and an optional folder. Find them under *
 
 - `src/novelvideo/official_media_models.json`: CE official media models and capabilities.
 - `.env.example`: environment variable reference.
-- `docker-compose.yml` (source build) / `docker-compose.release.yml` (images): the deployment files (api + LocalNewAPI + web); the gateway mode is chosen in Settings.
+- `docker-compose.yml` (source build) / `docker-compose.release.yml` (images): the deployment files (api + LocalAPI + web); the gateway mode is chosen in Settings.
 - [Self-Hosting Handbook](../guides/self-hosting.md)
 - [Environment Variable Reference](../reference/environment-variables.md)

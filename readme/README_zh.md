@@ -297,7 +297,7 @@ DramaClaw 是一条**源码可见的 AI 漫剧工业化生产线** —— 而且
 
 ## 系统要求
 
-DramaClaw 的所有模型推理都走 **OpenAI 兼容网关** —— 要么是官方 DramaClaw 网关服务，要么是 LocalNewAPI（[dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)）转发到你自己配置的模型供应商。本机不跑模型，所以本地占用很低，一台普通笔记本或小 VPS 就够用。
+DramaClaw 的所有模型推理都走 **OpenAI 兼容网关** —— 要么是官方 DramaClaw 网关服务，要么是 LocalAPI（[dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)）转发到你自己配置的模型供应商。本机不跑模型，所以本地占用很低，一台普通笔记本或小 VPS 就够用。
 
 | 项目 | 要求 |
 |---|---|
@@ -306,9 +306,9 @@ DramaClaw 的所有模型推理都走 **OpenAI 兼容网关** —— 要么是�
 | **磁盘** | 预留几 GB 放镜像及 `ce-data` 卷中的生成媒体/状态（无硬性下限） |
 | **操作系统** | macOS（Apple Silicon / Intel）、Windows（Docker Desktop + WSL2 后端）、Linux（Docker Engine + compose 插件） |
 | **Docker** | Docker + `docker compose` |
-| **端口** | `8080` 网页 · `8780` REST API · `3000` LocalNewAPI 管理页（默认仅本机，可放开） |
+| **端口** | `8080` 网页 · `8780` REST API · `3000` LocalAPI 管理页（默认仅本机，可放开） |
 | **数据库** | 全部不需要 —— 无 Postgres、Redis、Celery、Ray。任务进程内内联执行，状态存本地文件系统（SQLite + 文件） |
-| **网络** | 需能出网访问官方网关 `susciyuan.com`，和/或你在 LocalNewAPI 里配置的模型供应商 |
+| **网络** | 需能出网访问官方网关 `susciyuan.com`，和/或你在 LocalAPI 里配置的模型供应商 |
 
 > **构建期比运行期更吃资源。** 首次 Docker 构建会在容器里编译前端、装 Python 与媒体依赖，给 Docker 虚拟机留 **≥ 8 GB 内存**（低于此值 `vite` 构建会被 OOM 以 `SIGKILL` 杀掉）和 **≥ 40 GB 磁盘**。一键安装脚本会自动按这个口径配好虚拟机。
 >
@@ -333,7 +333,7 @@ DramaClaw 的所有模型推理都走 **OpenAI 兼容网关** —— 要么是�
 - **Windows**：**不要**「以管理员身份运行」—— Docker Desktop 是按当前用户安装的，管理员窗口装的位置启动器反而找不到。（WSL 安装会自己弹一次系统授权，这是正常且唯一的一次。）
 - **改过代码想让页面生效**：`bash 启动系统-Start.command --rebuild`（macOS）/ `启动系统-Start.bat --rebuild`（Windows）。默认双击绝不重建，所以启动很快。
 
-> 这条路径用的是 `docker-compose.aipdd.yml`：`api` + `web` 源码构建，LocalNewAPI 拉发布镜像，SQLite + 进程内任务，无需 Postgres/Redis/Celery。慢网下首次构建可能要 40–90 分钟（之后每次启动只需几秒）。登录与配模型见[首次运行](#first-run)。
+> 这条路径用的是 `docker-compose.aipdd.yml`：`api` + `web` 源码构建，LocalAPI 拉发布镜像，SQLite + 进程内任务，无需 Postgres/Redis/Celery。慢网下首次构建可能要 40–90 分钟（之后每次启动只需几秒）。登录与配模型见[首次运行](#first-run)。
 
 ### 一键启动（macOS / Windows）—— 只想快速跑起来就选这个
 
@@ -360,13 +360,13 @@ DramaClaw 的所有模型推理都走 **OpenAI 兼容网关** —— 要么是�
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalNewAPI，从 ../dramaclaw-gateway 构建
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalAPI，从 ../dramaclaw-gateway 构建
 cd dramaclaw
 
 cp .env.example .env
 # 编辑 .env —— 把 PROMPT_EXPORT_PASSWORD 改成非默认值。
 
-docker compose up -d --build   # 构建并起三个服务：api / newapi（LocalNewAPI）/ web
+docker compose up -d --build   # 构建并起三个服务：api / newapi（LocalAPI）/ web
 ```
 
 两个 checkout 都是普通 git 仓库：改代码、`git pull`、重建。只改了 DramaClaw 代码：`docker compose up -d --build api web`；只改了网关：`docker compose up -d --build newapi`。网关 clone 放在别处，或者想让 Docker 直接从 git 拉？在 `.env` 里把 `DRAMACLAW_GATEWAY_SRC` 设成那个路径或 `https://github.com/dramaclaw/dramaclaw-gateway.git#main`。
@@ -379,15 +379,15 @@ docker compose -f docker-compose.release.yml up -d
 
 浏览器打开 <http://localhost:8080>；REST API 在 <http://localhost:8780>。到**设置 → 模型与渠道**三选一：
 
-- **官方** —— 粘贴 DC key（到 <https://susciyuan.com> 获取），无需映射模型，LocalNewAPI 闲置待命。
-- **自定义** —— 一键初始化 LocalNewAPI，再自行配上游渠道。
-- **LocalNewAPI + 官方混合** —— 主链路走官方，额外渠道走 LocalNewAPI。
+- **官方** —— 粘贴 DC key（到 <https://susciyuan.com> 获取），无需映射模型，LocalAPI 闲置待命。
+- **自定义** —— 一键初始化 LocalAPI，再自行配上游渠道。
+- **LocalAPI + 官方混合** —— 主链路走官方，额外渠道走 LocalAPI。
 
 完整步骤见 [快速开始](../docs/zh/getting-started/quickstart.md)。
 
 版本与镜像源在 `.env` 里钉：`DRAMACLAW_VERSION`、`DRAMACLAW_GATEWAY_VERSION`、`DRAMACLAW_IMAGE_PREFIX`——仅镜像模式（`docker-compose.release.yml`）生效。国内拉取慢：设 `DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` 并同时钉两个版本（ACR 镜像只有钉 tag，没有 latest）。
 
-> 从旧版本升级？源码构建的先 `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway`（网关现在从这个并排 checkout 构建，没有它会报 `unable to prepare context`）。`docker-compose.selfhosted.yml`、`docker-compose.selfhosted.release.yml` 已移除——改用 `docker-compose.yml`（源码构建）/ `docker-compose.release.yml`（镜像）。服务名与 `ce-data` / `newapi-data` 数据卷不变，已有数据原样复用。LocalNewAPI 端口默认只绑 `127.0.0.1`，需要远程访问时在 `.env` 设 `ST_NEWAPI_BIND=0.0.0.0`。
+> 从旧版本升级？源码构建的先 `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway`（网关现在从这个并排 checkout 构建，没有它会报 `unable to prepare context`）。`docker-compose.selfhosted.yml`、`docker-compose.selfhosted.release.yml` 已移除——改用 `docker-compose.yml`（源码构建）/ `docker-compose.release.yml`（镜像）。服务名与 `ce-data` / `newapi-data` 数据卷不变，已有数据原样复用。LocalAPI 端口默认只绑 `127.0.0.1`，需要远程访问时在 `.env` 设 `ST_NEWAPI_BIND=0.0.0.0`。
 
 ### 云服务器 / VPS（Linux）—— 共享或公开部署
 
@@ -405,7 +405,7 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **端口。** `8080` Web UI · `8780` REST API · `3000` LocalNewAPI 管理面（默认只绑 `127.0.0.1`）。在 `8080` 前面放一个**带 TLS 的反向代理**（Caddy / Nginx / Traefik），把 `8780` / `3000` 保持为内部端口；防火墙 / 安全组只开 `80` / `443`。
+- **端口。** `8080` Web UI · `8780` REST API · `3000` LocalAPI 管理面（默认只绑 `127.0.0.1`）。在 `8080` 前面放一个**带 TLS 的反向代理**（Caddy / Nginx / Traefik），把 `8780` / `3000` 保持为内部端口；防火墙 / 安全组只开 `80` / `443`。
 - **首次构建要留足空间** —— 给主机 ≥ 8 GB 内存和 ≥ 40 GB 磁盘，否则前端构建会被 OOM 杀掉。
 - **登录** 用单机账号 `local` + `ST_LOCAL_PASSWORD`；口令留空时后端不替你造账户，第一次打开网页会让你自己设置用户名和初始密码。
 - **多用户？** CE 按设计是单主人。要服务多个用户，请开启 `ST_CE_MULTI_USER` 并在前面放真正的鉴权 + HTTPS。完整生产须知见 [自托管指南](../docs/zh/guides/self-hosting.md)。
@@ -424,7 +424,7 @@ uv run novelvideo api --port 8780   # 启动 REST API（CE 默认 inline 任务�
 
 另开一个终端起前端：`cd frontend && pnpm install && pnpm dev`。
 
-**网关。** **官方**模式什么都不用再跑。**自定义**或**LocalNewAPI + 官方混合**模式下，API 需要一个跑在 `127.0.0.1:3000` 的网关，且它的 SQLite 文件在 `./state/newapi/one-api.db`（设置页的「初始化」写的就是这个文件；`.env` 里的 `NEWAPI_ADMIN_BASE_URL` 默认已指向这个地址）。要么用发布镜像并把这个目录挂进去：
+**网关。** **官方**模式什么都不用再跑。**自定义**或**LocalAPI + 官方混合**模式下，API 需要一个跑在 `127.0.0.1:3000` 的网关，且它的 SQLite 文件在 `./state/newapi/one-api.db`（设置页的「初始化」写的就是这个文件；`.env` 里的 `LOCALAPI_ADMIN_BASE_URL` 默认已指向这个地址）。要么用发布镜像并把这个目录挂进去：
 
 ```bash
 mkdir -p state/newapi
@@ -446,9 +446,9 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - 若你在 `.env` 设了 `ST_LOCAL_PASSWORD`，就用账号 `local` 加那个密码登录。
    - 否则库里还没有账户，第一屏就是**初始化表单**：在那里自己定用户名和初始密码。首个账户即超管，初始化完成后该表单永久关闭，之后加人走「设置 → 用户管理」。
 3. **连接你的模型** —— 进入 **设置 → 模型与渠道**，选一种模式（细节见 [支持的模型与供应商](#supported-models)）：
-   - **官方** —— 粘贴一个来自 <https://susciyuan.com> 的 DC key；所有模型都已映射好，LocalNewAPI 保持空闲。
-   - **自定义** —— 一键初始化 LocalNewAPI，然后在其管理界面里加上你自己的上游渠道（API key + 模型 ID）。
-   - **LocalNewAPI + 官方混合** —— 主流水线用官方模型，额外渠道走 LocalNewAPI。
+   - **官方** —— 粘贴一个来自 <https://susciyuan.com> 的 DC key；所有模型都已映射好，LocalAPI 保持空闲。
+   - **自定义** —— 一键初始化 LocalAPI，然后在其管理界面里加上你自己的上游渠道（API key + 模型 ID）。
+   - **LocalAPI + 官方混合** —— 主流水线用官方模型，额外渠道走 LocalAPI。
 4. **开始创作** —— 两种方式进入同一个资产库：
    - **剧集流水线**：导入一份小说或剧本（支持 Fountain），让 AIPDD-Agent-Claw 规划剧集、写剧本、画分镜和首帧、合成配音、剪出成片。每个阶段都是**任务中心**里独立的任务 —— 可顺序跑、跳过，或从任意检查点续跑。
    - **画布**：打开无限画布，拖放 / 连接节点（图像、视频、音频、脚本、3D 片场……）自由探索，再把满意的结果提升回剧集。
@@ -466,9 +466,9 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - 若你在 `.env` 里设了 `ST_LOCAL_PASSWORD`，就用账号 `local` 加那个口令登录。
    - 否则库里还没有账户，第一屏是**初始化表单**，在那里自己定用户名和初始密码；首个账户即超管，之后加人走「设置 → 用户管理」。
 3. **配置模型** —— 进**设置 → 模型与渠道**三选一（细节见[支持的模型与服务商](#supported-models)）：
-   - **官方** —— 粘贴在 <https://susciyuan.com> 获取的 DC key，模型已全部映射好，LocalNewAPI 闲置待命。
-   - **自定义** —— 一键初始化 LocalNewAPI，再在它的管理页添加你自己的供应商渠道（API key、模型 ID）。
-   - **LocalNewAPI + 官方混合** —— 主链路用官方模型，你的额外渠道并存。
+   - **官方** —— 粘贴在 <https://susciyuan.com> 获取的 DC key，模型已全部映射好，LocalAPI 闲置待命。
+   - **自定义** —— 一键初始化 LocalAPI，再在它的管理页添加你自己的供应商渠道（API key、模型 ID）。
+   - **LocalAPI + 官方混合** —— 主链路用官方模型，你的额外渠道并存。
 4. **开始创作** —— 两条路共用同一个资产库：
    - **剧集流水线**：导入原稿或剧本（支持 Fountain），DramaClaw 帮你规划剧集、生成剧本、绘制分镜与首帧、合成配音、剪成成片。每个阶段都是**任务中心**里的独立任务 —— 可顺序跑、跳步、从任意检查点续跑。
    - **画布**：打开无限画布，自由拖拽并连接节点（图片、视频、音频、剧本、3D 场景…）探索，再把满意的结果写回某一集。
@@ -482,8 +482,8 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音频模型都经一个 **OpenAI 兼容网关**接入。到**设置 → 模型与渠道**三选一：
 
 - **官方（推荐）** —— 粘贴 DC key（到 <https://susciyuan.com> 获取）保存即用。官方网关已经配好 DramaClaw 需要的全部模型映射，什么都不用调。
-- **自定义** —— 一键初始化 LocalNewAPI，然后在它的管理页里添加你自己的供应商渠道（API key、模型 ID）。DramaClaw 调用的每一个模型都走你的渠道。
-- **LocalNewAPI + 官方混合** —— 主链路继续用官方模型，额外渠道（比如本地 ComfyUI 视频工作流）走 LocalNewAPI。
+- **自定义** —— 一键初始化 LocalAPI，然后在它的管理页里添加你自己的供应商渠道（API key、模型 ID）。DramaClaw 调用的每一个模型都走你的渠道。
+- **LocalAPI + 官方混合** —— 主链路继续用官方模型，额外渠道（比如本地 ComfyUI 视频工作流）走 LocalAPI。
 
 > 🧠 **自带算力，任选其一 —— 更省钱，也更有掌控。** 网关的设计让**你自己**决定每次生成跑在哪里：
 > - **AIPDD 闲置算力（大幅降本）。** 接入 **AIPDD** 渠道后，生成可走平台的**闲置算力池**，批量重活短剧的成本只有按需价的一小部分 —— 这是压低成本最有效的一招。到 <https://www.aipdd.work> 注册获取 AIPDD API Key，再在**设置 → 模型与渠道**里把它加为一个渠道。
@@ -495,13 +495,13 @@ DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音�
 
 完整步骤见 [配置模型供应商](../docs/zh/getting-started/configuring-models.md)。
 
-### LocalNewAPI：dramaclaw-gateway
+### LocalAPI：dramaclaw-gateway
 
-`docker-compose.yml` 里的 `newapi` 服务就是 [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway)，DramaClaw 自己维护的 [New API](https://github.com/QuantumNous/new-api) 分支。它实现了 DramaClaw 图片 / 视频 / 音频所用的 **DC-Media** 协议（媒体角色、参考图、首尾帧），并把每个请求转换成各供应商的原生接口。镜像在 Docker Hub：[`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)，版本由 `.env` 里的 `DRAMACLAW_GATEWAY_VERSION` 钉住。官方模式下它只是常驻待命，切到**自定义**或**LocalNewAPI + 官方混合**后才会被使用。
+`docker-compose.yml` 里的 `newapi` 服务就是 [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway)，DramaClaw 自己维护的 [New API](https://github.com/QuantumNous/new-api) 分支。它实现了 DramaClaw 图片 / 视频 / 音频所用的 **DC-Media** 协议（媒体角色、参考图、首尾帧），并把每个请求转换成各供应商的原生接口。镜像在 Docker Hub：[`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)，版本由 `.env` 里的 `DRAMACLAW_GATEWAY_VERSION` 钉住。官方模式下它只是常驻待命，切到**自定义**或**LocalAPI + 官方混合**后才会被使用。
 
 网关目前自带的供应商适配器（验证状态见 [渠道支持矩阵](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/README.md)）：ComfyUI · MiniMax H3 / 海螺 · 火山引擎豆包 / Seedance · 阿里 · 可灵 · 即梦 · Vertex AI · Gemini · OpenAI / Sora · Suno。想接别的供应商？网关提供了[适配器脚手架和贡献指南](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.zh_CN.md)。
 
-| 环节              | 官方模式                          | 自定义 / 混合模式（LocalNewAPI）                            |
+| 环节              | 官方模式                          | 自定义 / 混合模式（LocalAPI）                            |
 |-------------------|------------------------------------------------|----------------------------------------------------------|
 | **文本 / 大模型** | `DC-*-LLM` 系列，无需映射                       | 任意 OpenAI 兼容对话渠道                                  |
 | **图像**          | gpt-image · nano-banana                        | 网关里注册的任意图片渠道                                  |

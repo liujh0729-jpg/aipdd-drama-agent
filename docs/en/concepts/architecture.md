@@ -75,7 +75,7 @@ No external database is required.
 
 ## Model Access
 
-All text / image / video / audio models are reached through a single **OpenAI-compatible gateway** (LocalNewAPI or an official key); see [Configuring Model Providers](../getting-started/configuring-models.md) for details.
+All text / image / video / audio models are reached through a single **OpenAI-compatible gateway** (LocalAPI or an official key); see [Configuring Model Providers](../getting-started/configuring-models.md) for details.
 
 ## Motion Feature Film (MG) Pipeline
 

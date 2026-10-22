@@ -287,7 +287,7 @@ DramaClaw — это **source-available производственная лин�
 
 ## Системные требования
 
-DramaClaw выполняет весь инференс через **OpenAI-совместимый шлюз** — либо официальный сервис шлюза DramaClaw, либо LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)), маршрутизирующий к настроенным тобой провайдерам. Ничто не запускает модели на твоей машине, поэтому локальный след лёгкий. Достаточно обычного ноутбука или небольшого VPS.
+DramaClaw выполняет весь инференс через **OpenAI-совместимый шлюз** — либо официальный сервис шлюза DramaClaw, либо LocalAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)), маршрутизирующий к настроенным тобой провайдерам. Ничто не запускает модели на твоей машине, поэтому локальный след лёгкий. Достаточно обычного ноутбука или небольшого VPS.
 
 | Параметр | Требование |
 |---|---|
@@ -296,9 +296,9 @@ DramaClaw выполняет весь инференс через **OpenAI-со�
 | **Диск** | Несколько ГБ под образы плюс сгенерированные медиа/состояние под томом `ce-data` (строгого минимума нет) |
 | **ОС** | macOS (Apple Silicon / Intel), Windows (Docker Desktop + бэкенд WSL2), Linux (Docker Engine + плагин compose) |
 | **Docker** | Docker + `docker compose` |
-| **Порты** | `8080` веб-UI · `8780` REST API · `3000` админ-UI LocalNewAPI (по умолчанию только хост, можно расширить) |
+| **Порты** | `8080` веб-UI · `8780` REST API · `3000` админ-UI LocalAPI (по умолчанию только хост, можно расширить) |
 | **Хранилища данных** | Не требуются — нет Postgres, Redis, Celery или Ray. Задачи идут in-process; состояние живёт в локальной файловой системе (SQLite + файлы) |
-| **Сеть** | Исходящий доступ к официальному шлюзу `susciyuan.com` и/или к провайдерам моделей, настроенным в LocalNewAPI |
+| **Сеть** | Исходящий доступ к официальному шлюзу `susciyuan.com` и/или к провайдерам моделей, настроенным в LocalAPI |
 
 > Для локальной разработки (без Docker) дополнительно нужны Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg`. Полный список предусловий — в [руководстве по самостоятельному размещению](../docs/en/guides/self-hosting.md).
 
@@ -327,17 +327,17 @@ DramaClaw выполняет весь инференс через **OpenAI-со�
 
 Каждый релиз на GitHub публикует мультиархитектурные образы (amd64/arm64) на Docker Hub.
 
-**Сборка из исходников (по умолчанию)** — склонируй DramaClaw и LocalNewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) рядом; `docker compose up -d --build` соберёт все три сервиса из этих двух чекаутов.
+**Сборка из исходников (по умолчанию)** — склонируй DramaClaw и LocalAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) рядом; `docker compose up -d --build` соберёт все три сервиса из этих двух чекаутов.
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalNewAPI, собирается из ../dramaclaw-gateway
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalAPI, собирается из ../dramaclaw-gateway
 cd dramaclaw
 
 cp .env.example .env
 # Отредактируй .env — задай PROMPT_EXPORT_PASSWORD не-значение-по-умолчанию.
 
-docker compose up -d --build   # собирает и запускает три сервиса: api / newapi (LocalNewAPI) / web
+docker compose up -d --build   # собирает и запускает три сервиса: api / newapi (LocalAPI) / web
 ```
 
 Оба чекаута — обычные git-репозитории: правь, `git pull`, пересобирай. Изменился только код DramaClaw? `docker compose up -d --build api web`. Только шлюз? `docker compose up -d --build newapi`. Склонировал шлюз в другое место или предпочитаешь, чтобы Docker тянул его из git? Задай `DRAMACLAW_GATEWAY_SRC` в `.env` на этот путь или на `https://github.com/dramaclaw/dramaclaw-gateway.git#main`.
@@ -350,15 +350,15 @@ docker compose -f docker-compose.release.yml up -d
 
 Открой приложение на <http://localhost:8080>; REST API — на <http://localhost:8780>. В **Settings → Models & Channels** выбери одно из:
 
-- **Official** — вставь свой DC-ключ (получи на <https://susciyuan.com>); маппинг моделей не нужен. LocalNewAPI остаётся в простое.
-- **Custom** — один клик инициализирует LocalNewAPI; затем добавь свои upstream-каналы.
-- **LocalNewAPI + Official Hybrid** — официальный для основного конвейера, LocalNewAPI для доп. каналов.
+- **Official** — вставь свой DC-ключ (получи на <https://susciyuan.com>); маппинг моделей не нужен. LocalAPI остаётся в простое.
+- **Custom** — один клик инициализирует LocalAPI; затем добавь свои upstream-каналы.
+- **LocalAPI + Official Hybrid** — официальный для основного конвейера, LocalAPI для доп. каналов.
 
 Полные шаги — в [Быстром старте](../docs/en/getting-started/quickstart.md).
 
 Зафиксируй версии или смени реестр в `.env` (`DRAMACLAW_VERSION`, `DRAMACLAW_GATEWAY_VERSION`, `DRAMACLAW_IMAGE_PREFIX`) — это применимо только к режиму образов (`docker-compose.release.yml`). Материковый Китай: задай `DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` и зафиксируй обе версии (ACR-зеркало несёт только зафиксированные теги).
 
-> Мигрируешь со старого чекаута? Для сборки из исходников сначала `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (теперь шлюз собирается из соседнего чекаута; без него сборка останавливается с `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` удалены — используй `docker-compose.yml` (сборка из исходников) / `docker-compose.release.yml` (образы). Имена сервисов и тома `ce-data` / `newapi-data` не изменились; существующие данные переиспользуются как есть. Порт LocalNewAPI теперь по умолчанию привязан только к `127.0.0.1`; задай `ST_NEWAPI_BIND=0.0.0.0` в `.env`, если нужен удалённый доступ к нему.
+> Мигрируешь со старого чекаута? Для сборки из исходников сначала `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (теперь шлюз собирается из соседнего чекаута; без него сборка останавливается с `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` удалены — используй `docker-compose.yml` (сборка из исходников) / `docker-compose.release.yml` (образы). Имена сервисов и тома `ce-data` / `newapi-data` не изменились; существующие данные переиспользуются как есть. Порт LocalAPI теперь по умолчанию привязан только к `127.0.0.1`; задай `ST_NEWAPI_BIND=0.0.0.0` в `.env`, если нужен удалённый доступ к нему.
 
 ### Облачный хост / VPS (Linux) — общий или публичный деплой
 
@@ -376,7 +376,7 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **Порты.** `8080` веб-UI · `8780` REST API · `3000` админ LocalNewAPI (по умолчанию привязан к `127.0.0.1`). Поставьте перед `8080` **обратный прокси с TLS** (Caddy / Nginx / Traefik) и держите `8780` / `3000` внутренними; в фаерволе / группе безопасности открывайте только `80` / `443`.
+- **Порты.** `8080` веб-UI · `8780` REST API · `3000` админ LocalAPI (по умолчанию привязан к `127.0.0.1`). Поставьте перед `8080` **обратный прокси с TLS** (Caddy / Nginx / Traefik) и держите `8780` / `3000` внутренними; в фаерволе / группе безопасности открывайте только `80` / `443`.
 - **Первой сборке нужно место** — дайте хосту ≥ 8 ГБ RAM и ≥ 40 ГБ диска, иначе сборка фронтенда будет убита OOM.
 - **Вход** под учёткой одиночной машины `local` по `ST_LOCAL_PASSWORD` (либо одноразовый пароль, напечатанный в `docker compose -f docker-compose.aipdd.yml logs api` при первом запуске).
 - **Мультипользователь?** CE по задумке одно-владельческий. Чтобы обслуживать нескольких пользователей, включите `ST_CE_MULTI_USER` и поставьте спереди настоящую аутентификацию + HTTPS. Полные заметки по продакшену: [Руководство по self-hosting](../docs/en/guides/self-hosting.md).
@@ -395,7 +395,7 @@ uv run novelvideo api --port 8780   # запускает REST API (CE по ум�
 
 Фронтенд во втором терминале: `cd frontend && pnpm install && pnpm dev`.
 
-**Шлюз.** В режиме **Official** больше ничего не нужно. В режимах **Custom** и **LocalNewAPI + Official Hybrid** API ожидает шлюз на `127.0.0.1:3000`, чей файл SQLite — `./state/newapi/one-api.db` (именно туда пишет «Initialize» в настройках; `NEWAPI_ADMIN_BASE_URL` в `.env` уже указывает туда). Либо запусти опубликованный образ с примонтированным каталогом:
+**Шлюз.** В режиме **Official** больше ничего не нужно. В режимах **Custom** и **LocalAPI + Official Hybrid** API ожидает шлюз на `127.0.0.1:3000`, чей файл SQLite — `./state/newapi/one-api.db` (именно туда пишет «Initialize» в настройках; `LOCALAPI_ADMIN_BASE_URL` в `.env` уже указывает туда). Либо запусти опубликованный образ с примонтированным каталогом:
 
 ```bash
 mkdir -p state/newapi
@@ -417,9 +417,9 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - Если вы задали `ST_LOCAL_PASSWORD` в `.env`, входите под учёткой `local` с этим паролем.
    - Если оставить пустым, бэкенд **не** создаёт учётку за вас: первая страница — **форма инициализации**, задайте имя пользователя и начальный пароль. Первая учётка становится супер-админом, после этого форма закрывается навсегда; новые пользователи — в **Настройки → Пользователи**.
 3. **Подключите модели** — зайдите в **Settings → Models & Channels** и выберите режим (подробности в [Поддерживаемые модели и провайдеры](#supported-models)):
-   - **Официальный** — вставьте DC-ключ с <https://susciyuan.com>; все модели уже смапплены, LocalNewAPI простаивает.
-   - **Пользовательский** — один клик инициализирует LocalNewAPI, затем добавьте свои апстрим-каналы (API-ключи + ID моделей) в его админ-UI.
-   - **Гибрид LocalNewAPI + Официальный** — официальные модели для основного конвейера, ваши доп. каналы рядом.
+   - **Официальный** — вставьте DC-ключ с <https://susciyuan.com>; все модели уже смапплены, LocalAPI простаивает.
+   - **Пользовательский** — один клик инициализирует LocalAPI, затем добавьте свои апстрим-каналы (API-ключи + ID моделей) в его админ-UI.
+   - **Гибрид LocalAPI + Официальный** — официальные модели для основного конвейера, ваши доп. каналы рядом.
 4. **Начните создавать** — два пути в одну библиотеку ассетов:
    - **Конвейер «Сериал»**: загрузите рукопись или сценарий (Fountain поддерживается), и пусть AIPDD-Agent-Claw планирует эпизоды, пишет сценарии, рисует раскадровки и первые кадры, синтезирует закадровый голос и монтирует финальный фильм. Каждый этап — независимая задача в **Центре задач** — прогоняйте последовательно, пропускайте или возобновляйте с любой контрольной точки.
    - **Холст**: откройте бесконечный холст и бросайте / связывайте узлы (изображение, видео, аудио, сценарий, 3D-площадка…), свободно исследуя, а затем повышайте понравившиеся результаты в сериал.
@@ -433,8 +433,8 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 DramaClaw остаётся модельно-нейтральным — все текстовые / имиджевые / видео / аудиомодели подключаются через **OpenAI-совместимый шлюз**. Выбери режим в **Settings → Models & Channels**:
 
 - **Official (рекомендуется)** — вставь свой DC-ключ (получи на <https://susciyuan.com>), сохрани, готово. Официальный шлюз уже несёт все маппинги моделей, нужные DramaClaw; настраивать нечего.
-- **Custom** — один клик инициализирует LocalNewAPI, затем добавь свои каналы провайдеров (API-ключи, ID моделей) в его админ-UI. Вся модель, которую вызывает DramaClaw, идёт через твои каналы.
-- **LocalNewAPI + Official Hybrid** — оставь официальные модели для основного конвейера и добавь доп. каналы (например локальный видео-воркфлоу ComfyUI) через LocalNewAPI.
+- **Custom** — один клик инициализирует LocalAPI, затем добавь свои каналы провайдеров (API-ключи, ID моделей) в его админ-UI. Вся модель, которую вызывает DramaClaw, идёт через твои каналы.
+- **LocalAPI + Official Hybrid** — оставь официальные модели для основного конвейера и добавь доп. каналы (например локальный видео-воркфлоу ComfyUI) через LocalAPI.
 
 > 🧠 **Свой вычислительный ресурс — ниже цена, полный контроль.** Шлюз устроен так, что *ты сам* выбираешь, где выполняется каждая генерация:
 > - **Простаивающие мощности AIPDD (экономия).** Подключение канала **AIPDD** позволяет гонять генерацию на **пуле простаивающих мощностей** платформы, поэтому тяжёлая пакетная работа над дорамами обходится в доли цены по запросу — самый сильный рычаг снижения себестоимости. Зарегистрируйся на <https://www.aipdd.work>, чтобы получить API-ключ AIPDD, затем добавь его как канал в **Settings → Models & Channels**.
@@ -446,13 +446,13 @@ DramaClaw остаётся модельно-нейтральным — все т
 
 Полный путь — в [Настройка моделей](../docs/en/getting-started/configuring-models.md).
 
-### LocalNewAPI: dramaclaw-gateway
+### LocalAPI: dramaclaw-gateway
 
-Сервис `newapi` в `docker-compose.yml` — это [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), собственный форк [New API](https://github.com/QuantumNous/new-api) от DramaClaw. Он говорит по контракту **DC-Media**, который DramaClaw использует для изображения / видео / аудио (роли медиа, референсы, первый / последний кадр) и превращает каждый запрос в нативный API провайдера. Образ: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) на Docker Hub, фиксируется через `DRAMACLAW_GATEWAY_VERSION` в `.env`. В режиме Official он в простое и используется только после перехода в **Custom** или **LocalNewAPI + Official Hybrid**.
+Сервис `newapi` в `docker-compose.yml` — это [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), собственный форк [New API](https://github.com/QuantumNous/new-api) от DramaClaw. Он говорит по контракту **DC-Media**, который DramaClaw использует для изображения / видео / аудио (роли медиа, референсы, первый / последний кадр) и превращает каждый запрос в нативный API провайдера. Образ: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) на Docker Hub, фиксируется через `DRAMACLAW_GATEWAY_VERSION` в `.env`. В режиме Official он в простое и используется только после перехода в **Custom** или **LocalAPI + Official Hybrid**.
 
 Адаптеры провайдеров, уже входящие в шлюз (статус проверки — в [матрице поддержки каналов](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md)): ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Нужен другой провайдер? У шлюза есть [генератор заготовки и руководство по вкладу](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
 
-| Этап             | Режим Official                              | Режим Custom / Hybrid (LocalNewAPI)                    |
+| Этап             | Режим Official                              | Режим Custom / Hybrid (LocalAPI)                    |
 |----------------------|----------------------------------------------------|-----------------------------------------------------------|
 | **Текст / LLM**  | модели `DC-*-LLM`, без маппинга                  | любой OpenAI-совместимый чат-канал                        |
 | **Изображение**  | gpt-image · nano-banana                            | любой имиджевый канал, зарегистрированный в шлюзе         |
