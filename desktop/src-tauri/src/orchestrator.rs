@@ -908,9 +908,13 @@ fn exe(name: &str) -> String {
 /// 共用同一占位符，端口变更后自动跟随，不存在第二处写死）。
 fn prepare_nginx_conf(p: &RuntimePaths, listen_port: u16) -> PathBuf {
     let prefix = p.app_data.join("nginx");
+    // nginx 需要的所有临时目录：缺一则启动报 [alert] cannot create temp dir
     let _ = std::fs::create_dir_all(prefix.join("logs"));
-    let _ = std::fs::create_dir_all(prefix.join("temp"));
     let _ = std::fs::create_dir_all(prefix.join("client_body"));
+    let _ = std::fs::create_dir_all(prefix.join("temp").join("proxy"));
+    let _ = std::fs::create_dir_all(prefix.join("temp").join("fastcgi"));
+    let _ = std::fs::create_dir_all(prefix.join("temp").join("uwsgi"));
+    let _ = std::fs::create_dir_all(prefix.join("temp").join("scgi"));
 
     let template = std::fs::read_to_string(p.nginx_conf_src()).unwrap_or_default();
     // 配置内的路径值统一转正斜杠：Windows 下反斜杠会被 nginx 当转义符（见 env::nginx_path_str）。
