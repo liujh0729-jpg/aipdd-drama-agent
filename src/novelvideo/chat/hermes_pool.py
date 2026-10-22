@@ -205,7 +205,7 @@ class _WorkerSlot:
     # 出网身份，与上面的会话身份 (`scope_kind`/`project_id`) 是两套东西。
     # 记在 slot 上只为一件事：`_rotate_slot_locked` 重建 worker 时必须带着它们，
     # 否则替换出来的 worker 走 `authorization is None` 分支，静默退回部署级
-    # `NEWAPI_API_KEY`——组织身份被洗掉，不报错也不留痕（OI-54 同一种病）。
+    # `LOCALAPI_API_KEY`——组织身份被洗掉，不报错也不留痕（OI-54 同一种病）。
     egress_project_id: str | None = None
     requester_user_id: str | None = None
     authorization: HermesLaunchAuthorization | None = None
@@ -544,7 +544,7 @@ class HermesPool:
         always rotates on the first such touch because ``gateway_fingerprint`` is
         left empty for it. Dropping the identity here would hand that user's
         resumed session to a worker credentialed with the deployment-level
-        ``NEWAPI_API_KEY`` — the platform paying for the org's compute, silently.
+        ``LOCALAPI_API_KEY`` — the platform paying for the org's compute, silently.
         The session identity still follows the caller's scope; only the egress
         identity is inherited, which is exactly why S3 split the two parameters.
         """
@@ -707,7 +707,7 @@ class HermesPool:
             env.update(project_env)
         api_key, _base_url = effective_gateway_credentials()
         if api_key:
-            env["NEWAPI_API_KEY"] = api_key
+            env["LOCALAPI_API_KEY"] = api_key
         return env
 
     async def _evict_lru_if_full(self) -> None:

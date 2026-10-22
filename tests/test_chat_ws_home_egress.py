@@ -4,7 +4,7 @@ S4 (OI-61) closed the project turn. home 态是 chat 这条线上最后一个洞
 `_stream_home_turn`（`api/routes/chat.py`）是一段独立的流式循环，**完全绕开
 `chat/service.py`**，直接调 `hermes_pool.get_for_user`。于是组织用户在首页聊天里
 发一句话时，请求路径上没有任何地方产出 authorization，hermes 子进程拿到的是部署级
-`NEWAPI_API_KEY`（`hermes_pool.py` 的 `effective_gateway_credentials()`）——
+`LOCALAPI_API_KEY`（`hermes_pool.py` 的 `effective_gateway_credentials()`）——
 平台替组织垫真实算力。
 
 project 态的测试挡不住这条：两条路径是两份独立实现。所以本文件**从
@@ -375,7 +375,7 @@ def _send_home_turn(harness, *, text: str = "帮我想个故事") -> list[dict]:
 
 
 def _assert_org_key_only(env: dict[str, str]) -> None:
-    assert env.get("NEWAPI_API_KEY") == ORG_KEY_CANARY, env
+    assert env.get("LOCALAPI_API_KEY") == ORG_KEY_CANARY, env
     leaked = [key for key, value in env.items() if PLATFORM_KEY_CANARY in str(value)]
     assert leaked == [], f"platform canary leaked into child env keys: {leaked}"
 
@@ -394,7 +394,7 @@ def test_c2_01_home_turn_launches_hermes_with_the_org_key(harness):
     assert frames[-1]["type"] == "chat.done"
     assert len(harness.envs) == 1, harness.envs
     _assert_org_key_only(harness.envs[0])
-    assert harness.envs[0]["NEWAPI_BASE_URL"] == _ORG_BASE_URL
+    assert harness.envs[0]["LOCALAPI_BASE_URL"] == _ORG_BASE_URL
     # 喂给 admit_model_task 的必须是 user_id，不是登录名。
     assert [call[0] for call in authz.calls] == [_USER_ID]
     assert len(credentials.admissions) == 1
@@ -470,8 +470,8 @@ def test_c2_04_platform_identity_path_is_unchanged(harness):
     assert [f for f in frames if f.get("type") == "error"] == [], frames
     assert frames[-1]["type"] == "chat.done"
     assert len(harness.envs) == 1
-    assert harness.envs[0]["NEWAPI_API_KEY"] == PLATFORM_KEY_CANARY
-    assert "NEWAPI_BASE_URL" not in harness.envs[0]
+    assert harness.envs[0]["LOCALAPI_API_KEY"] == PLATFORM_KEY_CANARY
+    assert "LOCALAPI_BASE_URL" not in harness.envs[0]
     assert ORG_KEY_CANARY not in str(harness.envs[0])
     # 平台路径逐字节不变：不绑上下文、不解组织凭证、不动账本。
     assert harness.observed == [None]
@@ -495,7 +495,7 @@ def test_c2_05_gray_disabled_behaves_exactly_like_the_platform_path(harness):
     assert frames[-1]["type"] == "chat.done"
     assert len(authz.calls) == 1
     assert len(harness.envs) == 1
-    assert harness.envs[0]["NEWAPI_API_KEY"] == PLATFORM_KEY_CANARY
+    assert harness.envs[0]["LOCALAPI_API_KEY"] == PLATFORM_KEY_CANARY
     assert ORG_KEY_CANARY not in str(harness.envs[0])
     assert harness.observed == [None]
     assert credentials.admissions == []

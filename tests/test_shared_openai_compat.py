@@ -71,7 +71,7 @@ def test_resolve_credentials_strips_and_forwards_overrides(monkeypatch) -> None:
     ) == ("sk-1", "http://host:3000/v1")
     assert calls["api_key_override"] == "override-key"
     assert calls["env_api_key"] == "MODEL_API_KEY"
-    assert calls["env_base_url"] == "NEWAPI_BASE_URL"
+    assert calls["env_base_url"] == "LOCALAPI_BASE_URL"
 
 
 def test_error_detail_prefers_nested_error_message() -> None:

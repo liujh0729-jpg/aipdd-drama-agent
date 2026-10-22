@@ -58,7 +58,7 @@ def test_service_operation_gate_error_contains_only_stable_code(
 ) -> None:
     secret_canaries = {
         "MODEL_API_KEY": "model-secret-canary",
-        "NEWAPI_API_KEY": "newapi-secret-canary",
+        "LOCALAPI_API_KEY": "newapi-secret-canary",
     }
     monkeypatch.setenv("ST_EDITION", "organization-edition-canary")
     monkeypatch.setenv("ST_CONTROL_PLANE_DSN", "postgresql://dsn-secret-canary")
@@ -224,7 +224,7 @@ def test_newapi_mutations_are_excluded_before_any_side_effect(
     else:
         monkeypatch.delenv("ST_CONTROL_PLANE_DSN", raising=False)
     monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-admin-token-canary")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-admin-token-canary")
     monkeypatch.setenv("MODEL_API_KEY", "model-api-key-canary")
     calls = _install_newapi_side_effect_spies(monkeypatch)
     app = FastAPI()

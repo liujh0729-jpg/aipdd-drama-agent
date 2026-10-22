@@ -44,7 +44,7 @@ ARK_404_BODY = {
 def _isolate_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setattr(config, "STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("ST_EDITION", "ce")
-    for key in ("ST_CONTROL_PLANE_DSN", "MODEL_GATEWAY_MODE", "NEWAPI_API_KEY", "NEWAPI_BASE_URL"):
+    for key in ("ST_CONTROL_PLANE_DSN", "MODEL_GATEWAY_MODE", "LOCALAPI_API_KEY", "LOCALAPI_BASE_URL"):
         monkeypatch.delenv(key, raising=False)
     previous_text = model_gateway_routes._text_models_cache
     previous_vision = model_gateway_routes._vision_models_cache

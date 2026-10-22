@@ -126,7 +126,7 @@ class GridGenerator:
             elif self.provider == "openai":
                 key_name = "OPENAI_API_KEY"
             elif self.provider == "newapi":
-                key_name = "NEWAPI_API_KEY"
+                key_name = "LOCALAPI_API_KEY"
             else:
                 key_name = "GOOGLE_AI_API_KEY"
             raise ValueError(f"API key not set. Set {key_name} environment variable.")

@@ -97,8 +97,8 @@ def _ce_local_settings(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
         "NEWAPI_AUDIO_MODEL",
         "NEWAPI_ASR_MODEL",
         "MODEL_GATEWAY_MODE",
-        "NEWAPI_API_KEY",
-        "NEWAPI_BASE_URL",
+        "LOCALAPI_API_KEY",
+        "LOCALAPI_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
     reset_upstream_models_cache()

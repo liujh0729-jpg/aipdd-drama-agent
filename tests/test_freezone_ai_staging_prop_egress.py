@@ -278,8 +278,8 @@ def test_c1_05b_platform_passes_the_real_gate(client, monkeypatch) -> None:
     monkeypatch.setenv("ST_EDITION", "ee")
     monkeypatch.setenv("MODEL_API_KEY", "platform-key")
     # [aipdd fork delta req41] 部署级网关地址得由 env 给（代码不再猜 localhost:3000）。
-    monkeypatch.setenv("NEWAPI_BASE_URL", "https://gw.test/v1")
-    monkeypatch.setenv("NEWAPI_API_KEY", "platform-key")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "https://gw.test/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "platform-key")
 
     async def fake_run(_request, **_kwargs):
         return {"name": "一匹马"}

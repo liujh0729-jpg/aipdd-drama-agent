@@ -33,10 +33,10 @@ OFFICIAL_NEWAPI_BASE_URL_ENVS = ("OFFICIAL_NEWAPI_BASE_URL",)
 def official_newapi_base_url() -> str:
     """官方模式网关地址：只读专用 env，未配置就返回空（由调用面报「未配置」）。
 
-    [aipdd fork delta req41] 这里故意**不**看 ``NEWAPI_BASE_URL``：那个变量在 CE 里是
-    「自配网关」那一栏的部署级 env，官方模式要是顺着它读，任何写了 NEWAPI_BASE_URL 的
+    [aipdd fork delta req41] 这里故意**不**看 ``LOCALAPI_BASE_URL``：那个变量在 CE 里是
+    「自配网关」那一栏的部署级 env，官方模式要是顺着它读，任何写了 LOCALAPI_BASE_URL 的
     环境都能把官方模式的地址顶掉。EE 分支在 ``get_effective_newapi_config`` 里已经优
-    先读 NEWAPI_BASE_URL，不需要这里再兜一层。
+    先读 LOCALAPI_BASE_URL，不需要这里再兜一层。
     """
 
     for env_name in OFFICIAL_NEWAPI_BASE_URL_ENVS:

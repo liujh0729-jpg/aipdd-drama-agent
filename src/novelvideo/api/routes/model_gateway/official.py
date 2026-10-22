@@ -87,7 +87,7 @@ async def enable_official_gateway() -> dict[str, Any]:
         raise _permission_error(exc) from exc
     status = build_model_gateway_status(
         official_base_url=app_config.official_newapi_base_url(),
-        official_api_key=app_config.NEWAPI_API_KEY,
+        official_api_key=app_config.LOCALAPI_API_KEY,
     )
     if not status["official"]["configured"]:
         # [aipdd fork delta req41] 官方模式地址不在代码里预设（没配就是没配），所以这里
@@ -105,7 +105,7 @@ async def enable_official_gateway() -> dict[str, Any]:
         "ok": True,
         "data": build_model_gateway_status(
             official_base_url=app_config.official_newapi_base_url(),
-            official_api_key=app_config.NEWAPI_API_KEY,
+            official_api_key=app_config.LOCALAPI_API_KEY,
         ),
         "runtime": runtime,
     }
@@ -126,7 +126,7 @@ async def save_official_gateway_config(body: OfficialGatewayBody) -> dict[str, A
         "ok": True,
         "data": build_model_gateway_status(
             official_base_url=app_config.official_newapi_base_url(),
-            official_api_key=app_config.NEWAPI_API_KEY,
+            official_api_key=app_config.LOCALAPI_API_KEY,
         ),
         "runtime": runtime,
     }

@@ -33,7 +33,7 @@ _warned_repo_state_fallback = False
 _DEFAULT_HERMES_MODEL = "DC-hermes-LLM"
 _DRAMACLAW_HERMES_PROVIDER_NAME = "dramaclaw"
 _DRAMACLAW_HERMES_PROVIDER = f"custom:{_DRAMACLAW_HERMES_PROVIDER_NAME}"
-_DRAMACLAW_HERMES_KEY_ENV = "NEWAPI_API_KEY"
+_DRAMACLAW_HERMES_KEY_ENV = "LOCALAPI_API_KEY"
 _DEFAULT_HERMES_MODEL_API_MODE = "chat_completions"
 _DEFAULT_HERMES_MODEL_CONTEXT_LENGTH = "131072"
 
@@ -44,12 +44,12 @@ _CONFIG_YAML_TEMPLATE = """# AIPDD-managed hermes config.
 #
 # Model routes through the selected NewAPI gateway (OpenAI-compatible), unified
 # with the video/image generators. The endpoint is non-secret workspace config;
-# AIPDD injects the key into the worker process as NEWAPI_API_KEY.
+# AIPDD injects the key into the worker process as LOCALAPI_API_KEY.
 
 custom_providers:
   - name: dramaclaw
     base_url: {base_url}
-    key_env: NEWAPI_API_KEY
+    key_env: LOCALAPI_API_KEY
     api_mode: {api_mode}
 
 model:
@@ -123,14 +123,14 @@ def _effective_newapi_gateway() -> tuple[str, str]:
     """Return effective NewAPI ``(api_key, base_url)`` for Hermes.
 
     CE resolves the UI-selected gateway from settings.db. EE has no CE settings
-    database and resolves its deployment-level NEWAPI_API_KEY / NEWAPI_BASE_URL
+    database and resolves its deployment-level LOCALAPI_API_KEY / LOCALAPI_BASE_URL
     from the environment -- the address is deployment data, never a code
     constant ([aipdd fork delta req41]).
     """
     from novelvideo.model_gateway_settings import get_effective_newapi_config
 
     gateway = get_effective_newapi_config(
-        official_api_key=os.environ.get("NEWAPI_API_KEY", ""),
+        official_api_key=os.environ.get("LOCALAPI_API_KEY", ""),
     )
     return gateway.api_key, gateway.base_url
 

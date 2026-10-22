@@ -239,7 +239,7 @@ async def get_model_gateway_config() -> dict[str, Any]:
         "data": {
             **build_model_gateway_status(
                 official_base_url=app_config.official_newapi_base_url(),
-                official_api_key=app_config.NEWAPI_API_KEY,
+                official_api_key=app_config.LOCALAPI_API_KEY,
             ),
             "provisioner": _provisioner_status(),
             "mediaRelay": _media_relay_status(),
@@ -561,11 +561,11 @@ async def enable_custom_gateway() -> dict[str, Any]:
         raise _permission_error(exc) from exc
     status = build_model_gateway_status(
         official_base_url=app_config.official_newapi_base_url(),
-        official_api_key=app_config.NEWAPI_API_KEY,
+        official_api_key=app_config.LOCALAPI_API_KEY,
     )
     if not status["custom"]["configured"]:
         raise HTTPException(
-            status_code=400, detail="LocalNewAPI gateway is not configured"
+            status_code=400, detail="LocalAPI gateway is not configured"
         )
     set_model_gateway_mode(MODE_CUSTOM)
     runtime = _gateway.refresh_model_gateway_runtime()
@@ -573,7 +573,7 @@ async def enable_custom_gateway() -> dict[str, Any]:
         "ok": True,
         "data": build_model_gateway_status(
             official_base_url=app_config.official_newapi_base_url(),
-            official_api_key=app_config.NEWAPI_API_KEY,
+            official_api_key=app_config.LOCALAPI_API_KEY,
         ),
         "runtime": runtime,
     }
@@ -587,7 +587,7 @@ async def enable_hybrid_gateway() -> dict[str, Any]:
         raise _permission_error(exc) from exc
     status = build_model_gateway_status(
         official_base_url=app_config.official_newapi_base_url(),
-        official_api_key=app_config.NEWAPI_API_KEY,
+        official_api_key=app_config.LOCALAPI_API_KEY,
     )
     if not status["official"]["configured"] or not status["custom"]["configured"]:
         raise HTTPException(
@@ -600,7 +600,7 @@ async def enable_hybrid_gateway() -> dict[str, Any]:
         "ok": True,
         "data": build_model_gateway_status(
             official_base_url=app_config.official_newapi_base_url(),
-            official_api_key=app_config.NEWAPI_API_KEY,
+            official_api_key=app_config.LOCALAPI_API_KEY,
         ),
         "runtime": runtime,
     }
@@ -979,7 +979,7 @@ async def init_custom_newapi(body: NewApiInitBody = NewApiInitBody()) -> dict[st
             "database": _gateway.build_provisioner_status()["database"],
             "effective": build_model_gateway_status(
                 official_base_url=app_config.official_newapi_base_url(),
-                official_api_key=app_config.NEWAPI_API_KEY,
+                official_api_key=app_config.LOCALAPI_API_KEY,
             )["effective"],
             "runtime": runtime,
         },

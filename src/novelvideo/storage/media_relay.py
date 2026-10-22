@@ -625,7 +625,7 @@ class LocalImageRelay:
     """[aipdd fork delta] 「本地存储」档的参考媒体中转替身。
 
     参考图片不外传：把字节直接内联为 base64 data URL 返回，随请求下发给
-    LocalNewAPI（newapi/aipdd）——与 huimeng 通道 ``local_file_to_data_url`` 的
+    LocalAPI（newapi/aipdd）——与 huimeng 通道 ``local_file_to_data_url`` 的
     做法一致，图生图/图生视频在本地档可用。
 
     参考视频/音频本档自己发不出去：实测上游会受理带 ``video_url`` data URL 的
@@ -774,7 +774,7 @@ def get_media_relay() -> (
     aipdd_register_asset = bool(getattr(relay_config, "aipdd_register_asset", False))
     if provider == "local":
         # [aipdd fork delta] 本地存储档：参考图片内联为 base64 data URL 随请求下发
-        # 给 LocalNewAPI，无需云端中转即可图生图/图生视频。
+        # 给 LocalAPI，无需云端中转即可图生图/图生视频。
         # [aipdd fork delta req44] 参考视频/音频不在这个可用面里：本档必须携带 AIPDD
         # API Key，由数字资产云转出公网直链（详见 LocalImageRelay 注释）。
         return LocalImageRelay(
@@ -874,7 +874,7 @@ _DEFAULT_MIME_BY_RESOURCE = {
 def _bytes_to_data_url(data: bytes, ext: str, *, resource_type: str = "image") -> str:
     """[aipdd fork delta] 把本地参考媒体字节内联为 base64 data URL。
 
-    LocalNewAPI（newapi/aipdd）接受 data URL 作为**图片**输入（与 image_generator
+    LocalAPI（newapi/aipdd）接受 data URL 作为**图片**输入（与 image_generator
     的 Seedream/SeedEdit 及 huimeng 通道的 local_file_to_data_url 一致），因此「本地
     存储」档无需 OSS/Cloudinary 也能图生图/图生视频。**视频/音频不在本可用面里**
     （req42/44 实测：上游受理带 data URL 的请求却不去拉素材）：``LocalImageRelay``

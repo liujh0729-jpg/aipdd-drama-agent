@@ -131,8 +131,8 @@ def require_direct_model_egress_allowed(
 #: `run_project_subprocess` passes ``env=None`` by default, so an uncurated child
 #: inherits the whole parent environment and can resolve a platform key on its own.
 _PLATFORM_MODEL_ENV_NAMES = (
-    "NEWAPI_API_KEY",
-    "NEWAPI_BASE_URL",
+    "LOCALAPI_API_KEY",
+    "LOCALAPI_BASE_URL",
     "MODEL_API_KEY",
     "MODEL_BASE_URL",
     "OPENAI_API_KEY",

@@ -536,8 +536,8 @@ OSS_STATIC_PRESIGN_EXPIRES = int(os.environ.get("OSS_STATIC_PRESIGN_EXPIRES", "3
 
 INDEXTTS2_TIMEOUT_SECONDS = float(os.environ.get("INDEXTTS2_TIMEOUT_SECONDS", "1800"))
 
-NEWAPI_BASE_URL = os.environ.get("NEWAPI_BASE_URL", "")
-NEWAPI_API_KEY = os.environ.get("NEWAPI_API_KEY", "")
+LOCALAPI_BASE_URL = os.environ.get("LOCALAPI_BASE_URL", "")
+LOCALAPI_API_KEY = os.environ.get("LOCALAPI_API_KEY", "")
 
 
 def get_effective_newapi_gateway_config():
@@ -546,7 +546,7 @@ def get_effective_newapi_gateway_config():
 
     return get_effective_newapi_config(
         official_base_url=official_newapi_base_url(),
-        official_api_key=NEWAPI_API_KEY,
+        official_api_key=LOCALAPI_API_KEY,
     )
 
 
@@ -554,8 +554,8 @@ def get_newapi_runtime_credentials(
     *,
     api_key_override: str | None = None,
     base_url_override: str | None = None,
-    env_api_key: str = "NEWAPI_API_KEY",
-    env_base_url: str = "NEWAPI_BASE_URL",
+    env_api_key: str = "LOCALAPI_API_KEY",
+    env_base_url: str = "LOCALAPI_BASE_URL",
 ) -> tuple[str, str]:
     """Resolve NewAPI credentials from the edition's effective gateway.
 
@@ -571,7 +571,7 @@ def get_newapi_runtime_credentials(
         or str(gateway.api_key or "").strip()
         or (
             os.environ.get(env_api_key, "").strip()
-            or NEWAPI_API_KEY
+            or LOCALAPI_API_KEY
             or os.environ.get("MODEL_API_KEY", "").strip()
             or os.environ.get("OPENAI_API_KEY", "").strip()
             if environment_backed
@@ -583,7 +583,7 @@ def get_newapi_runtime_credentials(
         or str(gateway.base_url or "").strip()
         or (
             os.environ.get(env_base_url, "").strip().rstrip("/")
-            or str(NEWAPI_BASE_URL or "").strip().rstrip("/")
+            or str(LOCALAPI_BASE_URL or "").strip().rstrip("/")
             or os.environ.get("MODEL_BASE_URL", "").strip().rstrip("/")
             or official_newapi_base_url()
             if environment_backed
@@ -904,7 +904,7 @@ def _csv_env(name: str, default: str) -> list[str]:
     return [item for item in values if item]
 
 
-# newAPI 视频网关。VIDEO_BACKEND 使用 newapi_<model> 时会通过 NEWAPI_BASE_URL 调用。
+# newAPI 视频网关。VIDEO_BACKEND 使用 newapi_<model> 时会通过 LOCALAPI_BASE_URL 调用。
 # [aipdd fork delta req40] CE（自有渠道）下这份随包清单**不再参与候选**：可选视频模型
 # = 渠道目录（kind==video）+「设置 → 模型与渠道」里勾上的视频媒体模型（见
 # newapi_video_backend_options）。这里只保留 EE 官方网关的随包清单与 env 覆盖能力。
@@ -1006,7 +1006,7 @@ def get_video_generation_config() -> dict:
         "backend": VIDEO_BACKEND,
         "huimengi_base_url": HUIMENGI_BASE_URL,
         "huimengi_video_resolution": HUIMENGI_VIDEO_RESOLUTION,
-        "newapi_base_url": NEWAPI_BASE_URL,
+        "newapi_base_url": LOCALAPI_BASE_URL,
         "newapi_video_models": list(NEWAPI_VIDEO_MODELS),
         "newapi_video_model": get_newapi_video_model(),
         "newapi_video_resolution": NEWAPI_VIDEO_RESOLUTION,
@@ -1421,7 +1421,7 @@ def _image_provider_config(
         )
         provider = entry["provider"]
         # 动态 mediaModels 的 provider 是网关渠道名（aipdd/volcengine/…），
-        # 实际调用仍走 LocalNewAPI，由下方 newapi 分支的
+        # 实际调用仍走 LocalAPI，由下方 newapi 分支的
         # resolve_media_provider_override 选渠道 base+key。
         if provider not in {"google", "openrouter", "huimeng", "huimengi", "openai", "newapi", "comfyui"}:
             provider = "newapi"
@@ -1534,9 +1534,9 @@ def get_grid_generation_config(
     - DEFAULT_SKETCH_IMAGE_SELECTION / DEFAULT_RENDER_IMAGE_SELECTION: UI 默认图片源
     """
     # [aipdd fork delta] 与 get_sketch/render_generation_config 同一判据：官方默认
-    # NANOBANANA_PROVIDER=openrouter 在本 fork 的 LocalNewAPI 部署里从来没有密钥，凡是
+    # NANOBANANA_PROVIDER=openrouter 在本 fork 的 LocalAPI 部署里从来没有密钥，凡是
     # 没显式指定图源/提供者/模型的调用（封面 AI 生成、道具参考图、freezone 默认
-    # 生图等）都应跟随 UI 默认图源走 LocalNewAPI，而不是落到 openrouter 直连报
+    # 生图等）都应跟随 UI 默认图源走 LocalAPI，而不是落到 openrouter 直连报
     # 「API key not set. Set OPENROUTER_API_KEY environment variable.」。
     if (
         selection_override is None

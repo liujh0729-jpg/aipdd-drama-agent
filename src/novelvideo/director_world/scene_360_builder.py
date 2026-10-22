@@ -868,7 +868,7 @@ def _resolve_newapi_credentials() -> tuple[str, str]:
     back to the platform key in settings.db, which is exactly the leak being closed.
     The credential must be passed as an explicit override: the environment fallback
     in `get_newapi_runtime_credentials` only applies when the configured gateway is
-    itself environment backed, so an injected `NEWAPI_API_KEY` would be ignored in CE.
+    itself environment backed, so an injected `LOCALAPI_API_KEY` would be ignored in CE.
     """
 
     from novelvideo.config import get_newapi_runtime_credentials
@@ -1104,7 +1104,7 @@ async def run(args: argparse.Namespace) -> int:
     elif provider == "newapi":
         provider_api_key, provider_base_url = _resolve_newapi_credentials()
         if not provider_api_key:
-            raise RuntimeError("NEWAPI_API_KEY is missing")
+            raise RuntimeError("LOCALAPI_API_KEY is missing")
         # [aipdd fork delta wave2] ``SCENE_360_IMAGE_MODEL`` env 已退出解析链：未显式传图时，
         # 模型名只由「设置 → 模型与渠道」的默认图位决定（拿不到就是空串，由调用点拦住）。
         from novelvideo.model_gateway_settings import (

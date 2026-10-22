@@ -48,10 +48,10 @@ def _isolate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
         "ST_CONTROL_PLANE_DSN",
         "MODEL_GATEWAY_MODE",
         "MODEL_GATEWAY_RUNTIME_VERSION",
-        "NEWAPI_API_KEY",
-        "NEWAPI_BASE_URL",
+        "LOCALAPI_API_KEY",
+        "LOCALAPI_BASE_URL",
         "OFFICIAL_NEWAPI_BASE_URL",
-        "NEWAPI_ADMIN_BASE_URL",
+        "LOCALAPI_ADMIN_BASE_URL",
         "COMFYUI_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)

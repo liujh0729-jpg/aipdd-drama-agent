@@ -869,7 +869,7 @@ def _newapi_transcription_endpoint(base_url: str | None = None, *, model: str = 
     if not clean:
         raise GatewayAsrUnavailable(
             "未配置模型网关地址，无法走网关 ASR：请到「设置 → 模型与渠道」连接网关，"
-            "或在 .env 设 NEWAPI_BASE_URL=<网关地址>。"
+            "或在 .env 设 LOCALAPI_BASE_URL=<网关地址>。"
         )
     endpoint = clean
     # [aipdd fork delta req41] 转写路径照渠道目录：条目声明了什么就拼什么（AIPDD 写了
@@ -987,7 +987,7 @@ async def _transcribe_via_gateway(
         key, resolved_base_url = get_newapi_runtime_credentials()
     key = str(key or "").strip()
     if not key:
-        raise RuntimeError("NEWAPI_API_KEY is required for gateway ASR")
+        raise RuntimeError("LOCALAPI_API_KEY is required for gateway ASR")
 
     transport_started = False
     try:

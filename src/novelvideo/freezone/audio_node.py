@@ -1067,7 +1067,7 @@ def _newapi_audio_endpoint(base_url: str | None = None, *, model: str = "") -> s
     if not clean:
         raise GatewayAudioUnavailable(
             "未配置模型网关地址，无法走网关 TTS：请到「设置 → 模型与渠道」连接网关，"
-            "或在 .env 设 NEWAPI_BASE_URL=<网关地址>。"
+            "或在 .env 设 LOCALAPI_BASE_URL=<网关地址>。"
         )
     endpoint = clean
     # [aipdd fork delta req41] 合成路径照渠道目录：条目声明了什么就拼什么（AIPDD 写了
@@ -1171,7 +1171,7 @@ async def _write_newapi_audio_speech(
         )
     key = str(key or "").strip()
     if not key:
-        raise RuntimeError("NEWAPI_API_KEY is required for NewAPI audio generation")
+        raise RuntimeError("LOCALAPI_API_KEY is required for NewAPI audio generation")
 
     body: dict[str, Any] = {
         "model": str(model or "").strip(),

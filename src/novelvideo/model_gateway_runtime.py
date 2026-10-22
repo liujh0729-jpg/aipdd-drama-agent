@@ -602,7 +602,7 @@ def refresh_model_gateway_runtime() -> dict[str, Any]:
 
     gateway = get_effective_newapi_config(
         official_base_url=app_config.official_newapi_base_url(),
-        official_api_key=app_config.NEWAPI_API_KEY,
+        official_api_key=app_config.LOCALAPI_API_KEY,
     )
     api_key = str(gateway.api_key or "").strip()
     base_url = str(gateway.base_url or "").strip().rstrip("/")

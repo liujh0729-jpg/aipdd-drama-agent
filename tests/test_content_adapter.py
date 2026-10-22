@@ -225,7 +225,7 @@ async def test_content_rewriter_uses_newapi_text_model(monkeypatch) -> None:
 
     monkeypatch.delenv("MODEL_API_KEY", raising=False)
     monkeypatch.delenv("ARK_API_KEY", raising=False)
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-token")
     monkeypatch.setattr(content_rewriter, "Agent", FakeAgent)
     monkeypatch.setattr(
         content_rewriter,

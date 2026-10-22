@@ -51,8 +51,8 @@ def isolated_workspace(tmp_path, monkeypatch):
     monkeypatch.delenv("ST_CONTROL_PLANE_DSN", raising=False)
     monkeypatch.setenv("NOVELVIDEO_STATE_DIR", str(state_root))
     for key in (
-        "NEWAPI_API_KEY",
-        "NEWAPI_BASE_URL",
+        "LOCALAPI_API_KEY",
+        "LOCALAPI_BASE_URL",
         "MODEL_GATEWAY_RUNTIME_VERSION",
         "OPENAI_API_KEY",
         "OPENAI_API_BASE",
@@ -261,7 +261,7 @@ def test_fresh_config_ignores_env_model_name_but_keeps_newapi_transport(
     (isolated_workspace / ".env").write_text(
         "\n".join(
             [
-                "NEWAPI_API_KEY=root-key",
+                "LOCALAPI_API_KEY=root-key",
                 "HERMES_MODEL=gemini-3.5-flash",
                 "HERMES_MODEL_PROVIDER=openrouter",
                 "HERMES_MODEL_BASE_URL=http://newapi.local/v1",
@@ -287,7 +287,7 @@ def test_fresh_config_ignores_env_model_name_but_keeps_newapi_transport(
     assert provider == {
         "name": "dramaclaw",
         "base_url": "https://official.env.example/v1",
-        "key_env": "NEWAPI_API_KEY",
+        "key_env": "LOCALAPI_API_KEY",
         "api_mode": "responses",
     }
 
@@ -320,7 +320,7 @@ def test_existing_config_syncs_endpoint_without_persisting_rotated_key(
 
     assert "api_key" not in parsed["model"]
     assert _dramaclaw_provider(parsed)["base_url"] == "http://new-gateway/v1"
-    assert _dramaclaw_provider(parsed)["key_env"] == "NEWAPI_API_KEY"
+    assert _dramaclaw_provider(parsed)["key_env"] == "LOCALAPI_API_KEY"
     assert "rotated-key" not in config_path.read_text(encoding="utf-8")
     assert parsed["custom_block"]["keep"] is True
     assert _enabled_toolsets(config_path.read_text(encoding="utf-8")) == [
@@ -337,7 +337,7 @@ def test_hermes_uses_settings_db_newapi_before_root_env(
     isolated_workspace, repo_skills, repo_plugins
 ):
     (isolated_workspace / ".env").write_text(
-        "NEWAPI_API_KEY=root-key\nNEWAPI_BASE_URL=http://root-gateway/v1\n",
+        "LOCALAPI_API_KEY=root-key\nLOCALAPI_BASE_URL=http://root-gateway/v1\n",
         encoding="utf-8",
     )
     save_custom_newapi_gateway(
@@ -352,7 +352,7 @@ def test_hermes_uses_settings_db_newapi_before_root_env(
 
     assert "api_key" not in parsed["model"]
     assert _dramaclaw_provider(parsed)["base_url"] == "http://custom-gateway/v1"
-    assert _dramaclaw_provider(parsed)["key_env"] == "NEWAPI_API_KEY"
+    assert _dramaclaw_provider(parsed)["key_env"] == "LOCALAPI_API_KEY"
     assert "custom-key" not in (home / "config.yaml").read_text(encoding="utf-8")
     assert "OPENAI_API_KEY" not in env_text
     assert "root-key" not in env_text
@@ -376,7 +376,7 @@ def test_fresh_workspace_does_not_persist_newapi_key(
     isolated_workspace, repo_skills, repo_plugins, monkeypatch
 ):
     (isolated_workspace / ".env").write_text(
-        "NEWAPI_API_KEY=test-newapi-key\n",
+        "LOCALAPI_API_KEY=test-newapi-key\n",
         encoding="utf-8",
     )
     save_official_newapi_key(api_key="test-newapi-key", activate=True)
@@ -386,7 +386,7 @@ def test_fresh_workspace_does_not_persist_newapi_key(
     config = yaml.safe_load((home / "config.yaml").read_text(encoding="utf-8"))
 
     assert "api_key" not in config["model"]
-    assert _dramaclaw_provider(config)["key_env"] == "NEWAPI_API_KEY"
+    assert _dramaclaw_provider(config)["key_env"] == "LOCALAPI_API_KEY"
     assert "test-newapi-key" not in (home / "config.yaml").read_text(encoding="utf-8")
     assert "OPENAI_API_KEY" not in env_text
 
@@ -422,17 +422,17 @@ custom_providers:
         item.get("name") == "user-provider"
         for item in config["custom_providers"]
     )
-    assert _dramaclaw_provider(config)["key_env"] == "NEWAPI_API_KEY"
+    assert _dramaclaw_provider(config)["key_env"] == "LOCALAPI_API_KEY"
 
 
 def test_existing_env_is_preserved(
     isolated_workspace, repo_skills, repo_plugins, monkeypatch
 ):
     (isolated_workspace / ".env").write_text(
-        "NEWAPI_API_KEY=root-key\n",
+        "LOCALAPI_API_KEY=root-key\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("NEWAPI_API_KEY", "root-key")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "root-key")
     home = isolated_workspace / "state" / "admin" / ".hermes"
     home.mkdir(parents=True)
     (home / ".env").write_text("OPENAI_API_KEY=user-key\n", encoding="utf-8")
@@ -456,7 +456,7 @@ def test_legacy_config_gets_default_plugin_block(isolated_workspace, repo_skills
     assert "plugins:\n  enabled:\n    - dramaclaw" in config
     assert parsed["model"]["default"] == "DC-hermes-LLM"
     assert parsed["model"]["provider"] == "custom:dramaclaw"
-    assert _dramaclaw_provider(parsed)["key_env"] == "NEWAPI_API_KEY"
+    assert _dramaclaw_provider(parsed)["key_env"] == "LOCALAPI_API_KEY"
 
 
 def test_legacy_identity_context_is_migrated(isolated_workspace, repo_skills, repo_plugins):

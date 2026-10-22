@@ -384,7 +384,7 @@ class IndexTTS2Client:
 
         # [aipdd fork delta] 多网关并存 + aipdd 直连：无显式凭据（直连模式、
         # 未走租约）时按选中模型绑定的 provider 渠道路由。aipdd 渠道的
-        # /audio/speech 原生协议是异步任务式；且 LocalNewAPI 代理会把 OpenAI
+        # /audio/speech 原生协议是异步任务式；且 LocalAPI 代理会把 OpenAI
         # 风格音频请求 DTO 化重转发、丢掉参考音频与情绪字段（上游 400
         # 「缺少必填参数：audio」），故命中 aipdd host 时改走直连原生协议。
         if (

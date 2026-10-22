@@ -119,8 +119,8 @@ async def test_newapi_audio_uses_saved_custom_gateway_before_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_API_KEY", "sk-env-secret")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "https://env.example/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "sk-env-secret")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "https://env.example/v1")
     save_custom_newapi_gateway(
         base_url="https://custom.example",
         api_key="sk-custom-secret",

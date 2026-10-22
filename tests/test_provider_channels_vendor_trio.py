@@ -60,10 +60,10 @@ def _isolate_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path):
     for key in (
         "ST_CONTROL_PLANE_DSN",
         "MODEL_GATEWAY_MODE",
-        "NEWAPI_API_KEY",
-        "NEWAPI_BASE_URL",
+        "LOCALAPI_API_KEY",
+        "LOCALAPI_BASE_URL",
         "OFFICIAL_NEWAPI_BASE_URL",
-        "NEWAPI_ADMIN_BASE_URL",
+        "LOCALAPI_ADMIN_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
 

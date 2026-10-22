@@ -351,17 +351,17 @@ class NewApiAdminServiceIdentity:
             raise ValueError("admin_base_url must be an HTTP service URL")
 
 
-# [aipdd fork delta] 本地网关（LocalNewAPI）管理地址未就绪时的可执行错误。
+# [aipdd fork delta] 本地网关（LocalAPI）管理地址未就绪时的可执行错误。
 # 早先这条只在 wait_for_newapi 里抛，但 ensure_newapi_setup 会先跑
 # require_newapi_admin_service 构造 identity，空地址会先撞上
 # NewApiAdminServiceIdentity 的底层通用错「must be an HTTP service URL」，
 # 把可执行提示挡住——这里统一复用同一条可执行文案。
 # [aipdd fork delta] 本地网关随部署自带（compose 把网关服务地址写入
-# NEWAPI_ADMIN_BASE_URL），不是让用户手动填的东西：文案不再要求用户去设置里
+# LOCALAPI_ADMIN_BASE_URL），不是让用户手动填的东西：文案不再要求用户去设置里
 # 填地址，而是指向「用 Docker Compose 部署拉起网关」；只有接入自定义外部网关时
-# 才需要用户填管理地址。命名统一 LocalNewAPI，不再出现 newapi 字样。
+# 才需要用户填管理地址。命名统一 LocalAPI，不再出现 newapi 字样。
 ADMIN_BASE_URL_UNCONFIGURED_HINT = (
-    "LocalNewAPI 管理地址尚未就绪：本地网关随系统部署自动提供，无需手动填写地址。"
+    "LocalAPI 管理地址尚未就绪：本地网关随系统部署自动提供，无需手动填写地址。"
     "请用 Docker Compose 部署启动后端，让本地网关随编排一并拉起；"
     "仅当接入的是自定义外部网关时，才在「设置 → 模型与渠道」填写它的管理地址。"
 )
@@ -1347,7 +1347,7 @@ def get_provisioner_config(
             _first_non_empty(
                 admin_base_url,
                 settings.get("custom_newapi_admin_base_url"),
-                os.environ.get("NEWAPI_ADMIN_BASE_URL", ""),
+                os.environ.get("LOCALAPI_ADMIN_BASE_URL", ""),
                 # [aipdd fork delta req41] 旧这里还有一个 ``http://127.0.0.1:3000`` 兜底，
                 # 等于假定网关就在宿主机回环。网关在哪是部署形态数据（compose 里是
                 # ``http://newapi:3000``，分开机 / 反代又不同），代码不猜：三级来源都空就

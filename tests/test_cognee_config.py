@@ -165,8 +165,8 @@ def test_project_storage_context_forces_kuzu_over_legacy_neo4j_env(tmp_path, mon
 def test_newapi_cognee_env_maps_to_openai_compatible_gateway(monkeypatch):
     from novelvideo.cognee import config as cognee_config
 
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://127.0.0.1:3000/v1")
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "http://127.0.0.1:3000/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-token")
     monkeypatch.delenv("COGNEE_LLM_ENDPOINT", raising=False)
     monkeypatch.delenv("COGNEE_EMBEDDING_ENDPOINT", raising=False)
     monkeypatch.delenv("LLM_ENDPOINT", raising=False)
@@ -206,7 +206,7 @@ def test_newapi_cognee_env_maps_to_openai_compatible_gateway(monkeypatch):
 def test_gemini_direct_does_not_inherit_newapi_endpoint(monkeypatch):
     from novelvideo.cognee import config as cognee_config
 
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://127.0.0.1:3000/v1")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "http://127.0.0.1:3000/v1")
     monkeypatch.delenv("COGNEE_LLM_ENDPOINT", raising=False)
     monkeypatch.delenv("LLM_ENDPOINT", raising=False)
 

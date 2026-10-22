@@ -89,9 +89,9 @@ def test_api_provisioner_env_matches_desktop_contract() -> None:
     env = api["environment"]
     # [aipdd fork delta req41] 网关地址是部署数据 / 设置页数据，编排文件一律留空：
     # 这里断言的正是「不许再把某个站点地址写进默认值」。换 newapi 地址只改 .env。
-    assert env["NEWAPI_BASE_URL"] == "${NEWAPI_BASE_URL:-}"
+    assert env["LOCALAPI_BASE_URL"] == "${LOCALAPI_BASE_URL:-}"
     # 容器网络内的结构性服务名（不是公网入口），保留。
-    assert env["NEWAPI_ADMIN_BASE_URL"] == "http://newapi:3000"
+    assert env["LOCALAPI_ADMIN_BASE_URL"] == "http://newapi:3000"
     assert env["NEWAPI_SQL_DSN"] == "local"
     assert env["NEWAPI_SQLITE_PATH"] == "/newapi-data/one-api.db"
     assert env["NEWAPI_ADMIN_USERNAME"] == "root"

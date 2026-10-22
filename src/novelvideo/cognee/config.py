@@ -249,7 +249,7 @@ def _uses_newapi_gateway(provider: str, endpoint: str = "") -> bool:
         return True
     gateway_key, gateway_base_url = _effective_newapi_gateway()
     has_gateway = bool(gateway_key and gateway_base_url) or bool(
-        os.getenv("NEWAPI_BASE_URL", "").strip()
+        os.getenv("LOCALAPI_BASE_URL", "").strip()
     )
     return has_gateway and provider in {"custom", "openai"}
 
@@ -330,7 +330,7 @@ def _get_endpoint_env(provider: str, primary_key: str, fallback_key: str) -> str
     if value:
         return value
     if _uses_newapi_gateway(provider):
-        return os.getenv("NEWAPI_BASE_URL", "").strip()
+        return os.getenv("LOCALAPI_BASE_URL", "").strip()
     return ""
 
 
@@ -347,8 +347,8 @@ def _effective_newapi_gateway() -> tuple[str, str]:
             # 面全部以 ``bool(key and base_url)`` 为闸门，空串即「无网关」）。
             return "", ""
         return (
-            os.getenv("NEWAPI_API_KEY", "").strip(),
-            os.getenv("NEWAPI_BASE_URL", "").strip(),
+            os.getenv("LOCALAPI_API_KEY", "").strip(),
+            os.getenv("LOCALAPI_BASE_URL", "").strip(),
         )
 
 
@@ -1300,8 +1300,8 @@ def init_cognee() -> None:
     重要：必须在导入 cognee 之前设置环境变量，因为 Cognee 在导入时会读取环境变量。
 
     EE 可使用的部署环境变量:
-        NEWAPI_API_KEY=your_key
-        NEWAPI_BASE_URL=https://your-newapi-host/v1
+        LOCALAPI_API_KEY=your_key
+        LOCALAPI_BASE_URL=https://your-newapi-host/v1
     """
     global _active_gateway_fingerprint
 
@@ -1332,7 +1332,7 @@ def init_cognee() -> None:
     if not api_key:
         raise ValueError(
             "未设置 Cognee LLM Key。请配置 AIPDD 模型网关；"
-            "CE 在设置页配置，EE 通过 NEWAPI_API_KEY 配置。"
+            "CE 在设置页配置，EE 通过 LOCALAPI_API_KEY 配置。"
         )
 
     llm_model = _normalize_llm_model(

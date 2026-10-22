@@ -310,8 +310,8 @@ def test_platform_key_canary_never_reaches_the_child_env(
     """
 
     for name in (
-        "NEWAPI_API_KEY",
-        "NEWAPI_BASE_URL",
+        "LOCALAPI_API_KEY",
+        "LOCALAPI_BASE_URL",
         "MODEL_API_KEY",
         "MODEL_BASE_URL",
         "OPENAI_API_KEY",
@@ -328,8 +328,8 @@ def test_platform_key_canary_never_reaches_the_child_env(
     env = harness.pano_launch()["env"]
     assert PLATFORM_CANARY not in env.values()
     for name in (
-        "NEWAPI_API_KEY",
-        "NEWAPI_BASE_URL",
+        "LOCALAPI_API_KEY",
+        "LOCALAPI_BASE_URL",
         "MODEL_API_KEY",
         "MODEL_BASE_URL",
         "OPENAI_API_KEY",
@@ -529,7 +529,7 @@ def test_child_passes_the_injected_credential_as_an_explicit_override(
     """必须走 `api_key_override=`，不能靠 env 名回落。
 
     `get_newapi_runtime_credentials` 的 env 回落只在 `gateway.source == "environment"`
-    时生效（EE 是，CE 读 settings.db）。塞 `NEWAPI_API_KEY` 在 CE 下根本不会被读，
+    时生效（EE 是，CE 读 settings.db）。塞 `LOCALAPI_API_KEY` 在 CE 下根本不会被读，
     子进程会静默落回平台 Key——出网照发、积分照扣、平台照垫。
     """
 

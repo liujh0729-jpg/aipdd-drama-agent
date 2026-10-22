@@ -4,7 +4,7 @@
 //! - `APP_RESOURCE_PATH`：App 内置只读资源（便携 Python、二进制、前端 dist、后端源码）。
 //! - `APP_DATA_PATH`：可写业务数据（模型、缓存、SQLite、日志、产物）。
 //!
-//! 后端本身已高度 env 化（`NOVELVIDEO_*`、`ST_*`、`NEWAPI_BASE_URL`），桌面侧
+//! 后端本身已高度 env 化（`NOVELVIDEO_*`、`ST_*`、`LOCALAPI_BASE_URL`），桌面侧
 //! 只需把这些指向 app-data 下对应子目录，无需改动业务代码。
 use std::path::{Path, PathBuf};
 
@@ -149,7 +149,8 @@ impl RuntimePaths {
             ("ST_CELERY_BROKER_URL".into(), String::new()),
             ("ST_CELERY_RESULT_BACKEND".into(), String::new()),
             // 网关在本机，FastAPI 通过内部端口访问。
-            ("NEWAPI_BASE_URL".into(), "http://127.0.0.1:3000".into()),
+            ("LOCALAPI_BASE_URL".into(), "http://127.0.0.1:3000".into()),
+            ("LOCALAPI_ADMIN_BASE_URL".into(), "http://127.0.0.1:3000".into()),
             // Python 行为。
             ("PYTHONUNBUFFERED".into(), "1".into()),
             // .pyc 一律写进 app-data：安装包内的 resources/ 视为只读。默认行为会在

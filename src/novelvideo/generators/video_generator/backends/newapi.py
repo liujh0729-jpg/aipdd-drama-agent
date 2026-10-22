@@ -359,7 +359,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         self.channel_provider = ""
         if self.egress_context is not None and self.egress_context.is_organization:
             # Organization egress is request-scoped: the credential never lands on
-            # the instance, so there is no LocalNewAPI to select a mode from.
+            # the instance, so there is no LocalAPI to select a mode from.
             self.api_key = ""
             self.base_url = ""
         else:

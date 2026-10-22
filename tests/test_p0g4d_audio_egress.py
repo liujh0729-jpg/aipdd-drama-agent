@@ -295,7 +295,7 @@ async def test_eg15a_missing_exact_credential_has_no_env_fallback(
     credential_port = _CredentialPort(error="ORG_CREDENTIAL_VERSION_MISMATCH")
     operation_port = _OperationPort(events)
     _install_ports(monkeypatch, credential_port, operation_port)
-    monkeypatch.setenv("NEWAPI_API_KEY", "fallback-secret")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "fallback-secret")
     monkeypatch.setattr(
         indextts2.httpx,
         "AsyncClient",

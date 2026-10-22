@@ -620,11 +620,11 @@ def generate_ai_staging_prop(
         egress_context=egress_context,
     )
     if not api_key:
-        raise RuntimeError("missing AI api key: set NEWAPI_API_KEY")
+        raise RuntimeError("missing AI api key: set LOCALAPI_API_KEY")
     if not base_url:
         raise RuntimeError(
             "未配置模型网关地址，无法生成道具：请到「设置 → 模型与渠道」连接网关，"
-            "或在 .env 设 NEWAPI_BASE_URL=<网关地址>。"
+            "或在 .env 设 LOCALAPI_BASE_URL=<网关地址>。"
         )
 
     generated = asyncio.run(

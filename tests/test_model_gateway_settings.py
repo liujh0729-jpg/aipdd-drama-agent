@@ -250,12 +250,12 @@ def _isolate_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path):
         "ST_CONTROL_PLANE_DSN",
         "MODEL_GATEWAY_MODE",
         "MODEL_GATEWAY_RUNTIME_VERSION",
-        "NEWAPI_API_KEY",
-        "NEWAPI_BASE_URL",
+        "LOCALAPI_API_KEY",
+        "LOCALAPI_BASE_URL",
         # [aipdd fork delta req41] 这两个现在分别是官方模式地址与管理面地址的唯一 env
         # 来源：不留宿主 .env / 开发机环境把预设值泄进用例。
         "OFFICIAL_NEWAPI_BASE_URL",
-        "NEWAPI_ADMIN_BASE_URL",
+        "LOCALAPI_ADMIN_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -605,8 +605,8 @@ def test_newapi_video_backends_only_include_enabled_comfyui_video_models(
 
 def test_newapi_runtime_credentials_prefer_saved_custom_gateway(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_API_KEY", "sk-env-secret")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "https://env.example/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "sk-env-secret")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "https://env.example/v1")
 
     save_custom_newapi_gateway(
         base_url="http://127.0.0.1:3000",
@@ -699,10 +699,10 @@ def test_legacy_pydantic_factory_uses_ee_deployment_gateway(monkeypatch, tmp_pat
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.setenv("ST_EDITION", "ee")
     monkeypatch.setenv("ST_CONTROL_PLANE_DSN", "postgresql://control-plane")
-    monkeypatch.setenv("NEWAPI_API_KEY", "sk-ee-secret")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "https://ee-gateway.example/v1")
-    monkeypatch.setattr(config, "NEWAPI_API_KEY", "sk-ee-secret")
-    monkeypatch.setattr(config, "NEWAPI_BASE_URL", "https://ee-gateway.example/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "sk-ee-secret")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "https://ee-gateway.example/v1")
+    monkeypatch.setattr(config, "LOCALAPI_API_KEY", "sk-ee-secret")
+    monkeypatch.setattr(config, "LOCALAPI_BASE_URL", "https://ee-gateway.example/v1")
     captured: dict[str, object] = {}
 
     class FakeModel:
@@ -758,10 +758,10 @@ def test_ee_platform_video_paths_do_not_open_ce_settings_db(monkeypatch, tmp_pat
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.setenv("ST_EDITION", "ee")
     monkeypatch.setenv("ST_CONTROL_PLANE_DSN", "postgresql://control-plane")
-    monkeypatch.setenv("NEWAPI_API_KEY", "sk-ee-secret")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "https://ee-gateway.example/v1")
-    monkeypatch.setattr(config, "NEWAPI_API_KEY", "sk-ee-secret")
-    monkeypatch.setattr(config, "NEWAPI_BASE_URL", "https://ee-gateway.example/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "sk-ee-secret")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "https://ee-gateway.example/v1")
+    monkeypatch.setattr(config, "LOCALAPI_API_KEY", "sk-ee-secret")
+    monkeypatch.setattr(config, "LOCALAPI_BASE_URL", "https://ee-gateway.example/v1")
     monkeypatch.setattr(model_gateway_settings, "_connect", _no_open)
     monkeypatch.setenv("NEWAPI_VIDEO_MODEL", "env-only-video-model")
 
@@ -786,7 +786,7 @@ def test_ee_model_gateway_settings_reader_does_not_open_sqlite(monkeypatch, tmp_
         lambda: pytest.fail("EE must not open CE settings.db"),
     )
 
-    # [aipdd fork delta] 本 fork 默认走 LocalNewAPI（不再默认官方中转），EE 依旧不碰
+    # [aipdd fork delta] 本 fork 默认走 LocalAPI（不再默认官方中转），EE 依旧不碰
     # CE 的 settings.db——上面把 _connect 换成 fail 就是在守这条边界。
     assert model_gateway_settings.get_model_gateway_settings() == {
         "model_gateway_mode": MODE_CUSTOM
@@ -798,8 +798,8 @@ def test_cognee_newapi_resolution_prefers_saved_gateway(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.delenv("COGNEE_LLM_PROVIDER", raising=False)
     monkeypatch.delenv("COGNEE_LLM_MODEL", raising=False)
-    monkeypatch.delenv("NEWAPI_BASE_URL", raising=False)
-    monkeypatch.setenv("NEWAPI_API_KEY", "sk-env-secret")
+    monkeypatch.delenv("LOCALAPI_BASE_URL", raising=False)
+    monkeypatch.setenv("LOCALAPI_API_KEY", "sk-env-secret")
 
     save_custom_newapi_gateway(
         base_url="https://custom.example",
@@ -995,13 +995,13 @@ def test_model_gateway_official_url_ignores_newapi_base_url_env(monkeypatch, tmp
     _isolate_settings_db(monkeypatch, tmp_path)
     save_official_newapi_key(api_key="sk-database-secret", activate=True)
     monkeypatch.setenv("MODEL_GATEWAY_MODE", MODE_OFFICIAL)
-    monkeypatch.setenv("NEWAPI_BASE_URL", "https://malicious.example/v1")
-    monkeypatch.setenv("NEWAPI_API_KEY", "sk-env-secret")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "https://malicious.example/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "sk-env-secret")
 
     effective = get_effective_newapi_config()
 
     assert effective.mode == MODE_OFFICIAL
-    # 专用 env 也没配时回空：不能拿 NEWAPI_BASE_URL 当官方地址（那是自配网关那一栏）。
+    # 专用 env 也没配时回空：不能拿 LOCALAPI_BASE_URL 当官方地址（那是自配网关那一栏）。
     assert effective.base_url == ""
     assert effective.api_key == "sk-database-secret"
 
@@ -1015,7 +1015,7 @@ def test_ce_gateway_does_not_fall_back_to_env_after_database_is_initialized(
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
     set_model_gateway_mode(MODE_OFFICIAL)
-    monkeypatch.setenv("NEWAPI_API_KEY", "sk-later-secret")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "sk-later-secret")
 
     effective = get_effective_newapi_config()
     api_key, base_url = config.get_newapi_runtime_credentials()
@@ -1030,8 +1030,8 @@ def test_ee_gateway_uses_environment_and_ignores_ce_settings(monkeypatch, tmp_pa
     save_official_newapi_key(api_key="sk-ce-secret", activate=True)
     monkeypatch.setenv("ST_EDITION", "ee")
     monkeypatch.setenv("ST_CONTROL_PLANE_DSN", "postgresql://control-plane")
-    monkeypatch.setenv("NEWAPI_API_KEY", "sk-ee-secret")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "https://ee-gateway.example/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "sk-ee-secret")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "https://ee-gateway.example/v1")
 
     effective = get_effective_newapi_config()
 
@@ -1068,8 +1068,8 @@ def test_ce_runtime_refresh_never_mutates_process_environment(monkeypatch, tmp_p
     _isolate_settings_db(monkeypatch, tmp_path)
     tracked = {
         "MODEL_GATEWAY_RUNTIME_VERSION": "startup-version",
-        "NEWAPI_API_KEY": "startup-newapi-key",
-        "NEWAPI_BASE_URL": "https://startup.example/v1",
+        "LOCALAPI_API_KEY": "startup-newapi-key",
+        "LOCALAPI_BASE_URL": "https://startup.example/v1",
         "OPENAI_API_KEY": "startup-openai-key",
         "OPENAI_BASE_URL": "https://startup-openai.example/v1",
         "LLM_API_KEY": "startup-llm-key",
@@ -1741,9 +1741,9 @@ def test_newapi_db_defaults_to_managed_ce_sqlite_and_does_not_create_empty_file(
     # [aipdd fork delta req41] 管理面地址不预设 127.0.0.1：那等于假定「网关跟后端在同一
     # 台机器」，容器网络 / 跨机部署下会指到错的地方。没配就是空，用它的地方报可执行错误。
     assert cfg.admin_base_url == ""
-    monkeypatch.setenv("NEWAPI_ADMIN_BASE_URL", "http://newapi:3000")
+    monkeypatch.setenv("LOCALAPI_ADMIN_BASE_URL", "http://newapi:3000")
     assert model_gateway.get_provisioner_config().admin_base_url == "http://newapi:3000"
-    monkeypatch.delenv("NEWAPI_ADMIN_BASE_URL", raising=False)
+    monkeypatch.delenv("LOCALAPI_ADMIN_BASE_URL", raising=False)
     assert cfg.sql_dsn == "local"
     assert cfg.sqlite_path == str(tmp_path / "state" / "newapi" / "one-api.db")
     with pytest.raises(RuntimeError, match="does not exist"):
@@ -1771,7 +1771,7 @@ def test_provisioner_config_prefers_saved_database_settings(monkeypatch, tmp_pat
     )
     monkeypatch.setenv("NEWAPI_SQLITE_PATH", "/env/one-api.db")
     monkeypatch.setenv("NEWAPI_ADMIN_USERNAME", "env-root")
-    monkeypatch.setenv("NEWAPI_ADMIN_BASE_URL", "http://env-new-api:3000")
+    monkeypatch.setenv("LOCALAPI_ADMIN_BASE_URL", "http://env-new-api:3000")
     save_custom_newapi_gateway(
         base_url="http://saved-new-api:3000/v1",
         api_key="sk-custom-secret",
@@ -1836,10 +1836,10 @@ def test_database_status_does_not_expose_database_credentials(monkeypatch, tmp_p
 def test_model_gateway_config_route_masks_effective_key(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.setattr(
-        model_gateway.app_config, "NEWAPI_BASE_URL", "https://official.example/v1"
+        model_gateway.app_config, "LOCALAPI_BASE_URL", "https://official.example/v1"
     )
     monkeypatch.setattr(
-        model_gateway.app_config, "NEWAPI_API_KEY", "sk-official-secret"
+        model_gateway.app_config, "LOCALAPI_API_KEY", "sk-official-secret"
     )
     save_official_newapi_key(
         api_key="sk-official-secret",
@@ -1866,9 +1866,9 @@ def test_ee_model_gateway_config_skips_ce_provisioner_and_settings(
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.setenv("ST_EDITION", "ee")
     monkeypatch.setenv("ST_CONTROL_PLANE_DSN", "postgresql://control-plane")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "https://ee-gateway.example/v1")
-    monkeypatch.setenv("NEWAPI_API_KEY", "sk-ee-secret")
-    monkeypatch.setattr(model_gateway.app_config, "NEWAPI_API_KEY", "sk-ee-secret")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "https://ee-gateway.example/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "sk-ee-secret")
+    monkeypatch.setattr(model_gateway.app_config, "LOCALAPI_API_KEY", "sk-ee-secret")
     monkeypatch.setattr(
         model_gateway,
         "build_provisioner_status",
@@ -1969,7 +1969,7 @@ def test_enable_official_gateway_route_switches_mode_when_enabled(
     # 改成调 ``app_config.official_newapi_base_url()``，所以这里得 setenv 而不是 setattr 常量。
     monkeypatch.setenv("OFFICIAL_NEWAPI_BASE_URL", "https://official.example/v1")
     monkeypatch.setattr(
-        model_gateway.app_config, "NEWAPI_API_KEY", "sk-official-secret"
+        model_gateway.app_config, "LOCALAPI_API_KEY", "sk-official-secret"
     )
     save_official_newapi_key(
         api_key="sk-official-secret",
@@ -2306,9 +2306,9 @@ def test_save_official_gateway_route_persists_user_registered_key(
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setattr(
-        model_gateway.app_config, "NEWAPI_BASE_URL", "https://env.example/v1"
+        model_gateway.app_config, "LOCALAPI_BASE_URL", "https://env.example/v1"
     )
-    monkeypatch.setattr(model_gateway.app_config, "NEWAPI_API_KEY", "sk-env-secret")
+    monkeypatch.setattr(model_gateway.app_config, "LOCALAPI_API_KEY", "sk-env-secret")
 
     app = FastAPI()
     app.include_router(model_gateway.router)
@@ -2346,9 +2346,9 @@ def test_save_official_gateway_route_ignores_submitted_gateway_url(
     # 前端提交的 URL（防把官方模式变成任意中转）。
     monkeypatch.setenv("OFFICIAL_NEWAPI_BASE_URL", "https://official.env.example/v1")
     monkeypatch.setattr(
-        model_gateway.app_config, "NEWAPI_BASE_URL", "https://env.example/v1"
+        model_gateway.app_config, "LOCALAPI_BASE_URL", "https://env.example/v1"
     )
-    monkeypatch.setattr(model_gateway.app_config, "NEWAPI_API_KEY", "sk-env-secret")
+    monkeypatch.setattr(model_gateway.app_config, "LOCALAPI_API_KEY", "sk-env-secret")
 
     app = FastAPI()
     app.include_router(model_gateway.router)
@@ -2625,7 +2625,7 @@ def test_custom_newapi_channel_types_route_patches_volcengine_vision_and_image(
     """[aipdd fork delta] 渠道能力补丁：volcengine 渠道类型叠加 vision + image。
 
     设置页「业务模型映射」的渠道候选完全依赖 capabilities 过滤（前端
-    providersSupportingCapability：拿到渠道类型就以能力位为准）；LocalNewAPI 镜像
+    providersSupportingCapability：拿到渠道类型就以能力位为准）；LocalAPI 镜像
     内置表对 volcengine（type 45）只声明 text/embedding/video，缺此补丁会让
     VolcEngine 渠道在「视觉理解」和「图片」两个 TAB 里凭空消失——用户在图片 TAB
     选不到火山渠道，配不出 media_model_mappings 的 image 行，画布生图下拉（与设置
@@ -5021,7 +5021,7 @@ def test_prop_reference_normalizes_channel_name_provider_to_gateway(
     tmp_path,
 ):
     """[aipdd fork delta] 道具参考图 provider 归一：渠道名（aipdd/volcengine）不在
-    直连分派集合里，必须归一到 LocalNewAPI，不得落到 Google 直连分支。"""
+    直连分派集合里，必须归一到 LocalAPI，不得落到 Google 直连分支。"""
     _isolate_settings_db(monkeypatch, tmp_path)
     from novelvideo.generators import prop_generation
 

@@ -282,7 +282,7 @@ describe("业务模型映射：区默认语义（t14）", () => {
     expect(fm["HERMES"]).toBeUndefined();
     expect(fm["FREEZONE_TRANSLATION"]).toBeUndefined();
     expect(toast.success).toHaveBeenCalledWith(
-      `已将 ${DEFAULT_MODEL} 设为该区默认，并清空 ${TEXT_ROW_IDS.length} 个功能的单独配置；请点击保存映射写入 LocalNewAPI。`,
+      `已将 ${DEFAULT_MODEL} 设为该区默认，并清空 ${TEXT_ROW_IDS.length} 个功能的单独配置；请点击保存映射写入 LocalAPI。`,
     );
 
     // 展开「剧本」分组：行回到未单独配置态，占位符提示该区默认模型。

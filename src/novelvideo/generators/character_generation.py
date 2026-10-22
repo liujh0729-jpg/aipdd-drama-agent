@@ -191,7 +191,7 @@ class CharacterGenerator:
             elif self.provider == "huimeng":
                 key_name = "HUIMENGI_API_KEY"
             elif self.provider == "newapi":
-                key_name = "NEWAPI_API_KEY"
+                key_name = "LOCALAPI_API_KEY"
             elif self.provider == "openai":
                 key_name = "OPENAI_API_KEY"
             else:

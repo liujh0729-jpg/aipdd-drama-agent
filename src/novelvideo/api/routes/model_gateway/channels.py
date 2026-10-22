@@ -375,7 +375,7 @@ async def get_custom_newapi_channel_types() -> dict[str, Any]:
     try:
         require_ce_gateway_management()
         cfg = _gateway.get_provisioner_config()
-        # Token discovery may wait for an uninitialized LocalNewAPI. Keep all
+        # Token discovery may wait for an uninitialized LocalAPI. Keep all
         # blocking HTTP/SQLite work off the ASGI event loop so official gateway
         # saves and application startup remain responsive.
         items = await asyncio.to_thread(

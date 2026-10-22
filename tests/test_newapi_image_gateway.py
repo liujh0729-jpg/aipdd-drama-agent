@@ -1510,8 +1510,8 @@ def test_newapi_character_portrait_raise_on_error_preserves_provider_detail(monk
     async def fake_call_newapi_image_api(**_kwargs):
         return None, "", "HTTP 504: request_id=req-123; body=provider timeout"
 
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "Acme-IMG-1")
     monkeypatch.setenv("DEFAULT_CHARACTER_IMAGE_SELECTION", "newapi_gpt_image2")
     _reload_isolated(monkeypatch, config)
@@ -1545,8 +1545,8 @@ def test_newapi_scene_master_uses_text_only_nanobanana2(monkeypatch, tmp_path):
         captured.update(kwargs)
         return b"scene-master", "", ""
 
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("SCENE_MASTER_IMAGE_PROVIDER", "newapi")
     monkeypatch.setenv("SCENE_MASTER_IMAGE_MODEL", "Acme-IMG-2")
     _patch_scene_newapi_gateway(monkeypatch)
@@ -1862,8 +1862,8 @@ def test_newapi_prop_reference_gpt_image2_sends_quality_medium(monkeypatch, tmp_
             return FakeResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
     # [aipdd fork delta wave2] ``PROP_REF_IMAGE_MODEL`` 已退出解析链，只认设置的主位。
     monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "Acme-IMG-1")
@@ -1925,8 +1925,8 @@ def test_newapi_prop_reference_nanobanana2_omits_quality(monkeypatch, tmp_path):
             return FakeResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
     # [aipdd fork delta wave2] 同名 env 照设，已不再进解析链：模型名只从设置来。
     monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "Acme-IMG-2")
@@ -1966,8 +1966,8 @@ def test_newapi_prop_reference_reraises_upstream_quota_error(
     async def fake_call_newapi_image_api(**_kwargs):
         raise RuntimeError(_QUOTA_ERROR_TEXT)
 
-    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("LOCALAPI_BASE_URL", "http://newapi.test/v1")
     monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
     monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "Acme-IMG-1")
     _reload_isolated(monkeypatch, config)

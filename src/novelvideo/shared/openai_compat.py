@@ -59,8 +59,8 @@ def resolve_credentials(
     *,
     api_key_override: str | None = None,
     base_url_override: str | None = None,
-    env_api_key: str = "NEWAPI_API_KEY",
-    env_base_url: str = "NEWAPI_BASE_URL",
+    env_api_key: str = "LOCALAPI_API_KEY",
+    env_base_url: str = "LOCALAPI_BASE_URL",
 ) -> tuple[str, str]:
     """按生效网关解析运行期凭据（透传 ``config.get_newapi_runtime_credentials``）。"""
     from novelvideo.config import get_newapi_runtime_credentials

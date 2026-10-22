@@ -72,7 +72,7 @@ class SaveEmbeddingModelBody(BaseModel):
 
 
 def require_ce_gateway_management() -> None:
-    """Reject CE LocalNewAPI mutations from an EE-composed process."""
+    """Reject CE LocalAPI mutations from an EE-composed process."""
     try:
         _gateway.require_legacy_local_service_operation()
     except ServiceOperationExcluded as exc:

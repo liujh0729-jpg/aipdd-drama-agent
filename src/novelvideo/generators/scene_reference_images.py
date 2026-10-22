@@ -533,7 +533,7 @@ def _output_path(project_dir: Path, scene_name: str, kind: SceneReferenceKind) -
 # [aipdd fork delta] generate_scene_reference_image 的分发只认这些直连 provider。
 # 动态 mediaModels selection 经 resolve_image_selection 会把“渠道名”（aipdd /
 # volcengine / …）当 provider 传入，若不归一就会落到分发的 else 分支被当成
-# openrouter → 空 Bearer（LocalProtocolError）。非直连一律归一到 LocalNewAPI（newapi）。
+# openrouter → 空 Bearer（LocalProtocolError）。非直连一律归一到 LocalAPI（newapi）。
 _SCENE_DIRECT_IMAGE_PROVIDERS = {
     "newapi",
     "openai",
@@ -558,8 +558,8 @@ def _scene_image_provider(kind: SceneReferenceKind, provider: str | None) -> str
             .lower()
         )
     # [aipdd fork delta] SCENE_ASSET_PROVIDER 继承 NANOBANANA_PROVIDER，官方默认
-    # "openrouter"。本 fork 走 LocalNewAPI、OPENROUTER 常未配 key，落到 openrouter
-    # 会拼出空 Bearer。仅当无 OpenRouter key、LocalNewAPI (custom) 可用时才重定向。
+    # "openrouter"。本 fork 走 LocalAPI、OPENROUTER 常未配 key，落到 openrouter
+    # 会拼出空 Bearer。仅当无 OpenRouter key、LocalAPI (custom) 可用时才重定向。
     if (
         resolved == "openrouter"
         and not (os.environ.get("OPENROUTER_API_KEY") or "").strip()
@@ -738,7 +738,7 @@ async def generate_scene_reference_image(
             base_url = gateway.base_url
             # [aipdd fork delta] 选中图模型若绑定了自带 base+key 的渠道（如 aipdd
             # 直连 ap-image-2.0），按该渠道路由；与角色图 _image_provider_config 一致，
-            # 否则请求会打到不认识该模型的 LocalNewAPI。
+            # 否则请求会打到不认识该模型的 LocalAPI。
             try:
                 override = resolve_media_provider_override(
                     selected_model, media_type="image"

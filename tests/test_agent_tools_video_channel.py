@@ -2,7 +2,7 @@
 # Copyright (c) 2026 ClaymoreLab
 """[aipdd fork delta] Agent 视频直连渠道回归。
 
-LocalNewAPI 代理对 aipdd 视频提交会包 {code, message(任务JSON), data} 壳且
+LocalAPI 代理对 aipdd 视频提交会包 {code, message(任务JSON), data} 壳且
 不登记任务，轮询恒 task_not_exist；Agent 生成视频必须命中绑定渠道（如
 aipdd）时改用直连 base_url+key 走原生 /videos 协议，未命中沿用生效网关。
 """

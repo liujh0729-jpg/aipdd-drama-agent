@@ -6,9 +6,9 @@ import re
 from .image_sizes import _round_openai_edge
 
 
-# [aipdd fork delta] aipdd 平台的图像几何协议与 LocalNewAPI 不同：尺寸与
+# [aipdd fork delta] aipdd 平台的图像几何协议与 LocalAPI 不同：尺寸与
 # 比例必须表达为 `size`（模型档位词 1K/2K/4K 或像素值，按模型声明） + 顶层
-# `ratio`；LocalNewAPI 协议是 width/height + metadata。resolve_media_provider_override
+# `ratio`；LocalAPI 协议是 width/height + metadata。resolve_media_provider_override
 # 选中 aipdd 渠道直连时，这里把几何双写成平台方言 —— 平台对多余字段宽容
 # （width/height/metadata 保留即可），只是实际几何以 size/ratio 为准。
 # 渠道 settings 里可用 imageRequestProtocol="dimensions" 显式回退内置协议；
@@ -159,7 +159,7 @@ async def _apply_aipdd_image_geometry(payload: dict, *, model: str) -> dict:
     """把 NewAPI 几何方言改写为 aipdd 平台方言（追加 size + 顶层 ratio）。
 
     width/height 与 metadata 刻意保留：平台实测宽容多余字段，保留让请求在
-    平台后来收紧时仍有 LocalNewAPI 语义可退回。
+    平台后来收紧时仍有 LocalAPI 语义可退回。
     """
 
     from novelvideo.catalog.media_model_discovery import gateway_image_capabilities_by_name

@@ -125,7 +125,7 @@ def normalize_api_key(value: str | None) -> str:
 
 
 def normalize_gateway_mode(value: str | None) -> str:
-    # [aipdd fork delta] 去掉官方中转(RelayClaw)作为默认：未设置/非法时走 LocalNewAPI custom。
+    # [aipdd fork delta] 去掉官方中转(RelayClaw)作为默认：未设置/非法时走 LocalAPI custom。
     mode = str(value or "").strip().lower()
     return mode if mode in VALID_MODES else MODE_CUSTOM
 
@@ -249,7 +249,7 @@ def _read_all() -> dict[str, str]:
 
 
 def _uses_ce_gateway_settings() -> bool:
-    """Return whether this process owns the CE LocalNewAPI settings database."""
+    """Return whether this process owns the CE LocalAPI settings database."""
     return is_ce_effective()
 
 
@@ -2585,7 +2585,7 @@ def _media_model_catalog(
         aliases = item.get("aliases") if isinstance(item.get("aliases"), list) else []
         # [aipdd fork delta] 展示用渠道：条目在「默认生成模型」里配置的所属渠道
         # （aipdd / openai / volcengine / comfyui ...）。providerId 是执行身份——
-        # 媒体调用统一经 LocalNewAPI，恒为 newapi；画布模型选择器读 channel 在模型旁
+        # 媒体调用统一经 LocalAPI，恒为 newapi；画布模型选择器读 channel 在模型旁
         # 做彩色渠道标注，未登记的渠道由前端回落成中性样式。
         channel = str(item.get("provider") or "").strip().lower()
         result.append(
@@ -2928,7 +2928,7 @@ def save_media_relay_config(
 
 def get_model_gateway_settings() -> dict[str, str]:
     data = _read_all() if _uses_ce_gateway_settings() else {}
-    # [aipdd fork delta] 默认走 LocalNewAPI custom，不再默认官方中转(RelayClaw)。
+    # [aipdd fork delta] 默认走 LocalAPI custom，不再默认官方中转(RelayClaw)。
     data.setdefault("model_gateway_mode", MODE_CUSTOM)
     return data
 
@@ -3012,14 +3012,14 @@ def get_effective_newapi_config(
             mode=MODE_OFFICIAL,
             source="environment",
             base_url=normalize_relay_base_url(
-                os.environ.get("NEWAPI_BASE_URL", "")
+                os.environ.get("LOCALAPI_BASE_URL", "")
                 or official_base_url
                 or official_newapi_base_url()
             ),
             api_key=normalize_api_key(
                 official_api_key
                 if official_api_key is not None
-                else os.environ.get("NEWAPI_API_KEY", "")
+                else os.environ.get("LOCALAPI_API_KEY", "")
             ),
         )
 
@@ -3367,7 +3367,7 @@ def build_model_gateway_status(
         db_official_base_url
         if uses_ce_settings
         else (
-            os.environ.get("NEWAPI_BASE_URL", "")
+            os.environ.get("LOCALAPI_BASE_URL", "")
             or official_base_url
             or official_newapi_base_url()
         )
@@ -3384,7 +3384,7 @@ def build_model_gateway_status(
         else normalize_api_key(
             official_api_key
             if official_api_key is not None
-            else os.environ.get("NEWAPI_API_KEY", "")
+            else os.environ.get("LOCALAPI_API_KEY", "")
         )
     )
     db_official_api_key = (

@@ -103,7 +103,7 @@ def test_hermes_worker_receives_effective_newapi_key_without_mutating_host_env(
 ) -> None:
     from novelvideo.chat import hermes_pool
 
-    monkeypatch.delenv("NEWAPI_API_KEY", raising=False)
+    monkeypatch.delenv("LOCALAPI_API_KEY", raising=False)
     monkeypatch.setattr(
         hermes_pool,
         "effective_gateway_credentials",
@@ -127,8 +127,8 @@ def test_hermes_worker_receives_effective_newapi_key_without_mutating_host_env(
         project_id=None,
     )
 
-    assert env["NEWAPI_API_KEY"] == "worker-only-key"
-    assert "NEWAPI_API_KEY" not in os.environ
+    assert env["LOCALAPI_API_KEY"] == "worker-only-key"
+    assert "LOCALAPI_API_KEY" not in os.environ
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,7 @@
 
 `_MODEL_GATEWAY_CONTEXT`（`model_gateway_runtime.py:30-33`）的全部生产 set 点都在
 worker 侧，请求路径上一个都没有。于是组织用户在 chat 里发一句话时，出网闸门读到
-`None`，hermes 子进程拿到的是部署级 `NEWAPI_API_KEY`
+`None`，hermes 子进程拿到的是部署级 `LOCALAPI_API_KEY`
 （`hermes_pool.py:584` 的 `effective_gateway_credentials()`）——平台替组织垫真实算力。
 
 `service.py:3588` 的组织分支 S3 就写好了，但今天永远进不去：没人传 `egress_context`。
@@ -350,7 +350,7 @@ def _send_project_turn(harness, *, text: str = "画个分镜") -> list[dict]:
 
 
 def _assert_org_key_only(env: dict[str, str]) -> None:
-    assert env.get("NEWAPI_API_KEY") == ORG_KEY_CANARY, env
+    assert env.get("LOCALAPI_API_KEY") == ORG_KEY_CANARY, env
     leaked = [key for key, value in env.items() if PLATFORM_KEY_CANARY in str(value)]
     assert leaked == [], f"platform canary leaked into child env keys: {leaked}"
 
@@ -369,7 +369,7 @@ def test_c1_01_project_turn_launches_hermes_with_the_org_key(harness):
     assert frames[-1]["type"] == "chat.done"
     assert len(harness.envs) == 1, harness.envs
     _assert_org_key_only(harness.envs[0])
-    assert harness.envs[0]["NEWAPI_BASE_URL"] == _ORG_BASE_URL
+    assert harness.envs[0]["LOCALAPI_BASE_URL"] == _ORG_BASE_URL
     # 喂给 admit_model_task 的必须是 user_id，不是登录名。
     assert [call[0] for call in authz.calls] == [_USER_ID]
     assert len(credentials.admissions) == 1
@@ -414,8 +414,8 @@ def test_c1_03_platform_identity_path_is_unchanged(harness):
     assert [f for f in frames if f.get("type") == "error"] == [], frames
     assert frames[-1]["type"] == "chat.done"
     assert len(harness.envs) == 1
-    assert harness.envs[0]["NEWAPI_API_KEY"] == PLATFORM_KEY_CANARY
-    assert "NEWAPI_BASE_URL" not in harness.envs[0]
+    assert harness.envs[0]["LOCALAPI_API_KEY"] == PLATFORM_KEY_CANARY
+    assert "LOCALAPI_BASE_URL" not in harness.envs[0]
     assert ORG_KEY_CANARY not in str(harness.envs[0])
     # 平台路径逐字节不变：不绑上下文、不解组织凭证、不动账本。
     assert harness.observed == [None]
@@ -439,7 +439,7 @@ def test_c1_04_gray_disabled_behaves_exactly_like_the_platform_path(harness):
     assert frames[-1]["type"] == "chat.done"
     assert len(authz.calls) == 1
     assert len(harness.envs) == 1
-    assert harness.envs[0]["NEWAPI_API_KEY"] == PLATFORM_KEY_CANARY
+    assert harness.envs[0]["LOCALAPI_API_KEY"] == PLATFORM_KEY_CANARY
     assert ORG_KEY_CANARY not in str(harness.envs[0])
     assert harness.observed == [None]
     assert credentials.admissions == []
@@ -665,7 +665,7 @@ def test_c1_08_worker_rotation_keeps_the_org_key(harness):
     assert harness.auth_sessions.created == 2
     # 轮换之后的 worker 仍然是组织身份，平台 canary 不出现。
     _assert_org_key_only(harness.envs[1])
-    assert harness.envs[1]["NEWAPI_BASE_URL"] == _ORG_BASE_URL
+    assert harness.envs[1]["LOCALAPI_BASE_URL"] == _ORG_BASE_URL
     # 两个 worker 都不许带平台 Key。
     _assert_org_key_only(harness.envs[0])
 

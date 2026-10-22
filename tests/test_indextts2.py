@@ -225,7 +225,7 @@ async def test_indextts2_returns_failure_without_api_key(tmp_path):
 async def test_indextts2_aipdd_direct_uses_native_task_protocol(monkeypatch, tmp_path):
     """[aipdd fork delta] 绑定 aipdd 渠道的语音模型直连原生异步任务协议。
 
-    LocalNewAPI 代理会丢掉参考音频与情绪字段（上游 400「缺少必填参数：
+    LocalAPI 代理会丢掉参考音频与情绪字段（上游 400「缺少必填参数：
     audio」），直连必须：顶层 audio=data URL、提交取 id、轮询取 content_url、
     下载非 mp3 交付时转码到输出路径。
     """

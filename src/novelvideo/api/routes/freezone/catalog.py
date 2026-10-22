@@ -270,7 +270,7 @@ async def _custom_gateway_media_catalog(
     media_type: str,
     configured: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """LocalNewAPI 下的媒体模型目录：只呈现用户在设置页配置的模型。
+    """LocalAPI 下的媒体模型目录：只呈现用户在设置页配置的模型。
 
     [aipdd fork delta] 「工具 / 画布里的模型必须来自用户配置的渠道」：过去 custom
     模式会把发行方内置目录（``official_media_models.json``）按网关实拉名单收敛后
@@ -471,7 +471,7 @@ def _catalog_mode_enabled(
     if capabilities is None:
         return None
     modes = capabilities.get("supportedModes") or []
-    # [aipdd fork delta] 未声明 supportedModes（空/缺失，如 LocalNewAPI 下自动纳入或
+    # [aipdd fork delta] 未声明 supportedModes（空/缺失，如 LocalAPI 下自动纳入或
     # 已配置但未填模式的 ap-minimax-h3）不能当作禁止，否则 mode in [] 会把连
     # 文生视频在内的全部模式拦下、模型直接全废。返回 None 交给网关裁决（前端
     # 对未声明条目也是走按名启发式放开，两端一致）。

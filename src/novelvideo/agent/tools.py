@@ -417,7 +417,7 @@ async def _upscale_video_media(
 def _video_direct_channel(model: str) -> tuple[str, str]:
     """[aipdd fork delta] agent 视频直连渠道解析（与画布生成同机制）。
 
-    LocalNewAPI 代理（dramaclaw-gateway）对 aipdd 视频的 /video/generations
+    LocalAPI 代理（dramaclaw-gateway）对 aipdd 视频的 /video/generations
     提交会包成 {code, message(任务JSON), data:null} 壳且不登记任务，轮询
     恒 task_not_exist——代理侧视频轮询不可用，Agent 视频此前必报
     「视频生成响应缺少任务编号」。命中绑定渠道（如 aipdd 默认视频模型

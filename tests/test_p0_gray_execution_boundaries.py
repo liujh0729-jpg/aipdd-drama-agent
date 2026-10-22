@@ -127,7 +127,7 @@ async def test_c1_eg07_nofb_rejects_forged_lineage_before_claim_or_resolve(monke
         authorize_credentialed_hermes,
     )
 
-    monkeypatch.setenv("NEWAPI_API_KEY", "workspace-fallback-secret")
+    monkeypatch.setenv("LOCALAPI_API_KEY", "workspace-fallback-secret")
     resolver = _Resolver()
     operations = _Operations()
 
@@ -242,8 +242,8 @@ def test_c1_eg07_child_env_is_minimal_and_ignores_process_provider_secrets(
         authorization=authorization,
     )
 
-    assert env["NEWAPI_API_KEY"] == "gw-request-secret"
-    assert env["NEWAPI_BASE_URL"] == "https://gateway.example/v1"
+    assert env["LOCALAPI_API_KEY"] == "gw-request-secret"
+    assert env["LOCALAPI_BASE_URL"] == "https://gateway.example/v1"
     assert "OPENAI_API_KEY" not in env
     assert "OPENROUTER_API_KEY" not in env
     assert "MODEL_API_KEY" not in env
@@ -259,8 +259,8 @@ def test_c1_eg07_child_env_is_minimal_and_ignores_process_provider_secrets(
         "DRAMACLAW_API_URL",
         "DRAMACLAW_PROJECT_ID",
         "DRAMACLAW_PROJECT_OUTPUT_DIR",
-        "NEWAPI_API_KEY",
-        "NEWAPI_BASE_URL",
+        "LOCALAPI_API_KEY",
+        "LOCALAPI_BASE_URL",
     }
 
 
@@ -457,7 +457,7 @@ def test_c1_eg07_pool_build_env_consumes_authorization_not_workspace_gateway(
         authorization=authorization,
     )
 
-    assert env["NEWAPI_API_KEY"] == "gw-request-secret"
+    assert env["LOCALAPI_API_KEY"] == "gw-request-secret"
     assert "OPENAI_API_KEY" not in env
 
 
@@ -653,7 +653,7 @@ def test_c1_s3_04_home_scope_env_has_no_project_id_but_egress_identity_matches(
     )
 
     assert "DRAMACLAW_PROJECT_ID" not in env
-    assert env["NEWAPI_API_KEY"] == "gw-request-secret"
+    assert env["LOCALAPI_API_KEY"] == "gw-request-secret"
 
 
 def test_c1_s3_05_project_scope_env_keeps_project_id_and_minimal_allowlist(tmp_path):
@@ -684,8 +684,8 @@ def test_c1_s3_05_project_scope_env_keeps_project_id_and_minimal_allowlist(tmp_p
         "DRAMACLAW_API_URL",
         "DRAMACLAW_PROJECT_ID",
         "DRAMACLAW_PROJECT_OUTPUT_DIR",
-        "NEWAPI_API_KEY",
-        "NEWAPI_BASE_URL",
+        "LOCALAPI_API_KEY",
+        "LOCALAPI_BASE_URL",
     }
 
 
@@ -791,4 +791,4 @@ def test_c1_s3_04b_pool_build_env_home_scope_keeps_the_two_project_ids_apart(tmp
     )
 
     assert "DRAMACLAW_PROJECT_ID" not in env
-    assert env["NEWAPI_API_KEY"] == "gw-request-secret"
+    assert env["LOCALAPI_API_KEY"] == "gw-request-secret"

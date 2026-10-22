@@ -60,7 +60,7 @@ def _default_image_model() -> str:
 # mediaModels selection 经 resolve_image_selection 会把「渠道名」（aipdd /
 # volcengine / …）当 provider 传入，若不归一就会落到分发的 else 分支被当成
 # Google 直连（用网关 key 打 generativelanguage → 400 API key not valid）。
-# 非直连一律归一到 LocalNewAPI（newapi），与 scene_reference_images 同一惯例。
+# 非直连一律归一到 LocalAPI（newapi），与 scene_reference_images 同一惯例。
 _PROP_DIRECT_IMAGE_PROVIDERS = {"newapi", "openai", "openrouter", "google"}
 
 
@@ -227,7 +227,7 @@ async def generate_prop_reference(
     selected_provider, selected_model = _prop_reference_image_source(model)
     prop_provider = (PROP_REF_IMAGE_PROVIDER or "").strip().lower()
     # [aipdd fork delta] 渠道名 provider（ap-image-2.0 属于 aipdd 等）不在直连分派
-    # 集合里，必须归一到 LocalNewAPI，否则会落到下面的 else 分支被当成 Google 直连。
+    # 集合里，必须归一到 LocalAPI，否则会落到下面的 else 分支被当成 Google 直连。
     provider = _prop_image_provider(
         selected_provider
         or prop_provider
@@ -242,7 +242,7 @@ async def generate_prop_reference(
         model = selected_model or resolve_prop_reference_image_model()
         base_url = gateway.base_url
         # [aipdd fork delta #A] 多网关并存：选中图片模型若绑定自带 base+key 的
-        # provider 渠道（如 ap-image-2.0 → aipdd），按该渠道路由覆盖 LocalNewAPI。
+        # provider 渠道（如 ap-image-2.0 → aipdd），按该渠道路由覆盖 LocalAPI。
         try:
             from novelvideo.model_gateway_settings import (
                 resolve_media_provider_override,
@@ -264,7 +264,7 @@ async def generate_prop_reference(
         elif provider == "openai":
             key_name = "OPENAI_API_KEY"
         elif provider == "newapi":
-            key_name = "NEWAPI_API_KEY"
+            key_name = "LOCALAPI_API_KEY"
         else:
             key_name = "GOOGLE_AI_API_KEY"
         print(f"[PropRefGen] API key not set. Set {key_name} environment variable.")

@@ -1,7 +1,7 @@
 """模型网关路由包（原 ``model_gateway.py`` 按域拆分）。
 
 [重构] 子模块划分：
-- connection: 网关配置/状态、文本模型候选、媒体中转、视频高清与 LocalNewAPI 初始化
+- connection: 网关配置/状态、文本模型候选、媒体中转、视频高清与 LocalAPI 初始化
 - official:   官方密钥配置、模式启用与官方媒体目录管理
 - channels:   自建渠道管理、上游模型拉取与批量创建
 - aliases:    别名映射单一真源读写、渠道投影与一致性自检
