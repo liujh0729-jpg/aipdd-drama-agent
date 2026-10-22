@@ -357,13 +357,10 @@ if [[ -n "$CFT_VER" ]]; then
   unzip -oq "$CFT_ZIP" -d "$RES/bin"
   [[ -d "$RES/bin/chrome-${CFT}" ]] || { echo "Chromium 包内未找到 chrome-${CFT}/：$(ls "$RES/bin")" >&2; exit 8; }
   mv "$RES/bin/chrome-${CFT}" "$RES/bin/chrome"
-  # 解压后立即把 Chrome framework 归一化成「标准 versioned 布局 + 签名友好」：
-  #   删顶层 Info.plist、Libraries/ 与 Helpers 裸件并入 Resources/——否则后续
-  #   codesign --deep 会报「unsealed contents present in the root directory」，公证反复 Invalid。
-  #   单一事实源见 normalize-chrome-framework.sh；mac 侧签名脚本会再幂等调一次。
-  if [[ "$GOOS" == darwin ]]; then
-    bash "$SCRIPT_DIR/normalize-chrome-framework.sh" "$RES/bin/chrome"
-  fi
+  # ★ 不要对 Chrome framework 做任何「归一化」搬动：Google 原始 versioned 布局本身就是
+  #   codesign 可正常密封的；历史上删顶层 Info.plist、把 Libraries/Helpers 搬进 Resources
+  #   反而制造了「unsealed contents present in the root directory of an embedded framework」。
+  #   签名阶段（mac-sign-notarize.sh 1c）就地补齐松散 Mach-O 后直接 --force --deep 即可。
   # 运行期后端连 CDP：需由编排器以 --remote-debugging-port 启动该 Chrome，并把它的路径
   # 通过环境变量交给后端。见 desktop/README「Chromium/CDP 接线」TODO。
   log "Chromium $CFT_VER 已内置 resources/bin/chrome（CDP 接线见 README）"
@@ -511,8 +508,6 @@ MG_MISSING=()
   MG_MISSING+=("画风图册清单 app/src/novelvideo/freezone/motion_styles.json")
 [[ -d "$APP/src/novelvideo/freezone/motion_posters" && -n "$(ls -A "$APP/src/novelvideo/freezone/motion_posters" 2>/dev/null)" ]] || \
   MG_MISSING+=("图册海报 app/src/novelvideo/freezone/motion_posters")
-[[ -d "$APP/src/novelvideo/freezone/motion_previews" && -n "$(ls -A "$APP/src/novelvideo/freezone/motion_previews" 2>/dev/null)" ]] || \
-  MG_MISSING+=("图册动效预览 app/src/novelvideo/freezone/motion_previews")
 [[ -f "$APP/services/vectcut/template_jianying_10_2/draft_content.json" ]] || \
   MG_MISSING+=("剪映 10.2 草稿模板 app/services/vectcut/template_jianying_10_2/draft_content.json")
 if [[ ${#MG_MISSING[@]} -gt 0 ]]; then
@@ -522,7 +517,7 @@ fi
 if [[ ! -d "$RES/bin/chrome" ]]; then
   log "警告：resources/bin/chrome 不在包里，逐帧渲染 MG 成片在装机后不可用（用户可自备 Chrome 或本机 Chrome 路径）。"
 else
-  log "动效大片物料齐全：两份图册清单 + $(ls "$APP/src/novelvideo/freezone/motion_posters" | wc -l | tr -d ' ') 张海报 + $(ls "$APP/src/novelvideo/freezone/motion_previews" | wc -l | tr -d ' ') 条预览片 + 剪映草稿模板 + 内置 Chrome"
+  log "动效大片物料齐全：两份图册清单 + $(ls "$APP/src/novelvideo/freezone/motion_posters" | wc -l | tr -d ' ') 张海报 + 剪映草稿模板 + 内置 Chrome"
 fi
 
 if [[ "$GOOS" == windows ]]; then
