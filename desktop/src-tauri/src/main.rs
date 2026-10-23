@@ -10,6 +10,7 @@
 //! 安全：进程编排全在 Rust 侧用 std::process 完成，Web 侧无任何 shell 能力。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod arch;
 mod datadir;
 mod downloader;
 mod env;
@@ -143,6 +144,14 @@ fn boot_sequence(handle: AppHandle) {
     let orc = handle.state::<Arc<Orchestrator>>().inner().clone();
     let store = handle.state::<Arc<datadir::DataRootState>>().inner().clone();
 
+    // 架构自检先于一切：装错版本（如 Apple Silicon 上跑了 Intel 包）只会走
+    // Rosetta 再因随包运行时与真机芯片不匹配崩一个玄学 ImportError。宁可在门口
+    // 用启动卡错误态说清「下载对应版本」，不拉起注定崩的服务。
+    if let Some(msg) = arch::mismatch_message(&orc.paths().python()) {
+        orc.report_boot_error(&msg);
+        return;
+    }
+
     let info = store.info();
     if info.blocked {
         // 配置的数据位置不可用时不能偷偷在默认位置新建一套数据，宁可不启动并提示救援入口。
@@ -175,6 +184,12 @@ fn boot_sequence(handle: AppHandle) {
 /// 起服务 → 等启动卡收尾 → 开主窗口。首次启动与「重试启动」共用同一条收尾路径。
 fn boot_services(handle: &AppHandle) {
     let orc = handle.state::<Arc<Orchestrator>>().inner().clone();
+    // 重试路径（retry_boot → boot_services）不经过 boot_sequence，这里补同一道架构闸：
+    // 装错版本无论首次还是重试都不得拉起服务。
+    if let Some(msg) = arch::mismatch_message(&orc.paths().python()) {
+        orc.report_boot_error(&msg);
+        return;
+    }
     match orc.start_all() {
         Ok(()) => {
             // 先等启动卡把百分比补满并自报收尾（最多 SPLASH_FINISH_WAIT），再开主窗口：

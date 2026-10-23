@@ -4,8 +4,10 @@
 #   再对 .app 施加硬化运行时 + 授权清单签名，随后 notarytool 公证并 staple 票据。
 #
 #   用法：
-#     ./mac-sign-notarize.sh <path/to/AIPDD DramaClaw.app>        # 签 App 并（若给 dmg）公证
-#     ./mac-sign-notarize.sh <path/to/*.app> <path/to/*.dmg>      # 先签 App，再公证 dmg
+#     ./mac-sign-notarize.sh <path/to/AIPDD DramaClaw.app>        # 签 App → 由已签 App 打 dmg →（NOTARIZE=1）公证
+#     ./mac-sign-notarize.sh <path/to/*.app> <输出.dmg>           # 第二个参数是 dmg 输出路径（总是由已签 App 重新构建）
+#   ⚠️ dmg 不再取自 tauri：tauri 的 bundle=["app","dmg"] 会把未签 app 封进 dmg；
+#      正确顺序是先签 App、再由已签 App 打 dmg，才能公证到 Developer ID 签名版。
 #
 #   环境变量：
 #     SIGN_IDENTITY   默认 "Developer ID Application"（需已在钥匙串导入证书）
@@ -92,6 +94,19 @@ find "$APP" -type f -perm -u+x ! -name '*.dylib' ! -name '*.so' ! -name '*.so.*'
 #                由 --deep 自动完成，无需再单独 deep 签 framework。
 #       1c-iv)  显式 --verify --deep --strict 校验 Chrome 子树（外层 .app 的 --deep 不会递归进
 #                Contents/Resources/**/Chrome.app，必须单独验，否则白跑一轮公证）。
+#     ★ tauri deref 修复（先于一切签 Chrome 的动作）：cargo tauri build 拷贝资源时把
+#       Chrome versioned framework 的 Versions/Current 符号链接 deref 成真实目录，
+#       codesign --deep 因此报「bundle format is ambiguous (could be app or framework)」。
+#       用 pristine 的 resources/bin/chrome（保留符号链接）以 ditto 覆盖 App 内 Chrome 子树。
+#       幂等：Current 已是软链（build 脚本已修）就跳过；找不到 pristine 也跳过（不误删）。
+PRISTINE_CHROME="$SCRIPT_DIR/../src-tauri/resources/bin/chrome/Google Chrome for Testing.app"
+APP_CHROME="$APP/Contents/Resources/resources/bin/chrome/Google Chrome for Testing.app"
+CUR_LINK="$APP_CHROME/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/Current"
+if [[ -d "$PRISTINE_CHROME" && -d "$APP_CHROME" && ! -L "$CUR_LINK" ]]; then
+  log "修复 Chrome deref：ditto 以 pristine resources 还原 App 内 Chrome 子树（Versions/Current → 符号链接）"
+  rm -rf "$APP_CHROME"
+  ditto "$PRISTINE_CHROME" "$APP_CHROME"
+fi
 while IFS= read -r -d '' chrome_root; do
   log "1c) 重签 Chrome 子树：$chrome_root"
   # 1c-ii) 就地签松散 Mach-O：framework 的松散 .dylib 与裸可执行件（非 .app）。
@@ -149,6 +164,38 @@ if [[ "${#BAD[@]}" -gt 0 ]]; then
 fi
 log "漏签预扫通过"
 
+# ------------------------------------------------ 2c) 由已签 App 打 dmg
+# 为何在此打而不是 tauri build：tauri.conf targets=["app","dmg"] 且 signingIdentity=null 时，
+# cargo tauri build 一次运行里同时打 app 与 dmg，把「未签」的 App 封进 dmg；之后再签外层
+# 散件 .app 并不会更新 dmg 内那份。必须先签好、再打包，才能保证 dmg 内的 App 就是
+# Developer ID 签名版，公证提交的与分发的完全一致。
+# 若 $2 提供则作为 dmg「输出路径」（会被覆盖）；不给则按出厂命名 <名>_<版本>_<架构>.dmg。
+BUNDLE_MACOS_DIR="$(cd "$(dirname "$APP")" && pwd)"
+DMG_OUT_DIR="$BUNDLE_MACOS_DIR/../dmg"
+PLIST="$APP/Contents/Info.plist"
+PB="/usr/libexec/PlistBuddy"
+APP_BASE="$(basename "$APP")"
+DMG_NAME="${APP_BASE%.app}"
+DMG_VER="$("$PB" -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null || echo 0.0.0)"
+MAIN_BIN="$(find "$APP/Contents/MacOS" -maxdepth 1 -type f -perm -u+x 2>/dev/null | head -1)"
+MAIN_ARCH="$(lipo -archs "$MAIN_BIN" 2>/dev/null || true)"
+case "$MAIN_ARCH" in
+  *arm64*)   ARCH_TAG=aarch64 ;;
+  *x86_64*)  ARCH_TAG=x64 ;;
+  *)         ARCH_TAG=universal ;;
+esac
+[[ -n "$DMG" ]] || DMG="$DMG_OUT_DIR/${DMG_NAME}_${DMG_VER}_${ARCH_TAG}.dmg"
+mkdir -p "$(dirname "$DMG")"
+log "2c) 由已签 App 打 dmg：${DMG}（${DMG_NAME} ${DMG_VER} ${ARCH_TAG}）"
+STAGE_DMG="$(mktemp -d)"
+ditto "$APP" "$STAGE_DMG/$APP_BASE"
+ln -s /Applications "$STAGE_DMG/Applications"
+rm -f "$DMG"
+hdiutil create -volname "$DMG_NAME" -srcfolder "$STAGE_DMG" -ov -format UDZO "$DMG" >/dev/null \
+  || { rm -rf "$STAGE_DMG"; echo "dmg 构建失败：$DMG" >&2; exit 15; }
+rm -rf "$STAGE_DMG"
+[[ -f "$DMG" ]] || { echo "dmg 未生成：$DMG" >&2; exit 15; }
+
 # ------------------------------------------------ 3) 公证 + staple
 TARGET_FOR_NOTARY="$APP"
 if [[ -n "$DMG" ]]; then TARGET_FOR_NOTARY="$DMG"; fi
@@ -162,9 +209,11 @@ fi
 # 组装 notarytool 认证参数
 AUTH=()
 if [[ -n "${NOTARY_PROFILE:-}" ]]; then
-  AUTH=( -keychain-profile "$NOTARY_PROFILE" )
+  # ★ 必须双横线 --keychain-profile：notarytool 基于 Swift ArgumentParser，单横线 -keychain-profile
+  #   会被拆成短选项 -k + 余下尾巴，把 profile 名当 API-key 文件路径报「invalid for '-k <key>'」。
+  AUTH=( --keychain-profile "$NOTARY_PROFILE" )
 elif [[ -n "${APPLE_ID:-}" && -n "${APPLE_APP_PWD:-}" && -n "${TEAM_ID:-}" ]]; then
-  AUTH=( -apple-id "$APPLE_ID" -password "$APPLE_APP_PWD" -team-id "$TEAM_ID" )
+  AUTH=( --apple-id "$APPLE_ID" --password "$APPLE_APP_PWD" --team-id "$TEAM_ID" )
 else
   log "未配置公证凭据（NOTARY_PROFILE 或 APPLE_ID/APPLE_APP_PWD/TEAM_ID），跳过公证。"
   log "本机自测可用；对外分发必须先公证，否则 Gatekeeper 会拦截。"
@@ -181,8 +230,13 @@ else
   SUBMIT="$TARGET_FOR_NOTARY"
 fi
 
-# --output-format json 拿回结果：状态非 Valid 时按 id 自动拉公证日志打印，
-# 闭环「Invalid 后还要手动找 ID 再查 log」的排错回路。
+# 公证通过态：新版 notarytool 返回 "Accepted"，老版/某些路径返回 "Valid"，两者都算通过。
+is_pass_status() { case "$1" in Valid|Accepted) return 0 ;; *) return 1 ;; esac; }
+
+# --output-format json 拿回结果：先取 submit 的 id/status；若未直接给出通过态
+# （常见于本机多 utun/TLS 抖动让 --wait 在轮询阶段报错退出，提交其实已成功入队），
+# 且有 id，则用 notarytool info 独立复核最终状态，避免把「已 Accepted 只是没等到最后一次
+# 轮询」误判成失败而重提重复排队。最终仍非通过态时，按 id 自动拉公证日志打印。
 SUBMIT_OUT="$(xcrun notarytool submit "$SUBMIT" "${AUTH[@]}" --wait --output-format json 2>/tmp/notary-submit.err || true)"
 [[ -n "$SUBMIT_OUT" ]] || SUBMIT_OUT='{}'
 NOTARY_META="$(printf '%s' "$SUBMIT_OUT" | /usr/bin/python3 -c 'import json,sys
@@ -193,7 +247,17 @@ except Exception:
     print("\t")')"
 NOTARY_ID="${NOTARY_META%%$'\t'*}"
 NOTARY_STATUS="${NOTARY_META#*$'\t'}"
-if [[ "$NOTARY_STATUS" != "Valid" ]]; then
+if ! is_pass_status "$NOTARY_STATUS" && [[ -n "$NOTARY_ID" ]]; then
+  log "submit 未直接给出通过态（status=${NOTARY_STATUS:-空}），用 notarytool info 复核 $NOTARY_ID"
+  RECHECK_OUT="$(xcrun notarytool info "$NOTARY_ID" "${AUTH[@]}" --output-format json 2>/dev/null || true)"
+  RECHECK_STATUS="$(printf '%s' "$RECHECK_OUT" | /usr/bin/python3 -c 'import json,sys
+try:
+    print(json.load(sys.stdin).get("status", ""))
+except Exception:
+    print("")')"
+  [[ -n "$RECHECK_STATUS" ]] && NOTARY_STATUS="$RECHECK_STATUS"
+fi
+if ! is_pass_status "$NOTARY_STATUS"; then
   echo "公证未通过（status=${NOTARY_STATUS:-提交失败}）：$SUBMIT" >&2
   [[ -s /tmp/notary-submit.err ]] && { echo '--- notarytool stderr ---' >&2; cat /tmp/notary-submit.err >&2; }
   if [[ -n "$NOTARY_ID" ]]; then
@@ -203,6 +267,7 @@ if [[ "$NOTARY_STATUS" != "Valid" ]]; then
   fi
   exit 13
 fi
+log "公证通过（status=$NOTARY_STATUS）"
 
 xcrun stapler staple "$TARGET_FOR_NOTARY"
 [[ "$TARGET_FOR_NOTARY" != "$APP" ]] && xcrun stapler staple "$APP"

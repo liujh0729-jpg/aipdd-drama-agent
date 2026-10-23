@@ -126,7 +126,8 @@ Tauri 计算并注入两类目录，再派生后端既有的 env：
 | `PORT` / `SQL_DSN` | `3000` / 空(内置 SQLite) | 网关 |
 | `VECTCUT_PORT` | `9001` | VectCut |
 | `PATH` | 前置便携 Python 与 `bin` | ffmpeg/chromium 等就近命中；Windows 为 `python\`+`python\Scripts\`，Unix 为 `python/bin` |
-| `PYTHONUTF8` / `PYTHONIOENCODING` / `PYTHONNOUSERSITE` | `1` / `utf-8` / `1`（仅 Windows 注入） | 让 Python 子进程 stdio 统一 UTF-8，否则中文 Windows 按 cp936 输出，面板与日志会乱码、读线程会中断 |
+| `PYTHONUTF8` / `PYTHONIOENCODING` | `1` / `utf-8`（仅 Windows 注入） | 让 Python 子进程 stdio 统一 UTF-8，否则中文 Windows 按 cp936 输出，面板与日志会乱码、读线程会中断 |
+| `PYTHONNOUSERSITE` | `1`（全平台注入） | 禁用用户目录 site-packages：它在 sys.path 上排在随包依赖之前，会遮蔽/错配随包包（真机：Intel 版 App 捡到用户 arm64 tiktoken，dlopen 失败退出码 1） |
 
 > 引导口令：CE 多用户首次需要一个引导账户口令。可在打包时经 `.env` 的 `ST_LOCAL_PASSWORD`
 > 注入，或首启读取后端打印的随机口令。**不要把口令写进仓库**。

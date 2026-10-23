@@ -9,6 +9,8 @@
 #     c) 包内 App 全量 deep 签名校验（codesign --verify --deep --strict）；
 #     d) 主执行件架构与文件名一致（_aarch64 必须 arm64、_x64 必须 x86_64——
 #        防跨架构缓存误用打出的「能过签名但 Intel 机 Bad CPU type」的包）；
+#     d2) 随包 Python 解释器架构也与文件名一致——只看主执行件会漏「壳 arm64、
+#        payload x64」的污染（Apple Silicon 走 Rosetta 后崩 dlopen，2.3.1 真机事故）；
 #     e) 包内 CFBundleShortVersionString 与文件名版本一致（防拿旧构建换名重发）。
 #
 #   用法： ./verify-release-dmg.sh <path/to/*.dmg> [<path/to/*.dmg> ...]
@@ -61,6 +63,16 @@ for DMG in "$@"; do
       HAVE_ARCHS="$(lipo -archs "$EXE" 2>/dev/null || true)"
       if grep -qw "$WANT_ARCH" <<<"$HAVE_ARCHS"; then mark_ok "主执行件架构含 ${WANT_ARCH}（实测：${HAVE_ARCHS:-?}）"
       else mark_fail "架构不符：文件名要求 ${WANT_ARCH}，主执行件实为 ${HAVE_ARCHS:-未知}——疑跨架构缓存误用"; fi
+    fi
+    # d2) 随包 Python 解释器架构与文件名一致——只看主执行件会漏「壳 arm64、payload x64」
+    #     这类污染（2.3.1 真机事件：arm 包里 nginx/new-api/python 全为 x86_64，用户端走
+    #     Rosetta 后因用户目录包架构不匹配崩 dlopen）。以随包解释器为 payload 代表查一道。
+    PY="$APP/Contents/Resources/resources/python/bin/python3"
+    [[ -f "$PY" ]] || PY="$APP/Contents/Resources/python/bin/python3"
+    if [[ -n "$WANT_ARCH" && -f "$PY" ]]; then
+      HAVE_PY="$(lipo -archs "$PY" 2>/dev/null || true)"
+      if grep -qw "$WANT_ARCH" <<<"$HAVE_PY"; then mark_ok "随包 Python 架构含 ${WANT_ARCH}（实测：${HAVE_PY:-?}）"
+      else mark_fail "随包 Python 架构不符：文件名要求 ${WANT_ARCH}，实为 ${HAVE_PY:-未知}——payload 跨架构污染，重跑 prepare-resources $([ "$WANT_ARCH" = arm64 ] && echo mac-arm64 || echo mac-x64)"; fi
     fi
     # e) 版本一致性：文件名 _<ver>_ ↔ CFBundleShortVersionString
     if [[ "$BN" =~ _([0-9][0-9a-zA-Z.]*)_(aarch64|x64)\.dmg$ ]]; then

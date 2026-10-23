@@ -158,6 +158,11 @@ impl RuntimePaths {
             // 卸载器不认识这些文件（安装目录留残骸），macOS 上更会破坏 .app 签名。
             ("PYTHONPYCACHEPREFIX".into(), self.app_data.join("pycache").display().to_string()),
             ("PYTHONPATH".into(), self.backend_src().display().to_string()),
+            // 不让解释器回落到用户目录的 site-packages（Windows AppData、macOS/Linux
+            // 的 user site）。user site 在 sys.path 上排在随包 site-packages **之前**，
+            // 真机事故：Intel 版 App（x86_64）在 M 系列机上导入了用户 pip --user 装的
+            // arm64 tiktoken，架构不匹配 dlopen 失败，FastAPI 直接退出码 1。
+            ("PYTHONNOUSERSITE".into(), "1".into()),
             ("PATH".into(), format!("{extra_path}{path_sep}{system_path}")),
         ];
         if cfg!(windows) {
@@ -166,8 +171,6 @@ impl RuntimePaths {
             // 让便携 Python 的 stdio / 文件名编码统一走 UTF-8。
             env.push(("PYTHONUTF8".into(), "1".into()));
             env.push(("PYTHONIOENCODING".into(), "utf-8".into()));
-            // 不让解释器回落到用户 AppData 里的 site-packages / 全局 PYTHONPATH。
-            env.push(("PYTHONNOUSERSITE".into(), "1".into()));
         }
         // 随包 Hermes：console script 的 shim 写着构建机绝对解释器路径，便携
         // Python 换位置后失效；与 API 服务同法，用 `-c` 直接调 hermes_cli。
@@ -290,6 +293,9 @@ mod tests {
         assert_eq!(PathBuf::from(&env["HERMES_SITE_PACKAGES"]), site);
         // 依赖目录绝不能混进 API 进程自己的 PYTHONPATH。
         assert_eq!(env["PYTHONPATH"], paths.backend_src().display().to_string());
+        // 用户目录 site-packages 遮蔽随包依赖是跨平台风险（macOS 真机踩过架构不匹配），
+        // 所有平台都必须禁用 user site。
+        assert_eq!(env["PYTHONNOUSERSITE"], "1");
         std::fs::remove_dir_all(&root).ok();
     }
 

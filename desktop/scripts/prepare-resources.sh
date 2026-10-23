@@ -97,9 +97,18 @@ else
 fi
 [[ -f "$PYBIN" ]] || { echo "便携 Python 解压后找不到解释器：$PYBIN" >&2; exit 4; }
 "$PYBIN" -V || { echo "便携 Python 无法执行：$PYBIN" >&2; exit 4; }
-# mac-x64 硬校验：解释器必须是 x86_64——防止缓存/下载拿到错架构的包（尤其 Apple Silicon 交叉出 Intel 包）。
-if [[ "$IS_MAC_X64" == 1 ]]; then
-  lipo -archs "$PYBIN" | grep -q x86_64 || { echo "mac-x64：便携 Python 非 x86_64（实为 $(lipo -archs "$PYBIN" 2>/dev/null)），缓存或下载架构不符" >&2; exit 4; }
+# 硬校验：便携 Python 架构必须与目标一致——防止跨架构缓存/下载误用。
+# 关键教训（2.3.1 真机事故）：`"$PYBIN" -V` 在 Apple Silicon 上跑 x86_64 解释器会经
+# Rosetta 成功返回，探不出错架构；只有 lipo 读 Mach-O 才可信。此校验必须两个 mac
+# 目标对称覆盖——此前只有 mac-x64，导致 mac-arm64 把 x86_64 解释器打进了 arm 包。
+case "$TARGET" in
+  mac-arm64) REQ_ARCH=arm64 ;;
+  mac-x64)   REQ_ARCH=x86_64 ;;
+  *)         REQ_ARCH="" ;;
+esac
+if [[ -n "$REQ_ARCH" ]]; then
+  lipo -archs "$PYBIN" | grep -qw "$REQ_ARCH" \
+    || { echo "$TARGET：便携 Python 架构不符（要求 $REQ_ARCH，实为 $(lipo -archs "$PYBIN" 2>/dev/null)），缓存或下载串了架构——请清掉 /tmp/pbs-* 重跑" >&2; exit 4; }
 fi
 
 # --------------------------------------------------- 2) 离线预装 CE 后端依赖
@@ -407,6 +416,15 @@ else
   cp "/tmp/uvpkg/uv-${TRIPLE}/uv" "$RES/bin/uv"
 fi
 log "uv ${UV_VER} 已内置 resources/bin/uv${EXE}（可选引擎的运行期安装器）"
+
+# ★ 归一化为 owner 可写（0755）。tauri 嵌资源时会在 target/<triple>/release/resources/bin/
+#   暂存一份副本；从 Homebrew cellar 取的 nginx、系统 cp 的 ffmpeg/ffprobe 本就是 555（无 owner 写位），
+#   暂存副本随之不可写——下一轮增量构建的 fs::copy 覆盖只读目标会直接报
+#   「Permission denied (os error 13)」且不带路径，极难定位。把 bin 下所有独立可执行件
+#   统一为 0755，让 tauri 暂存可反复覆盖（new-api/uv 本就是 755 故从不报错，正印证此因）。
+for _b in nginx new-api uv ffmpeg ffprobe; do
+  [[ -f "$RES/bin/$_b$EXE" ]] && chmod 0755 "$RES/bin/$_b$EXE"
+done
 
 # ------------------------------------------------------- 7) Hermes Agent 运行时
 # 不用 venv：venv 的 pyvenv.cfg 记录 base 解释器绝对路径，安装包挪目录/改名即失效。
