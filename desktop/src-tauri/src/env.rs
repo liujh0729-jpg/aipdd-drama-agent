@@ -151,6 +151,19 @@ impl RuntimePaths {
             // 网关在本机，FastAPI 通过内部端口访问。
             ("LOCALAPI_BASE_URL".into(), "http://127.0.0.1:3000".into()),
             ("LOCALAPI_ADMIN_BASE_URL".into(), "http://127.0.0.1:3000".into()),
+            // 网关初始化（custom/newapi/init）走「直连 SQLite 找/写 admin」的链路
+            // （newapi_provisioner.wait_for_db → ensure_admin_access_token）。随包
+            // new-api 以 gateway_dir 为 cwd 启动，库文件落 <app_data>/gateway/one-api.db；
+            // 而 provisioner 在 NEWAPI_SQLITE_PATH 未设时会回退到代码默认
+            // STATE_DIR/newapi/one-api.db——桌面端那个路径不存在，wait_for_db 会吞异常
+            // 空转到 init 超时（真机事故：前端 60s 先抛 Request timed out，后端还在干等 120s）。
+            // 与 docker-compose.aipdd.yml 同法：显式把网关真实库路径喂给 provisioner，
+            // dsn=local + sqlite_path 指向随包网关写的同一个文件。
+            ("NEWAPI_SQL_DSN".into(), "local".into()),
+            (
+                "NEWAPI_SQLITE_PATH".into(),
+                self.gateway_dir().join("one-api.db").display().to_string(),
+            ),
             // Python 行为。
             ("PYTHONUNBUFFERED".into(), "1".into()),
             // .pyc 一律写进 app-data：安装包内的 resources/ 视为只读。默认行为会在
@@ -296,6 +309,14 @@ mod tests {
         // 用户目录 site-packages 遮蔽随包依赖是跨平台风险（macOS 真机踩过架构不匹配），
         // 所有平台都必须禁用 user site。
         assert_eq!(env["PYTHONNOUSERSITE"], "1");
+        // 网关初始化靠直连 SQLite 找 admin：必须把库路径指到随包网关真正写的
+        // <app_data>/gateway/one-api.db，否则 provisioner 回退到不存在的默认路径、
+        // wait_for_db 空转到超时（见 base_env 注释里的真机事故）。
+        assert_eq!(env["NEWAPI_SQL_DSN"], "local");
+        assert_eq!(
+            PathBuf::from(&env["NEWAPI_SQLITE_PATH"]),
+            paths.gateway_dir().join("one-api.db")
+        );
         std::fs::remove_dir_all(&root).ok();
     }
 
