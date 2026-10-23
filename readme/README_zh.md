@@ -540,7 +540,7 @@ DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音�
 
 ## <a name="community"></a>社区
 
-加入画布讨论群，请扫下面二维码即可。欢迎发现问题和提出改进建议，我们来实现并开源。
+加入画布讨论群，请扫下面二维码即可。欢迎发现问题和提出改进建议，好的建议我们会实现并共享源码（source-available）。
 
 <div align="center">
   <img src="../assets/canvas-group-qr.png" width="260" alt="画布讨论群 · 微信群二维码"/>

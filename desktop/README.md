@@ -62,7 +62,7 @@ desktop/
     build-windows.ps1         产出 NSIS .exe 安装包（前置自检 → cargo tauri build --bundles nsis → 产物 sha256）
     win-sign.ps1              Windows 代码签名（-Stage Resources 签内嵌 PE / -Stage Installer 签安装包）
     build-windows.md          Windows NSIS 打包 + 代码签名说明
-  licenses/README.md     第三方开源许可与 AGPL/LGPL 义务清单
+  licenses/README.md     第三方许可证与 AGPL/LGPL 义务清单
   resources/             （构建期生成，见 .gitignore）由 prepare-resources 填充
   src-tauri/
     tauri.conf.json  capabilities/default.json  entitlements.plist  build.rs  Cargo.toml
@@ -236,6 +236,21 @@ cd src-tauri && cargo clippy               # 零告警即达标
 占位资源仅供 `tauri-build` 的资源 glob 校验与 `generate_context!` 读图标通过，
 **不可用于真实运行**；正式出包前必须由 `prepare-resources.sh` 覆盖。
 
+### 5.2 提交门禁钩子（gitleaks 密钥扫描）
+
+仓库用 **pre-commit** 在每次 `git commit` 前跑 **gitleaks**（硬编码密钥扫描，读根目录 `.gitleaks.toml`，
+含 newAPI 自定义规则）与禁用词 lint（配置见 `.pre-commit-config.yaml`）。钩子未安装时提交不会自动扫描，
+一次性装好：
+```bash
+uv tool install pre-commit
+pre-commit install            # 写 .git/hooks/pre-commit（仓库本地，不入库）
+pre-commit run --all-files    # 手动全量扫描（可选）
+```
+> ⚠️ gitleaks 钩子是 Go 程序，**首次运行**会 `go build` 拉依赖；直连 `proxy.golang.org` 超时（国内网络）时，
+> 先切镜像再跑（与 §6.1 交叉编 `new-api` 用的是同一口径）：
+> `export GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,direct GOSUMDB=off`
+> 构建成功后环境会缓存到 `~/.cache/pre-commit`，之后日常提交不再依赖网络；只有清缓存或换机重装才需再次导出该镜像。
+
 ---
 
 ## 6. 打包全流程
@@ -265,7 +280,8 @@ NOTARIZE=1 scripts/mac-sign-notarize.sh \
   "src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/AIPDD DramaClaw_<ver>_aarch64.dmg"
 #    凭据二选一：NOTARY_PROFILE=<store-credentials 存好的凭据名>，或 APPLE_ID + APPLE_APP_PWD + TEAM_ID。
 #    脚本内置防线：缺签名身份开头即败；内嵌 Mach-O 按核数并行批量签；提交公证前做「全量漏签预扫」
-#    （漏签/seal 坏/仍 ad-hoc 当场列出 exit 12，不进 Apple 队列）；公证非 Valid 自动按 id 拉公证日志（exit 13）；
+#    （漏签/seal 坏/仍 ad-hoc 当场列出 exit 12，不进 Apple 队列）；公证通过态认 Valid/Accepted 两种，
+#    --wait 因本机 TLS 抖动未直接回执时用 notarytool info 二次复核；仍不通过则按 id 自动拉公证日志（exit 13）；
 #    公证+钉票后自动对 dmg 跑出厂终检（exit 14）——脚本跑绿即「产物可分发」。
 
 # 6) 存量产物随时复核（不改动产物，只读挂卷实测）：

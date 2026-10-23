@@ -1,4 +1,4 @@
-# 第三方开源许可与合规
+# 第三方开源许可与合规 <!-- banned-word-allow -->
 
 本桌面 App 在分发包内**捆绑**了多个第三方运行时与二进制。对外分发（尤其商用）前，
 必须随包附上各组件许可证文本与必要的源码获取说明。以下为关键清单与义务提示。
@@ -25,7 +25,7 @@
 | pyJianYingDraft / VectCut | 草稿组装（可选服务） | 见 `services/vectcut/LICENSE` | 按上游许可 |
 
 各 `.txt` 许可证正文在构建时应拷贝进 `resources/licenses/`（见 §4），并在 App「关于 /
-第三方开源许可」页可展开查看。
+第三方开源许可」页可展开查看。 <!-- banned-word-allow -->
 
 ## 2. ⚠️ AGPL-3.0（Go 网关）——最需注意
 
@@ -35,7 +35,7 @@ AGPL 要求对**该网关组件**：
 - 提供 AGPL 全文与版权/许可声明；
 - 提供**对应源码获取途径**（随包给源码，或书面要约给出下载地址，含你对其的任何修改）；
 - 因为是与主程序**进程隔离**聚合（separate executable），一般不因此把主程序也“传染”成 AGPL，
-  但网关**自身的任何改动必须开源**。
+  但网关**自身的任何改动必须开源**。 <!-- banned-word-allow -->
 
 务必与法务确认商用分发策略；如无法承担 AGPL 义务，考虑替换网关或走独立发行 + 链接方式。
 （注：仓库根 `third_party/README.md` 已声明网关为 AGPL。）
@@ -47,7 +47,7 @@ AGPL 要求对**该网关组件**：
 - 来源：`https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-lgpl.zip`
 - 落位：`resources/bin/ffmpeg.exe` + `resources/bin/ffprobe.exe`（后端有 63 处 `ffprobe` 调用，**两者必须同包**）
 - 许可正文：`resources/bin/ffmpeg-LICENSE.txt`（从上游包内 `LICENSE.txt` 拷贝）
-- 刻意选 **LGPL 变体**而非该仓库默认的 GPL 变体：避免 x264 等 GPL 组件带来「整个衍作品按 GPL 开源」的额外源码分发义务。
+- 刻意选 **LGPL 变体**而非该仓库默认的 GPL 变体：避免 x264 等 GPL 组件带来「整个衍作品按 GPL 开源」的额外源码分发义务。 <!-- banned-word-allow -->
 
 LGPL-2.1 的义务在本包里的落法：
 
@@ -80,6 +80,6 @@ PYBIN="$RES/python/bin/python3"; [[ "$(uname -s)" == MINGW* || "$(uname -s)" == 
 
 ## 5. App 内合规页
 
-需求 3.6 的「关于 / 第三方开源许可」页面应读取 `resources/licenses/` 下文本渲染，
+需求 3.6 的「关于 / 第三方开源许可」页面应读取 `resources/licenses/` 下文本渲染， <!-- banned-word-allow -->
 并对 AGPL / LGPL 条目单列**源码获取入口**（链接或书面要约地址）。该页面属主前端职责，
 本骨架把它作为后续里程碑（M6）落地；此处先固化义务清单与素材来源。

@@ -493,7 +493,7 @@ These are being built in the open and are not in a release yet. Watch the branch
 
 ## <a name="community"></a>Community
 
-To join the canvas discussion group, just scan the QR code below to add me on WeChat. Bug reports and improvement suggestions are very welcome — we'll build the good ones and open-source them.
+To join the canvas discussion group, just scan the QR code below to add me on WeChat. Bug reports and improvement suggestions are very welcome — we'll build the good ones and publish them as source-available.
 
 <div align="center">
   <img src="./assets/canvas-group-qr.png" width="260" alt="WeChat QR code — join the AIPDD-Agent-Claw canvas discussion group"/>

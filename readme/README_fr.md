@@ -491,7 +491,7 @@ Ces éléments sont construits au grand jour et ne sont pas encore dans une rele
 
 ## <a name="community"></a>Communauté
 
-Pour rejoindre le groupe de discussion autour du canvas, scannez simplement le QR code ci-dessous pour m'ajouter sur WeChat. Les remontées de bugs et les suggestions d'amélioration sont les bienvenus — nous les implémenterons puis les publierons en open source.
+Pour rejoindre le groupe de discussion autour du canvas, scannez simplement le QR code ci-dessous pour m'ajouter sur WeChat. Les remontées de bugs et les suggestions d'amélioration sont les bienvenus — nous les implémenterons puis les publierons en source-available.
 
 <div align="center">
   <img src="../assets/canvas-group-qr.png" width="260" alt="QR code WeChat — rejoindre le groupe de discussion canvas"/>
