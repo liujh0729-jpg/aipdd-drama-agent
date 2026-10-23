@@ -704,14 +704,8 @@ function ProviderConnectCards({
   const channels = config?.provisioner?.providerChannels ?? [];
   const savedFor = (p: string) =>
     channels.find((c) => c.provider === p);
-  const configured = Boolean(config?.custom?.configured);
-  if (!configured) {
-    return (
-      <p className="mt-4 rounded-md border border-dashed border-border/70 px-3 py-2 text-[11px] text-muted-foreground">
-        {t("settings.modelConfig.cards.initFirst")}
-      </p>
-    );
-  }
+  // [aipdd fork delta] 本地网关（LocalAPI）由后端在装机/部署时自动初始化，
+  // 设置里不再出现任何网关状态与「请先初始化」引导；渠道连接卡始终渲染。
   return (
     <div className="mt-4 space-y-3">
       <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">

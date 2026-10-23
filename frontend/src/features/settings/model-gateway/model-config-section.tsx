@@ -25,7 +25,6 @@ import {
   HYBRID_COMFYUI_WORKFLOWS,
   MODEL_CONFIGURATION_GUIDE_URL,
 } from "./shared";
-import { CustomGatewayPanel } from "./custom-gateway-panel";
 import { ProviderConnectCards } from "./provider-connect-cards";
 import {
   DefaultGenerationModelsPanel,
@@ -136,18 +135,8 @@ function ModelConfigSection({ open }: { open: boolean }) {
             aria-label={t("settings.modelConfig.gatewayWarningIconLabel")}
           />
         ) : null}
-        {config ? (
-          <span className="ml-1 rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {t("settings.modelConfig.effectiveBadge", {
-              channel: t(
-                `settings.modelConfig.modes.${config.effective.source}`,
-                {
-                  defaultValue: config.effective.source,
-                },
-              ),
-            })}
-          </span>
-        ) : null}
+        {/* [aipdd fork delta] 移除「当前生效：自定义」徽标——单渠道形态下它只会
+            打印网关模式名「自定义」，属于本地网关概念，设置页不再出现。 */}
         <a
           href={MODEL_CONFIGURATION_GUIDE_URL}
           target="_blank"
@@ -172,6 +161,10 @@ function ModelConfigSection({ open }: { open: boolean }) {
         </div>
       ) : null}
 
+      {/* [aipdd fork delta] CE 只有本地渠道一种形态（GATEWAY_MODES=["custom"]），
+          单 Tab 的模式切换栏只会露出「自定义」这个网关词，故仅在多模式时才渲染；
+          现阶段隐藏整条栏（连带「启用该模式」按钮），主体恒按 custom 渲染。 */}
+      {GATEWAY_MODES.length > 1 && (
       <Tabs
         className="mt-4"
         value={mode}
@@ -210,11 +203,11 @@ function ModelConfigSection({ open }: { open: boolean }) {
           ) : null}
         </div>
       </Tabs>
+      )}
 
       {/* 功能模型映射仅在自定义渠道展示；官方渠道不需要。 */}
       {mode === "custom" || mode === "hybrid" ? (
         <>
-          <CustomGatewayPanel config={config} />
           {mode === "custom" ? (
             <ProviderConnectCards
               config={config}
