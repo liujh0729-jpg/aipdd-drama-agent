@@ -1260,7 +1260,9 @@ def test_ensure_newapi_setup_creates_root_when_instance_is_fresh():
 
 
 @respx.mock
-def test_ensure_newapi_setup_requires_credentials_for_fresh_instance():
+def test_ensure_newapi_setup_auto_seeds_credentials_for_fresh_instance():
+    # [aipdd fork delta] 本地网关是内部调用：fresh 且不带凭据时不再报错，
+    # 而是自动生成一次性 root 凭据过 /api/setup（admin_username 兼底 root）。
     cfg = NewApiProvisionerConfig(
         admin_base_url="http://new-api:3000",
         sql_dsn="local",
@@ -1283,11 +1285,34 @@ def test_ensure_newapi_setup_requires_credentials_for_fresh_instance():
                     },
                 },
             ),
+            Response(200, json={"success": True, "data": {"status": True}}),
+            Response(
+                200,
+                json={
+                    "success": True,
+                    "data": {
+                        "status": True,
+                        "root_init": True,
+                        "database_type": "postgres",
+                    },
+                },
+            ),
         ]
     )
+    setup_request = respx.post("http://new-api:3000/api/setup").mock(
+        return_value=Response(200, json={"success": True})
+    )
 
-    with pytest.raises(ValueError, match="setupUsername"):
-        ensure_newapi_setup(cfg, NewApiSetupCredentials(username="admin"))
+    status = ensure_newapi_setup(cfg)
+
+    assert status.setup_performed is True
+    assert status.already_initialized is False
+    payload = json.loads(setup_request.calls.last.request.content)
+    assert payload["SelfUseModeEnabled"] is True
+    assert payload["DemoSiteEnabled"] is False
+    assert payload["username"] == "root"
+    assert len(payload["password"]) == 24
+    assert payload["confirmPassword"] == payload["password"]
 
 
 @respx.mock
@@ -2533,6 +2558,91 @@ def test_custom_newapi_init_route_persists_request_database_config(
     assert cfg.sqlite_path == "/Users/hg/data/new-api/one-api.db"
     assert cfg.admin_username == "root"
     assert cfg.admin_base_url == "http://new-api:3000"
+
+
+def test_bootstrap_local_gateway_provisions_when_not_configured(monkeypatch):
+    # [aipdd fork delta] 本地网关启动自动初始化：custom 未就绪时串联建 root →
+    # 签 token → 落 custom 并激活 → 刷 runtime。
+    from novelvideo.api.routes.model_gateway import _common
+
+    monkeypatch.setattr(
+        _common,
+        "build_model_gateway_status",
+        lambda **_kw: {"custom": {"configured": False}},
+    )
+    calls: list[object] = []
+    cfg = type(
+        "Cfg",
+        (),
+        {
+            "admin_base_url": "http://local:3000",
+            "relay_token_name": "dramaclaw-ce-runtime",
+        },
+    )()
+    monkeypatch.setattr(_common._gateway, "get_provisioner_config", lambda *_a, **_k: cfg)
+    monkeypatch.setattr(
+        _common._gateway, "ensure_newapi_setup", lambda *_a, **_k: calls.append("setup")
+    )
+
+    class Admin:
+        admin_user_id = 1
+
+    monkeypatch.setattr(
+        _common._gateway, "ensure_admin_access_token", lambda *_a, **_k: Admin()
+    )
+    monkeypatch.setattr(
+        _common._gateway,
+        "create_or_reuse_relay_token",
+        lambda *_a, **_k: {
+            "created": True,
+            "tokenId": 5,
+            "name": "dramaclaw-ce-runtime",
+            "key": "sk-x",
+            "keyPreview": "sk-...",
+        },
+    )
+
+    def fake_save(**kw):
+        calls.append(("save", kw))
+        return {}
+
+    monkeypatch.setattr(_common._gateway, "save_custom_newapi_gateway", fake_save)
+    monkeypatch.setattr(
+        _common._gateway,
+        "refresh_model_gateway_runtime",
+        lambda: calls.append("refresh") or {},
+    )
+
+    result = _common.bootstrap_local_gateway()
+
+    assert result is not None
+    assert calls[0] == "setup"
+    save_kw = next(
+        c[1] for c in calls if isinstance(c, tuple) and c[0] == "save"
+    )
+    assert save_kw["activate"] is True
+    assert save_kw["api_key"] == "sk-x"
+    assert save_kw["base_url"] == "http://local:3000/v1"
+    assert "refresh" in calls
+    assert result["relayBaseUrl"] == "http://local:3000/v1"
+
+
+def test_bootstrap_local_gateway_skips_when_already_configured(monkeypatch):
+    # 幂等且不越权：custom 已就绪直接早退，不重复建 token、不覆盖用户已选模式。
+    from novelvideo.api.routes.model_gateway import _common
+
+    monkeypatch.setattr(
+        _common,
+        "build_model_gateway_status",
+        lambda **_kw: {"custom": {"configured": True}},
+    )
+
+    def boom(*_a, **_k):
+        raise AssertionError("must not provision when already configured")
+
+    monkeypatch.setattr(_common._gateway, "get_provisioner_config", boom)
+
+    assert _common.bootstrap_local_gateway() is None
 
 
 def test_custom_newapi_channels_batch_reuses_admin_and_masks_keys(

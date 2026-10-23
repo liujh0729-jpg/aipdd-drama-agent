@@ -214,12 +214,7 @@ function ModelConfigSection({ open }: { open: boolean }) {
       {/* 功能模型映射仅在自定义渠道展示；官方渠道不需要。 */}
       {mode === "custom" || mode === "hybrid" ? (
         <>
-          <CustomGatewayPanel
-            config={config}
-            loading={loading}
-            baseUrl={customBaseUrl}
-            activateHybrid={mode === "hybrid"}
-          />
+          <CustomGatewayPanel config={config} />
           {mode === "custom" ? (
             <ProviderConnectCards
               config={config}

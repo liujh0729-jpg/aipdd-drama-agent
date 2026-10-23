@@ -1509,14 +1509,14 @@ def ensure_newapi_setup(
         "DemoSiteEnabled": bool(creds.demo_site_enabled),
     }
     if not status.root_initialized:
-        username = creds.username.strip()
-        password = creds.password
-        confirm_password = creds.confirm_password
-        if not username or not password or not confirm_password:
-            raise ValueError(
-                "NewAPI is not initialized; setupUsername, setupPassword, "
-                "and setupConfirmPassword are required"
-            )
+        # [aipdd fork delta] 本地网关是内部调用：fresh 且未带凭据时不再向用户索要
+        # 建号信息，而是自动生成一次性 root 凭据去过 /api/setup。建完后管理接口只认
+        # 直写 DB 的 access_token（ensure_admin_access_token），这个密码此后不再被
+        # 使用，因而不落盘、不回显。显式传入的凭据仍优先（保留 override 路径，不改
+        # 变已有成功分支的行为）。
+        username = creds.username.strip() or (cfg.admin_username.strip() or "root")
+        password = creds.password or random_token(24)
+        confirm_password = creds.confirm_password or password
         payload.update(
             {
                 "username": username,

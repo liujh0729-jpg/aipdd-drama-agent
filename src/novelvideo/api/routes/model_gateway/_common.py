@@ -14,9 +14,14 @@ from typing import Any
 from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from novelvideo import config as app_config
 from novelvideo.api.auth import get_api_user
 from novelvideo.api.routes import model_gateway as _gateway
-from novelvideo.model_gateway_settings import build_channel_registrations
+from novelvideo.model_gateway_settings import (
+    build_channel_registrations,
+    build_model_gateway_status,
+    normalize_relay_base_url,
+)
 from novelvideo.newapi_provisioner import (
     ServiceControlEgressDenied,
     build_channel_payload,
@@ -329,4 +334,47 @@ def _mask_sent_channel_payload(payload: dict[str, Any]) -> dict[str, Any]:
             **payload["channel"],
             "key": mask_token(payload["channel"]["key"]),
         },
+    }
+
+
+# [aipdd fork delta] 本地网关（LocalAPI）内部自动初始化。桌面/自建场景下，网关是
+# 纯内部调用：用户只在外层首次登录页建「应用超管」一次，绝不会再看到任何网关建号
+# 表单。启动后台任务与内部修复路径共用本函数把网关跑起来：
+#   ensure_newapi_setup（无凭据 → 自动播种一次性 root）
+#   → ensure_admin_access_token（直写 DB 的 access_token 供后续管理）
+#   → create_or_reuse_relay_token（签发/复用中继 Key）
+#   → save_custom_newapi_gateway(activate=True) → refresh_model_gateway_runtime。
+# 幂等且不越权：custom 已就绪就原样早退——既不重复建 token，也不覆盖用户已选的
+# 网关模式（official / hybrid / custom）。永不吞异常，失败由调用方记日志、下次重试。
+def bootstrap_local_gateway() -> dict[str, Any] | None:
+    status = build_model_gateway_status(
+        official_base_url=app_config.official_newapi_base_url(),
+        official_api_key=app_config.LOCALAPI_API_KEY,
+    )
+    if status["custom"]["configured"]:
+        return None
+    cfg = _gateway.get_provisioner_config(None)
+    _gateway.ensure_newapi_setup(cfg)
+    admin = _gateway.ensure_admin_access_token(cfg)
+    token = _gateway.create_or_reuse_relay_token(
+        cfg,
+        admin,
+        name=cfg.relay_token_name,
+        reuse_existing=True,
+    )
+    relay_base_url = normalize_relay_base_url(cfg.admin_base_url)
+    _gateway.save_custom_newapi_gateway(
+        base_url=relay_base_url,
+        api_key=token["key"],
+        admin_base_url=cfg.admin_base_url,
+        token_name=str(token["name"]),
+        token_id=token["tokenId"],
+        activate=True,
+    )
+    runtime = _gateway.refresh_model_gateway_runtime()
+    return {
+        "relayBaseUrl": relay_base_url,
+        "adminUserId": admin.admin_user_id,
+        "relayTokenName": str(token["name"]),
+        "runtime": runtime,
     }

@@ -297,6 +297,65 @@ async def _backfill_model_alias_mappings() -> None:
         logger.warning("model alias mapping health check failed (non-fatal)", exc_info=True)
 
 
+# [aipdd fork delta] 本地网关（LocalAPI）启动自动初始化。桌面/自建是纯内部调用：
+# 首启即由后端把网关建起来（建 root → 签 token → 落 custom 并激活 → 刷 runtime），
+# 用户全程无需任何网关建号操作（应用超管只在外层登录页建一次）。已就绪时
+# bootstrap_local_gateway 内部早退，既不重复建 token、也不覆盖用户已选模式。网关未就绪
+# 时按退避重试有限次后放弃，下次启动再来；全程走 to_thread 非阻塞、失败只记日志，
+# 绝不拖挂 API 启动。
+_LOCAL_GATEWAY_BOOTSTRAP_MAX_ATTEMPTS = 5
+_LOCAL_GATEWAY_BOOTSTRAP_BACKOFF_SECONDS = (2, 4, 8, 16)
+
+
+def _local_gateway_bootstrap_enabled() -> bool:
+    from novelvideo.newapi_provisioner import provisioner_enabled
+
+    return bool(
+        provisioner_enabled()
+        and os.environ.get("LOCALAPI_ADMIN_BASE_URL", "").strip()
+    )
+
+
+async def _bootstrap_local_gateway_background() -> None:
+    from novelvideo.api.routes.model_gateway._common import bootstrap_local_gateway
+
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            result = await asyncio.to_thread(bootstrap_local_gateway)
+            if result is None:
+                logger.debug("LocalAPI gateway already configured; bootstrap no-op")
+            else:
+                logger.info(
+                    "LocalAPI gateway auto-initialized: relay=%s token=%s",
+                    result.get("relayBaseUrl"),
+                    result.get("relayTokenName"),
+                )
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - 网关未就绪不应影响 API 可用性
+            if attempt >= _LOCAL_GATEWAY_BOOTSTRAP_MAX_ATTEMPTS:
+                logger.warning(
+                    "LocalAPI gateway auto-init failed after %s attempts; will "
+                    "retry on next startup",
+                    attempt,
+                    exc_info=True,
+                )
+                return
+            delay = _LOCAL_GATEWAY_BOOTSTRAP_BACKOFF_SECONDS[
+                min(attempt - 1, len(_LOCAL_GATEWAY_BOOTSTRAP_BACKOFF_SECONDS) - 1)
+            ]
+            logger.info(
+                "LocalAPI gateway not ready yet (attempt %s/%s); retrying in %ss",
+                attempt,
+                _LOCAL_GATEWAY_BOOTSTRAP_MAX_ATTEMPTS,
+                delay,
+            )
+            await asyncio.sleep(delay)
+
+
 def _single_user_exposure_bind_host() -> str | None:
     """单用户 CE 旁路下「未确认仅回环」的绑定地址；None=无需告警。
 
@@ -378,6 +437,15 @@ async def _lifespan(application: FastAPI):
                 _backfill_model_alias_mappings(),
                 name="model-alias-mapping-backfill",
             )
+
+            # [aipdd fork delta] 本地网关（LocalAPI）启动自动初始化：仅在配了
+            # LOCALAPI_ADMIN_BASE_URL 且 provisioner 开启时挂后台任务（官方-only 环境
+            # 不白跑）。非阻塞、幂等、失败降级，详见 _bootstrap_local_gateway_background。
+            if _local_gateway_bootstrap_enabled():
+                application.state.local_gateway_bootstrap = asyncio.create_task(
+                    _bootstrap_local_gateway_background(),
+                    name="local-gateway-bootstrap",
+                )
     except Exception:
         logger.exception("API startup failed while connecting to control-plane")
         raise
@@ -397,6 +465,11 @@ async def _lifespan(application: FastAPI):
             backfill.cancel()
             with suppress(asyncio.CancelledError):
                 await backfill
+        bootstrap = getattr(application.state, "local_gateway_bootstrap", None)
+        if bootstrap is not None and not bootstrap.done():
+            bootstrap.cancel()
+            with suppress(asyncio.CancelledError):
+                await bootstrap
 
         try:
             lifecycle = get_port("lifecycle")
