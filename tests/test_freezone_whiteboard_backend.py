@@ -235,6 +235,49 @@ async def test_whiteboard_route_pins_models_and_render_params(
 
 
 @pytest.mark.asyncio
+async def test_whiteboard_route_forwards_locked_script_verbatim(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """两段式第二段：路由必须把确认过的整份草稿塞进 payload。
+
+    守的是 HTTP 接线层——runner 侧收到 ``payload["locked_script"]`` 才跳过文本模型。
+    只测 runner 的会话漏掉这一层，会让「改完白改」（静默重新生成台词）在无报错下复发。
+    """
+    ctx = _wb_ctx(tmp_path)
+    _patch_wb_route_resolve(monkeypatch, tmp_path, ctx, {})
+    captured: dict[str, object] = {}
+    _patch_wb_catalogs(monkeypatch, captured)
+
+    async def fake_enqueue(**kwargs):
+        captured.update(kwargs["payload"])
+        return {"ok": True, "data": {"task_type": "freezone_whiteboard_animation"}}
+
+    monkeypatch.setattr(
+        freezone_routes, "_enqueue_or_start_freezone_whiteboard_animation", fake_enqueue
+    )
+
+    locked = {
+        "draft_version": 1,
+        "kind": "whiteboard",
+        "scenes": [
+            {"text": "用户逐幕改过的旁白。", "keyText": "改", "scenePrompt": "画一条线"}
+        ],
+    }
+
+    await freezone_routes.freezone_whiteboard_animation(
+        project="59",
+        body=freezone_routes.FreezoneWhiteboardAnimationRequest(
+            script="原始文案会被 locked_script 覆盖",
+            locked_script=locked,
+        ),
+        user={"username": "admin"},
+    )
+
+    assert captured["locked_script"] == locked
+
+
+@pytest.mark.asyncio
 async def test_whiteboard_route_defaults_horizontal_and_skips_audio_catalog(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

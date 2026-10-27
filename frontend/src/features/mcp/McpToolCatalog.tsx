@@ -121,6 +121,8 @@ const TOOL_GROUPS: ReadonlyArray<{
     // [aipdd fork delta] 与前端「工具」栏目十面板一一对应；产物默认自动入库。
     key: "toolsPage",
     tools: [
+      // [aipdd fork delta] 短视频口播稿创作：工具栏首项（处境 + 素材→能直接念的逐字稿）。
+      { name: "aipdd_drama_oral_script", descKey: "oralScript" },
       { name: "aipdd_drama_video_clone", descKey: "videoClone" },
       { name: "aipdd_drama_video_mix", descKey: "videoMix" },
       // [aipdd fork delta] 白板动画视频（文案→分镜→逐幕线稿→逐笔揭示）。

@@ -311,7 +311,14 @@ def test_only_canvas_routes_opt_out_of_the_home_node_guard() -> None:
     # 写作（POST /freezone/article/write）计 103；发布（POST /freezone/article/publish）计 104。
     # [aipdd fork delta] Phase 2B 渠道短视频提交路由（POST /freezone/channel-short-video）计 105。
     # [aipdd fork delta] 口播智能剪辑提交路由（POST /freezone/narration-smart-edit）计 106。
-    assert router_decorators == 106
+    # [aipdd fork delta] 动效大片八条路由（前一批漏记，在此补齐）：案例与画风四个读端点
+    #（GET /freezone/motion/cases、/motion/cases/{case_id}/prompt、/motion/styles、
+    # /motion/styles/{style_id}/prompt）计 107–110；渲染清单与提交
+    #（GET /freezone/motion/renders、POST /freezone/motion/render）计 111–112；
+    # 拍点预检（POST /freezone/motion/stills）计 113；剪映交付（POST /freezone/motion/draft）计 114。
+    # [aipdd fork delta] 短视频口播稿创作提交路由（POST /freezone/oral-script，工具栏首项）计 115。
+    # [aipdd fork delta] 讲解类视频台词草稿提交路由（POST /freezone/explainer-script）计 116。
+    assert router_decorators == 116
     assert len(canvas_routes) == 14
 
     # 正向：14 条画布路由必须全部、且每一处调用都 opt-out。

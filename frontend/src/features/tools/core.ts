@@ -7,6 +7,9 @@
 
 /** 工具标识。 */
 export type ToolKind =
+  // [aipdd fork delta] 短视频口播稿创作（菜单首项）：处境 + 素材 → 能直接念的逐字稿。
+  // 方法论蒸馏自开源技能包「太上老君·AI炼丹炉」（CC BY-NC 4.0，不可商用）。
+  | "oral-script"
   | "video-clone"
   | "video-mix"
   // [aipdd fork delta] 口播智能剪辑：一条口播视频→本地静音剪 + 网关 ASR/文本瑕疵剪
@@ -177,10 +180,21 @@ export const TOOL_GROUPS: Record<ToolGroupId, ToolGroupDef> = {
   },
 };
 
-// [aipdd fork delta] 菜单顺序即本数组顺序（TOOL_NAV 由此现算）：内容创作组置顶、
-// 音视频提取文案次之，音乐创作摆在最后，其余保持原有相对顺序。
+// [aipdd fork delta] 菜单顺序即本数组顺序（TOOL_NAV 由此现算）：短视频口播稿置顶、
+// 内容创作组次之、音视频提取文案第三，音乐创作摆在最后，其余保持原有相对顺序。
 export const TOOLS: ToolDef[] = [
-  // [aipdd fork delta] 内容创作族（菜单首项）：公众号文章编写与排版（Phase 2A）与
+  // [aipdd fork delta] 短视频口播稿创作（菜单首项）：一次文本生成产出六节成稿 +
+  // 净台词 txt，不入资产库（与 media-copywrite 的 txt 同口径）。写作走面板自管的
+  // 文本模型下拉（modelKind=audio 不适用），无媒体批量输入，故 accept 置 null。
+  {
+    kind: "oral-script",
+    titleKey: "tools.oralScript.title",
+    descKey: "tools.oralScript.desc",
+    modelKind: "audio",
+    accept: null,
+    taskTypes: ["freezone_oral_script"],
+  },
+  // [aipdd fork delta] 内容创作族（菜单第二项）：公众号文章编写与排版（Phase 2A）与
   // 后续渠道短视频（Phase 2B）共用一个「内容创作」菜单入口。文章产物为结果 JSON +
   // 公众号合规 HTML（可选发布到草稿箱）；面板内自管文本模型（modelKind=audio 不适用，
   // 走面板自管 LLM 下拉），无媒体批量输入，故 accept 置 null。

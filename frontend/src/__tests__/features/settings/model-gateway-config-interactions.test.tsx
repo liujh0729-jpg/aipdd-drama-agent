@@ -448,6 +448,77 @@ describe("渠道连接卡：官网直达链接", () => {
   });
 });
 
+// [aipdd fork delta] 外部 NewAPI 站点：默认地址留空（自建网关 / 反代 / 云厂中转各不
+// 相同），卡上给一个「推荐 NewAPI 站点」入口，点开就是官方整理的站点清单。
+describe("NewAPI 渠道：默认站点留空 + 推荐站点入口", () => {
+  /** 去掉已保存的 newapi 凭据：复现「第一次填这张卡」的形态。 */
+  function configWithoutNewAPI(): ModelGatewayConfig {
+    const base = panelConfig() as unknown as Record<string, unknown>;
+    const provisioner = (base.provisioner ?? {}) as Record<string, unknown>;
+    const channels = (provisioner.providerChannels ?? []) as Array<{
+      provider: string;
+    }>;
+    return {
+      ...base,
+      provisioner: {
+        ...provisioner,
+        providerChannels: channels.filter((item) => item.provider !== "newapi"),
+      },
+    } as unknown as ModelGatewayConfig;
+  }
+
+  function newApiCard(): HTMLElement {
+    const header = screen.getByRole("button", { name: "NewAPI" });
+    return header.closest("div.rounded-md") as HTMLElement;
+  }
+
+  it("未保存时 Base URL 为空，不预填任何站点", () => {
+    render(
+      <ProviderConnectCards
+        config={configWithoutNewAPI()}
+        loading={false}
+        newApiBaseUrl="https://newapi.example/v1"
+      />,
+    );
+    // 卡片默认折叠：展开后才能断言填写区。
+    fireEvent.click(screen.getByRole("button", { name: "NewAPI" }));
+
+    const input = within(newApiCard()).getByRole("textbox");
+    expect(input).toHaveValue("");
+    // placeholder 也只吃 presetBaseUrl：空就是空，不拿示例地址冒充默认值。
+    expect(input).toHaveAttribute("placeholder", "");
+  });
+
+  it("卡上有「推荐 NewAPI 站点」链接：新窗口打开官方清单", () => {
+    render(
+      <ProviderConnectCards
+        config={panelConfig()}
+        loading={false}
+        newApiBaseUrl="https://newapi.example/v1"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "NewAPI" }));
+
+    const link = within(newApiCard()).getByRole("link", {
+      name: "推荐 NewAPI 站点",
+    });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveAttribute(
+      "title",
+      "打开官方整理的 NewAPI 站点清单，自行挑选一个可用的站点。",
+    );
+    // 只有 NewAPI 卡带这个入口：其它渠道的地址有各自的固定端点或官方文档。
+    expect(
+      screen.getAllByRole("link", { name: "推荐 NewAPI 站点" }),
+    ).toHaveLength(1);
+  });
+});
+
 describe("渠道连接：火山 AI MediaKit 归属 VolcEngine", () => {
   it("MediaKit 子区块渲染在 VolcEngine 卡内，顶层不再多一张独立卡", async () => {
     mocks.fetchUpstreamModels.mockResolvedValue({
@@ -1041,6 +1112,19 @@ describe("渠道目录：状态对齐（MediaKit 不占渠道行）", () => {
     // 填写 / 清除都在上方 VolcEngine 卡内的子区块。
     expect(screen.queryByText("火山 AI MediaKit")).not.toBeInTheDocument();
     expect(screen.queryByText("已连接（视频增强）")).not.toBeInTheDocument();
+  });
+
+  // [aipdd fork delta] NewAPI 是唯一没有渠道预设的渠道（外部网关地址属于部署方数据）：
+  // 通用文案「通常不填，使用渠道预设」用在它身上恰好说反了——它必须填。
+  it("Base URL 提示按渠道分流：NewAPI 提示必须填，而不是「通常不填」", async () => {
+    renderChannelsBlock();
+
+    expect(
+      await screen.findByPlaceholderText(
+        "请填写你的 NewAPI 站点地址，如 https://newapi.example.com",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("通常不填，使用渠道预设")).toBeNull();
   });
 
   it("部分渠道缺上游 Key 保存：显式警告被跳过渠道，仍保存其余渠道", async () => {

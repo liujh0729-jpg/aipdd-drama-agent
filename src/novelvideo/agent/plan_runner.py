@@ -24,6 +24,7 @@ import time
 from typing import Any, Awaitable, Callable
 
 from novelvideo.agent import plans
+from novelvideo.i18n_message import MessageLike, lmsg, message_payload, message_text
 from novelvideo.pipeline import planner
 
 Read = Callable[..., Awaitable[dict[str, Any]]]
@@ -375,7 +376,7 @@ def _summary(
     advanced: list[str],
     completed: list[str],
     inferred: list[dict[str, Any]],
-    message: str,
+    message: MessageLike,
     next_action: str,
     error: str = "",
     extra: dict[str, Any] | None = None,
@@ -400,6 +401,16 @@ def _summary(
         "message": message,
         "next_action": next_action,
     }
+    # 走 i18n 约定：中文兜底留在 message，词条号与插值另走 message_code /
+    # message_params（响应是 JSON，LocalizableMessage 不能原样出境）。
+    # 上面保留 "message": message 字面量，棘轮的「包装形参直连流」才认得出
+    # message 是上屏槽位。
+    payload = message_payload(message)
+    out["message"] = message_text(message)
+    if payload:
+        out["message_code"] = payload["code"]
+        if payload.get("params"):
+            out["message_params"] = payload["params"]
     if error:
         out["error"] = error
     if extra:
@@ -447,7 +458,9 @@ async def run_plan(
             advanced=[],
             completed=[],
             inferred=[],
-            message="计划正在由另一个请求执行，稍后再试",
+            message=lmsg(
+                "tasks.progress.plan.busy", "计划正在由另一个请求执行，稍后再试"
+            ),
             next_action="等待当前执行结束后再次调用 aipdd_drama_run_plan",
         )
     async with lock:
@@ -502,7 +515,7 @@ async def _run_locked(
                 advanced=[],
                 completed=[],
                 inferred=inferred,
-                message="计划已全部完成",
+                message=lmsg("tasks.progress.plan.done", "计划已全部完成"),
                 next_action="可以继续给用户安排新的制作任务",
             )
         return _summary(
@@ -511,7 +524,10 @@ async def _run_locked(
             advanced=[],
             completed=[],
             inferred=inferred,
-            message="计划里没有可自动执行的条目（剩余条目缺少 stage，属于手工待办）",
+            message=lmsg(
+                "tasks.progress.plan.noAutoItems",
+                "计划里没有可自动执行的条目（剩余条目缺少 stage，属于手工待办）",
+            ),
             next_action=(
                 "用 aipdd_drama_update_plan 给制作类条目补 stage（如 sketches/frames）后重试"
             ),
@@ -621,7 +637,12 @@ async def _run_locked(
                 advanced=advanced,
                 completed=completed,
                 inferred=inferred,
-                message=f"执行「{target['title']}」失败：{error}",
+                message=lmsg(
+                    "tasks.progress.plan.runFailed",
+                    f"执行「{target['title']}」失败：{error}",
+                    title=target["title"],
+                    error=error,
+                ),
                 next_action="检查该阶段的产物后，用 aipdd_drama_run_plan 重试",
                 error=error,
             )
@@ -635,7 +656,12 @@ async def _run_locked(
                 advanced=advanced,
                 completed=completed,
                 inferred=inferred,
-                message=f"执行到「{target['title']}」失败：{error}",
+                message=lmsg(
+                    "tasks.progress.plan.advanceFailed",
+                    f"执行到「{target['title']}」失败：{error}",
+                    title=target["title"],
+                    error=error,
+                ),
                 next_action=str(step.get("next_hint") or "修正后再次调用 aipdd_drama_run_plan"),
                 error=error,
             )
@@ -646,7 +672,10 @@ async def _run_locked(
                 advanced=advanced,
                 completed=completed,
                 inferred=inferred,
-                message=str(step.get("message") or "流水线需要补充故事正文"),
+                message=(
+                    step.get("message")
+                    or lmsg("tasks.progress.plan.missingStory", "流水线需要补充故事正文")
+                ),
                 next_action=str(step.get("next_hint") or "携带 story_text 再次调用"),
             )
 
@@ -686,7 +715,11 @@ async def _run_locked(
                     advanced=advanced,
                     completed=completed,
                     inferred=inferred,
-                    message=f"仍在执行 {stage}，预算已用尽",
+                    message=lmsg(
+                        "tasks.progress.plan.runningBudgetExhausted",
+                        f"仍在执行 {stage}，预算已用尽",
+                        stage=stage,
+                    ),
                     next_action="稍后再次调用 aipdd_drama_run_plan 继续（已完成的条目不会重跑）",
                 )
             steps += 1
@@ -722,7 +755,12 @@ async def _run_locked(
                 advanced=advanced,
                 completed=completed,
                 inferred=inferred,
-                message=f"执行到「{target['title']}」失败：{error}",
+                message=lmsg(
+                    "tasks.progress.plan.advanceFailed",
+                    f"执行到「{target['title']}」失败：{error}",
+                    title=target["title"],
+                    error=error,
+                ),
                 next_action=str(step.get("next_hint") or "修正后再次调用 aipdd_drama_run_plan"),
                 error=error,
             )
@@ -733,7 +771,11 @@ async def _run_locked(
                 advanced=advanced,
                 completed=completed,
                 inferred=inferred,
-                message=f"阶段 {stage} 需要客户端生图能力，服务端无法代跑",
+                message=lmsg(
+                    "tasks.progress.plan.needsClientImage",
+                    f"阶段 {stage} 需要客户端生图能力，服务端无法代跑",
+                    stage=stage,
+                ),
                 next_action="改由前端 driver 执行该步，或关闭 include_story_version",
             )
 
@@ -765,7 +807,12 @@ async def _run_locked(
                 advanced=advanced,
                 completed=completed,
                 inferred=inferred,
-                message=f"已触发 {stage}（{target['title']}）",
+                message=lmsg(
+                    "tasks.progress.plan.triggered",
+                    f"已触发 {stage}（{target['title']}）",
+                    stage=stage,
+                    title=target["title"],
+                ),
                 next_action="稍后再次调用 aipdd_drama_run_plan 推进下一段",
             )
         idle = await _wait_until_idle(read, project, deadline)
@@ -776,7 +823,11 @@ async def _run_locked(
                 advanced=advanced,
                 completed=completed,
                 inferred=inferred,
-                message=f"已触发 {stage}，任务仍在跑，预算已用尽",
+                message=lmsg(
+                    "tasks.progress.plan.triggeredBudgetExhausted",
+                    f"已触发 {stage}，任务仍在跑，预算已用尽",
+                    stage=stage,
+                ),
                 next_action="稍后再次调用 aipdd_drama_run_plan 继续（已完成的条目不会重跑）",
             )
 
@@ -825,7 +876,12 @@ async def _run_locked(
         advanced=advanced,
         completed=completed,
         inferred=inferred,
-        message=f"预算内推进了 {steps} 段，仍有 {len(remaining)} 个可执行条目未完成",
+        message=lmsg(
+            "tasks.progress.plan.progressed",
+            f"预算内推进了 {steps} 段，仍有 {len(remaining)} 个可执行条目未完成",
+            steps=steps,
+            remaining=len(remaining),
+        ),
         next_action="稍后再次调用 aipdd_drama_run_plan 继续（已完成的条目不会重跑）",
         extra={"steps": steps},
     )

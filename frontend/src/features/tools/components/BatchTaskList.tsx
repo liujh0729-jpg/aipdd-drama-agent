@@ -11,6 +11,9 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { taskTypeLabel } from "@/task-center/derivations";
 import { firstMediaUrlInResult, wasArchivedToLibrary } from "@/features/tools/core";
+// [aipdd fork delta] 讲解类视频的「台词草稿」与成片同属一个工具 kind，只靠名字分不开：
+// 草稿行加一个标记，用户才不会把「已完成的草稿」当成「已出片」。
+import { EXPLAINER_SCRIPT_TASK_TYPE } from "@/features/tools/components/ExplainerScriptDraft";
 import type { Task, TaskState, TaskStatus } from "@/types/task";
 
 const ACTIVE: TaskStatus[] = ["submitting", "queued", "pending", "starting", "running"];
@@ -80,6 +83,11 @@ export function BatchTaskList({ project, kind }: BatchTaskListProps) {
                     metadata.source_tool 显本功能的名字。列表已按 kind 过滤，行里就
                     不再拼 scope（omni 任务的 scope 是 job_id，对用户是噪声）。 */}
                 {taskTypeLabel(task as TaskState, t)}
+                {task.task_type === EXPLAINER_SCRIPT_TASK_TYPE ? (
+                  <span className="ml-1.5 rounded bg-white/[0.06] px-1 py-0.5 text-[10px] text-muted-foreground">
+                    {t("tools.explainerScript.taskListBadge")}
+                  </span>
+                ) : null}
               </span>
               <span
                 className={cn(

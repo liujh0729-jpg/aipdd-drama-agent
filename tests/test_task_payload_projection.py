@@ -166,7 +166,15 @@ def test_registered_task_types_are_the_full_bridge_set() -> None:
     # 35 → 36：动效草稿工程（freezone_motion_draft，[aipdd fork delta]）注册进 bridge 集
     # （草稿工程只写本地 out 目录与 payload 给的素材，无额外项目态读取 ——
     # 投影为 None 即逐字透传）。
-    assert len(task_types) == 36, task_types
+    # 36 → 37：短视频口播稿创作（freezone_oral_script，[aipdd fork delta]）注册进 bridge 集
+    # （一次 generate_freezone_text 出稿、硬拦时多一轮同叶重写，章节切分与去 AI 味
+    # 检查纯本地，不额外读项目态，因此 PROJECTION_REQUIREMENTS 里不留条目 ——
+    # 投影为 None 即逐字透传）。
+    # 37 → 38：讲解类视频台词草稿（freezone_explainer_script，[aipdd fork delta]）注册进
+    # bridge 集（两段式第一段：只跑文本叶出草稿，不碰配音与图像；草稿是否可用由
+    # freezone/explainer_script.py 自行校验，不额外读项目态，因此
+    # PROJECTION_REQUIREMENTS 里不留条目 —— 投影为 None 即逐字透传）。
+    assert len(task_types) == 38, task_types
     assert {
         "mainline_sketch_from_context",
         "mainline_frame_from_context",

@@ -171,4 +171,35 @@ describe("BatchTaskList", () => {
     // job_id（scope）不拼进标题行。
     expect(screen.queryByText(/01KZ5R8/)).not.toBeInTheDocument();
   });
+
+  it("marks narration-draft rows so a finished draft is not read as a finished video", () => {
+    // 草稿与成片共用同一个工具 kind（同一张面板），名字一样：靠徽标分。
+    tasksMock.current = {
+      data: {
+        ok: true,
+        data: [
+          {
+            task_type: "freezone_explainer_script",
+            task_id: "draft",
+            status: "completed",
+            metadata: { source_tool: "explainer-video" },
+            result: { draft: { kind: "explainer", shots: [] } },
+          },
+          {
+            task_type: "freezone_explainer_video",
+            task_id: "video",
+            status: "completed",
+            metadata: { source_tool: "explainer-video" },
+            result: { output_url: "/static/out.mp4" },
+          },
+        ],
+      },
+    };
+
+    renderList("explainer-video");
+
+    expect(screen.getByText("台词草稿")).toBeInTheDocument();
+    // 只有草稿那一行带徽标，成片行不带（带的就是误标）。
+    expect(screen.getAllByText("台词草稿")).toHaveLength(1);
+  });
 });

@@ -224,6 +224,39 @@ async def test_explainer_route_pins_voice_model_and_render_params(
 
 
 @pytest.mark.asyncio
+async def test_explainer_route_forwards_locked_script_verbatim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """两段式第二段：路由必须把确认过的整份草稿塞进 payload。
+
+    守的是 HTTP 接线层——runner 侧收到 ``payload["locked_script"]`` 才跳过文本模型。
+    只测 runner 的会话漏掉这一层，会让「改完白改」（静默重新生成解说词）在无报错下复发。
+    """
+    ctx = _ex_ctx(tmp_path)
+    _patch_ex_route_resolve(monkeypatch, tmp_path, ctx, {})
+    captured: dict[str, object] = {}
+    _patch_ex_catalogs(monkeypatch, captured)
+    _patch_ex_enqueue(monkeypatch, captured)
+
+    locked = {
+        "draft_version": 1,
+        "kind": "explainer",
+        "shots": [{"sentences": ["用户改过的解说词。"], "primitive": "text"}],
+    }
+
+    await freezone_routes.freezone_explainer_video(
+        project="59",
+        body=freezone_routes.FreezoneExplainerVideoRequest(
+            reference_content="一份参考资料。",
+            locked_script=locked,
+        ),
+        user={"username": "admin"},
+    )
+
+    assert captured["locked_script"] == locked
+
+
+@pytest.mark.asyncio
 async def test_explainer_route_defaults_and_skips_audio_catalog(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

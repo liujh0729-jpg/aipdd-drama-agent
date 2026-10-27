@@ -110,6 +110,10 @@ _TASK_TYPE_LABELS = {
     "freezone_story_script": "生成故事脚本",
     # [aipdd fork delta] 公众号文章编写与排版：风格 → Markdown → 合规 HTML。
     "freezone_article_write": "公众号文章排版",
+    # [aipdd fork delta] 短视频口播稿创作（工具栏首项）：处境 + 素材 → 能直接念的逐字稿。
+    "freezone_oral_script": "短视频口播稿",
+    # [aipdd fork delta] 讲解类视频台词草稿：只跑文本，两段式出片的第一段。
+    "freezone_explainer_script": "讲解台词草稿",
     "freezone_script_to_video_plan": "脚本转视频计划",
     "freezone_audio_speech": "生成语音",
     "freezone_audio_eleven_music": "生成音乐",

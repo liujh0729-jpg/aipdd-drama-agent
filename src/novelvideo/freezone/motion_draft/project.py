@@ -79,6 +79,11 @@ def beats_to_microseconds(events: Sequence[Any]) -> tuple[int, ...]:
     return tuple(sorted(out))
 
 
+# 同源静态地址的前缀（见 freezone.paths.resolve_static_url_to_path）。在 POSIX 上
+# ``/static/...`` 也是绝对路径，必须先按 URL 形态认出来，否则会被当成本机文件去 stat。
+_SAME_ORIGIN_PREFIXES = ("/static/", "/api/v1/projects/", "/api/v1/style-gallery/")
+
+
 def resolve_media_path(source: Any, project_dir: Path, *, what: str) -> Path:
     """把 payload 里的素材引用解析成本地文件路径；拿不到就给中文原因。"""
     from novelvideo.freezone.paths import resolve_static_url_to_path
@@ -87,7 +92,9 @@ def resolve_media_path(source: Any, project_dir: Path, *, what: str) -> Path:
     if not text:
         raise MotionDraftInputError(f"{what}：没有给素材路径")
     candidate = Path(text)
-    if candidate.is_absolute():
+    # 同源 URL 要先于 is_absolute() 判断：它从根开始写，在 POSIX 上是「绝对路径」，
+    # 顺序反了就会拿 ``/static/<u>/<p>/...`` 去 stat 本机文件，永远报文件不存在。
+    if candidate.is_absolute() and not text.startswith(_SAME_ORIGIN_PREFIXES):
         # 绝对路径只可能是「本机有这个文件」或「文件没了」，不会再是外链/相对引用；
         # 混在一起报会让用户以为是自己写错了 URL 形态。
         if candidate.is_file():

@@ -2285,6 +2285,73 @@ class FreezoneWhiteboardAnimationRequest(BaseModel):
             "kind）；写入任务 metadata.source_tool。"
         ),
     )
+    locked_script: Optional[dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "[aipdd fork delta] 两段式第二段：用户在台词草稿里改完并确认的整份草稿。"
+            "给了它就不再调用模型切幕，旁白与画面都按这份稿子出；草稿不合法时任务"
+            "失败并说明原因（不回退模型重写）"
+        ),
+    )
+
+
+# [aipdd fork delta] 讲解类视频「台词草稿」：两段式出片的第一段，只跑文本。
+# 科普讲解要两次文本调用（分章解说词 + 受限分镜），白板动画只要一次逐幕切分；
+# 两者的任务壳完全一样，所以用 kind 合到一个端点——差别只在 prompt 与草稿校验。
+# 草稿不配音、不渲染，单独重做只花一次文本调用的钱。
+class FreezoneExplainerScriptRequest(BaseModel):
+    """讲解类视频台词草稿请求（科普讲解 / 白板动画共用）。
+
+    草稿是纯数据：用户改完把整份回传给成片任务的 ``locked_script``，成片任务跳过
+    文本调用直接配音渲染。因此这里的字段只描述「文本阶段需要什么」。
+    """
+
+    kind: Literal["explainer", "whiteboard"] = Field(
+        default="explainer",
+        description=(
+            "草稿类型：explainer 科普讲解（分章解说词 + 受限分镜）/ "
+            "whiteboard 白板动画（逐幕文案切分）"
+        ),
+    )
+    reference_content: str = Field(
+        default="",
+        description=(
+            "科普讲解必填：参考资料（主题说明 / 文章 / 文档正文），1-12000 字；"
+            "解说词只在这份资料范围内改写。白板动画忽略本字段"
+        ),
+    )
+    script: str = Field(
+        default="",
+        description="白板动画必填：要切幕的口播文案；科普讲解忽略本字段",
+    )
+    title: str = Field(
+        default="",
+        description="可选片名提示；留空由模型自拟",
+    )
+    duration_s: int = Field(
+        default=180,
+        description="科普讲解目标成片时长（秒），自动夹到 90-330；默认 180",
+    )
+    max_scenes: int = Field(
+        default=8,
+        ge=1,
+        le=12,
+        description="白板动画分幕数上限 1-12，默认 8；实际幕数随文案长度自适应",
+    )
+    model_text: str = Field(
+        default="",
+        description=(
+            "文本（LLM）模型或模型选项 id；留空走系统默认文本模型链；"
+            "请传 /model-gateway/text-models 返回值之一"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 工具页任务归属标识：提交来自哪个功能（取工具 "
+            "kind）；写入任务 metadata.source_tool。"
+        ),
+    )
 
 
 # [aipdd fork delta] 科普讲解视频（MG explainer）：用户交参考资料 → 网关文本模型
@@ -2383,6 +2450,14 @@ class FreezoneExplainerVideoRequest(BaseModel):
         description=(
             "[aipdd fork delta] 工具页任务归属标识：提交来自哪个功能（取工具 "
             "kind）；写入任务 metadata.source_tool。"
+        ),
+    )
+    locked_script: Optional[dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "[aipdd fork delta] 两段式第二段：用户在台词草稿里改完并确认的整份草稿。"
+            "给了它就不再调用两次文本模型，直接按稿里的台词配音、按稿里的图元出片；"
+            "草稿不合法时任务失败并说明原因（不回退模型重写）"
         ),
     )
 
@@ -2762,6 +2837,80 @@ class FreezoneArticleWriteRequest(BaseModel):
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
             "登记进资产库「待分类资产」。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 工具页任务归属标识：提交来自哪个功能（取工具 "
+            "kind）；写入任务 metadata.source_tool。"
+        ),
+    )
+
+
+class FreezoneOralScriptRequest(BaseModel):
+    """[aipdd fork delta] 短视频口播稿创作请求（工具栏首项）。"""
+
+    topic: str = Field(
+        default="",
+        description="这次要拍的那件事（如「山里的散养鸡今天下的蛋」）；与素材至少填一项",
+    )
+    persona: str = Field(
+        default="",
+        description=(
+            "这个人是谁：身份、行业、干了多少年、手上有什么。口播稿最怕写成谁都能念的泛货，"
+            "这一项决定稿子里能不能出现第一人称经历；留空时后端会要稿子不写任何经历句"
+        ),
+    )
+    material: str = Field(
+        default="",
+        description=(
+            "素材：本人对着手机口述转下来的文字、要改的 AI 初稿、或对标的爆款逐字稿。"
+            "只在这份资料范围内取事实，借观点不借脉络。0-12000 字"
+        ),
+    )
+    audience: str = Field(
+        default="",
+        description="想吸引谁（如「想买真土鸡蛋的城里人」）；留空由模型按内容判断并在交付里写明",
+    )
+    scene: str = Field(
+        default="",
+        description=(
+            "拍摄条件：在哪拍、能不能露脸、手里有什么实物、一个人还是有人拍（如「手机在鸡窝边随手拍」）；"
+            "镜头提示按这份条件给，不给就默认一个人、手机随手拍的最低条件"
+        ),
+    )
+    tone: str = Field(
+        default="",
+        description="说话的样子（如「直、不爱绕弯、带点冲」）；留空按跟朋友面对面的口径",
+    )
+    formula: str = Field(
+        default="auto",
+        description=(
+            "结构：auto 由内容定（默认）/ judgment 热点判断 / qa 专业答疑 / on_site 现场突发 / "
+            "contrarian 反着说 / event 事件衬托；未知值归一化为 auto"
+        ),
+    )
+    duration_s: int = Field(
+        default=60,
+        description="目标成片时长（秒），自动夹到 10-180；正文字数按每秒 4.8 字换算",
+    )
+    title_count: int = Field(
+        default=3,
+        description="标题候选数量，自动夹到 1-5；默认 3",
+    )
+    rewrite_hard_hits: bool = Field(
+        default=True,
+        description=(
+            "本地去 AI 味检查命中假对比等硬拦时，自动追加一轮定向重写（只改硬伤，不动事实与结构）；"
+            "关掉则只交初稿并随产物给出体检报告"
+        ),
+    )
+    model_text: str = Field(
+        default="",
+        description=(
+            "文本（LLM）模型或模型选项 id；留空走系统默认文本模型链；"
+            "请传 /model-gateway/text-models 返回值之一"
         ),
     )
     source_tool: str = Field(

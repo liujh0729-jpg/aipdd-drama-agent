@@ -48,6 +48,10 @@ TEXT_TASKS = [
     "freezone_video_mix",
     "freezone_whiteboard_animation",
     "freezone_explainer_video",
+    # [aipdd fork delta] 讲解类视频台词草稿（两段式第一段）：与成片共用同一个文本选型字段。
+    "freezone_explainer_script",
+    # [aipdd fork delta] 短视频口播稿：单次文本生成，字段同为 model_text。
+    "freezone_oral_script",
     "freezone_video_idea",
 ]
 

@@ -18,6 +18,8 @@ vi.mock("@/api/ops", () => ({
   submitFreezoneVideoMix: vi.fn(),
   // [aipdd fork delta] 白板动画视频：WhiteboardAnimationPanel 直接 import，mock 须提供。
   submitFreezoneWhiteboardAnimation: vi.fn(),
+  // [aipdd fork delta] 讲解类视频台词草稿（两段式第一段）：两个面板都会用到。
+  submitFreezoneExplainerScript: vi.fn(),
   // [aipdd fork delta] 科普讲解视频：ExplainerVideoPanel 直接 import，mock 须提供。
   submitFreezoneExplainerVideo: vi.fn(),
   submitFreezoneVideoOmniGen: vi.fn(),
@@ -64,6 +66,12 @@ vi.mock("@/api/ops", () => ({
     task_type: "freezone_narration_smart_edit",
     job_id: "narration-job-1",
     task_key: "narration-key",
+  })),
+  // [aipdd fork delta] 短视频口播稿：OralScriptPanel 直接 import，mock 须提供。
+  submitFreezoneOralScript: vi.fn(async () => ({
+    task_type: "freezone_oral_script",
+    job_id: "oral-job-1",
+    task_key: "oral-key",
   })),
   // 两步翻唱第一步是同步接口：桩固定给一个特征 id + 抽出来的词。
   submitFreezoneMusicCoverPreprocess: vi.fn(async () => ({
@@ -236,6 +244,8 @@ import {
   submitFreezoneChannelShortVideo,
   // [aipdd fork delta] 口播智能剪辑提交。
   submitFreezoneNarrationSmartEdit,
+  // [aipdd fork delta] 短视频口播稿提交。
+  submitFreezoneOralScript,
   submitFreezoneMediaCopywrite,
   // [aipdd fork delta] 动效大片：案例图册清单、提示词回读、渲染、拍点预检与交付提交。
   listFreezoneMotionCases,
@@ -253,6 +263,8 @@ import {
   submitFreezoneVideoOmniGen,
   submitFreezoneVideoScriptReverse,
   submitFreezoneWhiteboardAnimation,
+  // [aipdd fork delta] 讲解类视频台词草稿提交。
+  submitFreezoneExplainerScript,
   submitFreezoneVoiceReplace,
   submitFreezoneVideoDubbing,
 } from "@/api/ops";
@@ -265,6 +277,14 @@ function renderPage() {
       <ToolsPage project="demo" />
     </QueryClientProvider>,
   );
+}
+
+// [aipdd fork delta] 默认面板现在是工具栏首项「短视频口播稿」，要测其它面板就先点菜单。
+// 走真点击而非改组件入参：顺带验住菜单本身能通到那个面板。
+async function renderPageOn(toolName: string) {
+  const view = renderPage();
+  await userEvent.click(screen.getByRole("button", { name: toolName }));
+  return view;
 }
 
 describe("ToolsPage", () => {
@@ -287,6 +307,8 @@ describe("ToolsPage", () => {
     // 菜单是「入口」名册：白板动画 / 科普讲解已合并成一条「讲解类视频」（排最后），
     // 它们的表单在入口内切换，不在菜单里各占一项（分组行为见下面那条用例）。
     for (const name of [
+      // [aipdd fork delta] 短视频口播稿：工具栏首项。
+      "短视频口播稿",
       "视频复刻",
       "混剪短视频",
       "一句话生成短视频",
@@ -312,8 +334,176 @@ describe("ToolsPage", () => {
     }
   });
 
-  it("defaults to the video-clone panel (first tool) with frames reference", () => {
+  it("defaults to the oral-script panel (first tool) with the situation fields", () => {
     renderPage();
+    // 开页就是菜单首项：收「这条想讲什么 / 我是谁 / 素材」这份处境。
+    expect(screen.getByText("这条想讲什么")).toBeInTheDocument();
+    expect(screen.getByText("我是谁")).toBeInTheDocument();
+    expect(screen.getByText("素材")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "炼口播稿" })).toBeDisabled();
+    // 蒸馏来源与许可进页就提示：上游技能包是 CC BY-NC 4.0（不可商用）。
+    expect(screen.getByText(/不可商用/)).toBeInTheDocument();
+  });
+
+  it("oral-script submits the situation with the picked formula, duration and title count", async () => {
+    renderPage();
+    fireEvent.change(screen.getByPlaceholderText("如：我为什么不再给客户做全案"), {
+      target: { value: "  我为什么不再做全案  " },
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText("如：做了八年后期，现在只接短视频代运营"),
+      { target: { value: "做了八年后期" } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText("手写要点、粘贴的文案或事实材料都行（不超过 12000 字）"),
+      { target: { value: "去年退了三个全案客户" } },
+    );
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "结构" }), "contrarian");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "目标时长" }), "30");
+    fireEvent.change(screen.getByLabelText("标题候选条数"), { target: { value: "5" } });
+
+    await userEvent.click(screen.getByRole("button", { name: "炼口播稿" }));
+    await waitFor(() => expect(submitFreezoneOralScript).toHaveBeenCalledTimes(1));
+    // 文本模型留空不塞 key：后端走默认文本链。素材/处境字段要 trim 后原样透传。
+    expect(vi.mocked(submitFreezoneOralScript).mock.calls[0][1]).toEqual({
+      topic: "我为什么不再做全案",
+      persona: "做了八年后期",
+      material: "去年退了三个全案客户",
+      audience: "",
+      scene: "",
+      tone: "",
+      formula: "contrarian",
+      durationS: 30,
+      titleCount: 5,
+      rewriteHardHits: true,
+      modelText: undefined,
+      sourceTool: "oral-script",
+    });
+  });
+
+  it("oral-script renders the newest finished draft from the task list", () => {
+    tasksMock.current = [
+      {
+        task_type: "freezone_oral_script",
+        status: "completed",
+        created_at: "2026-10-19T01:00:00Z",
+        result: {
+          title: "我为什么不再做全案",
+          formula: "contrarian",
+          sections: [
+            // 后端带稳定 ASCII id + 原始节名：面板按 id 取自己那份词条，节名只做兜底。
+            { id: "core", title: "一、内核", body: "把退全案讲成一次止损" },
+            { id: "opening", title: "二、开头", body: "去年我退了三个全案客户" },
+            { id: "script", title: "三、口播逐字稿", body: "【镜头】坐着讲" },
+            { id: "why", title: "四、为什么这么排", body: "先给结论再拆原因" },
+            { id: "titles", title: "五、标题候选", body: "1. 我为什么不再做全案" },
+            { id: "shoot", title: "六、拍之前", body: "只需要一个固定机位" },
+          ],
+          script: "【镜头】坐着讲\n去年我退了三个全案客户。",
+          spoken_text: "去年我退了三个全案客户。",
+          titles: [{ title: "我为什么不再做全案", recommended: true, note: "反差开头" }],
+          word_count: 152,
+          estimated_seconds: 32,
+          txt_url: "/static/freezone/_outputs/freezone_oral_script/oral-1.txt",
+          rewritten: false,
+          rewrite_reason: "",
+          ai_tell: { passed: true, hard_count: 0, soft_count: 0, hard: [], soft: [] },
+        },
+      },
+    ];
+
+    renderPage();
+    expect(screen.getByText("净台词 152 字 · 念下来约 32 秒")).toBeInTheDocument();
+    // 提词器用的是净台词，镜头提示不混在里面。
+    expect(screen.getByText("去年我退了三个全案客户。")).toBeInTheDocument();
+    expect(screen.getByText("推荐")).toBeInTheDocument();
+    expect(screen.getByText("机械预检没发现假对比这类硬伤。")).toBeInTheDocument();
+    // 六节完整成稿在 details 里，按 id 命中的是前端词条而非后端节名。
+    expect(screen.getByText("完整成稿（含镜头提示与六节说明）")).toBeInTheDocument();
+    expect(screen.getByText("为什么这么排")).toBeInTheDocument();
+    expect(screen.getByText("拍之前")).toBeInTheDocument();
+    expect(screen.getByText("【镜头】坐着讲")).toBeInTheDocument();
+  });
+
+  it("oral-script degrades to the empty hint when no task has finished", () => {
+    renderPage();
+    expect(screen.getByText("还没有已完成的口播稿任务。")).toBeInTheDocument();
+    expect(screen.queryByText("去 AI 味体检")).not.toBeInTheDocument();
+  });
+
+  // [aipdd fork delta] 重写轮跑过但没交出合格稿：交付的是初稿，文案不能说成「已重写」。
+  it("oral-script tells the user the first draft was kept when the rewrite round failed", () => {
+    tasksMock.current = [
+      {
+        task_type: "freezone_oral_script",
+        status: "completed",
+        created_at: "2026-10-19T01:00:00Z",
+        result: {
+          title: "我为什么不再做全案",
+          script: "（坐着对镜头）\n这不是接单纠纷，是我把验收标准写错了。",
+          spoken_text: "这不是接单纠纷，是我把验收标准写错了。",
+          rewritten: false,
+          rewrite_attempted: true,
+          rewrite_reason: "ai_tell",
+          ai_tell: {
+            passed: false,
+            hard_count: 1,
+            soft_count: 0,
+            hard: [
+              {
+                kind: "hard",
+                rule: "不是X而是Y",
+                line: 1,
+                text: "这不是接单纠纷，是我把验收标准写错了。",
+              },
+            ],
+            soft: [],
+          },
+        },
+      },
+    ];
+
+    renderPage();
+    expect(
+      screen.getByText(
+        "重写那一轮没交出能用的稿子，已保留初稿；体检报告里的硬伤需要你自己再看一眼。",
+      ),
+    ).toBeInTheDocument();
+    // 「已定向重写」那两句话不能说，否则用户会以为质检已经过了。
+    expect(
+      screen.queryByText(
+        "本地检查发现假对比这类硬伤，已只针对这些句子重写了一轮。",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  // [aipdd fork delta] 跑完却没正文：说清楚要重试，不能伪装成「还没开始」。
+  it("oral-script surfaces an empty body instead of pretending no task ran", () => {
+    tasksMock.current = [
+      {
+        task_type: "freezone_oral_script",
+        status: "completed",
+        created_at: "2026-10-19T01:00:00Z",
+        result: {
+          script: "",
+          spoken_text: "",
+          ai_tell: { passed: true, hard_count: 0, soft_count: 0, hard: [], soft: [] },
+        },
+      },
+    ];
+
+    renderPage();
+    expect(
+      screen.getByText(
+        "任务已完成，但成稿里没有「口播逐字稿」正文。请补充素材或换一个角度重新提交。",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("还没有已完成的口播稿任务。")).not.toBeInTheDocument();
+  });
+
+  it("video-clone panel shows the frames reference after switching to it", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "视频复刻" }));
     expect(screen.getByText("参考方式")).toBeInTheDocument();
     expect(screen.getByLabelText("原帧参考")).toBeChecked();
     expect(screen.queryByLabelText("纯文本重制")).not.toBeChecked();
@@ -345,7 +535,7 @@ describe("ToolsPage", () => {
         supportedModes: ["all_reference"],
       },
     ];
-    const { container } = renderPage();
+    const { container } = await renderPageOn("视频复刻");
     // frames 模式按 all_reference 能力过滤并预选目录首项；触发器同时标注渠道胶囊。
     const modelTrigger = await screen.findByRole("combobox", { name: "模型" });
     expect(modelTrigger).toHaveTextContent("Seedance 2.0 Fast");
@@ -382,7 +572,7 @@ describe("ToolsPage", () => {
         supportedModes: ["all_reference"],
       },
     ];
-    const { container } = renderPage();
+    const { container } = await renderPageOn("视频复刻");
     expect(await screen.findByRole("combobox", { name: "模型" })).toHaveTextContent(
       "Seedance 2.0 Fast",
     );
@@ -426,7 +616,7 @@ describe("ToolsPage", () => {
         supportedModes: ["all_reference"],
       },
     ];
-    const { container } = renderPage();
+    const { container } = await renderPageOn("视频复刻");
     expect(await screen.findByRole("combobox", { name: "模型" })).toHaveTextContent(
       "Seedance 2.0 Fast",
     );
@@ -470,7 +660,7 @@ describe("ToolsPage", () => {
         ratioOptions: ["16:9", "9:16", "1:1"],
       },
     ];
-    const { container } = renderPage();
+    const { container } = await renderPageOn("视频复刻");
     // 画幅只列目录声明的档位（竖屏参考视频可选 9:16，不再被固定成横屏）。
     const aspect = await screen.findByLabelText("成片画幅");
     expect(
@@ -502,7 +692,7 @@ describe("ToolsPage", () => {
         supportedModes: ["all_reference"],
       },
     ];
-    renderPage();
+    await renderPageOn("视频复刻");
     expect(await screen.findByRole("combobox", { name: "模型" })).toHaveTextContent(
       "Seedance 2.0 Fast",
     );
@@ -512,7 +702,7 @@ describe("ToolsPage", () => {
 
   it("video-clone explains the dialogue transcription only when the model voices it", async () => {
     const dialogueHint = /模型生成音会先转写参考视频的人声为台词/;
-    renderPage();
+    await renderPageOn("视频复刻");
     expect(screen.getByText(dialogueHint)).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText("静音"));
@@ -534,7 +724,7 @@ describe("ToolsPage", () => {
         isDefault: true,
       },
     ];
-    const { container } = renderPage();
+    const { container } = await renderPageOn("视频复刻");
 
     // 复刻规划（LLM）默认项回显目录默认模型与渠道（t7 语义：不再只说「跟随系统默认」）；
     // 展示层去渠道前缀（displayModelName 唯一真源），来源由旁的渠道胶囊表达。
@@ -646,9 +836,10 @@ describe("ToolsPage", () => {
     // 白板动画 / 科普讲解不在菜单里（只在入口内作为类型出现）。
     expect(screen.queryByRole("button", { name: "白板动画视频" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "科普讲解视频" })).not.toBeInTheDocument();
-    // 内容创作组已置顶（菜单首项），音乐创作排在最后。
+    // 菜单首项是短视频口播稿，内容创作组退到第二位；音乐创作仍排在最后。
     const nav = screen.getByRole("button", { name: "视频复刻" }).parentElement;
-    expect(nav?.firstElementChild?.textContent).toBe("内容创作");
+    expect(nav?.firstElementChild?.textContent).toBe("短视频口播稿");
+    expect(nav?.firstElementChild?.nextElementSibling?.textContent).toBe("内容创作");
     expect(nav?.lastElementChild?.textContent).toBe("音乐创作");
 
     await userEvent.click(screen.getByRole("button", { name: "讲解类视频" }));
@@ -756,6 +947,76 @@ describe("ToolsPage", () => {
     expect(payload.modelText).toBeUndefined();
   });
 
+  it("whiteboard-animation asks for a narration draft without rendering a film", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "讲解类视频" }));
+    await userEvent.click(screen.getByRole("tab", { name: "白板动画视频" }));
+
+    fireEvent.change(
+      screen.getByPlaceholderText("粘贴要朗读的白板动画旁白全文（1-10000 字）"),
+      { target: { value: "  第一幕旁白。第二幕旁白。  " } },
+    );
+    await userEvent.click(screen.getByRole("button", { name: "生成台词草稿" }));
+
+    // 草稿只跑文本：入参是文案本身，不带任何出片参数。
+    await waitFor(() => expect(submitFreezoneExplainerScript).toHaveBeenCalledTimes(1));
+    expect(submitFreezoneExplainerScript).toHaveBeenCalledWith("demo", {
+      kind: "whiteboard",
+      script: "第一幕旁白。第二幕旁白。",
+      maxScenes: 8,
+      modelText: undefined,
+      sourceTool: "whiteboard-animation",
+    });
+    expect(submitFreezoneWhiteboardAnimation).not.toHaveBeenCalled();
+  });
+
+  it("whiteboard-animation renders the finished draft as locked_script without a source script", async () => {
+    tasksMock.current = [
+      {
+        task_type: "freezone_explainer_script",
+        task_id: "draft-1",
+        status: "completed",
+        created_at: "2026-01-01T00:00:00Z",
+        metadata: { source_tool: "whiteboard-animation" },
+        result: {
+          draft: {
+            draft_version: 1,
+            kind: "whiteboard",
+            estimated_seconds: 6,
+            scenes: [
+              { text: "第一幕旁白。", keyText: "第一幕", scenePrompt: "画一条时间线" },
+              { text: "第二幕旁白。", keyText: "", scenePrompt: "画两个方块" },
+            ],
+          },
+        },
+      },
+    ];
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "讲解类视频" }));
+    await userEvent.click(screen.getByRole("tab", { name: "白板动画视频" }));
+
+    // 有草稿就不必再填源文案（那是生成草稿的输入，不是出片的输入）。
+    expect(await screen.findByText(/共 2 幕/)).toBeInTheDocument();
+    const submit = screen.getByRole("button", { name: "生成白板动画" });
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+
+    await waitFor(() => expect(submitFreezoneWhiteboardAnimation).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(submitFreezoneWhiteboardAnimation).mock.calls[0][1];
+    // 旁白由草稿逐幕文案拼回，同时整份草稿当 locked_script 回传：后端只认这一份台词。
+    expect(payload.script).toBe("第一幕旁白。第二幕旁白。");
+    expect(payload.lockedScript).toEqual({
+      draft_version: 1,
+      kind: "whiteboard",
+      scenes: [
+        { text: "第一幕旁白。", keyText: "第一幕", scenePrompt: "画一条时间线" },
+        { text: "第二幕旁白。", keyText: "", scenePrompt: "画两个方块" },
+      ],
+    });
+    // 草稿已经给过台词，成片任务不再需要模型重新切幕。
+    expect(submitFreezoneExplainerScript).not.toHaveBeenCalled();
+  });
+
   it("switching to explainer-video shows the reference field, planner model and render defaults", async () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: "讲解类视频" }));
@@ -831,6 +1092,73 @@ describe("ToolsPage", () => {
         sourceTool: "explainer-video",
       }),
     );
+  });
+
+  it("explainer-video keeps the reference gate but sends the confirmed draft as locked_script", async () => {
+    tasksMock.current = [
+      {
+        task_type: "freezone_explainer_script",
+        task_id: "draft-2",
+        status: "completed",
+        created_at: "2026-01-01T00:00:00Z",
+        metadata: { source_tool: "explainer-video" },
+        result: {
+          draft: {
+            draft_version: 1,
+            kind: "explainer",
+            title: { big: "RAG", rest: "检索增强生成", en: "", tagline: "" },
+            duration_s: 180,
+            estimated_seconds: 12,
+            shots: [
+              {
+                chapter: "什么是 RAG",
+                sentences: ["RAG 先把文档切块入库。"],
+                primitive: "flow",
+                headline: "四步走",
+                items: ["切块", "入库"],
+                numbers: [],
+                emphasis: 0,
+                motion: "travel",
+              },
+              {
+                chapter: "为什么有效",
+                sentences: ["答案可以追溯到出处。"],
+                primitive: "list",
+                headline: "可溯源",
+                items: ["可溯源"],
+                numbers: [],
+                emphasis: -1,
+                motion: "lightup",
+              },
+            ],
+          },
+        },
+      },
+    ];
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "讲解类视频" }));
+    await userEvent.click(screen.getByRole("tab", { name: "科普讲解视频" }));
+
+    expect(await screen.findByText(/共 2 镜/)).toBeInTheDocument();
+    // 参考资料仍是必填：它决定入参校验与结果溯源（这条片子解释了哪份材料）。
+    expect(screen.getByRole("button", { name: "生成讲解视频" })).toBeDisabled();
+
+    fireEvent.change(
+      screen.getByPlaceholderText("粘贴要讲解的主题说明、文章或文档正文（1-12000 字）"),
+      { target: { value: "RAG 资料正文" } },
+    );
+    await userEvent.click(screen.getByRole("button", { name: "生成讲解视频" }));
+
+    await waitFor(() => expect(submitFreezoneExplainerVideo).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(submitFreezoneExplainerVideo).mock.calls[0][1];
+    expect(payload.referenceContent).toBe("RAG 资料正文");
+    expect(payload.lockedScript).toMatchObject({
+      kind: "explainer",
+      shots: [
+        { chapter: "什么是 RAG", sentences: ["RAG 先把文档切块入库。"] },
+        { chapter: "为什么有效", sentences: ["答案可以追溯到出处。"] },
+      ],
+    });
   });
 
   it("switching to video-idea shows the idea field, dual model pickers and portrait default", async () => {

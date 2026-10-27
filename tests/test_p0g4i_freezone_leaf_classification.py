@@ -518,7 +518,15 @@ def test_every_dispatch_site_names_a_classified_leaf() -> None:
     # 52 → 53：动效大片渲染 runner（[aipdd fork delta]，`run_freezone_motion_render`，
     # 单一分发点：粘贴页面之外的「按案例生成页面」那一步 generate_freezone_text（EG-18a）；
     # Chrome 逐帧截屏与 ffmpeg 编码都在 motion_render 包里纯本地直调，不经分发器）。
-    assert len(named) == 53
+    # 53 → 55：短视频口播稿创作 runner（[aipdd fork delta]，`run_freezone_oral_script`，
+    # 两个分发点都是已登记的 generate_freezone_text（EG-18a）：初稿一次，本地去 AI 味
+    # 检查命中假对比硬拦时多一轮定向重写；章节切分、净台词提取与检查都在
+    # freezone/oral_script 包里纯本地直调，不经分发器）。
+    # 55 → 58：讲解类视频台词草稿 runner（[aipdd fork delta]，
+    # `_run_freezone_explainer_script_async`，三个分发点：科普讲解的解说词 + 分镜两次
+    # generate_freezone_text（EG-18a）+ 白板逐幕切分一次，均为已登记叶；草稿组装、
+    # 与落盘都在本 runner 里纯本地直调，草稿阶段不碰配音与图像。
+    assert len(named) == 58
     assert set(named) <= set(FREEZONE_LEAF_EGRESS)
 
 

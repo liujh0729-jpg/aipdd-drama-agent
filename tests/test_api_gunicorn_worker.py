@@ -235,7 +235,9 @@ async def _serve_until_max_requests_and_open_stream(
                 serve_task.result()  # surfaces the bind error instead of looping
                 raise AssertionError("server exited before starting")
             await asyncio.sleep(0.05)
-    client = httpx.AsyncClient(timeout=10)
+    # trust_env=False：别让 macOS 系统级代理（urllib._scproxy 读到 getproxies）
+    # 把 127.0.0.1 也送进代理，否则本地 loopback 会 502、流拿不到首个分片。
+    client = httpx.AsyncClient(timeout=10, trust_env=False)
     req = client.build_request("GET", f"http://127.0.0.1:{port}/stream")
     resp = await client.send(req, stream=True)
     body = resp.aiter_bytes()

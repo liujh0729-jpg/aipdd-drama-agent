@@ -20,6 +20,8 @@ import {
   submitFreezoneEdit,
   // [aipdd fork delta] 科普讲解视频提交。
   submitFreezoneExplainerVideo,
+  // [aipdd fork delta] 讲解类视频台词草稿（两段式第一段，只跑文本）。
+  submitFreezoneExplainerScript,
   submitFreezoneMediaCopywrite,
   // [aipdd fork delta] 动效大片：按案例（或自贴页面）渲染一镜 MG 成片的提交。
   MOTION_ASPECT_RATIOS,
@@ -30,6 +32,8 @@ import {
   // [aipdd fork delta req46] 音乐创作提交与两步翻唱预处理（抽歌词）。
   submitFreezoneMusicCoverPreprocess,
   submitFreezoneMusicCreate,
+  // [aipdd fork delta] 短视频口播稿创作（工具栏首项）提交。
+  submitFreezoneOralScript,
   submitFreezoneVideoClone,
   submitFreezoneVideoEdit,
   submitFreezoneVideoErase,
@@ -51,6 +55,9 @@ import {
   type FreezoneMusicMode,
   type FreezoneMotionCase,
   type FreezoneMotionStyle,
+  // [aipdd fork delta] 口播稿产物类型（任务缓存里的 result 形状）。
+  type FreezoneOralScriptResult,
+  type OralScriptFormula,
   type FreezoneVideoResolution,
 } from "@/api/ops";
 import { Button } from "@/components/ui/button";
@@ -64,6 +71,17 @@ import { BatchTaskList } from "@/features/tools/components/BatchTaskList";
 import { BoxRegionEditor } from "@/features/tools/components/BoxRegionEditor";
 // [aipdd fork delta] 换脸直播控制面板（本机边车引擎 localhost 控制，Web 不推流）。
 import { FaceSwapLivePanel } from "@/features/tools/components/FaceSwapLivePanel";
+// [aipdd fork delta] 讲解类视频「台词草稿」：两段式出片的中间产物 + 逐镜编辑器。
+// 科普讲解与白板动画共用同一张卡片与同一套校验，两边只差「哪几句话一镜」。
+import {
+  EXPLAINER_SCRIPT_TASK_TYPE,
+  ScriptDraftCard,
+  hasDraftContent,
+  readScriptDraft,
+  toLockedScript,
+  type ScriptDraft,
+  type ScriptDraftKind,
+} from "@/features/tools/components/ExplainerScriptDraft";
 import { ModelPicker } from "@/features/tools/components/ModelPicker";
 import { ModelSelect } from "@/features/tools/components/ModelSelect";
 import {
@@ -881,6 +899,61 @@ type WhiteboardAspectRatio = "16:9" | "9:16" | "1:1";
 type WhiteboardResolution = "720p" | "1080p";
 type WhiteboardSubtitleSize = "small" | "medium" | "large";
 
+/** 草稿任务在跑/排队时的状态：与 BatchTaskList 同一份口径，只用于显示「生成中」。 */
+const DRAFT_ACTIVE_STATUSES = new Set([
+  "submitting",
+  "queued",
+  "pending",
+  "starting",
+  "running",
+]);
+
+/**
+ * [aipdd fork delta] 本功能最新一条「台词草稿」任务 + 可编辑草稿。
+ *
+ * 草稿跑在独立任务里（不在提交请求里完成），面板要同时知道三件事：有没有在跑、
+ * 跑失败了没、刚出的那份稿子长什么样。本地编辑优先：轮询会反复返回同一份产物，
+ * 若每次都回写 state，用户正在改的字会被刷回去。
+ */
+function useScriptDraft(project: string, sourceTool: string, kind: ScriptDraftKind) {
+  const { data } = useTasks(project ? { project } : undefined);
+  const latest = useMemo(() => {
+    const list = (data?.data ?? []).filter(
+      (task) =>
+        task.task_type === EXPLAINER_SCRIPT_TASK_TYPE &&
+        task.metadata?.source_tool === sourceTool,
+    );
+    return (
+      [...list].sort(
+        (a, b) =>
+          (Date.parse(b.created_at ?? "") || 0) - (Date.parse(a.created_at ?? "") || 0),
+      )[0] ?? null
+    );
+  }, [data, sourceTool]);
+
+  const [draft, setDraft] = useState<ScriptDraft | null>(null);
+  const loadedTaskRef = useRef<string | null>(null);
+  useEffect(() => {
+    const taskId = latest?.task_id ?? null;
+    if (!taskId || taskId === loadedTaskRef.current) return;
+    const next = readScriptDraft(
+      (latest?.result as Record<string, unknown> | undefined)?.draft,
+      kind,
+    );
+    // 还没跑完（没有结果）不算「已读」：它完成时同一个 task_id 会再触发一次读取。
+    if (!next) return;
+    loadedTaskRef.current = taskId;
+    setDraft(next);
+  }, [latest, kind]);
+
+  return {
+    draft,
+    setDraft,
+    waiting: Boolean(latest && DRAFT_ACTIVE_STATUSES.has(latest.status)),
+    error: latest?.status === "failed" ? latest.error ?? "" : "",
+  };
+}
+
 function WhiteboardAnimationPanel({ project }: { project: string }) {
   const { t } = useTranslation();
   const { busy, run } = useSubmitting();
@@ -900,6 +973,15 @@ function WhiteboardAnimationPanel({ project }: { project: string }) {
   const [bgmVolume, setBgmVolume] = useState("");
   const [aspectRatio, setAspectRatio] = useState<WhiteboardAspectRatio>("16:9");
   const [resolution, setResolution] = useState<WhiteboardResolution>("720p");
+  // [aipdd fork delta] 两段式：先出逐幕台词草稿（只跑文本），确认后再配音渲染。
+  const {
+    draft,
+    setDraft,
+    waiting: draftWaiting,
+    error: draftError,
+  } = useScriptDraft(project, "whiteboard-animation", "whiteboard");
+  // 生成草稿时的源文案：之后又改了源文案就提示草稿可能对不上，不静默沿用旧稿。
+  const [draftSource, setDraftSource] = useState<string | null>(null);
 
   const { data: refs } = useQuery({
     queryKey: ["tools", "freezone-audio-references", project],
@@ -911,15 +993,52 @@ function WhiteboardAnimationPanel({ project }: { project: string }) {
   const defaultTextModel =
     textModels.models.find((m) => m.isDefault) ?? textModels.models[0];
 
-  const onSubmit = () => {
+  const draftStale = Boolean(draft) && draftSource !== null && script.trim() !== draftSource;
+  const draftNarration =
+    draft && draft.kind === "whiteboard"
+      ? draft.scenes
+          .map((scene) => scene.text.trim())
+          .filter(Boolean)
+          .join("")
+      : "";
+
+  // 草稿阶段只跑文本：出片还早，别让用户等整片渲染才知道台词写了什么。
+  const onDraft = () => {
     if (!script.trim()) {
       toast.error(t("tools.whiteboardAnimation.needScript"));
       return;
     }
+    const source = script.trim();
+    setDraftSource(source);
+    void run(
+      1,
+      () =>
+        submitFreezoneExplainerScript(project, {
+          kind: "whiteboard",
+          script: source,
+          maxScenes,
+          modelText: textModel || undefined,
+          sourceTool: "whiteboard-animation",
+        }),
+      "tools.explainerScript.submittedHint",
+    );
+  };
+
+  const onSubmit = () => {
+    // 每一幕都被删空时直接拦在提交前：让后端报错等于把用户送去任务列表找原因。
+    if (draft && !hasDraftContent(draft)) {
+      toast.error(t("tools.explainerScript.needContent"));
+      return;
+    }
+    if (!script.trim() && !draft) {
+      toast.error(t("tools.whiteboardAnimation.needScript"));
+      return;
+    }
     // 文案 -> 一条成片：run(1) 只包一层提交通知，不逐幕拆任务。
+    // 有草稿时旁白由草稿拼回（后端 locked_script 优先），这里仍传一份纯文案给入参校验。
     void run(1, () =>
       submitFreezoneWhiteboardAnimation(project, {
-        script: script.trim(),
+        script: script.trim() || draftNarration,
         // 空 = 不传 model_text，走后端系统默认文本模型链。
         modelText: textModel || undefined,
         // 画布同口径：优先目录条目 catalogId，退目录 id（后端 identifiers 都认）。
@@ -938,8 +1057,12 @@ function WhiteboardAnimationPanel({ project }: { project: string }) {
         // 工具页任务：产物完成后自动存入资产库「待分类资产」。
         archiveToLibrary: true,
         sourceTool: "whiteboard-animation",
+        lockedScript: draft ? toLockedScript(draft) : null,
       }),
-    ).then((ok) => ok && setScript(""));
+    ).then((ok) => {
+      // 有草稿时保留源文案：用户还能换配音/画幅，按同一份稿子再出一版。
+      if (ok && !draft) setScript("");
+    });
   };
 
   return (
@@ -956,6 +1079,15 @@ function WhiteboardAnimationPanel({ project }: { project: string }) {
           {t("tools.whiteboardAnimation.scriptHint")}
         </p>
       </div>
+      <ScriptDraftCard
+        draft={draft}
+        onChange={setDraft}
+        onGenerate={onDraft}
+        waiting={draftWaiting}
+        error={draftError}
+        sourceChanged={draftStale}
+        busy={busy}
+      />
       <div className="space-y-1">
         <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.whiteboardAnimation.textModel")}</Label>
         <ModelSelect
@@ -1162,7 +1294,7 @@ function WhiteboardAnimationPanel({ project }: { project: string }) {
           </select>
         </label>
       </div>
-      <SubmitButton busy={busy} disabled={!script.trim()} onClick={onSubmit}>
+      <SubmitButton busy={busy} disabled={!script.trim() && !draft} onClick={onSubmit}>
         {t("tools.whiteboardAnimation.submit")}
       </SubmitButton>
     </div>
@@ -1198,6 +1330,15 @@ function ExplainerVideoPanel({ project }: { project: string }) {
   const [captions, setCaptions] = useState(true);
   const [bgmUrl, setBgmUrl] = useState<string | null>(null);
   const [bgmVolume, setBgmVolume] = useState("");
+  // [aipdd fork delta] 两段式：先出逐镜台词草稿（解说词 + 分镜只跑文本），确认后配音渲染。
+  const {
+    draft,
+    setDraft,
+    waiting: draftWaiting,
+    error: draftError,
+  } = useScriptDraft(project, "explainer-video", "explainer");
+  // 生成草稿时的参考资料：之后又改过就提示草稿可能对不上，不静默沿用旧稿。
+  const [draftSource, setDraftSource] = useState<string | null>(null);
 
   const { data: refs } = useQuery({
     queryKey: ["tools", "freezone-audio-references", project],
@@ -1208,12 +1349,45 @@ function ExplainerVideoPanel({ project }: { project: string }) {
   const defaultTextModel =
     textModels.models.find((m) => m.isDefault) ?? textModels.models[0];
 
+  const draftStale =
+    Boolean(draft) && draftSource !== null && reference.trim() !== draftSource;
+
+  // 草稿阶段只跑文本：解说词与分镜都定了，再花配音与渲染的钱才值。
+  const onDraft = () => {
+    if (!reference.trim()) {
+      toast.error(t("tools.explainerVideo.needReference"));
+      return;
+    }
+    const source = reference.trim();
+    setDraftSource(source);
+    void run(
+      1,
+      () =>
+        submitFreezoneExplainerScript(project, {
+          kind: "explainer",
+          referenceContent: source,
+          title: title.trim(),
+          durationS,
+          modelText: textModel || undefined,
+          sourceTool: "explainer-video",
+        }),
+      "tools.explainerScript.submittedHint",
+    );
+  };
+
   const onSubmit = () => {
+    // 每一镜都被删空时直接拦在提交前：让后端报错等于把用户送去任务列表找原因。
+    if (draft && !hasDraftContent(draft)) {
+      toast.error(t("tools.explainerScript.needContent"));
+      return;
+    }
     if (!reference.trim()) {
       toast.error(t("tools.explainerVideo.needReference"));
       return;
     }
     // 参考资料 -> 一条成片：run(1) 只包一层提交通知，不逐镜拆任务。
+    // 有草稿时台词全用稿里的（后端 locked_script 优先）；参考资料仍传真，因为入参校验
+    // 与结果溯源（这条片子解释了哪份材料）都靠它。
     void run(1, () =>
       submitFreezoneExplainerVideo(project, {
         referenceContent: reference.trim(),
@@ -1234,9 +1408,11 @@ function ExplainerVideoPanel({ project }: { project: string }) {
         // 工具页任务：产物完成后自动存入资产库「待分类资产」。
         archiveToLibrary: true,
         sourceTool: "explainer-video",
+        lockedScript: draft ? toLockedScript(draft) : null,
       }),
     ).then((ok) => {
-      if (ok) setReference("");
+      // 有草稿时保留参考资料：用户还能换声线/画幅，按同一份稿子再出一版。
+      if (ok && !draft) setReference("");
     });
   };
 
@@ -1254,6 +1430,15 @@ function ExplainerVideoPanel({ project }: { project: string }) {
           {t("tools.explainerVideo.referenceHint")}
         </p>
       </div>
+      <ScriptDraftCard
+        draft={draft}
+        onChange={setDraft}
+        onGenerate={onDraft}
+        waiting={draftWaiting}
+        error={draftError}
+        sourceChanged={draftStale}
+        busy={busy}
+      />
       <div className="grid grid-cols-2 gap-2">
         <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
           <span>{t("tools.explainerVideo.titleLabel")}</span>
@@ -1995,6 +2180,483 @@ function NarrationSmartEditPanel({ project }: { project: string }) {
       <SubmitButton busy={busy} disabled={!sourceUrl} onClick={onSubmit}>
         {t("tools.narrationSmartEdit.submit")}
       </SubmitButton>
+    </div>
+  );
+}
+
+// [aipdd fork delta] 短视频口播稿创作（工具栏首项）：处境（我是谁 / 想吸引谁 / 手里
+// 能拍什么）+ 素材 → 一条可以直接念的逐字稿。方法论蒸馏自开源技能包「太上老君·AI
+// 炼丹炉」（CC BY-NC 4.0，不可商用）：炉心七条底层判断、开炉的第一句与勾证衔接、
+// 改稿六刀与去 AI 味都压在后端那一条写作指令里，前端只收处境、摆结果。
+// 出网只有一处（网关文本模型），本地跑一遍去 AI 味机械预检，命中假对比这类硬伤时
+// 自动补**一轮**定向重写（原方法论就限定「最多一轮有依据的修改」）。
+// 结果展示与 media-copywrite 面板同源：任务中心缓存里取本工具最新完成任务的 result，
+// 不另起请求。
+const ORAL_FORMULAS: OralScriptFormula[] = [
+  "auto",
+  "judgment",
+  "qa",
+  "on_site",
+  "contrarian",
+  "event",
+];
+
+/** 时长档：与后端 prompts.DURATION_BANDS 同一份集合（面板下拉只给这几档）。 */
+const ORAL_DURATIONS = [15, 30, 45, 60, 90, 120];
+
+/**
+ * 任务缓存里的 result 是后端 free-form，逐字段给默认值：形状漂移时面板只是少块内容，
+ * 不会在 `.map` / `.length` 上当场崩给使用者看。
+ */
+function readOralScriptResult(raw: unknown): FreezoneOralScriptResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  const script = str(r.script);
+  // 正文为空不当作「没任务」：后端已跑完但没拿到「口播逐字稿」时，面板要能说清楚
+  // 这份产物不能用、得重试，而不是伪装成「还没开始」。
+  const sections = Array.isArray(r.sections)
+    ? (r.sections as Record<string, unknown>[]).map((s) => ({
+        id: str(s?.id),
+        title: str(s?.title),
+        body: str(s?.body),
+      }))
+    : [];
+  const titles = Array.isArray(r.titles)
+    ? (r.titles as Record<string, unknown>[]).map((x) => ({
+        title: str(x?.title),
+        recommended: Boolean(x?.recommended),
+        note: str(x?.note),
+      }))
+    : [];
+  const tell = (r.ai_tell ?? {}) as Record<string, unknown>;
+  const hits = Array.isArray(tell.hard) ? (tell.hard as Record<string, unknown>[]) : [];
+  const softs = Array.isArray(tell.soft) ? (tell.soft as Record<string, unknown>[]) : [];
+  const toHit = (h: Record<string, unknown>) => ({
+    kind: (str(h?.kind) === "soft" ? "soft" : "hard") as "hard" | "soft",
+    rule: str(h?.rule),
+    line: num(h?.line),
+    text: str(h?.text),
+  });
+  return {
+    title: str(r.title),
+    formula: str(r.formula),
+    duration_s: num(r.duration_s),
+    title_count: num(r.title_count),
+    model: str(r.model),
+    sections,
+    script,
+    spoken_text: str(r.spoken_text),
+    lines: Array.isArray(r.lines) ? (r.lines as unknown[]).map(str) : [],
+    stage_notes: Array.isArray(r.stage_notes) ? (r.stage_notes as unknown[]).map(str) : [],
+    titles,
+    first_line: str(r.first_line),
+    word_count: num(r.word_count),
+    estimated_seconds: num(r.estimated_seconds),
+    txt_url: str(r.txt_url),
+    rewritten: Boolean(r.rewritten),
+    rewrite_attempted: Boolean(r.rewrite_attempted),
+    rewrite_reason: str(r.rewrite_reason) as FreezoneOralScriptResult["rewrite_reason"],
+    ai_tell: {
+      passed: tell.passed !== false && hits.length === 0,
+      hard_count: num(tell.hard_count) || hits.length,
+      soft_count: num(tell.soft_count) || softs.length,
+      hard: hits.map(toHit),
+      soft: softs.map(toHit),
+    },
+  };
+}
+
+function OralScriptPanel({ project }: { project: string }) {
+  const { t } = useTranslation();
+  const { busy, run } = useSubmitting();
+  const [topic, setTopic] = useState("");
+  const [persona, setPersona] = useState("");
+  const [material, setMaterial] = useState("");
+  const [audience, setAudience] = useState("");
+  const [scene, setScene] = useState("");
+  const [tone, setTone] = useState("");
+  const [formula, setFormula] = useState<OralScriptFormula>("auto");
+  const [durationS, setDurationS] = useState(60);
+  const [titleCount, setTitleCount] = useState(3);
+  const [rewriteHardHits, setRewriteHardHits] = useState(true);
+  const [textModel, setTextModel] = useState("");
+
+  const textModels = useFreezoneTextModels(project);
+  const defaultTextModel =
+    textModels.models.find((m) => m.isDefault) ?? textModels.models[0];
+
+  // 本工具最新完成任务的产物：与任务列表同一份缓存，不另起请求。
+  const { data: tasksData } = useTasks(project ? { project } : undefined);
+  const latest = useMemo(() => {
+    const list = (tasksData?.data ?? []).filter(
+      (task) => task.task_type === "freezone_oral_script" && task.status === "completed",
+    );
+    return (
+      [...list].sort(
+        (a, b) =>
+          (Date.parse(b.created_at ?? "") || 0) - (Date.parse(a.created_at ?? "") || 0),
+      )[0] ?? null
+    );
+  }, [tasksData]);
+  const oral = useMemo(() => readOralScriptResult(latest?.result), [latest]);
+
+  const canSubmit = Boolean(topic.trim() || material.trim());
+
+  const onCopy = async () => {
+    const text = oral?.spoken_text || oral?.script || "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(t("tools.oralScript.copied"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const onSubmit = () => {
+    if (!canSubmit) {
+      toast.error(t("tools.oralScript.needTopicOrMaterial"));
+      return;
+    }
+    void run(
+      1,
+      () =>
+        submitFreezoneOralScript(project, {
+          topic: topic.trim(),
+          persona: persona.trim(),
+          material: material.trim(),
+          audience: audience.trim(),
+          scene: scene.trim(),
+          tone: tone.trim(),
+          formula,
+          durationS,
+          titleCount,
+          rewriteHardHits,
+          modelText: textModel || undefined,
+          sourceTool: "oral-script",
+        }),
+      "tools.oralScript.submittedHint",
+    ).then((ok) => {
+      if (!ok) return;
+      setTopic("");
+      setMaterial("");
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+        <span>{t("tools.oralScript.licenseNotice")}</span>
+      </p>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.oralScript.topicLabel")}</Label>
+        <input
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder={t("tools.oralScript.topicPlaceholder")}
+          className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.oralScript.personaLabel")}</Label>
+        <input
+          value={persona}
+          onChange={(e) => setPersona(e.target.value)}
+          placeholder={t("tools.oralScript.personaPlaceholder")}
+          className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.oralScript.personaHint")}
+        </p>
+      </div>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.oralScript.materialLabel")}</Label>
+        <Textarea
+          rows={6}
+          value={material}
+          onChange={(e) => setMaterial(e.target.value)}
+          placeholder={t("tools.oralScript.materialPlaceholder")}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.oralScript.materialHint")}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.oralScript.audienceLabel")}</span>
+          <input
+            value={audience}
+            onChange={(e) => setAudience(e.target.value)}
+            placeholder={t("tools.oralScript.audiencePlaceholder")}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.oralScript.sceneLabel")}</span>
+          <input
+            value={scene}
+            onChange={(e) => setScene(e.target.value)}
+            placeholder={t("tools.oralScript.scenePlaceholder")}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.oralScript.toneLabel")}</span>
+          <input
+            value={tone}
+            onChange={(e) => setTone(e.target.value)}
+            placeholder={t("tools.oralScript.tonePlaceholder")}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.oralScript.formulaLabel")}</span>
+          <select
+            value={formula}
+            onChange={(e) => setFormula(e.target.value as OralScriptFormula)}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            {ORAL_FORMULAS.map((item) => (
+              <option key={item} value={item}>
+                {t(`tools.oralScript.formulaOptions.${item}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.oralScript.durationLabel")}</span>
+          <select
+            value={durationS}
+            onChange={(e) => setDurationS(Number(e.target.value))}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            {ORAL_DURATIONS.map((sec) => (
+              <option key={sec} value={sec}>
+                {t("tools.oralScript.durationOption", { n: sec })}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block space-y-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+          <span>{t("tools.oralScript.titleCountLabel")}</span>
+          <input
+            type="number"
+            min={1}
+            max={5}
+            step={1}
+            value={titleCount}
+            onChange={(e) => setTitleCount(Number(e.target.value))}
+            className="h-9 w-full rounded-lg border border-border bg-background/40 px-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </label>
+      </div>
+      <div className="space-y-1">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.oralScript.textModelLabel")}</Label>
+        <ModelSelect
+          value={textModel}
+          onChange={setTextModel}
+          ariaLabel={t("tools.oralScript.textModelLabel")}
+          groups={[
+            {
+              options: [
+                {
+                  value: "",
+                  label: defaultTextModel
+                    ? t("tools.common.modelDefault", {
+                        model: displayModelName(
+                          defaultTextModel.label,
+                          defaultTextModel.channel,
+                        ),
+                      })
+                    : t("tools.oralScript.textModelAuto"),
+                  ...(defaultTextModel
+                    ? { channel: channelForDisplay(defaultTextModel) }
+                    : {}),
+                },
+                ...textModels.models.map((m) => ({
+                  value: m.id,
+                  label: displayModelName(m.label, m.channel),
+                  channel: channelForDisplay(m),
+                })),
+              ],
+            },
+          ]}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("tools.oralScript.textModelHint")}
+        </p>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={rewriteHardHits}
+          onChange={(e) => setRewriteHardHits(e.target.checked)}
+          className="h-4 w-4 rounded border-border"
+        />
+        <span>{t("tools.oralScript.rewriteToggle")}</span>
+      </label>
+      <SubmitButton busy={busy} disabled={!canSubmit} onClick={onSubmit}>
+        {t("tools.oralScript.submit")}
+      </SubmitButton>
+
+      <div className="space-y-2">
+        <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">{t("tools.oralScript.result")}</Label>
+        {oral && !oral.script ? (
+          // 任务跑完了却没拿到「口播逐字稿」：这是要重试的异常产物，不能和「还没
+          // 开始」共用一句空态文案，否则用户只会以为任务没跑完。
+          <p className="text-[11px] leading-relaxed text-amber-300">
+            {t("tools.oralScript.emptyBody")}
+          </p>
+        ) : oral ? (
+          <div className="space-y-3 rounded-lg border border-border bg-white/[0.02] p-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="truncate text-sm text-foreground">
+                  {oral.title || t("tools.oralScript.result")}
+                </div>
+                <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  {t("tools.oralScript.stats", {
+                    n: oral.word_count,
+                    s: oral.estimated_seconds,
+                  })}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={onCopy}>
+                  {t("tools.oralScript.copy")}
+                </Button>
+                {oral.txt_url ? (
+                  <a
+                    href={oral.txt_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="size-3.5" />
+                    {t("tools.oralScript.openTxt")}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+            {oral.rewritten ? (
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                {t(
+                  oral.rewrite_reason === "structure"
+                    ? "tools.oralScript.rewrittenStructure"
+                    : "tools.oralScript.rewrittenAiTell",
+                )}
+              </p>
+            ) : oral.rewrite_attempted ? (
+              // 重写轮跑过但没交出合格稿子（结构丢了 / 被网关打回）：交付的是初稿，
+              // 不能说成「已定向重写」，硬伤得由用户自己再过一遍。
+              <p className="text-[11px] leading-relaxed text-amber-300">
+                {t("tools.oralScript.rewriteKeptDraft")}
+              </p>
+            ) : null}
+            <div className="space-y-1">
+              <div className="text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+                {t("tools.oralScript.spokenLabel")}
+              </div>
+              <p className="max-h-72 overflow-auto whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                {oral.spoken_text || oral.script}
+              </p>
+            </div>
+            {oral.titles.length ? (
+              <div className="space-y-1">
+                <div className="text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+                  {t("tools.oralScript.titlesLabel")}
+                </div>
+                <ul className="space-y-1">
+                  {oral.titles.map((item) => (
+                    <li key={item.title} className="text-sm text-foreground">
+                      {item.recommended ? (
+                        <span className="mr-1 rounded bg-primary/15 px-1.5 py-0.5 text-[11px] text-primary">
+                          {t("tools.oralScript.recommended")}
+                        </span>
+                      ) : null}
+                      {item.title}
+                      {item.note ? (
+                        <span className="ml-1 text-[11px] text-muted-foreground">
+                          {item.note}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <div className="space-y-1">
+              <div className="text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+                {t("tools.oralScript.aiTellLabel")}
+              </div>
+              {oral.ai_tell.passed && oral.ai_tell.soft_count === 0 ? (
+                <p className="text-xs text-emerald-600">{t("tools.oralScript.aiTellPass")}</p>
+              ) : null}
+              {oral.ai_tell.hard.map((hit) => (
+                <p
+                  key={`hard-${hit.line}-${hit.rule}`}
+                  className="text-xs leading-relaxed text-amber-600"
+                >
+                  {t("tools.oralScript.aiTellHard")}
+                  {" · "}
+                  {hit.rule}
+                  {hit.text ? ` · ${hit.text}` : ""}
+                </p>
+              ))}
+              {oral.ai_tell.soft.length ? (
+                <details className="text-xs text-muted-foreground">
+                  <summary className="cursor-pointer">
+                    {t("tools.oralScript.aiTellSoft", { n: oral.ai_tell.soft_count })}
+                  </summary>
+                  <ul className="mt-1 space-y-0.5">
+                    {oral.ai_tell.soft.map((hit) => (
+                      <li key={`soft-${hit.line}-${hit.rule}`}>
+                        {hit.rule}
+                        {hit.text ? ` · ${hit.text}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                {t("tools.oralScript.aiTellLimit")}
+              </p>
+            </div>
+            {oral.sections.length ? (
+              <details className="text-xs text-muted-foreground">
+                <summary className="cursor-pointer">
+                  {t("tools.oralScript.sectionsLabel")}
+                </summary>
+                <div className="mt-2 space-y-2">
+                  {oral.sections.map((section) => (
+                    <div key={section.id || section.title} className="space-y-1">
+                      <div className="text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
+                        {t(`tools.oralScript.section.${section.id}`, {
+                          defaultValue: section.title,
+                        })}
+                      </div>
+                      <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-foreground">
+                        {section.body || t("tools.oralScript.sectionEmpty")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t("tools.oralScript.resultEmpty")}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -4788,7 +5450,9 @@ export function ToolsPage({ project }: { project: string }) {
   const { t } = useTranslation();
   // 绑定取词桥给 useSubmitting 里的 toast 文案用。
   _tRef = t;
-  const [active, setActive] = useState<ToolKind>("video-clone");
+  // [aipdd fork delta] 默认打开工具栏首项「短视频口播稿创作」（TOOLS 数组首位）：
+  // 菜单顺序与默认面板同一份来源，不再出现「首位是 A、开页展示 B」的错位。
+  const [active, setActive] = useState<ToolKind>("oral-script");
   // 分组入口记住各自上次选的类型：切走菜单再点回来不该被弹回默认项。
   const [lastMemberByGroup, setLastMemberByGroup] = useState<
     Partial<Record<ToolGroupId, ToolKind>>
@@ -4898,6 +5562,8 @@ export function ToolsPage({ project }: { project: string }) {
                 </p>
               )}
             </div>
+            {/* [aipdd fork delta] 短视频口播稿创作：工具栏首项，默认面板。 */}
+            {active === "oral-script" ? <OralScriptPanel project={project} /> : null}
             {active === "video-clone" ? <VideoClonePanel project={project} /> : null}
             {active === "video-mix" ? <VideoMixPanel project={project} /> : null}
             {/* [aipdd fork delta] 动效大片：按案例图册渲染 MG 成片 + 导出剪映草稿。 */}

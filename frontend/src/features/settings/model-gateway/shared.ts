@@ -27,6 +27,12 @@ import { type FeatureModelProvider } from "@/stores/settingsStore";
 
 const MODEL_CONFIGURATION_GUIDE_URL =
   "https://aiworkin.feishu.cn/wiki/QjAfwFtYbiqSAukMvU6cg5Kan2f?from=from_copylink";
+// [aipdd fork delta] 外部 NewAPI 渠道的默认站点留空：自建网关 / 反向代理 / 云厂商
+// 中转的地址各不相同，预填任何地址都等于替用户选了一个不属于他的站点。用户点卡上的
+// 「推荐 NewAPI 站点」去官方整理的清单里自己挑（README 里给的是同一条链接）。
+const NEWAPI_DEFAULT_BASE_URL = "";
+const NEWAPI_RECOMMENDED_SITES_URL =
+  "https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf";
 const COMFY_WORKFLOW_MANAGED_CONFIG_KEY = "_dcManagedByWorkflow";
 
 // [aipdd fork delta] 去掉官方中转(RelayClaw)：设置页只暴露“自定义”网关（内置 dramaclaw-gateway），
@@ -675,6 +681,8 @@ export {
   normalizeProviderChannelSettings,
   COMFY_WORKFLOW_MANAGED_CONFIG_KEY,
   MODEL_CONFIGURATION_GUIDE_URL,
+  NEWAPI_DEFAULT_BASE_URL,
+  NEWAPI_RECOMMENDED_SITES_URL,
 };
 export type {
   MediaSaveKind,

@@ -28,9 +28,15 @@ PLACEMENT_FREE_TASKS = {
     "freezone_audio_eleven_music",
     "freezone_audio_separate",
     "freezone_article_write",
+    # [aipdd fork delta] 短视频口播稿创作（工具栏首项）：与文章同形（payload 自带 project_dir），
+    # 成稿只写进该目录，不读 home node 状态。
+    "freezone_oral_script",
     "freezone_audio_speech",
     "freezone_douyin_copywrite",
     "freezone_edit",
+    # [aipdd fork delta] 讲解类视频台词草稿：两段式第一段（payload 自带 project_dir，
+    # 只把 JSON 草稿写进该目录），不读 home node 状态。
+    "freezone_explainer_script",
     "freezone_explainer_video",
     # [aipdd fork delta] Phase 2B 渠道短视频：与讲解视频同构（payload 自带 project_dir），同属免放置集。
     "freezone_channel_short_video",
@@ -39,6 +45,9 @@ PLACEMENT_FREE_TASKS = {
     # [aipdd fork delta] 动效大片渲染：与讲解视频同构（payload 自带 project_dir + 页面全文，
     # 产物只写进该目录），且渲染全在本机（Chrome + ffmpeg），不读 home node 状态。
     "freezone_motion_render",
+    # [aipdd fork delta] 动效大片拍点预检：与渲染同形（payload 自带 project_dir + case/style），
+    # 静帧只写进该目录的 PNG 清单，同样不读 home node 状态。
+    "freezone_motion_stills",
     # [aipdd fork delta] 动效剪映草稿交付：payload 自带 project_dir 与成片绝对路径，
     # 产物是一盘写进本地目录的剪映工程，与画布节点状态无关。
     "freezone_motion_draft",

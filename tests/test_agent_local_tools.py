@@ -42,6 +42,18 @@ def host_home(tmp_path, monkeypatch) -> Path:
     return home
 
 
+@pytest.fixture(autouse=True)
+def _isolate_host_apps_dir(tmp_path, monkeypatch) -> None:
+    """默认把「宿主应用目录挂载」指到不存在的路径。
+
+    否则 macOS 上 ``host_apps()`` 会落到真实 ``/Applications``，测试结果随本机
+    是否恰好装了 WorkBuddy / Cursor 等而变（装了就把证据升级成 "app"，空 home
+    也会判 installed）。需要该级证据的用例自行 ``monkeypatch.setenv(
+    "HOST_APPS_PATH", ...)`` 覆盖。
+    """
+    monkeypatch.setenv("HOST_APPS_PATH", str(tmp_path / "no-host-apps"))
+
+
 @pytest.fixture()
 def client(tmp_path, monkeypatch) -> TestClient:
     """挂上 agent router 的测试客户端（交互式会话与用户名走依赖覆盖）。"""

@@ -21,7 +21,8 @@ serde_json = "1"
 thiserror = "1"
 log = "0.4"
 
-# 子进程编排用 std::process（不经 JS shell 插件，天然安全：Web 侧无法触发进程）。
+# 子进程编排用 std::process（不经 JS shell 插件，Web 页不能直接 exec；主窗口只能请求壳
+# 以系统默认浏览器打开 http(s) 外链，见 main.rs 的 is_app_local_url / open_in_system_browser）。
 # 端口探活用 std::net::TcpStream（带超时）。模型下载用 tokio + reqwest 流式。
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "time", "sync"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }

@@ -72,6 +72,9 @@ _FORK_CHANNEL_TYPE_OVERRIDES: dict[str, dict[str, Any]] = {
         "type": 1,
         "name": "NewAPI",
         "defaultBaseUrl": "",
+        # 没有预设地址的渠道必须由用户自己填（前端据此把「通常不填」换成必填提示）：
+        # 只写 defaultBaseUrl 为空是不够的，两者语义不同——空预设不等于无需填写。
+        "requiresBaseUrl": True,
         "capabilities": ["text", "vision", "embedding", "image", "video", "audio"],
     },
     "aipdd": {

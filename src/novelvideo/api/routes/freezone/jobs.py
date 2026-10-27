@@ -188,6 +188,10 @@ async def freezone_job_result(
         "freezone_story_script",
         # [aipdd fork delta] 公众号文章编写与排版（产物 JSON + HTML）。
         "freezone_article_write",
+        # [aipdd fork delta] 短视频口播稿创作（工具栏首项，产物 JSON + 净台词 txt）。
+        "freezone_oral_script",
+        # [aipdd fork delta] 讲解类视频台词草稿（两段式第一段，产物是可编辑的草稿 JSON）。
+        "freezone_explainer_script",
     ],
     job_id: str,
     user: dict = Depends(get_api_user),
@@ -356,6 +360,10 @@ async def freezone_job_result(
         out = _freezone._story_script_output_path(project_dir, job_id)
     if task_type == "freezone_article_write":
         out = _freezone._article_write_output_path(project_dir, job_id)
+    if task_type == "freezone_oral_script":
+        out = _freezone._oral_script_output_path(project_dir, job_id)
+    if task_type == "freezone_explainer_script":
+        out = _freezone._explainer_script_output_path(project_dir, job_id)
     if task_type in {"freezone_analyze", "freezone_video_story"}:
         if task is not None:
             if task.status == "failed":
@@ -412,6 +420,9 @@ async def freezone_job_result(
         "freezone_text_translate",
         "freezone_story_script",
         "freezone_article_write",
+        "freezone_oral_script",
+        # 草稿 JSON 直接当结果读：它没有 Url 产物，渲染链只认草稿本体。
+        "freezone_explainer_script",
     }:
         return {"ok": True, "data": json.loads(out.read_text(encoding="utf-8"))}
     rel = out.relative_to(project_dir).as_posix()

@@ -108,6 +108,10 @@ _PROJECT_TASK_RESOURCE_KINDS = {
     "freezone_image_reverse_prompt": "script",
     "freezone_text_generate": "script",
     "freezone_article_write": "script",
+    # [aipdd fork delta] 短视频口播稿创作：一次文本生成（硬拦时多一轮），与文章同为 script 档。
+    "freezone_oral_script": "script",
+    # [aipdd fork delta] 讲解类视频台词草稿：两段式第一段，只调文本叶，与口播稿同档。
+    "freezone_explainer_script": "script",
     "freezone_story_script": "script",
 }
 

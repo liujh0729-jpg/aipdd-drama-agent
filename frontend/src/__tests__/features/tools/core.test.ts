@@ -20,9 +20,11 @@ import {
 } from "@/features/tools/core";
 
 describe("tools core TOOLS", () => {
-  it("orders the batch tools with content creation first and music creation last", () => {
+  it("orders the batch tools with the oral script forge first and music creation last", () => {
     expect(TOOLS.map((t) => t.kind)).toEqual([
-      // [aipdd fork delta] 内容创作组置顶（菜单首项），成员 article-video → channel-short-video。
+      // [aipdd fork delta] 短视频口播稿创作：工具栏首项（单条入口，不进任何分组）。
+      "oral-script",
+      // [aipdd fork delta] 内容创作组（菜单第二项），成员 article-video → channel-short-video。
       "article-video",
       "channel-short-video",
       // [aipdd fork delta] 音视频提取文案：菜单第二项。
@@ -54,9 +56,11 @@ describe("tools core TOOLS", () => {
     ]);
   });
 
-  it("collapses the explainer class into one nav entry and puts content creation first", () => {
-    // 菜单入口由 TOOLS 现算：同组类型只占一条；内容创作组占菜单首项，音乐创作收尾。
+  it("collapses the explainer class into one nav entry and puts the oral script first", () => {
+    // 菜单入口由 TOOLS 现算：同组类型只占一条；口播稿占菜单首项，音乐创作收尾。
     expect(TOOL_NAV.map((entry) => (entry.type === "tool" ? entry.kind : entry.id))).toEqual([
+      // [aipdd fork delta] 短视频口播稿创作：菜单首项（默认面板与它同源）。
+      "oral-script",
       "content-creation",
       "media-copywrite",
       "video-clone",
@@ -82,8 +86,12 @@ describe("tools core TOOLS", () => {
       "music-create",
     ]);
     const firstEntry = TOOL_NAV[0];
-    expect(firstEntry.type).toBe("group");
-    expect(firstEntry.type === "group" ? firstEntry.id : null).toBe("content-creation");
+    expect(firstEntry.type).toBe("tool");
+    expect(firstEntry.type === "tool" ? firstEntry.kind : null).toBe("oral-script");
+    // 内容创作组退到菜单第二项（口播稿是单条入口，不吞它的位）。
+    const secondEntry = TOOL_NAV[1];
+    expect(secondEntry.type).toBe("group");
+    expect(secondEntry.type === "group" ? secondEntry.id : null).toBe("content-creation");
     const lastEntry = TOOL_NAV[TOOL_NAV.length - 1];
     expect(lastEntry.type).toBe("tool");
     expect(lastEntry.type === "tool" ? lastEntry.kind : null).toBe("music-create");
@@ -148,6 +156,13 @@ describe("tools core TOOLS", () => {
     expect(toolByKind("narration-smart-edit").titleKey).toBe("tools.narrationSmartEdit.title");
     expect(toolGroupOf("narration-smart-edit")).toBeNull();
     // 白板动画 / 科普讲解两个类型的归属断言在上面的分组用例里（它们共用一个菜单入口）。
+    // [aipdd fork delta] 短视频口播稿创作：一次文本生成产出文本产物，不入资产库、无批量
+    // 素材输入（accept=null）、不属任何分组（菜单首项就它一条），任务类型独立。
+    expect(toolByKind("oral-script").modelKind).toBe("audio");
+    expect(toolByKind("oral-script").accept).toBeNull();
+    expect(toolByKind("oral-script").taskTypes).toEqual(["freezone_oral_script"]);
+    expect(toolByKind("oral-script").titleKey).toBe("tools.oralScript.title");
+    expect(toolGroupOf("oral-script")).toBeNull();
     // [aipdd fork delta req46] 音乐创作：模型不经网关（候选来自「音乐」目录），
     // 任务类型独立，参考音频在面板内自管 → 不占批量素材入口。
     expect(toolByKind("music-create").modelKind).toBe("music");

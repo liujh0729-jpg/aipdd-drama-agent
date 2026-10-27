@@ -426,7 +426,7 @@ Dù bạn chọn lối cài nào, ứng dụng đều khởi lên như nhau:
 1. **Mở UI** tại <http://localhost:8080> (các launcher một chạm mở giúp bạn). REST API tại <http://localhost:8780>; trình duyệt chỉ nói chuyện với `web`, cái làm reverse-proxy tới `api`.
 2. **Đăng nhập.** Cấu hình `docker-compose.aipdd.yml` bật đăng nhập máy đơn (tài khoản `local`).
    - Nếu bạn đặt `ST_LOCAL_PASSWORD` trong `.env`, đăng nhập bằng tài khoản `local` và mật khẩu đó.
-   - Nếu để trống, backend **không** tạo tài khoản hộ bạn: màn hình đầu tiên là **form khởi tạo**, hãy tự đặt tên đăng nhập và mật khẩu ban đầu. Tài khoản đầu tiên là super admin, form đóng vĩnh viễn sau đó; thêm người vào **Cài đặt → Quản lý người dùng**.
+   - Nếu để trống, backend **không** tạo tài khoản hộ bạn: màn hình đầu tiên là **form khởi tạo**, hãy tự đặt tên đăng nhập và mật khẩu ban đầu. Tài khoản đầu tiên là super admin, form đóng vĩnh viễn sau đó; thêm người vào **Cài đặt → Người dùng**.
 3. **Kết nối model** — vào **Cài đặt → Model & Kênh** và chọn một chế độ (chi tiết ở [Model & nhà cung cấp được hỗ trợ](#supported-models)):
    - **Chính thức** — dán một DC key từ <https://susciyuan.com>; mọi model đã được map, LocalAPI nghỉ.
    - **Tùy chỉnh** — một chạm khởi tạo LocalAPI, rồi thêm kênh upstream của bạn (API key + model ID) trong UI admin của nó.
@@ -449,7 +449,7 @@ DramaClaw giữ trung lập về model — mọi model text / ảnh / video / â
 
 > 🧠 **Tự chọn nơi tính toán — rẻ hơn, chủ động hơn.** Gateway được thiết kế để *chính bạn* quyết định mỗi lượt sinh chạy ở đâu:
 > - **Năng lực tính toán nhàn rỗi của AIPDD (giảm chi phí).** Kết nối kênh **AIPDD** cho phép việc sinh chạy trên **bể tính toán nhàn rỗi** của nền tảng, nên các công đoạn short-drama nặng chỉ tốn một phần nhỏ so với giá theo yêu cầu — đòn bẩy lớn nhất để hạ chi phí sản xuất. Đăng ký tại <https://www.aipdd.work> để lấy API key AIPDD, rồi thêm nó làm một kênh trong **Cài đặt → Model & Kênh**.
-> - **NewAPI, tự do phối hợp.** Gateway **NewAPI** đi kèm cho phép đăng ký nhiều nhà cung cấp làm kênh và **kết hợp chúng tùy ý** — official, AIPDD, máy tự vận hành, hoặc bất kỳ endpoint tương thích OpenAI nào — theo từng model, từng công đoạn. Với kênh NewAPI, chúng tôi khuyên **tự tìm nhà cung cấp và so giá**; danh sách tham khảo đã chọn lọc ở đây: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjfk>.
+> - **NewAPI, tự do phối hợp.** Gateway **NewAPI** đi kèm cho phép đăng ký nhiều nhà cung cấp làm kênh và **kết hợp chúng tùy ý** — official, AIPDD, máy tự vận hành, hoặc bất kỳ endpoint tương thích OpenAI nào — theo từng model, từng công đoạn. Với kênh NewAPI, chúng tôi khuyên **tự tìm nhà cung cấp và so giá**; danh sách tham khảo đã chọn lọc ở đây: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
 > - **ComfyUI, trên GPU của bạn — cách rẻ nhất để chạy sinh trên canvas.** Adapter **ComfyUI** hạng nhất định hướng việc sinh ảnh / video sang một workflow chạy trên **máy của bạn**: GPU của bạn render, **không tiêu hạn mức cloud theo mỗi lần gọi** — việc nặng chỉ tốn tiền điện, rẻ hơn hẳn mọi model hosted. Đăng ký endpoint ComfyUI cục bộ làm kênh trong chế độ **Custom** hoặc **Hybrid**.
 >   - **Cách cài ComfyUI nhanh nhất** — không cần cài thủ công hay môi trường Python: chỉ cần tải **trình khách tính toán (算力客户端)** đi kèm của chúng tôi rồi chạy trình cài đặt: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.
 >

@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -386,6 +387,10 @@ WHITEBOARD_IMAGE_STYLE_GUIDE = (
 )
 
 
+# 句末标点切分（与讲解链同一套标点，但各模块自备一份，避免白板去依赖 MG 讲解模块）。
+_SENTENCE_END_RE = re.compile(r"(?<=[。！？!?；;…])")
+
+
 def _strip_code_fence(text: str) -> str:
     stripped = text.strip()
     if not stripped.startswith("```"):
@@ -468,6 +473,113 @@ def parse_whiteboard_scenes(raw_text: object) -> list[dict[str, Any]]:
             weight = 1.0
         scenes.append({"scenePrompt": prompt, "keyText": key, "weight": weight})
     return scenes[:WHITEBOARD_MAX_SCENES]
+
+
+def build_whiteboard_draft_prompt(text: str, max_scenes: int = WHITEBOARD_MAX_SCENES) -> str:
+    """口播文案 -> 「逐幕文案 + 重点字 + 线稿描述」草稿 prompt。
+
+    与 ``build_whiteboard_script_prompt`` 只差一条：要让模型把**每一幕朗读的原文
+    片段**一起交回来。草稿面板要让用户逐幕改台词，只拿到画面描述的话「改稿」就
+    只剩改画面了，而用户不满意的永远是台词。
+    """
+    cap = max(1, min(int(max_scenes), WHITEBOARD_MAX_SCENES))
+    narration = str(text or "").strip()
+    return (
+        "你是白板动画的分镜师。把下面的口播文案切成不超过 "
+        f"{cap} 个连续画面（幕），每幕既要出画面，也要说清这一幕念哪几句。\n"
+        "只输出 JSON 数组，不要任何解释文字或代码块围栏。每个元素形如\n"
+        '{"text": "该幕朗读的原文片段（按顺序拼起来就是完整原文，不要改写、不要摘要）", '
+        '"keyText": "该幕顶部叠加的重点字词，4-10 个字，可以留空", '
+        '"scenePrompt": "该幕白板线稿的画面描述（不含任何文字）"}\n'
+        "幕数随文案长度自适应；text 必须首尾相接覆盖全文，不许漏句、不许重复。\n"
+        "scenePrompt 里明确“画面不要出现文字”。\n"
+        "\n口播文案：\n"
+        f"{narration}"
+    )
+
+
+def split_script_into_scenes(script: str, scene_count: int) -> list[str]:
+    """按句子边界把整段文案均分成 N 份（模型没按幕给文案时的兜底切分）。
+
+    只在草稿生成阶段用：模型若只回了画面描述没回原文，也要能给出可编辑的逐幕文案，
+    且拼回去必须是原文本身——按字数硬切会把句子劈成两半，念起来是断的。
+    """
+    text = " ".join(str(script or "").split())
+    parts = [part for part in _SENTENCE_END_RE.split(text) if part]
+    if not parts:
+        return []
+    count = max(1, min(int(scene_count or 1), len(parts)))
+    if count == 1:
+        return [text]
+    total = sum(len(part) for part in parts)
+    target = total / float(count)
+    out: list[str] = []
+    bucket: list[str] = []
+    bucket_chars = 0
+    for index, part in enumerate(parts):
+        bucket.append(part)
+        bucket_chars += len(part)
+        buckets_left = count - len(out) - 1
+        sentences_left = len(parts) - index - 1
+        # 剩余句子必须够后面每一份至少一句，否则不再收口：收口太早会让末几幕只剩
+        # 半句，拼回去确实是原文，但读起来断在句子中间。
+        if buckets_left > 0 and sentences_left > 0 and (
+            bucket_chars >= target or sentences_left <= buckets_left
+        ):
+            out.append("".join(bucket))
+            bucket = []
+            bucket_chars = 0
+    if bucket:
+        out.append("".join(bucket))
+    return out
+
+
+def parse_whiteboard_draft_scenes(
+    raw_text: object, script: str
+) -> list[dict[str, Any]]:
+    """草稿分镜 JSON -> ``[{text,keyText,scenePrompt}]``，并保证文案不丢。
+
+    模型的 ``text`` 不可靠（改写过、漏段、只给动画描述），所以算一下它交回来的原文
+    覆盖率：低于 75% 就当它没照做，按幕数用 ``split_script_into_scenes`` 重切原文。
+    宁可分幕不如模型好看，也不能让成片少念一段。
+    """
+    source = " ".join(str(script or "").split())
+    data = _load_json(raw_text)
+    if isinstance(data, dict):
+        data = data.get("scenes") or data.get("items") or [data]
+    entries = [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+    scenes: list[dict[str, Any]] = []
+    for item in entries:
+        prompt = str(item.get("scenePrompt") or item.get("prompt") or "").strip()
+        key = str(item.get("keyText") or item.get("key") or "").strip()[:_KEY_TEXT_MAX_CHARS]
+        text = " ".join(str(item.get("text") or item.get("narration") or "").split())
+        if not prompt and not key and not text:
+            continue
+        if len(scenes) >= WHITEBOARD_MAX_SCENES:
+            break
+        scenes.append({"text": text, "keyText": key, "scenePrompt": prompt})
+    if not scenes:
+        scenes = [{"text": "", "keyText": "", "scenePrompt": ""}]
+
+    delivered = "".join(scene["text"] for scene in scenes)
+    coverage = (len(delivered) / len(source)) if source else 1.0
+    if source and coverage < 0.75:
+        # 模型改写或漏段：按幕数重切原文，画面描述沿用模型给的那几幕。
+        pieces = split_script_into_scenes(source, len(scenes))
+        for index, scene in enumerate(scenes):
+            scene["text"] = pieces[index] if index < len(pieces) else ""
+        if len(pieces) > len(scenes):
+            for piece in pieces[len(scenes) :]:
+                scenes.append({"text": piece, "keyText": "", "scenePrompt": ""})
+    elif source:
+        # 覆盖率够，但可能有个别幕没给 text：把落单的句子补到空白幕上。
+        missing = [scene for scene in scenes if not scene["text"]]
+        if missing:
+            pieces = split_script_into_scenes(source, len(scenes))
+            for index, scene in enumerate(scenes):
+                if not scene["text"] and index < len(pieces):
+                    scene["text"] = pieces[index]
+    return scenes
 
 
 def compose_scene_image_prompt(scene_prompt: str) -> str:

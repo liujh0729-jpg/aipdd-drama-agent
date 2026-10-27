@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   ChevronDown,
+  ExternalLink,
   Eye,
   EyeOff,
   Loader2,
@@ -50,6 +51,8 @@ import {
   MEDIAKIT_BASE_URL,
   MINIMAX_BASE_URL,
   MINIMAX_CN_BASE_URL,
+  NEWAPI_DEFAULT_BASE_URL,
+  NEWAPI_RECOMMENDED_SITES_URL,
   OPENAI_OFFICIAL_BASE_URL,
   ANTHROPIC_BASE_URL,
   GEMINI_BASE_URL,
@@ -75,6 +78,7 @@ function ProviderConnectCard({
   saved,
   asrCredentials = false,
   minimaxVoiceCredentials = false,
+  recommendedSitesUrl,
   extra,
   defaultExpanded = true,
 }: {
@@ -96,6 +100,13 @@ function ProviderConnectCard({
    * （存渠道 settings.minimax.voiceId，与 volcengine 的 settings.asr 同形态）。
    */
   minimaxVoiceCredentials?: boolean;
+  /**
+   * [aipdd fork delta] Base URL 旁推荐的站点清单（可选）：外部 NewAPI 网关地址千差万别，
+   * 默认值留空，用户点这个链接去官方整理的清单里自己挑一个可用站点。
+   * 链接用 target=_blank：浏览器版开新标签页；DMG/EXE 壳里由 desktop 的
+   * on_new_window / on_navigation 转交系统默认浏览器（不在应用内开第二个 WebView）。
+   */
+  recommendedSitesUrl?: string;
   /**
    * [aipdd fork delta] 卡内子区块：归属于本渠道、但凭证真源独立的配置（如 VolcEngine
    * 下的火山 AI MediaKit）。自成一块并自带保存入口，排在渠道主体与上游模型列表之后。
@@ -338,10 +349,24 @@ function ProviderConnectCard({
           </div>
         ) : (
           <div className="space-y-1">
-            <Label className="inline-flex items-center text-[11px] text-muted-foreground">
-              Base URL
-              <InfoTip text={t("settings.modelConfig.cards.baseUrlTip")} side="right" />
-            </Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label className="inline-flex items-center text-[11px] text-muted-foreground">
+                Base URL
+                <InfoTip text={t("settings.modelConfig.cards.baseUrlTip")} side="right" />
+              </Label>
+              {recommendedSitesUrl ? (
+                <a
+                  href={recommendedSitesUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={t("settings.modelConfig.cards.recommendedSitesTip")}
+                  className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <ExternalLink className="size-3" aria-hidden />
+                  {t("settings.modelConfig.cards.recommendedSites")}
+                </a>
+              ) : null}
+            </div>
             <Input
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
@@ -735,7 +760,10 @@ function ProviderConnectCards({
         defaultExpanded={false}
         description={t("settings.modelConfig.cards.newApiExternalDescription")}
         provider="newapi"
-        presetBaseUrl=""
+        // [aipdd fork delta] 默认站点为空：地址是部署方数据，不预填；
+        // 卡上给「推荐 NewAPI 站点」按钮，用户自己去清单里挑。
+        presetBaseUrl={NEWAPI_DEFAULT_BASE_URL}
+        recommendedSitesUrl={NEWAPI_RECOMMENDED_SITES_URL}
         saved={savedFor("newapi")}
       />
       {/*

@@ -836,6 +836,54 @@ export async function submitFreezoneVideoMix(
   );
 }
 
+// /freezone/explainer-script ----------------------------------------------- //
+
+/**
+ * [aipdd fork delta] 讲解类视频「台词草稿」（两段式第一段）：只跑文本、不配音不渲染，
+ * 产出可逐镜编辑的纯 JSON。科普讲解（kind=explainer）要参考资料，白板动画
+ * （kind=whiteboard）要口播文案；改完把整份草稿作为成片任务的 lockedScript 交回。
+ */
+export interface FreezoneExplainerScriptPayload {
+  /** 草稿类型：explainer 科普讲解（分章解说词 + 受限分镜）/ whiteboard 白板逐幕切分。 */
+  kind: "explainer" | "whiteboard";
+  /** 科普讲解必填：参考资料（主题说明 / 文章 / 文档正文，1-12000 字）。 */
+  referenceContent?: string;
+  /** 白板动画必填：要切幕的口播文案（1-10000 字）。 */
+  script?: string;
+  /** 片名提示（可选）；留空由模型自拟。 */
+  title?: string;
+  /** 科普讲解目标时长（秒），自动夹到 90-330；默认 180。 */
+  durationS?: number;
+  /** 白板动画分幕数上限 1-12，默认 8。 */
+  maxScenes?: number;
+  /** 文本（LLM）模型 id；留空走系统默认文本链。 */
+  modelText?: string;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）。 */
+  sourceTool?: string;
+}
+
+export async function submitFreezoneExplainerScript(
+  project: string,
+  payload: FreezoneExplainerScriptPayload,
+): Promise<FreezoneJobRef> {
+  return await apiCall<FreezoneJobRef>(
+    `projects/${encodeURIComponent(project)}/freezone/explainer-script`,
+    {
+      method: "POST",
+      json: {
+        kind: payload.kind,
+        reference_content: payload.referenceContent ?? "",
+        script: payload.script ?? "",
+        title: payload.title ?? "",
+        duration_s: normalizeNumberInput(payload.durationS, 180, 90, 330, true),
+        max_scenes: normalizeNumberInput(payload.maxScenes, 8, 1, 12, true),
+        ...(payload.modelText ? { model_text: payload.modelText } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
+      },
+    },
+  );
+}
+
 // /freezone/whiteboard-animation ------------------------------------------- //
 
 /**
@@ -874,6 +922,11 @@ export interface FreezoneWhiteboardAnimationPayload {
   archiveToLibrary?: boolean;
   /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）；写入 metadata.source_tool。 */
   sourceTool?: string;
+  /**
+   * [aipdd fork delta] 两段式第二段：用户在台词草稿里改完的整份草稿。给了它就不再
+   * 调文本模型切幕，旁白与画面都按这份稿子出；草稿不合法时任务失败并说明原因。
+   */
+  lockedScript?: Record<string, unknown> | null;
 }
 
 export async function submitFreezoneWhiteboardAnimation(
@@ -915,6 +968,7 @@ export async function submitFreezoneWhiteboardAnimation(
           : { bgm_volume: clampNumberInput(payload.bgmVolume, 0.2, 0, 1) }),
         ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
         ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
+        ...(payload.lockedScript ? { locked_script: payload.lockedScript } : {}),
       },
     },
   );
@@ -960,6 +1014,11 @@ export interface FreezoneExplainerVideoPayload {
   archiveToLibrary?: boolean;
   /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）；写入 metadata.source_tool。 */
   sourceTool?: string;
+  /**
+   * [aipdd fork delta] 两段式第二段：用户在台词草稿里逐镜改完的整份草稿。给了它就跳过
+   * 两次文本调用，直接按稿里的台词配音、按稿里的图元出片；草稿不合法时任务失败。
+   */
+  lockedScript?: Record<string, unknown> | null;
 }
 
 export async function submitFreezoneExplainerVideo(
@@ -999,6 +1058,7 @@ export async function submitFreezoneExplainerVideo(
         ...(payload.model ? { model: payload.model } : {}),
         ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
         ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
+        ...(payload.lockedScript ? { locked_script: payload.lockedScript } : {}),
       },
     },
   );
@@ -1059,6 +1119,73 @@ export async function submitFreezoneArticleWrite(
         author: payload.author ?? "",
         ...(payload.modelText ? { model_text: payload.modelText } : {}),
         ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
+      },
+    },
+  );
+}
+
+export type OralScriptFormula =
+  | "auto"
+  | "judgment"
+  | "qa"
+  | "on_site"
+  | "contrarian"
+  | "event";
+
+/**
+ * [aipdd fork delta] 短视频口播稿创作（工具栏首项）：处境（我是谁 / 想吸引谁 / 手里
+ * 能拍什么）+ 素材 → 一条可以直接念的逐字稿。方法论蒸馏自开源技能包「太上老君·AI
+ * 炼丹炉」（CC BY-NC 4.0，不可商用）。写作只走一次网关文本模型；本地去 AI 味机械预检
+ * 命中假对比这类硬伤时自动追加**一轮**定向重写。产物为结果 JSON + 一份净台词 txt。
+ */
+export interface FreezoneOralScriptPayload {
+  /** 这条想讲什么（如「我为什么不给客户做全案」）；与素材至少填一项。 */
+  topic?: string;
+  /** 我是谁 / 立场与经历（第一人称经历只有写过事实里的人物才给，可选）。 */
+  persona?: string;
+  /** 素材：手写要点、粘贴的文案或事实材料（≤12000 字）。 */
+  material?: string;
+  /** 想吸引谁（可选）。 */
+  audience?: string;
+  /** 拍摄条件：坐着讲 / 边走边拍 / 只有实物特写（可选）。 */
+  scene?: string;
+  /** 说话样子：语速、称呼、口头禅等语气提示（可选）。 */
+  tone?: string;
+  /** 结构套路：auto 由内容定（默认）/ judgment / qa / on_site / contrarian / event。 */
+  formula?: OralScriptFormula;
+  /** 目标口播时长（秒），自动夹到 10-180；默认 60。 */
+  durationS?: number;
+  /** 标题候选条数，自动夹到 1-5；默认 3。 */
+  titleCount?: number;
+  /** 命中假对比等硬伤时自动补一轮重写（默认开）。 */
+  rewriteHardHits?: boolean;
+  /** 文本（LLM）模型 id；留空走系统默认文本链。 */
+  modelText?: string;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）。 */
+  sourceTool?: string;
+}
+
+export async function submitFreezoneOralScript(
+  project: string,
+  payload: FreezoneOralScriptPayload,
+): Promise<FreezoneJobRef> {
+  return await apiCall<FreezoneJobRef>(
+    `projects/${encodeURIComponent(project)}/freezone/oral-script`,
+    {
+      method: "POST",
+      json: {
+        topic: payload.topic ?? "",
+        persona: payload.persona ?? "",
+        material: payload.material ?? "",
+        audience: payload.audience ?? "",
+        scene: payload.scene ?? "",
+        tone: payload.tone ?? "",
+        formula: payload.formula ?? "auto",
+        duration_s: normalizeNumberInput(payload.durationS, 60, 10, 180, true),
+        title_count: normalizeNumberInput(payload.titleCount, 3, 1, 5, true),
+        rewrite_hard_hits: payload.rewriteHardHits ?? true,
+        ...(payload.modelText ? { model_text: payload.modelText } : {}),
         ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
       },
     },
@@ -1302,6 +1429,71 @@ export async function fetchFreezoneArticleResult(
   return await apiCall<FreezoneArticleResult>(
     `projects/${encodeURIComponent(project)}/freezone/jobs/freezone_article_write/${encodeURIComponent(jobId)}/result`,
   );
+}
+
+/** 成稿分节记录（``id`` 是稳定 ASCII 标识，``title`` 是后端契约里的原始节名）。 */
+export interface OralScriptSection {
+  /** core / opening / script / why / titles / shoot（与后端 SECTION_IDS 同源）。 */
+  id: string;
+  title: string;
+  body: string;
+}
+
+/** 标题候选单条（后端从「标题候选」一节解析出来，推荐位由模型标出）。 */
+export interface OralScriptTitleCandidate {
+  title: string;
+  recommended: boolean;
+  note: string;
+}
+
+/** 去 AI 味命中的单句：``kind=hard`` 是假对比这类默认要改的硬拦。 */
+export interface OralScriptAiTellHit {
+  kind: "hard" | "soft";
+  rule: string;
+  line: number;
+  text: string;
+}
+
+/** 随产物交付的去 AI 味体检报告（``passed`` 只看硬拦，软提醒不阻断）。 */
+export interface OralScriptAiTellReport {
+  passed: boolean;
+  hard_count: number;
+  soft_count: number;
+  hard: OralScriptAiTellHit[];
+  soft: OralScriptAiTellHit[];
+}
+
+/**
+ * freezone_oral_script 产物结果（六节成稿 + 净台词 + 体检报告）。与公众号文章不同，
+ * 本工具的产物全是文本，工具页面板直接读任务中心缓存里的 ``task.result``（与
+ * media-copywrite / video-reverse-script 同一口径），不另起一次 ``/result`` 回读。
+ */
+export interface FreezoneOralScriptResult {
+  /** 推荐标题（无标记时退到首条候选）。 */
+  title: string;
+  formula: OralScriptFormula | string;
+  duration_s: number;
+  title_count: number;
+  model: string;
+  /** 六节成稿：内核 / 开头 / 口播逐字稿 / 为什么这么排 / 标题候选 / 拍之前。 */
+  sections: OralScriptSection[];
+  /** 口播逐字稿全文（含镜头提示）。 */
+  script: string;
+  /** 净台词：剥掉镜头提示后只留嘴上要念的话。 */
+  spoken_text: string;
+  lines: string[];
+  stage_notes: string[];
+  titles: OralScriptTitleCandidate[];
+  first_line: string;
+  word_count: number;
+  estimated_seconds: number;
+  txt_url: string;
+  /** 是否真的用上了重写结果（true 才是交付重写稿）。 */
+  rewritten: boolean;
+  /** 是否跑过那一轮重写：重写没交出合格稿时会保留初稿，此时 rewritten=false。 */
+  rewrite_attempted: boolean;
+  rewrite_reason: "" | "structure" | "ai_tell";
+  ai_tell: OralScriptAiTellReport;
 }
 
 /**

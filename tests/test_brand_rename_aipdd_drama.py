@@ -69,13 +69,16 @@ def test_no_tool_keeps_dramaclaw_prefix() -> None:
     # [aipdd fork delta] 口播智能剪辑（aipdd_drama_narration_smart_edit）注册，名册 104 → 105；
     # 其后计划/导入导出/动效大片等工具陆续注册至 121。
     # [aipdd fork delta] 环境与代码自愈（aipdd_drama_self_heal）注册，名册 121 → 122。
-    assert len(names) == len(set(names)) == 122
+    # [aipdd fork delta] 短视频口播稿创作（aipdd_drama_oral_script）注册，名册 122 → 123。
+    assert len(names) == len(set(names)) == 123
     # 通用 REST 面与两个一键自动化工具都在新前缀下。
     assert {"aipdd_drama_get", "aipdd_drama_post", "aipdd_drama_auto_storyboard", "aipdd_drama_video_range"} <= set(names)
     # [aipdd fork delta] 工具页白板动画在新前缀下。
     assert "aipdd_drama_whiteboard_animation" in set(names)
     # [aipdd fork delta] 工具页科普讲解视频在新前缀下。
     assert "aipdd_drama_explainer_video" in set(names)
+    # [aipdd fork delta] 工具页短视频口播稿（菜单首项）在新前缀下。
+    assert "aipdd_drama_oral_script" in set(names)
     # [aipdd fork delta] 编排层四工具（run_pipeline / get_run_status / cancel_run / suggest_config）已注册。
     assert {
         "aipdd_drama_run_pipeline",

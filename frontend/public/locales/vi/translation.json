@@ -1811,6 +1811,7 @@
       "vectcutListOptions": "Liệt kê tên tùy chọn VectCut (chuyển cảnh, mặt nạ, hoạt ảnh, hiệu ứng, phông chữ).",
       "vectcutGetDuration": "Lấy thời lượng tệp media (giây).",
       "vectcutSaveDraft": "Lưu bản nháp để mở và tinh chỉnh trong Jianying/CapCut.",
+      "oralScript": "Rèn kịch bản đọc: nói rõ bạn là ai, muốn thu hút ai, quay được gì → kịch bản từng chữ đọc được + lời đọc sạch + kiểm tra mùi AI.",
       "videoClone": "Tái tạo video tham chiếu trọn quy trình: phân tích khung hình → dựng lại từng cảnh → ghép thành phẩm.",
       "videoMix": "Ghép hỗn hợp ảnh/video theo thứ tự lặp đầy khung thời lượng, thêm thuyết minh, phụ đề và nhạc nền.",
       "whiteboardAnimation": "Video bảng trắng: tách lời đọc theo cảnh do AI lên kế hoạch, tô lần từng nét trên bản vẽ nèn kem rồi ghép cùng lời đọc, kết xuất hoàn toàn tại máy.",
@@ -2102,6 +2103,62 @@
       "title": "Video thuyết minh",
       "desc": "Hai phong cách dựng cho cùng một loại video thuyết minh: bảng vẽ tay tô lần từng nét, hoặc motion graphics chia chương. Cả hai chỉ cần dán kịch bản hay tài liệu tham khảo; hình ảnh và lời đọc đều kết xuất tại máy.",
       "typeLabel": "Loại thuyết minh"
+    },
+    "explainerScript": {
+      "title": "Bản nháp lời bình",
+      "hint": "Chạy riêng bước văn bản trước để có bản nháp sửa được từng cảnh, rồi mới xuất video. Sửa một câu không còn phải làm lại cả video.",
+      "generate": "Tạo bản nháp lời bình",
+      "regenerate": "Tạo lại bản nháp",
+      "waiting": "Đang viết bản nháp: chỉ chạy văn bản, thường vài chục giây…",
+      "discard": "Xoá bản nháp",
+      "empty": "Chưa có bản nháp: khi xuất video mô hình sẽ tự viết lời bình (tạo bản nháp trước để xem và sửa).",
+      "lockedNote": "Khi xuất video sẽ đọc đúng bản nháp trên và không gọi mô hình văn bản nữa.",
+      "summary": "{{shots}} cảnh quay · khoảng {{seconds}} giây",
+      "summaryScenes": "{{scenes}} cảnh · khoảng {{seconds}} giây",
+      "shotLabel": "Cảnh quay {{n}}",
+      "sceneLabel": "Cảnh {{n}}",
+      "chapter": "Chương",
+      "chapterPlaceholder": "ví dụ: Câu hỏi bắt đầu từ đâu",
+      "headline": "Chữ lớn trên hình",
+      "headlinePlaceholder": "Chữ lớn trên cảnh quay này (≤14 ký tự)",
+      "sentences": "Lời bình (mỗi dòng một câu)",
+      "sentencesPlaceholder": "Các câu đọc trong cảnh quay này, mỗi dòng một câu; xoá trống để bỏ qua",
+      "emptyShot": "Cảnh quay này không có lời bình nên sẽ bị bỏ qua khi xuất video.",
+      "primitive": "Hình thức hiển thị",
+      "motion": "Hiệu ứng vào",
+      "items": "Ý chính (cách nhau bằng dấu phẩy)",
+      "itemsPlaceholder": "ví dụ: truy xuất, mở rộng, tạo sinh",
+      "numbers": "Con số (cách nhau bằng dấu phẩy)",
+      "numbersPlaceholder": "ví dụ: 12, 340",
+      "sceneText": "Lời bình của cảnh này",
+      "sceneTextPlaceholder": "Các câu đọc trong cảnh này (xoá trống để bỏ cảnh)",
+      "keyText": "Từ nhấn mạnh",
+      "keyTextPlaceholder": "Chữ được nhấn trên hình (≤12 ký tự)",
+      "scenePrompt": "Mô tả nét vẽ",
+      "scenePromptPlaceholder": "Vẽ gì trong cảnh này (nét đơn giản, không chữ)",
+      "sourceChanged": "Văn bản gốc đã đổi nhưng bản nháp vẫn là bản cũ: hãy tạo lại bản nháp hoặc xoá trước khi xuất video.",
+      "needContent": "Bản nháp không còn lời bình: hãy bổ sung trước khi xuất video",
+      "submittedHint": "Bản nháp chỉ chạy văn bản; sửa xong hãy bấm xuất video",
+      "taskListBadge": "bản nháp",
+      "removeShot": "Xoá cảnh quay này",
+      "removeScene": "Xoá cảnh này",
+      "primitives": {
+        "term": "Thẻ thuật ngữ",
+        "flow": "Các bước quy trình",
+        "compare": "So sánh trái phải",
+        "bars": "Cột số liệu",
+        "bignumber": "Con số lớn",
+        "list": "Danh sách ý",
+        "cycle": "Vòng lặp",
+        "timeline": "Dòng thời gian"
+      },
+      "motions": {
+        "softin": "Mờ dần vào",
+        "typewriter": "Máy đánh chữ",
+        "lightup": "Sáng lên",
+        "travel": "Trượt",
+        "countup": "Đếm số"
+      }
     },
     "whiteboardAnimation": {
       "title": "Video bảng trắng",
@@ -2487,7 +2544,7 @@
     },
     "faceSwapLive": {
       "title": "Đổi mặt trực tiếp",
-      "desc": "Công cụ đổi mặt trên máy cục bộ: camera được đổi mặt rồi xuất tới camera ảo của hệ thống để OBS/phần mềm phát trực tiếp đọc trực tiếp. Trang này chỉ tải ảnh khuôn mặt, chỉnh tham số và bật/tắt — video không đi qua trình duyệt. Trên máy tính để bàn/cục bộ, hãy hoàn tất “Tải và triển khai” rồi bật trong Cài đặt → Môi trường."
+      "desc": "Công cụ đổi mặt trên máy cục bộ: camera được đổi mặt rồi xuất tới camera ảo của hệ thống để OBS/phần mềm phát trực tiếp đọc trực tiếp. Trang này chỉ tải ảnh khuôn mặt, chỉnh tham số và bật/tắt — video không đi qua trình duyệt. Trên máy tính để bàn/cục bộ, hãy hoàn tất “Tải và triển khai” rồi bật trong Cài đặt → Cài đặt môi trường."
     },
     "contentCreation": {
       "title": "Sáng tạo nội dung",
@@ -2592,6 +2649,72 @@
       "bgmVolumePlaceholder": "Trống = tự động",
       "needSource": "Cung cấp tài liệu nguồn hoặc job_id bài viết",
       "submit": "Tạo video ngắn theo kênh"
+    },
+    "oralScript": {
+      "title": "Kịch bản đọc cho video ngắn",
+      "desc": "Nói rõ bạn là ai, muốn thu hút ai và quay được gì, để ra một kịch bản đọc từng chữ có thể đọc thẳng trước camera",
+      "licenseNotice": "Phương pháp chắt lọc từ gói kỹ năng mã nguồn mở “taishang-laojun” (CC BY-NC 4.0, phi thương mại).",
+      "topicLabel": "Video này nói về gì",
+      "topicPlaceholder": "vd: Vì sao tôi không còn nhận toàn bộ kênh cho khách",
+      "personaLabel": "Tôi là ai",
+      "personaPlaceholder": "vd: tám năm dựng phim, giờ chỉ nhận vận hành video ngắn",
+      "personaHint": "Trải nghiệm ngôi thứ nhất chỉ viết điều bạn xác nhận đã xảy ra: không bịa thân phận, không bịa case.",
+      "materialLabel": "Tư liệu",
+      "materialPlaceholder": "Gạch đầu dòng, bản nháp dán vào hoặc dữ kiện (tối đa 12000 ký tự)",
+      "materialHint": "Tư liệu càng cụ thể càng dễ viết: số liệu, mốc thời gian, câu đã nói hơn tính từ.",
+      "audienceLabel": "Muốn thu hút ai",
+      "audiencePlaceholder": "vd: chủ cửa hàng tự dựng video",
+      "sceneLabel": "Điều kiện quay",
+      "scenePlaceholder": "vd: ngồi nói trước camera / chỉ có cận cảnh sản phẩm",
+      "toneLabel": "Cách tôi nói",
+      "tonePlaceholder": "vd: nói nhanh, không khẩu hiệu, hơi châm biếm",
+      "formulaLabel": "Cấu trúc",
+      "formulaOptions": {
+        "auto": "Để nội dung quyết định (khuyên dùng)",
+        "judgment": "Nhận định chủ đề nóng",
+        "qa": "Giải đáp chuyên môn",
+        "on_site": "Tại hiện trường",
+        "contrarian": "Nói ngược số đông",
+        "event": "Câu chuyện làm bằng chứng"
+      },
+      "durationLabel": "Thời lượng mục tiêu",
+      "durationOption": "khoảng {{n}} giây",
+      "titleCountLabel": "Số tiêu đề ứng viên",
+      "textModelLabel": "Mô hình viết",
+      "textModelAuto": "Theo mặc định hệ thống",
+      "textModelHint": "Để trống sẽ dùng chuỗi văn bản mặc định; một lần gửi chỉ ra một kịch bản.",
+      "rewriteToggle": "Khi phát hiện câu so sánh giả, tự viết lại đúng những câu đó một lần",
+      "submit": "Rèn kịch bản",
+      "needTopicOrMaterial": "Hãy viết video này nói về gì, hoặc dán tư liệu vào trước",
+      "submittedHint": "Kịch bản đang được rèn nền; xem kết quả trong danh sách tác vụ bên dưới",
+      "result": "Bản mới nhất",
+      "resultEmpty": "Chưa có tác vụ kịch bản đọc nào hoàn thành.",
+      "stats": "{{n}} ký tự đọc · đọc hết khoảng {{s}} giây",
+      "copy": "Sao chép lời đọc",
+      "copied": "Đã sao chép lời đọc",
+      "openTxt": "Mở file txt lời đọc",
+      "rewrittenAiTell": "Kiểm tra cục bộ phát hiện câu so sánh giả, nên chỉ viết lại những câu đó một lần.",
+      "rewrittenStructure": "Bản đầu thiếu phần đọc được, đã viết thêm một vòng mới giao.",
+      "rewriteKeptDraft": "Vòng viết lại không tạo ra bản dùng được nên giữ bản nháp đầu; hãy tự xem lại các lỗi trong báo cáo bên dưới.",
+      "emptyBody": "Tác vụ đã xong nhưng bản nháp không có phần lời đọc. Hãy bổ sung tư liệu hoặc đổi góc nhìn rồi gửi lại.",
+      "spokenLabel": "Lời đọc sạch (dùng cho teleprompter / lồng tiếng)",
+      "titlesLabel": "Tiêu đề ứng viên",
+      "recommended": "Khuyên dùng",
+      "aiTellLabel": "Kiểm tra mùi AI",
+      "aiTellPass": "Kiểm tra cơ học không phát hiện câu so sánh giả.",
+      "aiTellHard": "Lỗi nặng (mặc định phải sửa)",
+      "aiTellSoft": "{{n}} nhắc nhở nhẹ",
+      "aiTellLimit": "Không phát hiện không có nghĩa là hết mùi AI: tự đọc to một lần, câu nào vấp môi thì chưa phải người nói.",
+      "sectionsLabel": "Bản đầy đủ (kèm chỉ dẫn quay và sáu mục)",
+      "section": {
+        "core": "Lõi nội dung",
+        "opening": "Mở đầu",
+        "script": "Kịch bản từng chữ",
+        "why": "Vì sao xếp vậy",
+        "titles": "Tiêu đề ứng viên",
+        "shoot": "Trước khi quay"
+      },
+      "sectionEmpty": "Mô hình không viết mục này."
     },
     "narrationSmartEdit": {
       "title": "biên tập thuyết minh thông minh",
@@ -4174,7 +4297,38 @@
         "saved": "Đã tạo kịch bản và lưu vào thư viện kịch bản: {{filename}}"
       },
       "explainer": {
-        "renderingFrames": "Đang vẽ từng khung MG…"
+        "renderingFrames": "Đang vẽ từng khung MG…",
+        "narration": "Đang chuyển tài liệu tham khảo thành lời bình...",
+        "storyboard": "Đang lập kế hoạch phân cảnh thuyết minh...",
+        "voice": "Đang tổng hợp lời bình thuyết minh...",
+        "frames": "Đang tạo dự án khung HyperFrames...",
+        "render": "Đang gọi dịch vụ kết xuất để xuất không giao diện...",
+        "mix": "Đang trộn lời bình và nhạc nền...",
+        "register": "Đang đăng ký video thuyết minh..."
+      },
+      "explainerDraft": {
+        "locked": "Đang xuất phim theo bản nháp lời bình đã xác nhận...",
+        "whiteboardScenes": "Đang chia lời bình thành các cảnh bảng trắng...",
+        "collect": "Đang tổng hợp bản nháp lời bình..."
+      },
+      "whiteboard": {
+        "plan": "Đang lập kế hoạch phân cảnh bảng trắng...",
+        "voice": "Đang tổng hợp lời bình bảng trắng...",
+        "assemble": "Đang ghép phim hoạt hình bảng trắng...",
+        "register": "Đang đăng ký phim hoạt hình bảng trắng..."
+      },
+      "plan": {
+        "busy": "Kế hoạch đang được một yêu cầu khác thực thi, vui lòng thử lại sau.",
+        "done": "Kế hoạch đã hoàn tất.",
+        "noAutoItems": "Kế hoạch không còn mục nào có thể tự chạy (các mục còn lại thiếu stage, là việc thủ công).",
+        "runFailed": "Chạy “{{title}}” thất bại: {{error}}",
+        "advanceFailed": "Thực thi đến “{{title}}” thất bại: {{error}}",
+        "missingStory": "Đường ống cần bổ sung nội dung câu chuyện.",
+        "runningBudgetExhausted": "Đang chạy {{stage}}, ngân sách đã hết.",
+        "needsClientImage": "Giai đoạn {{stage}} cần khả năng tạo ảnh phía máy khách, máy chủ không thể chạy thay.",
+        "triggered": "Đã kích hoạt {{stage}} ({{title}})",
+        "triggeredBudgetExhausted": "Đã kích hoạt {{stage}}, tác vụ vẫn đang chạy và ngân sách đã hết.",
+        "progressed": "Đã tiến {{steps}} đoạn trong ngân sách, còn {{remaining}} mục có thể chạy chưa hoàn thành."
       },
       "music": {
         "start": "Đang tạo nhạc...",
@@ -4182,6 +4336,11 @@
       },
       "elevenMusic": {
         "start": "Đang tạo nhạc từ văn bản..."
+      },
+      "oralScript": {
+        "start": "Bắt đầu viết kịch bản đọc...",
+        "rewriteHard": "Kiểm tra cục bộ phát hiện câu mang mùi AI, đang viết lại riêng những câu đó một lượt...",
+        "lint": "Đang tách lời đọc và chạy kiểm tra mùi AI..."
       },
       "videoDubbing": {
         "start": "Bắt đầu lồng tiếng video...",
@@ -8845,7 +9004,7 @@
         "mirror": "Lật ngược",
         "detSize": "Kích thước phát hiện",
         "provider": "Backend suy luận",
-        "notReady": "Hãy hoàn tất Tải & Triển khai trong Cài đặt → Môi trường và bật Đổi mặt trực tiếp trước.",
+        "notReady": "Hãy hoàn tất Tải & Triển khai trong Cài đặt → Cài đặt môi trường và bật Đổi mặt trực tiếp trước.",
         "localOnly": "Đổi mặt trực tiếp chỉ khả dụng ở dạng máy tính để bàn/cục bộ.",
         "obsHint": "Sau khi khởi động, chọn camera ảo hệ thống trong OBS/phần mềm phát sóng."
       }
@@ -9213,6 +9372,7 @@
         "upstreamKey": "API Key phía nhà cung cấp",
         "baseUrlOverride": "Ghi đè Base URL",
         "baseUrlPlaceholder": "Thường để trống; sẽ dùng preset của nhà cung cấp",
+        "baseUrlRequiredPlaceholder": "Điền địa chỉ trang NewAPI của bạn, ví dụ https://newapi.example.com",
         "removeChannel": "Xoá kênh",
         "noChannelsHint": "Chưa thêm kênh nhà cung cấp nào. Hãy thêm kênh trước, rồi chọn kênh đó cho model theo tính năng.",
         "noChannels": "Hãy thêm một kênh nhà cung cấp trước.",
@@ -9370,6 +9530,8 @@
         "volcengineDescription": "Cổng VolcEngine Ark tương thích OpenAI: Base URL là endpoint cố định nên không cần điền — chỉ cần dán API Key. Bên dưới lần lượt là danh sách model upstream chỉ đọc, thông tin xác thực Doubao Speech ASR (tùy chọn) và khối con Volcengine AI MediaKit thuộc kênh này — hai mục sau luôn đi kèm kênh này, không phải kênh nhà cung cấp riêng.",
         "newApiExternalTitle": "NewAPI",
         "newApiExternalDescription": "Điền URL tương thích NewAPI / OpenAI và Key của bạn.",
+        "recommendedSites": "Trang NewAPI gợi ý",
+        "recommendedSitesTip": "Mở danh sách trang NewAPI do chính thức tổng hợp và chọn một trang dùng được.",
         "noModelList": "{{title}} không trả về danh sách model (upstream có thể không hỗ trợ /models)",
         "fetchFailed": "Lấy model thất bại",
         "needApiKey": "Vui lòng nhập API Key trước",
@@ -9831,7 +9993,7 @@
       "items": {
         "gateway_configured": {
           "name": "Cấu hình cổng",
-          "fix": "Điền URL cổng và khóa trong Cài đặt → Mô hình & Kênh."
+          "fix": "Điền URL cổng và khóa trong Cài đặt → Model & Kênh."
         },
         "gateway_reachable": {
           "name": "Kết nối cổng",
@@ -9847,7 +10009,7 @@
         }
       },
       "fix": {
-        "defaultModel": "Chọn mô hình mặc định cho danh mục này trong Cài đặt → Mô hình & Kênh."
+        "defaultModel": "Chọn mô hình mặc định cho danh mục này trong Cài đặt → Model & Kênh."
       }
     },
     "configBackup": {

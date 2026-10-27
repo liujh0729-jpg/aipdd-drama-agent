@@ -312,6 +312,58 @@ async def _enqueue_or_start_freezone_article_write(
     _freezone._raise_project_context_required("freezone_article_write")
 
 
+async def _enqueue_or_start_freezone_oral_script(
+    *,
+    ctx: ProjectContext | None,
+    username: str,
+    project: str,
+    project_dir: Path,
+    output_dir: str,
+    job_id: str,
+    payload: dict,
+) -> dict:
+    """[aipdd fork delta] 短视频口播稿创作：一次文本生成（硬拦时多一轮重写）+ 本地检查，走 default 队列。"""
+    if ctx is not None:
+        return await _freezone._enqueue_freezone_background_job(
+            ctx=ctx,
+            project_dir=project_dir,
+            task_type="freezone_oral_script",
+            job_id=job_id,
+            payload=payload,
+            queue_kind="default",
+        )
+
+    _freezone._raise_project_context_required("freezone_oral_script")
+
+
+async def _enqueue_or_start_freezone_explainer_script(
+    *,
+    ctx: ProjectContext | None,
+    username: str,
+    project: str,
+    project_dir: Path,
+    output_dir: str,
+    job_id: str,
+    payload: dict,
+) -> dict:
+    """[aipdd fork delta] 讲解类视频台词草稿：只跑文本，走 default 队列。
+
+    与成片分属两条队列很重要：草稿要和其它短文本任务一起快速回，成片则和渲染
+    抢 video 队列。若混在 video 队列里，一次排队就会让「只看一眼台词」变成等渲染。
+    """
+    if ctx is not None:
+        return await _freezone._enqueue_freezone_background_job(
+            ctx=ctx,
+            project_dir=project_dir,
+            task_type="freezone_explainer_script",
+            job_id=job_id,
+            payload=payload,
+            queue_kind="default",
+        )
+
+    _freezone._raise_project_context_required("freezone_explainer_script")
+
+
 async def _enqueue_or_start_freezone_video_idea(
     *,
     ctx: ProjectContext | None,

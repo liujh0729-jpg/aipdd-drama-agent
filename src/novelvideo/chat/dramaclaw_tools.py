@@ -3902,6 +3902,45 @@ def _handle_article_write(args: dict[str, Any], **_: Any) -> str:
         return tool_error(str(exc))
 
 
+def _handle_oral_script(args: dict[str, Any], **_: Any) -> str:
+    """短视频口播稿创作（freezone_oral_script）：处境 + 素材 → 能直接念的逐字稿。
+
+    方法论蒸馏自开源技能包「太上老君·AI炼丹炉」（CC BY-NC 4.0，不可商用）：炉心七条
+    底层判断、开炉的第一句与勾证衔接、改稿六刀与去 AI 味都压进后端那一条写作指令。
+    出网只有一处——网关文本模型（EG-18a，与公众号文章同一口径）；章节切分、净台词提取
+    与去 AI 味机械预检都是本地确定性代码，命中假对比这类硬伤时自动追加**一轮**定向重写
+    （原方法论就限定「最多一轮有依据的修改」）。产物为结果 JSON + 一份净台词 txt，不入资产库；
+    topic 与 material 至少填一项。
+    """
+    try:
+        project = _project_from_args(args)
+        topic = str(args.get("topic") or "").strip()
+        material = str(args.get("material") or "").strip()
+        if not topic and not material:
+            raise ValueError("topic or material is required")
+        if material and len(material) > 12_000:
+            raise ValueError("material must be <= 12000 characters")
+        body: dict[str, Any] = {"topic": topic, "material": material}
+        for key in (
+            "persona",
+            "audience",
+            "scene",
+            "tone",
+            "formula",
+            "duration_s",
+            "title_count",
+            "rewrite_hard_hits",
+            "model_text",
+        ):
+            if args.get(key) is not None:
+                body[key] = args[key]
+        return tool_result(
+            _request("POST", f"/api/v1/projects/{project}/freezone/oral-script", body=body)
+        )
+    except Exception as exc:
+        return tool_error(str(exc))
+
+
 def _handle_article_publish(args: dict[str, Any], **_: Any) -> str:
     """发布已排版的公众号文章（freezone_article_publish，同步）：草稿箱 / 可选直发。
 
@@ -7199,6 +7238,38 @@ TOOLS = (
             },
         ),
         _handle_article_write,
+    ),
+    (
+        "aipdd_drama_oral_script",
+        _schema(
+            "aipdd_drama_oral_script",
+            "Forge a short-video talk script (短视频口播稿创作, task_type=freezone_oral_script) - the first "
+            "entry of the Tools page. Provide topic and/or material (at least one) plus your situation (who you "
+            "are, who you want to reach, what you can actually shoot). The gateway text model returns a "
+            "six-section deliverable (core / opening / word-for-word script / why this order / title candidates "
+            "/ before you shoot) that is meant to be read straight to camera; the method behind it is distilled "
+            "from the open skill pack taishang-laojun (CC BY-NC 4.0, non-commercial). Only the single text-model "
+            "call is gateway-routed (EG-18a); section parsing, spoken-line extraction and the AI-tell lint are "
+            "local deterministic code, and a hard hit (fake-contrast shell) automatically triggers ONE targeted "
+            "rewrite of exactly those sentences. The model is told never to invent facts or first-person "
+            "experience. Produces a result JSON + a spoken-lines txt (not archived to the asset library) - poll "
+            "with GET /projects/{project}/freezone/jobs/freezone_oral_script/{job_id}/result.",
+            {
+                "project_id": _TOOLS_PAGE_PROJECT_PROP,
+                "topic": {"type": "string", "description": "What this video is about (e.g. 山里的散养鸡今天下的蛋); at least one of topic / material is required."},
+                "persona": {"type": "string", "description": "Who you are: identity, trade, years of experience, what is in your hands. Decides whether first-person experience may appear at all; leave empty and the script will contain none."},
+                "material": {"type": "string", "description": "Material: your own dictated text, an AI draft to rework, or a reference transcript (0-12000 characters). Facts are taken only from this - borrow the viewpoint, not the skeleton."},
+                "audience": {"type": "string", "description": "Optional who you want to attract (e.g. 想买真土鸡蛋的城里人); empty = the model judges and says so in the deliverable."},
+                "scene": {"type": "string", "description": "Optional shooting conditions: where, on-camera or not, what props you have, solo or with a shooter. Shot notes follow this; empty assumes one person and a phone."},
+                "tone": {"type": "string", "description": "Optional how you talk (e.g. 直、不爱绕弯、带点冲); empty follows a face-to-face-with-a-friend register."},
+                "formula": {"type": "string", "enum": ["auto", "judgment", "qa", "on_site", "contrarian", "event"], "description": "Structure: auto 由内容定 (default) / judgment 热点判断 / qa 专业答疑 / on_site 现场突发 / contrarian 反着说 / event 事件衬托; unknown normalizes to auto."},
+                "duration_s": {"type": "integer", "description": "Target spoken length in seconds, clamped to 10-180 (default 60). Body length is derived at 4.8 characters per second."},
+                "title_count": {"type": "integer", "description": "Number of title candidates, clamped to 1-5 (default 3)."},
+                "rewrite_hard_hits": {"type": "boolean", "description": "When the local AI-tell lint finds a fake-contrast shell, rewrite exactly those sentences once (default true). False delivers the first draft with the lint report only."},
+                "model_text": {"type": "string", "description": "Text (LLM) model id for the draft from /model-gateway/text-models; empty = system default text chain."},
+            },
+        ),
+        _handle_oral_script,
     ),
     (
         "aipdd_drama_article_publish",

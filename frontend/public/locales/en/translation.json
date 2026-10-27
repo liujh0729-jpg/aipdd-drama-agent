@@ -1811,6 +1811,7 @@
       "vectcutListOptions": "List VectCut option names (transitions, masks, animations, effects, fonts).",
       "vectcutGetDuration": "Get a media file duration in seconds.",
       "vectcutSaveDraft": "Save the draft so it can be opened and polished in Jianying/CapCut.",
+      "oralScript": "Forge a talk script: state who you are, who to attract and what you can shoot → a word-for-word script you can read, clean spoken lines and an AI-tell lint.",
       "videoClone": "Recreate a reference video end-to-end: keyframe analysis → per-shot remake → auto-concatenated film.",
       "videoMix": "Mix a pool of images/videos into one narrated film with burned-in subtitles and BGM.",
       "whiteboardAnimation": "Whiteboard animation: split a narration into AI-planned scenes, reveal each warm-beige sketch stroke by stroke and stitch it with the voice-over, rendered locally.",
@@ -2102,6 +2103,62 @@
       "title": "Explainer videos",
       "desc": "Two rendering styles for the same kind of narrated explainer: a whiteboard sketch revealed stroke by stroke, or chaptered motion graphics. Both need only the script or the reference material; visuals and voice-over are rendered locally.",
       "typeLabel": "Explainer type"
+    },
+    "explainerScript": {
+      "title": "Narration draft",
+      "hint": "Run the text step first to get a narration draft you can edit shot by shot, then render. Changing one line no longer re-renders the whole video.",
+      "generate": "Generate narration draft",
+      "regenerate": "Regenerate draft",
+      "waiting": "Writing the draft: text only, usually a few seconds…",
+      "discard": "Discard draft",
+      "empty": "No draft yet: the model writes the narration at render time (generate a draft first to review it).",
+      "lockedNote": "The render voices the draft above and no longer calls the text model.",
+      "summary": "{{shots}} shots · about {{seconds}}s",
+      "summaryScenes": "{{scenes}} scenes · about {{seconds}}s",
+      "shotLabel": "Shot {{n}}",
+      "sceneLabel": "Scene {{n}}",
+      "chapter": "Chapter",
+      "chapterPlaceholder": "e.g. Where the question starts",
+      "headline": "On-screen headline",
+      "headlinePlaceholder": "Big text on this shot (≤14 chars)",
+      "sentences": "Narration (one line per sentence)",
+      "sentencesPlaceholder": "Lines voiced in this shot, one per line; empty the shot to skip it",
+      "emptyShot": "This shot has no narration and will be skipped.",
+      "primitive": "Visual",
+      "motion": "Entrance motion",
+      "items": "Key points (comma separated)",
+      "itemsPlaceholder": "e.g. retrieve, rank, generate",
+      "numbers": "Numbers (comma separated)",
+      "numbersPlaceholder": "e.g. 12, 340",
+      "sceneText": "Narration for this scene",
+      "sceneTextPlaceholder": "Lines voiced in this scene (clear it to drop the scene)",
+      "keyText": "Key words",
+      "keyTextPlaceholder": "Words emphasised on the sketch (≤12 chars)",
+      "scenePrompt": "Sketch description",
+      "scenePromptPlaceholder": "What to draw in this scene (line art, no text)",
+      "sourceChanged": "The source text changed but this draft is older: regenerate the draft, or discard it before rendering.",
+      "needContent": "The draft has no narration left: add some before rendering",
+      "submittedHint": "The draft runs text only; render once you are happy with it",
+      "taskListBadge": "draft",
+      "removeShot": "Remove shot",
+      "removeScene": "Remove scene",
+      "primitives": {
+        "term": "Term card",
+        "flow": "Process steps",
+        "compare": "Side by side",
+        "bars": "Data bars",
+        "bignumber": "Big number",
+        "list": "Key points",
+        "cycle": "Cycle loop",
+        "timeline": "Timeline"
+      },
+      "motions": {
+        "softin": "Fade in",
+        "typewriter": "Typewriter",
+        "lightup": "Light up",
+        "travel": "Slide",
+        "countup": "Number roll"
+      }
     },
     "whiteboardAnimation": {
       "title": "Whiteboard animation",
@@ -2487,7 +2544,7 @@
     },
     "faceSwapLive": {
       "title": "Face Swap Live",
-      "desc": "Local face-swap engine: your camera is face-swapped and sent to a system virtual camera that OBS / streaming apps read directly. This page only uploads a face image, tweaks parameters and starts / stops — video never passes through the browser. On a desktop / local runtime, first finish “Download & Deploy” and enable it under Settings → Environment."
+      "desc": "Local face-swap engine: your camera is face-swapped and sent to a system virtual camera that OBS / streaming apps read directly. This page only uploads a face image, tweaks parameters and starts / stops — video never passes through the browser. On a desktop / local runtime, first finish “Download & Deploy” and enable it under Settings → Environment Setup."
     },
     "contentCreation": {
       "title": "Content creation",
@@ -2592,6 +2649,72 @@
       "bgmVolumePlaceholder": "Empty = auto",
       "needSource": "Provide source material or an article job id",
       "submit": "Create channel short video"
+    },
+    "oralScript": {
+      "title": "Short-video talk script",
+      "desc": "Say who you are, who you want to reach and what you can actually shoot, and get a word-for-word script you can read straight to camera",
+      "licenseNotice": "Methodology distilled from the open skill pack “taishang-laojun” (CC BY-NC 4.0, non-commercial).",
+      "topicLabel": "What this one is about",
+      "topicPlaceholder": "e.g. Why I stopped taking full-funnel client work",
+      "personaLabel": "Who I am",
+      "personaPlaceholder": "e.g. eight years in post-production, now only short-video operations",
+      "personaHint": "First-person stories only for things you confirm happened: it never invents your identity or your cases.",
+      "materialLabel": "Material",
+      "materialPlaceholder": "Bullet points, a pasted draft or raw facts (up to 12000 characters)",
+      "materialHint": "Concrete material writes better: numbers, dates and things actually said beat adjectives.",
+      "audienceLabel": "Who I want to attract",
+      "audiencePlaceholder": "e.g. shop owners who edit their own videos",
+      "sceneLabel": "Shooting conditions",
+      "scenePlaceholder": "e.g. talking head at a desk / only product close-ups",
+      "toneLabel": "How I talk",
+      "tonePlaceholder": "e.g. fast, no slogans, a bit sarcastic",
+      "formulaLabel": "Structure",
+      "formulaOptions": {
+        "auto": "Let the content decide (recommended)",
+        "judgment": "Hot-take call",
+        "qa": "Expert Q&A",
+        "on_site": "On the scene",
+        "contrarian": "Against the grain",
+        "event": "Story as evidence"
+      },
+      "durationLabel": "Target length",
+      "durationOption": "about {{n}}s",
+      "titleCountLabel": "Title candidates",
+      "textModelLabel": "Writing model",
+      "textModelAuto": "Follow system default",
+      "textModelHint": "Leave empty to use the default text chain; one submission forges this one script only.",
+      "rewriteToggle": "When a fake-contrast line is detected, rewrite exactly those sentences once",
+      "submit": "Forge the script",
+      "needTopicOrMaterial": "Write what this one is about, or paste some material first",
+      "submittedHint": "The script is forging in the background; see the task list below for the result",
+      "result": "Latest script",
+      "resultEmpty": "No finished talk-script task yet.",
+      "stats": "{{n}} spoken characters · about {{s}}s read aloud",
+      "copy": "Copy spoken lines",
+      "copied": "Spoken lines copied",
+      "openTxt": "Open spoken-lines txt",
+      "rewrittenAiTell": "The local check found fake-contrast lines, so only those sentences were rewritten once.",
+      "rewrittenStructure": "The first draft had nothing readable to speak, so it went through one more round.",
+      "rewriteKeptDraft": "The rewrite round did not produce a usable draft, so the first draft was kept; check the AI-tell hits below yourself.",
+      "emptyBody": "The task finished but the draft has no spoken script body. Add material or try another angle and submit again.",
+      "spokenLabel": "Spoken lines (teleprompter / voice-over ready)",
+      "titlesLabel": "Title candidates",
+      "recommended": "Pick",
+      "aiTellLabel": "AI-tell check",
+      "aiTellPass": "The mechanical check found no fake-contrast lines.",
+      "aiTellHard": "Hard hit (fix by default)",
+      "aiTellSoft": "{{n}} soft reminder(s)",
+      "aiTellLimit": "No hit does not mean no AI flavour: read it aloud yourself — if it trips your mouth it is not human speech.",
+      "sectionsLabel": "Full deliverable (shot notes and the six sections)",
+      "section": {
+        "core": "Core",
+        "opening": "Opening",
+        "script": "Word-for-word script",
+        "why": "Why this order",
+        "titles": "Title candidates",
+        "shoot": "Before you shoot"
+      },
+      "sectionEmpty": "The model did not write this section."
     },
     "narrationSmartEdit": {
       "title": "Narration Smart Edit",
@@ -4174,7 +4297,38 @@
         "saved": "Screenplay generated and saved to the script library: {{filename}}"
       },
       "explainer": {
-        "renderingFrames": "Drawing MG frames…"
+        "renderingFrames": "Drawing MG frames…",
+        "narration": "Turning the reference into narration…",
+        "storyboard": "Planning the explainer shots…",
+        "voice": "Synthesizing the explainer narration…",
+        "frames": "Building the HyperFrames frame project…",
+        "render": "Calling the render service for a headless export…",
+        "mix": "Mixing in narration and background music…",
+        "register": "Registering the explainer video…"
+      },
+      "explainerDraft": {
+        "locked": "Rendering from the approved script draft…",
+        "whiteboardScenes": "Splitting the script into whiteboard scenes…",
+        "collect": "Assembling the script draft…"
+      },
+      "whiteboard": {
+        "plan": "Planning the whiteboard scenes…",
+        "voice": "Synthesizing the whiteboard narration…",
+        "assemble": "Assembling the whiteboard animation…",
+        "register": "Registering the whiteboard animation…"
+      },
+      "plan": {
+        "busy": "The plan is already running in another request; try again shortly.",
+        "done": "The plan is fully complete.",
+        "noAutoItems": "No auto-runnable items left in the plan (the rest lack a stage and are manual to-dos).",
+        "runFailed": "Failed to run “{{title}}”: {{error}}",
+        "advanceFailed": "Failed while advancing to “{{title}}”: {{error}}",
+        "missingStory": "The pipeline needs the story text.",
+        "runningBudgetExhausted": "Still running {{stage}}; the budget is exhausted.",
+        "needsClientImage": "Stage {{stage}} needs client-side image generation, which the server cannot run.",
+        "triggered": "Triggered {{stage}} ({{title}})",
+        "triggeredBudgetExhausted": "Triggered {{stage}}; the task is still running and the budget is exhausted.",
+        "progressed": "Advanced {{steps}} segments within budget; {{remaining}} runnable items remain."
       },
       "music": {
         "start": "Generating music...",
@@ -4182,6 +4336,11 @@
       },
       "elevenMusic": {
         "start": "Generating music from text..."
+      },
+      "oralScript": {
+        "start": "Writing the spoken script...",
+        "rewriteHard": "Local checks found AI-tell lines; rewriting only those once...",
+        "lint": "Extracting the spoken lines and running the AI-tell check..."
       },
       "videoDubbing": {
         "start": "Starting video dubbing...",
@@ -8845,7 +9004,7 @@
         "mirror": "Mirror view",
         "detSize": "Detection size",
         "provider": "Inference backend",
-        "notReady": "Please finish Download & Deploy under Settings → Environment and enable Face Swap Live first.",
+        "notReady": "Please finish Download & Deploy under Settings → Environment Setup and enable Face Swap Live first.",
         "localOnly": "Face Swap Live is only available in the local/desktop form.",
         "obsHint": "After starting, select the system virtual camera in OBS/streaming software."
       }
@@ -9213,6 +9372,7 @@
         "upstreamKey": "Upstream API Key",
         "baseUrlOverride": "Base URL Override",
         "baseUrlPlaceholder": "Usually empty; uses provider preset",
+        "baseUrlRequiredPlaceholder": "Enter your NewAPI site URL, e.g. https://newapi.example.com",
         "removeChannel": "Remove channel",
         "noChannelsHint": "No provider channel has been added yet. Add a channel first, then select it for feature models.",
         "noChannels": "Add a provider channel first.",
@@ -9370,6 +9530,8 @@
         "volcengineDescription": "VolcEngine Ark OpenAI-compatible gateway: the Base URL is a fixed endpoint, so there is nothing to fill in — just paste your API key. Below it come the read-only upstream model list, the optional Doubao Speech ASR credentials, and the Volcengine AI MediaKit sub-block that belongs to this channel — the last two live with this channel and are not separate provider channels.",
         "newApiExternalTitle": "NewAPI",
         "newApiExternalDescription": "Enter your own NewAPI / OpenAI-compatible URL and key.",
+        "recommendedSites": "Recommended NewAPI sites",
+        "recommendedSitesTip": "Open the curated list of NewAPI sites and pick one that works for you.",
         "noModelList": "{{title}} returned no model list (the upstream may not support /models)",
         "fetchFailed": "Failed to fetch models",
         "needApiKey": "Enter an API key first",

@@ -7,7 +7,9 @@
 //!   启动失败时启动卡转为错误态，其「查看详细信息」才按需打开诊断窗口（服务 + 日志）。
 //!   退出（所有窗口关闭）→ RunEvent::Exit → Orchestrator::shutdown 逆序回收全部子进程。
 //!
-//! 安全：进程编排全在 Rust 侧用 std::process 完成，Web 侧无任何 shell 能力。
+//! 安全：进程编排全在 Rust 侧用 std::process 完成，Web 页拿不到 exec 能力；页内
+//!       外链只能请求壳以**系统默认浏览器**打开 http(s) 地址（见 `is_app_local_url`
+//!       与主窗口的 `on_new_window` / `on_navigation`），不会在应用内开第二个 WebView。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod arch;
@@ -289,6 +291,73 @@ fn build_main_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     Menu::with_items(handle, &[&app_menu])
 }
 
+/// 主窗口只承载本机服务界面：`127.0.0.1` / `localhost` / `[::1]` 与 WebView 自身协议
+/// 留在应用内，其余一律算外链。
+///
+/// 站内判定要求 scheme 同样是 http(s)：`file://localhost/...`、`ws://localhost/...`
+/// 这类「主机命中了但协议不是本机服务」的地址，不能借这条白名单留在应用内。
+fn is_app_local_url(url: &url::Url) -> bool {
+    if matches!(url.scheme(), "http" | "https") {
+        // 用 `Host` 枚举而不是 `host_str()`：IPv6 的 host_str 带方括号（`[::1]`），
+        // 字符串比较永远匹配不上——那条分支看着防了，其实一直没生效。
+        return matches!(
+            url.host(),
+            Some(url::Host::Domain("localhost"))
+                | Some(url::Host::Ipv4(std::net::Ipv4Addr::LOCALHOST))
+                | Some(url::Host::Ipv6(std::net::Ipv6Addr::LOCALHOST))
+        );
+    }
+    matches!(url.scheme(), "tauri" | "about" | "data" | "blob")
+}
+
+/// 站内静态产物（`/static/...`）：DMG / EXE 里点「打开净台词 txt」这类链接时，交给
+/// 系统浏览器才有意义——应用内不开新 WebView。其余站内地址（页面导航）不走这条。
+fn is_static_artifact_url(url: &url::Url) -> bool {
+    matches!(url.scheme(), "http" | "https") && url.path().starts_with("/static/")
+}
+
+/// 把外链交给系统默认浏览器（DMG / EXE 壳里的 WebView 不承担浏览网页）。
+///
+/// 只接受 http(s)：`file:` / `ms-msdt:` 这类协议能借浏览器拉起本机程序，
+/// 即使页面被注入也不给这条提权路径。返回值只用于日志，打开失败不阻塞交互。
+fn open_in_system_browser(url: &url::Url) -> bool {
+    if !matches!(url.scheme(), "http" | "https") {
+        return false;
+    }
+
+    // Windows 走 rundll32 的 URL 处理器：比 `cmd /C start` 少一层命令行解析，
+    // 链接里的 `&` / 引号不会被当成命令分隔符。
+    let mut command = if cfg!(target_os = "macos") {
+        std::process::Command::new("open")
+    } else if cfg!(target_os = "windows") {
+        let mut c = std::process::Command::new("rundll32");
+        c.arg("url.dll,FileProtocolHandler");
+        c
+    } else {
+        std::process::Command::new("xdg-open")
+    };
+    command
+        .arg(url.as_str())
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map(|mut child| {
+            // 壳是长生命周期进程：不在后台回收的话，每点一次外链就留一个 zombie
+            // 直到应用退出（macOS / Linux 上 `open` / `xdg-open` 都是快速退出的子进程）。
+            std::thread::spawn(move || {
+                let _ = child.wait();
+            });
+            true
+        })
+        .unwrap_or_else(|e| {
+            boot_trace(&format!("打开系统浏览器失败：{e}"));
+            // 分发形态没有控制台：启动轨迹之外再往 stderr 留一份，便于用户把日志贴回来。
+            eprintln!("打开系统浏览器失败：{e}");
+            false
+        })
+}
+
 /// 创建（或聚焦）加载前端的主窗口。
 fn open_main_window(handle: &AppHandle) -> Result<(), String> {
     if let Some(w) = handle.get_webview_window("main") {
@@ -303,6 +372,26 @@ fn open_main_window(handle: &AppHandle) -> Result<(), String> {
         .min_inner_size(1024.0, 680.0)
         .resizable(true)
         .focused(true)
+        // 桌面封装（DMG / EXE）里的「在浏览器打开」：页面里的 target=_blank /
+        // window.open 一律交给系统默认浏览器，应用内不开第二个 WebView。
+        // 站内地址不直接放行（与不设 handler 时的默认行为一致，不新增窗口能力），
+        // 但 `/static/...` 产物例外：那是要下载 / 查看的文件，交浏览器才看得见。
+        // 非 http(s) 外链（`file:` / `ms-msdt:` 等）由 open_in_system_browser 直接拒绝。
+        .on_new_window(|url, _features| {
+            if !is_app_local_url(&url) || is_static_artifact_url(&url) {
+                open_in_system_browser(&url);
+            }
+            tauri::webview::NewWindowResponse::Deny
+        })
+        // 兜底：没带 target=_blank 的外链点击会变成顶层导航，这里同样拦下并交出去，
+        // 绝不让主窗口离开本机服务界面（否则用户点一下就回不来）。
+        .on_navigation(|url| {
+            if is_app_local_url(url) {
+                return true;
+            }
+            open_in_system_browser(url);
+            false
+        })
         .build()
         .map_err(|e| e.to_string())?;
     // 菜单只是管理入口，挂载失败不能挡住主界面。

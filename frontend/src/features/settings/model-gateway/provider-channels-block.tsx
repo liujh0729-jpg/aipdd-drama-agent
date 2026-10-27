@@ -841,6 +841,17 @@ function ProviderChannelRow({
     ? savedChannel.upstreamKeyPreview
     : "";
   const upstreamPlaceholder = savedKeyPreview || "sk-...";
+  // [aipdd fork delta] Base URL 提示按渠道分流：NewAPI 没有渠道预设（自建网关 / 反向
+  // 代理 / 云厂商中转，地址属于部署方自己的数据），通用文案「通常不填，使用渠道预设」
+  // 对它恰好说反了——它必须填，否则同步模型会打到空地址。
+  // 顺序是先预设、后必填：aipdd / minimax 这类「有预设且必填」的渠道仍要把预设地址
+  // 摊给用户看，只有「必填且没预设」的（今天只有 newapi；渠道类型没拉到时按 provider
+  // 兜底）才换成必填提示。
+  const baseUrlPlaceholder =
+    channelType?.defaultBaseUrl ||
+    (channelType?.requiresBaseUrl === true || provider === "newapi"
+      ? t("settings.modelConfig.featureModels.baseUrlRequiredPlaceholder")
+      : t("settings.modelConfig.featureModels.baseUrlPlaceholder"));
   const isComfyUI = provider === "comfyui";
   const hasComfyUIConfig = isComfyUI && savedChannel?.configured === true;
   useEffect(() => {
@@ -1062,10 +1073,7 @@ function ProviderChannelRow({
                 baseUrl: e.target.value,
               });
             }}
-            placeholder={
-              channelType?.defaultBaseUrl ||
-              t("settings.modelConfig.featureModels.baseUrlPlaceholder")
-            }
+            placeholder={baseUrlPlaceholder}
             disabled={channelType?.supportsBaseUrlOverride === false}
             className="mt-1.5 h-9 rounded-md border-input/80 focus-visible:border-ring/70 focus-visible:ring-1 focus-visible:ring-ring/30"
           />

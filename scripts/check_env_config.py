@@ -232,6 +232,44 @@ CE_REVERSE_ENV_ALLOWLIST: tuple[tuple[re.Pattern[str], str], ...] = (
         "settings, so these per-deployment secrets stay out of the public template to avoid "
         "an env/config dual source.",
     ),
+    # [aipdd fork delta] 本地 Agent 工具 / 桌面形态的进程级 env：由 compose、桌面
+    # sidecar 或 OS 外壳注入，均有代码默认值或自动探测兜底，不是运维要填的模板键。
+    (
+        re.compile(r"^AIPDD_DRAMA_MCP_(?:CONTAINER|TRANSPORT)$"),
+        "[aipdd fork delta] Local Agent tool bridge env read by agent/local_tools.py: "
+        "compose injects the docker-exec container name and the transport defaults to "
+        "/.dockerenv auto-detection, so operators do not set these in the template.",
+    ),
+    (
+        re.compile(r"^APP_RESOURCE_PATH$"),
+        "[aipdd fork delta] Bundled desktop resource root injected by the Tauri sidecar "
+        "(desktop/src-tauri/src/env.rs) and probed by freezone/motion_render/chrome.py; "
+        "absent in the web form, so it is not part of the public template contract.",
+    ),
+    (
+        re.compile(r"^AGENT_BUILTIN_SKILLS_DIR$"),
+        "[aipdd fork delta] Builtin agent skills directory override read by agent/skills.py "
+        "with a code-side bundled-path fallback, so it is an internal override rather than "
+        "operator configuration.",
+    ),
+    (
+        re.compile(r"^(?:COMSPEC|LOCALAPPDATA|PYTHONPATH)$"),
+        "OS/shell-provided process env (Windows command interpreter, per-user app data, "
+        "interpreter import path) forwarded to child processes by agent/mcp.py and "
+        "chat/hermes_pool.py; supplied by the host, never part of the app template.",
+    ),
+    (
+        re.compile(r"^(?:HTTP_PROXY|HTTPS_PROXY)$"),
+        "Standard OS/CI proxy env forwarded by the faceswap installers "
+        "(faceswap_install.py / model_download.py) so downloads honor a corporate proxy; "
+        "provided by the environment, not a template key.",
+    ),
+    (
+        re.compile(r"^LOCALAPI_(?:API_KEY|BASE_URL)$"),
+        "Self-hosted gateway credentials read by shared CE/EE code and the subprocess "
+        "allowlist; CE dynamic credentials live in settings.db, so like NEWAPI_* these "
+        "variables are intentionally omitted from the public template.",
+    ),
 )
 SUPERTALE_REVERSE_ENV_ALLOWLIST: tuple[tuple[re.Pattern[str], str], ...] = (
     (

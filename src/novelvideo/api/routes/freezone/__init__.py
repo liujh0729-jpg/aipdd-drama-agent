@@ -471,6 +471,10 @@ from .media_jobs import (
     _enqueue_or_start_freezone_channel_short_video,
     _enqueue_or_start_freezone_narration_smart_edit,
     _enqueue_or_start_freezone_article_write,
+    # [aipdd fork delta] 短视频口播稿创作（工具栏首项）：单次文本生成 + 本地去 AI 味检查。
+    _enqueue_or_start_freezone_oral_script,
+    # [aipdd fork delta] 讲解类视频台词草稿：只跑文本、走 default 队列的两段式第一段。
+    _enqueue_or_start_freezone_explainer_script,
     _enqueue_or_start_freezone_video_idea,
     _enqueue_or_start_freezone_douyin_copywrite,
     _enqueue_or_start_freezone_media_copywrite,
@@ -810,6 +814,16 @@ from .article_ops import (
     freezone_article_publish,
 )
 from .article_ops import router as _router_article_ops
+from .oral_script_ops import (
+    _oral_script_output_path,
+    freezone_oral_script,
+)
+from .oral_script_ops import router as _router_oral_script_ops
+from .explainer_script_ops import (
+    _explainer_script_output_path,
+    freezone_explainer_script,
+)
+from .explainer_script_ops import router as _router_explainer_script_ops
 from .audio_ops import router as _router_audio_ops
 from .catalog import router as _router_catalog
 from .library import router as _router_library
@@ -878,6 +892,8 @@ router.include_router(_router_image_ops)
 router.include_router(_router_video_ops)
 router.include_router(_router_text_ops)
 router.include_router(_router_article_ops)
+router.include_router(_router_oral_script_ops)
+router.include_router(_router_explainer_script_ops)
 router.include_router(_router_audio_ops)
 router.include_router(_router_catalog)
 router.include_router(_router_library)

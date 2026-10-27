@@ -1481,6 +1481,7 @@ async def _run_freezone_whiteboard_animation_async(
         make_static_url_for_context,
     )
     from novelvideo.freezone.audio_node import generate_freezone_audio_speech
+    from novelvideo.freezone.explainer_script import parse_whiteboard_script_draft
     from novelvideo.freezone.jobs import (
         ensure_freezone_dirs,
         run_freezone_gen,
@@ -1516,6 +1517,16 @@ async def _run_freezone_whiteboard_animation_async(
     work_dir.mkdir(parents=True, exist_ok=True)
 
     script = str(payload.get("script") or payload.get("idea") or "").strip()
+    # [aipdd fork delta] 锁定稿（两段式第二段）：用户在台词草稿里逐幕改完后回传的
+    # 整份草稿。旁白由逐幕文案拼回（TTS 仍是一次读完），时长按每幕实际字数分配；
+    # 非法就失败并说清原因，不静默回退模型重新分幕。
+    script_source = "model"
+    draft = None
+    locked = payload.get("locked_script")
+    if isinstance(locked, dict) and locked:
+        draft = parse_whiteboard_script_draft(locked)
+        script = draft.script
+        script_source = "draft"
     if not script:
         raise ValueError("whiteboard narration script is required")
 
@@ -1543,24 +1554,41 @@ async def _run_freezone_whiteboard_animation_async(
     }
 
     # 1) 分镜规划：文案切 N 幕 {scenePrompt, keyText, weight}。
-    _update(ctx, task_type, job_id, 0.05, "规划白板分镜...")
-    _plan_model, plan_text = await _await_with_cancel_watch(
-        _call_freezone_leaf(
-            envelope,
-            generate_freezone_text,
-            "generate_freezone_text",
-            prompt=build_whiteboard_script_prompt(script, max_scenes),
-            model=model_text or None,
-        ),
-        **cancel_kwargs,
-    )
-    scenes = parse_whiteboard_scenes(plan_text)
-    if not scenes:
-        # 规划失败不致命：整段文案走单幕，画面交给线稿模型自由发挥。
-        scenes = [{"scenePrompt": script[:120], "keyText": "", "weight": 1.0}]
+    if draft is not None:
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            0.12,
+            lmsg("tasks.progress.explainerDraft.locked", "按确认的台词草稿出片..."),
+        )
+        scenes = draft.as_scenes()
+        _plan_model = "whiteboard-script-draft"
+    else:
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            0.05,
+            lmsg("tasks.progress.whiteboard.plan", "规划白板分镜..."),
+        )
+        _plan_model, plan_text = await _await_with_cancel_watch(
+            _call_freezone_leaf(
+                envelope,
+                generate_freezone_text,
+                "generate_freezone_text",
+                prompt=build_whiteboard_script_prompt(script, max_scenes),
+                model=model_text or None,
+            ),
+            **cancel_kwargs,
+        )
+        scenes = parse_whiteboard_scenes(plan_text)
+        if not scenes:
+            # 规划失败不致命：整段文案走单幕，画面交给线稿模型自由发挥。
+            scenes = [{"scenePrompt": script[:120], "keyText": "", "weight": 1.0}]
 
     # 2) 配音：朗读全文，取总时长驱动逐幕时长分配。
-    _update(ctx, task_type, job_id, 0.15, "合成白板配音...")
+    _update(ctx, task_type, job_id, 0.15, lmsg("tasks.progress.whiteboard.voice", "合成白板配音..."))
     projection = read_projection(payload)
     store = None if projection is not None else await make_sqlite_store_for_context(ctx)
     try:
@@ -1663,7 +1691,7 @@ async def _run_freezone_whiteboard_animation_async(
         srt_text = format_srt(build_mix_subtitle_cues(script, narration_ms))
 
     # 5) 合成成片：复用混剪同源 ffmpeg 通道做拼接 + 配音混音 + 字幕烧录。
-    _update(ctx, task_type, job_id, 0.80, "拼接白板动画成片...")
+    _update(ctx, task_type, job_id, 0.80, lmsg("tasks.progress.whiteboard.assemble", "拼接白板动画成片..."))
     output_path = outputs_dir(project_dir, task_type) / f"{job_id}.mp4"
     bgm_volume = payload.get("bgm_volume")
     plan = [
@@ -1698,7 +1726,7 @@ async def _run_freezone_whiteboard_animation_async(
     )
 
     # 6) 归档与结果。
-    _update(ctx, task_type, job_id, 0.97, "登记白板动画成片...")
+    _update(ctx, task_type, job_id, 0.97, lmsg("tasks.progress.whiteboard.register", "登记白板动画成片..."))
     rel = output_path.relative_to(project_dir).as_posix()
     result: dict[str, Any] = {
         "job_id": job_id,
@@ -1708,6 +1736,8 @@ async def _run_freezone_whiteboard_animation_async(
         "script": script,
         "plan_model": _plan_model,
         "model": narration_model or _plan_model,
+        # 台词来源：model = 本次模型切的幕；draft = 用户确认过的台词草稿。
+        "script_source": script_source,
         "narration_duration_ms": narration_ms,
         "aspect_ratio": aspect_ratio,
         "resolution": resolution,
@@ -1734,6 +1764,193 @@ def run_freezone_whiteboard_animation(
 ) -> dict[str, Any]:
     return _run_cancellable(
         envelope, _run_freezone_whiteboard_animation_async(envelope, ctx)
+    )
+
+
+# --------------------------------------------------------------------------- #
+# [aipdd fork delta] 讲解类视频「台词草稿」（freezone_explainer_script）：两段式第一段。
+# 只跑文本——科普两条（解说词 + 分镜）、白板一条（逐幕切分）——不出配音、不出图、不渲染。
+# 产物是面板可编辑的纯 JSON；用户改完把它整份回传给成片任务（payload.locked_script）。
+# 这样改一句台词不再等于整片重跑：重跑只发生在用户真的确认之后。
+# --------------------------------------------------------------------------- #
+async def _run_freezone_explainer_script_async(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+) -> dict[str, Any]:
+    """讲解类视频：参考资料/文案 → 可逐镜编辑的台词草稿。
+
+    出网只有文本叶（``generate_freezone_text``）：草稿阶段不碰配音与图像模型，
+    所以它在 script 队列上跑、十几秒内回，用户不必等整片渲染才知道台词写了什么。
+
+    草稿的形态由 ``freezone/explainer_script.py`` 定义并校验，本 runner 只负责“取
+    模型产物 → 组装草稿 → 落盘”。锁定稿的合法性在成片任务那一侧再校一遍，因为
+    中间隔着一次人工编辑，草稿文件本身不可信。
+    """
+    import json
+
+    from novelvideo.api.deps import make_static_url_for_context
+    from novelvideo.freezone import explainer_script as draft_script
+    from novelvideo.freezone.explainer import (
+        ExplainerChapter,
+        build_explainer_narration_prompt,
+        build_explainer_storyboard_prompt,
+        flatten_sentences,
+        normalize_explainer_duration_s,
+        parse_explainer_narration,
+        parse_explainer_storyboard,
+        resolve_reference_content,
+    )
+    from novelvideo.freezone.jobs import ensure_freezone_dirs
+    from novelvideo.freezone.paths import outputs_dir
+    from novelvideo.freezone.text_node import generate_freezone_text
+    from novelvideo.freezone.whiteboard import (
+        WHITEBOARD_MAX_SCENES,
+        build_whiteboard_draft_prompt,
+        parse_whiteboard_draft_scenes,
+    )
+
+    payload = envelope.get("payload") or {}
+    task_type = "freezone_explainer_script"
+    job_id = str(payload["job_id"])
+    project_dir = Path(str(payload.get("project_dir") or ctx.output_dir))
+    ensure_freezone_dirs(project_dir)
+
+    kind = (
+        str(payload.get("kind") or draft_script.EXPLAINER_DRAFT_KIND).strip().lower()
+    )
+    if kind not in (
+        draft_script.EXPLAINER_DRAFT_KIND,
+        draft_script.WHITEBOARD_DRAFT_KIND,
+    ):
+        raise ValueError(f"unsupported explainer script kind: {kind}")
+    model_text = str(payload.get("model_text") or "").strip()
+    title_hint = str(payload.get("title") or "").strip()
+
+    if kind == draft_script.WHITEBOARD_DRAFT_KIND:
+        script = str(payload.get("script") or "").strip()
+        if not script:
+            raise ValueError("白板台词草稿需要口播文案")
+        try:
+            max_scenes = int(payload.get("max_scenes") or WHITEBOARD_MAX_SCENES)
+        except (TypeError, ValueError):
+            max_scenes = WHITEBOARD_MAX_SCENES
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            0.1,
+            lmsg("tasks.progress.explainerDraft.whiteboardScenes", "切分白板逐幕台词..."),
+        )
+        model, raw = await _call_freezone_leaf(
+            envelope,
+            generate_freezone_text,
+            "generate_freezone_text",
+            prompt=build_whiteboard_draft_prompt(script, max_scenes),
+            **({"model": model_text} if model_text else {}),
+        )
+        draft = draft_script.build_whiteboard_script_draft(
+            parse_whiteboard_draft_scenes(raw, script)
+        )
+        plan_model = model
+        narration_model = ""
+    else:
+        duration_s = normalize_explainer_duration_s(payload.get("duration_s"))
+        reference = resolve_reference_content(payload.get("reference_content"))
+
+        # 1) 解说词（与成片任务同一 prompt，草稿阶段只是不接着配音）。
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            0.1,
+            lmsg("tasks.progress.explainer.narration", "把参考资料改写成解说词..."),
+        )
+        narration_model, narration_raw = await _call_freezone_leaf(
+            envelope,
+            generate_freezone_text,
+            "generate_freezone_text",
+            prompt=build_explainer_narration_prompt(
+                reference, duration_s=duration_s, title_hint=title_hint
+            ),
+            **({"model": model_text} if model_text else {}),
+        )
+        chapters = parse_explainer_narration(narration_raw)
+        if not chapters:
+            # 与成片同一口径：模型没按格式回时，把参考资料按行当解说词用，草稿照出。
+            lines = tuple(
+                part.strip() for part in reference.splitlines() if part.strip()
+            )
+            if not lines:
+                raise RuntimeError("explainer narration is empty")
+            chapters = [ExplainerChapter(name="讲解", sentences=lines[:80])]
+
+        # 2) 分镜：模型只选图元/动效，帧号照样等配音回来再算。
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            0.5,
+            lmsg("tasks.progress.explainer.storyboard", "规划讲解分镜..."),
+        )
+        flat = flatten_sentences(chapters)
+        plan_model, storyboard_raw = await _call_freezone_leaf(
+            envelope,
+            generate_freezone_text,
+            "generate_freezone_text",
+            prompt=build_explainer_storyboard_prompt(
+                [(index, text) for _, index, text in flat], title_hint=title_hint
+            ),
+            **({"model": model_text} if model_text else {}),
+        )
+        title, shots = parse_explainer_storyboard(storyboard_raw, chapters=chapters)
+        draft = draft_script.build_explainer_script_draft(
+            title, chapters, shots, duration_s=duration_s
+        )
+
+    _update(
+        ctx,
+        task_type,
+        job_id,
+        0.9,
+        lmsg("tasks.progress.explainerDraft.collect", "整理台词草稿..."),
+    )
+    out = outputs_dir(project_dir, task_type) / f"{job_id}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(draft, ensure_ascii=False, indent=2), encoding="utf-8")
+    rel = out.relative_to(project_dir).as_posix()
+    result: dict[str, Any] = {
+        "job_id": job_id,
+        "output_format": "json",
+        "output_path": str(out),
+        "output_url": make_static_url_for_context(ctx, rel),
+        "kind": kind,
+        "draft_version": draft_script.SCRIPT_DRAFT_VERSION,
+        "estimated_seconds": draft["estimated_seconds"],
+        # 整份草稿原样回传：前端编辑后把它当 locked_script 交回成片任务，
+        # 不在前端重建第二套结构（两套结构迟早会走样）。
+        "draft": draft,
+        "model": plan_model or narration_model,
+    }
+    if kind == draft_script.WHITEBOARD_DRAFT_KIND:
+        result["scene_count"] = len(draft["scenes"])
+    else:
+        result["shot_count"] = len(draft["shots"])
+        # 章名按镜头顺序去重（章边界就是镜头上的 chapter 变化）。用集合去重会把
+        # 章节顺序弄丢，而顺序正是进度条上的导航顺序。
+        chapter_names: list[str] = []
+        for shot in draft["shots"]:
+            name = str(shot.get("chapter") or "")
+            if name and (not chapter_names or chapter_names[-1] != name):
+                chapter_names.append(name)
+        result["chapter_names"] = chapter_names
+    return result
+
+
+def run_freezone_explainer_script(
+    envelope: dict[str, Any], ctx: ProjectContext
+) -> dict[str, Any]:
+    return _run_cancellable(
+        envelope, _run_freezone_explainer_script_async(envelope, ctx)
     )
 
 
@@ -1767,6 +1984,7 @@ async def _run_freezone_explainer_video_async(
         resolve_reference_content,
     )
     from novelvideo.freezone.explainer_motion import render_explainer_video
+    from novelvideo.freezone.explainer_script import parse_explainer_script_draft
     from novelvideo.freezone.explainer_frames import (
         CANVAS_FORMATS,
         ENGINE_HYPERFRAMES,
@@ -1813,53 +2031,93 @@ async def _run_freezone_explainer_video_async(
     }
 
     # 1) 解说词：只允许用参考资料里的事实，分章标记随文本一起产出。
-    _update(ctx, task_type, job_id, 0.05, "把参考资料改写成解说词...")
-    _narration_model, narration_raw = await _await_with_cancel_watch(
-        _call_freezone_leaf(
-            envelope,
-            generate_freezone_text,
-            "generate_freezone_text",
-            prompt=build_explainer_narration_prompt(
-                reference,
-                duration_s=duration_s,
-                title_hint=title_hint,
-            ),
-            model=model_text or None,
-        ),
-        **cancel_kwargs,
-    )
-    chapters = parse_explainer_narration(narration_raw)
-    if not chapters:
-        # 不致命：模型没按格式回时，把参考资料按行当解说词直接用，链路照旧出片。
-        lines = tuple(
-            part.strip() for part in reference.splitlines() if part.strip()
+    #
+    # [aipdd fork delta] 锁定稿（两段式第二段）：用户在台词草稿里逐镜改完后回传的
+    # 整份草稿。它合法就跳过两次文本调用，直接进配音与渲染；不合法**不回退模型
+    # 重写**——那等于把用户改过的稿子偷偷换掉，宁可失败并说清哪一项不对。
+    script_source = "model"
+    draft = None
+    locked = payload.get("locked_script")
+    if isinstance(locked, dict) and locked:
+        draft = parse_explainer_script_draft(
+            locked, fallback_duration_s=duration_s
         )
-        if not lines:
-            raise RuntimeError("explainer narration is empty")
-        chapters = [ExplainerChapter(name="讲解", sentences=lines[:80])]
+    if draft is not None:
+        script_source = "draft"
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            0.12,
+            lmsg("tasks.progress.explainerDraft.locked", "按确认的台词草稿出片..."),
+        )
+        chapters = draft.as_chapters()
+        title = draft.title
+        shots = draft.as_shots()
+        _narration_model = "explainer-script-draft"
+        _storyboard_model = "explainer-script-draft"
+    else:
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            0.05,
+            lmsg("tasks.progress.explainer.narration", "把参考资料改写成解说词..."),
+        )
+        _narration_model, narration_raw = await _await_with_cancel_watch(
+            _call_freezone_leaf(
+                envelope,
+                generate_freezone_text,
+                "generate_freezone_text",
+                prompt=build_explainer_narration_prompt(
+                    reference,
+                    duration_s=duration_s,
+                    title_hint=title_hint,
+                ),
+                model=model_text or None,
+            ),
+            **cancel_kwargs,
+        )
+        chapters = parse_explainer_narration(narration_raw)
+        if not chapters:
+            # 不致命：模型没按格式回时，把参考资料按行当解说词直接用，链路照旧出片。
+            lines = tuple(
+                part.strip() for part in reference.splitlines() if part.strip()
+            )
+            if not lines:
+                raise RuntimeError("explainer narration is empty")
+            chapters = [ExplainerChapter(name="讲解", sentences=lines[:80])]
+
+        flat = flatten_sentences(chapters)
+
+        # 2) 分镜：模型只能选词汇表内的图元/动效，帧号一律本地算。
+        _update(
+            ctx,
+            task_type,
+            job_id,
+            0.16,
+            lmsg("tasks.progress.explainer.storyboard", "规划讲解分镜..."),
+        )
+        _storyboard_model, storyboard_raw = await _await_with_cancel_watch(
+            _call_freezone_leaf(
+                envelope,
+                generate_freezone_text,
+                "generate_freezone_text",
+                prompt=build_explainer_storyboard_prompt(
+                    [(index, text) for _, index, text in flat],
+                    title_hint=title_hint,
+                ),
+                model=model_text or None,
+            ),
+            **cancel_kwargs,
+        )
+        title, shots = parse_explainer_storyboard(storyboard_raw, chapters=chapters)
 
     flat = flatten_sentences(chapters)
 
-    # 2) 分镜：模型只能选词汇表内的图元/动效，帧号一律本地算。
-    _update(ctx, task_type, job_id, 0.16, "规划讲解分镜...")
-    _storyboard_model, storyboard_raw = await _await_with_cancel_watch(
-        _call_freezone_leaf(
-            envelope,
-            generate_freezone_text,
-            "generate_freezone_text",
-            prompt=build_explainer_storyboard_prompt(
-                [(index, text) for _, index, text in flat],
-                title_hint=title_hint,
-            ),
-            model=model_text or None,
-        ),
-        **cancel_kwargs,
-    )
-    title, shots = parse_explainer_storyboard(storyboard_raw, chapters=chapters)
-
     # 3) 配音：朗读整段解说词，总时长驱动全片帧号分配。
     narration_script = "".join(text for _, _, text in flat)
-    _update(ctx, task_type, job_id, 0.26, "合成讲解配音...")
+    _update(ctx, task_type, job_id, 0.26, lmsg("tasks.progress.explainer.voice", "合成讲解配音..."))
     projection = read_projection(payload)
     store = None if projection is not None else await make_sqlite_store_for_context(ctx)
     try:
@@ -1963,7 +2221,7 @@ async def _run_freezone_explainer_video_async(
     # 本地 ffmpeg 混配音/BGM）；未配置渲染服务或渲染异常时回退 Pillow（不阻断出片）。
     if engine == ENGINE_HYPERFRAMES and renderer_configured():
         try:
-            _update(ctx, task_type, job_id, 0.34, "生成 HyperFrames 帧项目...")
+            _update(ctx, task_type, job_id, 0.34, lmsg("tasks.progress.explainer.frames", "生成 HyperFrames 帧项目..."))
             hf_project_dir = work_dir / "hf_project"
             proj = await asyncio.to_thread(
                 build_explainer_project,
@@ -1975,7 +2233,7 @@ async def _run_freezone_explainer_video_async(
                 captions=captions_on,
                 canvas_format=canvas_format,
             )
-            _update(ctx, task_type, job_id, 0.40, "调用渲染服务无头出片...")
+            _update(ctx, task_type, job_id, 0.40, lmsg("tasks.progress.explainer.render", "调用渲染服务无头出片..."))
             silent_path = work_dir / f"{job_id}_silent.mp4"
             render_timeout_s = int(max(600, proj.duration_seconds * 20))
             render_result = await render_project(
@@ -1987,7 +2245,7 @@ async def _run_freezone_explainer_video_async(
                 entry_file=proj.entry_file,
                 timeout_s=render_timeout_s,
             )
-            _update(ctx, task_type, job_id, 0.84, "混入配音与背景音乐...")
+            _update(ctx, task_type, job_id, 0.84, lmsg("tasks.progress.explainer.mix", "混入配音与背景音乐..."))
             await asyncio.to_thread(
                 mux_audio,
                 Path(render_result.output_path),
@@ -2012,7 +2270,7 @@ async def _run_freezone_explainer_video_async(
         await _render_with_pillow()
 
     # 6) 归档与结果。
-    _update(ctx, task_type, job_id, 0.97, "登记讲解视频成片...")
+    _update(ctx, task_type, job_id, 0.97, lmsg("tasks.progress.explainer.register", "登记讲解视频成片..."))
     rel = output_path.relative_to(project_dir).as_posix()
     result: dict[str, Any] = {
         "job_id": job_id,
@@ -2027,6 +2285,11 @@ async def _run_freezone_explainer_video_async(
         "storyboard_model": _storyboard_model,
         "plan_model": _storyboard_model,
         "model": narration_model or _storyboard_model,
+        # 台词来源：model = 本次模型现写；draft = 用户确认过的台词草稿（两段式第二段）。
+        "script_source": script_source,
+        "script_estimated_seconds": (
+            draft.estimated_seconds if draft is not None else None
+        ),
         "narration_duration_ms": narration_ms,
         "requested_duration_s": duration_s,
         "fps": timeline.fps,
@@ -4661,6 +4924,198 @@ async def _run_freezone_article_write_async(
     return result
 
 
+async def _run_freezone_oral_script_async(
+    envelope: dict[str, Any],
+    ctx: ProjectContext,
+) -> dict[str, Any]:
+    """[aipdd fork delta] 短视频口播稿创作（工具栏首项）：处境 + 素材 → 能直接念的逐字稿。
+
+    方法论蒸馏自开源技能包「太上老君·AI炼丹炉」（CC BY-NC 4.0）：炉心七条底层判断、
+    开炉的第一句与勾证衔接、改稿六刀与去 AI 味都一次压进单条写作指令，没多轮对话可用
+    时靠指令自证。
+
+    出网只有一处——``generate_freezone_text``（EG-18a，走既有文本网关分发），与公众号
+    文章任务同一口径；章节切分、净台词提取与去 AI 味预检（``freezone/oral_script``）全部
+    是纯本地确定性代码。硬拦（假对比这类观众一眼能认出的句子）命中时自动追加**一轮**
+    定向重写——原方法论就限定「最多一轮有依据的修改」，不做无限重写，也不顺便换选题。
+    """
+    import json
+
+    from novelvideo.api.deps import make_static_url_for_context
+    from novelvideo.freezone.jobs import ensure_freezone_dirs
+    from novelvideo.freezone.oral_script import deai, prompts as oral_prompts
+    from novelvideo.freezone.oral_script import script as oral_script
+    from novelvideo.freezone.paths import outputs_dir
+    from novelvideo.freezone.text_node import generate_freezone_text
+
+    payload = envelope.get("payload") or {}
+    job_id = str(payload["job_id"])
+    project_dir = Path(str(payload.get("project_dir") or ctx.output_dir))
+    ensure_freezone_dirs(project_dir)
+
+    topic = str(payload.get("topic") or "").strip()
+    persona = str(payload.get("persona") or "").strip()
+    material = str(payload.get("material") or "").strip()
+    audience = str(payload.get("audience") or "").strip()
+    scene = str(payload.get("scene") or "").strip()
+    tone = str(payload.get("tone") or "").strip()
+    formula = oral_prompts.normalize_formula(payload.get("formula"))
+    duration_s = oral_prompts.clamp_duration(payload.get("duration_s"))
+    title_count = oral_prompts.clamp_title_count(payload.get("title_count"))
+    rewrite_hard_hits = bool(payload.get("rewrite_hard_hits", True))
+    model_text = str(payload.get("model_text") or "").strip()
+
+    _update(
+        ctx,
+        "freezone_oral_script",
+        job_id,
+        0.1,
+        lmsg("tasks.progress.oralScript.start", "开始炼口播稿..."),
+    )
+    prompt = oral_prompts.build_oral_script_prompt(
+        topic=topic,
+        persona=persona,
+        material=material,
+        audience=audience,
+        scene=scene,
+        tone=tone,
+        formula=formula,
+        duration_s=duration_s,
+        title_count=title_count,
+    )
+    model, raw = await _call_freezone_leaf(
+        envelope,
+        generate_freezone_text,
+        "generate_freezone_text",
+        prompt=prompt,
+        **( {"model": model_text} if model_text else {} ),
+    )
+    parsed = oral_script.parse_oral_script(raw)
+
+    rewrite_done = False
+    rewrite_attempted = False
+    rewrite_reason = ""
+    # 结构缺整节（没拿到逐字稿）与假对比硬拦都只补一轮；重试后仍不干净就带着体检
+    # 报告交付，不判任务失败——初稿对用户仍然可用，遮住反而丢东西。门禁与交付报告
+    # 取同一份文本（正文 + 「为什么这么排」）：假对比最爱藏在金句收尾和写给用户的
+    # 理由里，只扫正文会出现「报告说有硬伤、却一次都没重写」的自相矛盾产物。
+    report = deai.lint_script(oral_script.delivered_text(parsed))
+    if not parsed.structure_ok:
+        rewrite_reason = "structure"
+    elif not report.passed and rewrite_hard_hits:
+        rewrite_reason = "ai_tell"
+    if rewrite_reason:
+        _update(
+            ctx,
+            "freezone_oral_script",
+            job_id,
+            0.55,
+            lmsg(
+                "tasks.progress.oralScript.rewriteHard",
+                "本地检查发现硬伤，正在只针对这些句子重写一轮...",
+            ),
+        )
+        # 回喂给模型的命中句与报告同源：只重写报告里点名的那些行。
+        hits = (
+            []
+            if rewrite_reason == "structure"
+            else [hit.to_payload() for hit in report.hard]
+        )
+        rewrite_prompt = oral_prompts.build_rewrite_prompt(
+            raw, hits, reason=rewrite_reason
+        )
+        rewrite_attempted = True
+        try:
+            model, rewritten = await _call_freezone_leaf(
+                envelope,
+                generate_freezone_text,
+                "generate_freezone_text",
+                prompt=rewrite_prompt,
+                **({"model": model_text} if model_text else {}),
+            )
+        except Exception as exc:  # noqa: BLE001 - 重写是可选优化，失败必须保住初稿
+            # 首轮已经交出可用成稿：可选的那一轮抖动（网关 502 / 超时）不能把成稿
+            # 一起判死，退回「初稿 + 体检报告」。
+            logger.warning("freezone oral script rewrite round failed: %s", exc)
+            rewritten = ""
+        retry_parsed = (
+            oral_script.parse_oral_script(rewritten) if rewritten.strip() else None
+        )
+        if retry_parsed is not None and retry_parsed.structure_ok:
+            # 重试把稿子弄得更糟（丢了正文）时保留初稿，不能为了过检查交白卷。
+            raw = rewritten
+            parsed = retry_parsed
+            rewrite_done = True
+        if rewrite_done:
+            report = deai.lint_script(oral_script.delivered_text(parsed))
+
+    _update(
+        ctx,
+        "freezone_oral_script",
+        job_id,
+        0.85,
+        lmsg("tasks.progress.oralScript.lint", "正在提取净台词与做去 AI 味检查..."),
+    )
+    spoken_chars = sum(
+        1 for ch in parsed.spoken_text if "\u4e00" <= ch <= "\u9fff" or ch.isalnum()
+    )
+
+    out_dir = outputs_dir(project_dir, "freezone_oral_script")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # 净台词 txt：括号里的镜头提示不进嘴，这一份能直接进提词器或配音。
+    txt_path = out_dir / f"{job_id}.txt"
+    txt_path.write_text(parsed.spoken_text or parsed.script, encoding="utf-8")
+    txt_rel = txt_path.relative_to(project_dir).as_posix()
+
+    data = {
+        "title": parsed.recommended_title,
+        "formula": formula,
+        "duration_s": duration_s,
+        "title_count": title_count,
+        "model": model,
+        # 导出带稳定 id 的章节记录：前端按 id 取自己的词条，不把中文章节日名写进界面代码。
+        "sections": oral_script.section_records(parsed.sections),
+        "script": parsed.script,
+        "spoken_text": parsed.spoken_text,
+        "lines": parsed.lines,
+        "stage_notes": parsed.stage_notes,
+        "titles": parsed.titles,
+        "first_line": parsed.first_line,
+        "word_count": spoken_chars,
+        "estimated_seconds": oral_prompts.estimate_speech_seconds(parsed.spoken_text),
+        "txt_url": make_static_url_for_context(ctx, txt_rel),
+        "rewritten": rewrite_done,
+        "rewrite_attempted": rewrite_attempted,
+        "rewrite_reason": rewrite_reason,
+        "ai_tell": report.to_payload(),
+    }
+    out = out_dir / f"{job_id}.json"
+    out.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    result = {
+        "job_id": job_id,
+        "output_format": "json",
+        "output_path": str(out),
+        "txt_path": str(txt_path),
+        **data,
+    }
+    history_record = _append_node_history(
+        ctx=ctx,
+        project_dir=project_dir,
+        payload=payload,
+        task_type="freezone_oral_script",
+        job_id=job_id,
+        media_type="text",
+        input_preview=(topic or material)[:240],
+        prompt=prompt,
+        model=model,
+        result=result,
+    )
+    if history_record:
+        result["generation_history_record"] = history_record
+    return result
+
+
 async def _run_freezone_story_script_async(
     envelope: dict[str, Any],
     ctx: ProjectContext,
@@ -4855,6 +5310,12 @@ def run_freezone_article_write(
     envelope: dict[str, Any], ctx: ProjectContext
 ) -> dict[str, Any]:
     return _run_cancellable(envelope, _run_freezone_article_write_async(envelope, ctx))
+
+
+def run_freezone_oral_script(
+    envelope: dict[str, Any], ctx: ProjectContext
+) -> dict[str, Any]:
+    return _run_cancellable(envelope, _run_freezone_oral_script_async(envelope, ctx))
 
 
 def run_freezone_image_reverse_prompt(
@@ -5696,6 +6157,16 @@ register_project_task_runner(
 # [aipdd fork delta] 公众号文章编写与排版：出网只有文本叶（EG-18a），排版/校验纯本地。
 register_project_task_runner(
     "freezone_article_write", run_freezone_article_write, requires_home_node=False
+)
+# [aipdd fork delta] 短视频口播稿创作（工具栏首项）：出网只有文本叶（EG-18a），
+# 章节切分 / 净台词提取 / 去 AI 味检查全部本地，与公众号文章同一口径。
+register_project_task_runner(
+    "freezone_oral_script", run_freezone_oral_script, requires_home_node=False
+)
+# [aipdd fork delta] 讲解类视频台词草稿（两段式第一段）：出网只有文本叶，不配音不渲染，
+# 所以它在 default 队列上跑，不与成片抢渲染资源。
+register_project_task_runner(
+    "freezone_explainer_script", run_freezone_explainer_script, requires_home_node=False
 )
 register_project_task_runner(
     "freezone_image_reverse_prompt",

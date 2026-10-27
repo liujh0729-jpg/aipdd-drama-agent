@@ -50,6 +50,10 @@ FREEZONE_CHAT_MODEL_FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
     "freezone_whiteboard_animation": (("model_text", "text"),),
     # 科普讲解：解说词与分镜共用一个文本选型。
     "freezone_explainer_video": (("model_text", "text"),),
+    # 讲解类视频台词草稿：两段式第一段，与成片同一个文本选型字段。
+    "freezone_explainer_script": (("model_text", "text"),),
+    # 短视频口播稿：单次文本生成（硬拦时再加一轮定向重写），字段同为 model_text。
+    "freezone_oral_script": (("model_text", "text"),),
     # 创意成片：故事扩写 / 角色 / 分场脚本 / 分镜等文本步骤。
     "freezone_video_idea": (("model_text", "text"),),
     # 视频反推剧本：抽帧后带图 chat 的视觉选型。

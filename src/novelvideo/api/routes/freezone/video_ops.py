@@ -26,6 +26,7 @@ from novelvideo.api.schemas import FreezoneWhiteboardAnimationRequest
 from novelvideo.freezone.explainer import normalize_explainer_background
 from novelvideo.freezone.explainer import normalize_explainer_duration_s
 from novelvideo.freezone.explainer import resolve_reference_content
+from novelvideo.freezone.explainer_script import MAX_SCRIPT_CHARS
 from novelvideo.freezone.paths import outputs_dir
 from novelvideo.renderer.presets import get_channel
 from novelvideo.renderer.presets import resolve_duration
@@ -491,8 +492,10 @@ async def freezone_whiteboard_animation(
     script = body.script.strip()
     if not script:
         raise HTTPException(400, "script is required")
-    if len(script) > 10_000:
-        raise HTTPException(400, "script must be <= 10000 characters")
+    if len(script) > MAX_SCRIPT_CHARS:
+        raise HTTPException(
+            400, f"script must be <= {MAX_SCRIPT_CHARS} characters"
+        )
 
     # 线稿出图模型目录（提交前定型为内部执行身份），与逐镜出图同一机制。
     (
@@ -575,6 +578,9 @@ async def freezone_whiteboard_animation(
         "account_voice_username": account_voice_username,
         "archive_to_library": body.archive_to_library,
         "source_tool": body.source_tool,
+        # 两段式第二段：用户确认过的整份草稿逐字透传给 runner；缺了它 runner
+        # 会退回模型分支重新生成一套台词，等于「改完白改」。
+        "locked_script": body.locked_script,
     }
     if ctx is not None:
         projection_payload = await _freezone._task_projection_payload(
@@ -691,6 +697,9 @@ async def freezone_explainer_video(
         "account_voice_username": account_voice_username,
         "archive_to_library": body.archive_to_library,
         "source_tool": body.source_tool,
+        # 两段式第二段：用户确认过的整份草稿逐字透传给 runner；缺了它 runner
+        # 会退回模型分支重新生成一套台词，等于「改完白改」。
+        "locked_script": body.locked_script,
     }
     if ctx is not None:
         projection_payload = await _freezone._task_projection_payload(
