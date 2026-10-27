@@ -112,6 +112,24 @@ def mask_secret(value: str) -> str:
     return f"{clean[:4]}...{clean[-4:]}"
 
 
+def is_masked_secret(value: str | None) -> bool:
+    """判断提交的凭证是不是界面回显的**掩码预览**，而非完整 Key。
+
+    ``mask_secret`` 的产物形如 ``sk-a...cret`` 或整串 ``********``；真实 API Key
+    不含 ``*``、``…`` 或连续点。设置页的 Key 输入框从不回填明文（只回显预览），
+    于是存在一条必然失败的路径：用户把预览复制粘贴回输入框（或前端误把预览当作
+    值提交），原样入库后就得到一把形状正常但永远 401 的「假 Key」，而界面上看
+    起来一切正常——排查时两边各执一词。这类值必须在写库前当场拦下并说清该怎么填。
+    """
+
+    clean = str(value or "").strip()
+    if not clean:
+        return False
+    if "*" in clean or "…" in clean:
+        return True
+    return "..." in clean
+
+
 def normalize_api_key(value: str | None) -> str:
     clean = str(value or "").strip()
     if not clean:
@@ -2086,7 +2104,15 @@ def save_newapi_provider_channels(
             continue
         seen.add(provider)
         previous = existing_by_provider.get(provider, {})
-        upstream_key = str(item.get("upstreamKey") or "").strip() or previous.get(
+        submitted_key = str(item.get("upstreamKey") or "").strip()
+        if is_masked_secret(submitted_key):
+            # 不能只靠界面约束：预览串一旦入库，后续每次拉清单都是必死 401，
+            # 而且报错里的 Key 预览与用户手里那份看着一样，无从判定。
+            raise ValueError(
+                f"provider {provider} 的 API Key 是界面回显的掩码预览而非完整令牌，"
+                "未保存；请粘贴完整 Key 后重试（留空则保留已存令牌）"
+            )
+        upstream_key = submitted_key or previous.get(
             "upstreamKey",
             "",
         )

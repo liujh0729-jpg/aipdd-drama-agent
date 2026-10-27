@@ -400,6 +400,108 @@ describe("渠道连接卡：Key 保留", () => {
   });
 });
 
+// [aipdd fork delta] 拉上游清单必须用表单当前值。原先只传 provider，后端就一律回查
+// 库里已存的那对 base+key（库里只有「保存并同步」才更新），于是「填好新地址 + 新令牌
+// 就直接点拉取」时发出去的是旧地址 + 旧令牌，报出来的 401 域名根本不是用户输入的那个。
+// 守的是这条接线，不是上游返回内容本身。
+describe("渠道连接卡：拉取上游清单携带表单当前值", () => {
+  it("改了地址、贴了新 Key 但还没保存就点拉取：请求带上这一对，而不是库里旧的", async () => {
+    render(
+      <ProviderConnectCard
+        title="NewAPI"
+        description="外部 OpenAI 兼容渠道"
+        provider="newapi"
+        presetBaseUrl="https://old.example/v1"
+        saved={{
+          provider: "newapi",
+          configured: true,
+          upstreamKeyPreview: "sk-***",
+          baseUrl: "https://old.example/v1",
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("https://old.example/v1"), {
+      target: { value: "https://new-site.example/" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("留空则不修改"), {
+      target: { value: "sk-brand-new-token" },
+    });
+    // 进入卡片时按已存配置自动拉过一次，这里只关心用户点按钮那一次。
+    mocks.fetchUpstreamModels.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: /拉取模型/ }));
+
+    await waitFor(() => expect(mocks.fetchUpstreamModels).toHaveBeenCalled());
+    expect(mocks.fetchUpstreamModels).toHaveBeenLastCalledWith({
+      provider: "newapi",
+      baseUrl: "https://new-site.example/",
+      upstreamKey: "sk-brand-new-token",
+    });
+  });
+
+  it("用尚未保存的配置拉成功：提示还要点一次保存并同步，否则下游仍读旧值", async () => {
+    render(
+      <ProviderConnectCard
+        title="NewAPI"
+        description="外部 OpenAI 兼容渠道"
+        provider="newapi"
+        presetBaseUrl="https://old.example/v1"
+        saved={{
+          provider: "newapi",
+          configured: true,
+          upstreamKeyPreview: "sk-***",
+          baseUrl: "https://old.example/v1",
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("https://old.example/v1"), {
+      target: { value: "https://new-site.example/v1" },
+    });
+    mocks.fetchUpstreamModels.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: /拉取模型/ }));
+
+    await waitFor(() =>
+      expect(toast.info).toHaveBeenCalledWith(expect.stringContaining("尚未保存")),
+    );
+  });
+
+  it("换了地址却没填 Key 保存成功后：点名「沿用旧 Key」这件事", async () => {
+    mocks.saveProviderChannels.mockResolvedValue({
+      ok: true,
+      data: { channels: [] },
+    });
+
+    render(
+      <ProviderConnectCard
+        title="NewAPI"
+        description="外部 OpenAI 兼容渠道"
+        provider="newapi"
+        presetBaseUrl="https://old.example/v1"
+        saved={{
+          provider: "newapi",
+          configured: true,
+          upstreamKeyPreview: "sk-***",
+          baseUrl: "https://old.example/v1",
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("https://old.example/v1"), {
+      target: { value: "https://new-site.example/v1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /保存并同步/ }));
+
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith(
+        expect.stringContaining("沿用了库里已存的旧 Key"),
+      ),
+    );
+  });
+});
+
 // [aipdd fork delta] 渠道名旁的官网直达：已登记官网的厂商给链接（新窗口 + noopener），
 // 没登记的渠道（newapi 这类自配网关）不渲染链接——不给一个点开是空地址的死图标。
 describe("渠道连接卡：官网直达链接", () => {

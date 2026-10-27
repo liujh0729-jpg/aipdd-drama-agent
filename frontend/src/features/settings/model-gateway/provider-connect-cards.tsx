@@ -165,12 +165,29 @@ function ProviderConnectCard({
     if (saved?.baseUrl) setBaseUrl(saved.baseUrl);
   }, [fixedBaseUrl, presetBaseUrl, saved?.baseUrl]);
   const loadModels = useCallback(async () => {
+    // [aipdd fork delta] 拉清单必须携带表单当前值：原先只传 provider，后端就一律回查
+    // 库里已存的 base+key，而库里那份只有「保存并同步」才会更新。于是「填好新地址
+    // + 新令牌、还没点保存就点拉取」时发出去的是旧地址 + 旧令牌，报出来的 401 里那个
+    // 域名根本不是用户输入的（实测：输入 movstory、报错域名是 susciyuan），用户只会
+    // 认为「代码有问题」。留空的字段不传，保持沿用库内已存值的原有语义。
+    const typedBaseUrl = baseUrl.trim();
+    const typedKey = key.trim();
+    const unsavedPair =
+      Boolean(typedKey) ||
+      (typedBaseUrl.length > 0 && typedBaseUrl !== (saved?.baseUrl ?? "").trim());
     try {
-      const res = await fetchModels.mutateAsync({ provider });
+      const res = await fetchModels.mutateAsync({
+        provider,
+        ...(typedBaseUrl ? { baseUrl: typedBaseUrl } : {}),
+        ...(typedKey ? { upstreamKey: typedKey } : {}),
+      });
       if (res.ok === true) {
         setModels(res.data.models ?? []);
         if ((res.data.count ?? 0) === 0) {
           toast.info(t("settings.modelConfig.cards.noModelList", { title }));
+        } else if (unsavedPair) {
+          // 用尚未保存的配置拉成功：不落库的话下游（网关注册、默认模型）仍读旧值。
+          toast.info(t("settings.modelConfig.cards.fetchedUnsaved", { title }));
         }
       } else {
         toast.error(
@@ -185,7 +202,7 @@ function ProviderConnectCard({
         ),
       );
     }
-  }, [fetchModels, provider, title]);
+  }, [baseUrl, fetchModels, key, provider, saved?.baseUrl, title]);
   useEffect(() => {
     if (saved?.configured) void loadModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,6 +266,16 @@ function ProviderConnectCard({
           getResponseErrorMessage(res, t("settings.modelConfig.cards.saveFailed")),
         );
         return;
+      }
+      // [aipdd fork delta] 换了地址却没填 Key：后端会保留库里那把旧 Key（部分字段
+      // 更新的本意），而旧站的令牌到新站必然 401。这个坑很静默——界面看着一切正常，
+      // 报错却是上游回「无效的令牌」，所以保存成功后主动点名一次。
+      if (
+        !trimmedKey &&
+        saved?.configured &&
+        baseUrl.trim() !== (saved?.baseUrl ?? "").trim()
+      ) {
+        toast.warning(t("settings.modelConfig.cards.keyRetainedOnBaseUrlChange"));
       }
       setKey("");
       setAsrApiKey("");
@@ -414,7 +441,13 @@ function ProviderConnectCard({
           渠道主体 → 上游模型（只读）→ 可选凭证（豆包语音）→「保存并同步」：
           可选凭证不再插在主 Key 与模型列表之间，但它仍在按钮上方，填完不必回头找保存。
         */}
-        {saved?.configured ? (
+        {/*
+          [aipdd fork delta] 首次配置（还没保存）也要先拉一次验证：条件由「库里已配置」
+          放宽到「库里已配置 或 表单里已有一对完整的 base+key」。保存本身不校验连通性，
+          只能先拉才能发现配错。
+        */}
+        {saved?.configured ||
+        (baseUrl.trim().length > 0 && key.trim().length > 0) ? (
           <div className="space-y-2 border-t border-border/60 pt-2">
             <div className="flex items-center justify-between">
               <Label className="inline-flex items-center text-[11px] text-muted-foreground">

@@ -540,6 +540,20 @@ def normalize_admin_base_url(value: str | None) -> str:
     return base
 
 
+def _status_reason(status_code: int) -> str:
+    """把常见状态码翻成一句可执行判据（只解释含义，不替用户猜配置）。
+
+    状态码本身不足以定位问题，所以这里只给「下一步查什么」的方向，具体原因靠同条
+    消息里附的上游响应原文。
+    """
+
+    return {
+        401: "鉴权失败：Key 无效/已禁用/过期，或该地址不是网关的 API 根",
+        403: "地址可达但拒绝访问：Key 无此端点权限或站点有 CDN/WAF 拦截",
+        404: "端点不存在：地址或版本路径不对（裸域名会被归一成 /v1）",
+    }.get(int(status_code), "上游拒绝该请求")
+
+
 def mask_token(token: str) -> str:
     clean = str(token or "").strip()
     if not clean:
@@ -810,14 +824,30 @@ def list_upstream_catalog(
                 else float(timeout)
             ),
         )
-        response.raise_for_status()
+        if response.status_code >= 400:
+            # [aipdd fork delta] 不能只把 HTTPStatusError 的 "Client error '401 …'" 往上
+            # 抛：NewAPI 系网关在这一步回的是 `{"error":{"message":"Invalid token …"}}`，
+            # 那半句才是「令牌错 / 分组没权限 / 地址不是 API 根」的唯一判据。缺了它，
+            # 用户只能看到「401」这一结果，无法知道该动哪里（排查成本全压在日志上）。
+            # 原文截断到 200：诊断够用，又不把大段 HTML 塞进响应与日志。
+            raise RuntimeError(
+                f"HTTP {response.status_code}"
+                f" [上游返回] {_status_reason(response.status_code)}"
+                f"｜{response.text[:200].strip()}"
+            )
         entries = parse_upstream_catalog(
             adapt_catalog_payload(provider, response.json())
         )
     except Exception as exc:  # noqa: BLE001 - 校验降级，不把远程故障当用户错误
+        # 日志必须带**实际打出去的端点与掩码 Key**：界面上报的错若不说明「用的哪把
+        # Key、哪个地址」，用户改对了配置也看不出来（实测踩坑：库里存的是 A 站地址，
+        # 用户以为自己填的是 B 站，两边各执一词、无从判定）。
         logger.warning(
-            "[aipdd fork delta] WP-B: upstream model listing failed for %s: %s",
+            "[aipdd fork delta] WP-B: upstream model listing failed for %s "
+            "(endpoint=%s, key=%s): %s",
             provider,
+            f"{cache_key}/models",
+            mask_token(key),
             exc,
         )
         return [], str(exc)

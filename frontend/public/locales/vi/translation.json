@@ -9543,6 +9543,8 @@
         "connectedPreview": "Đã kết nối {{preview}}",
         "notConnected": "Chưa kết nối",
         "keyPlaceholderKeep": "Để trống nếu không thay đổi",
+        "keyRetainedOnBaseUrlChange": "Base URL đã thay đổi nhưng không nhập API Key: hệ thống đang dùng lại key cũ đã lưu. Nếu site mới cần token khác, hãy dán key đầy đủ và lưu lại; nếu không, token cũ sẽ báo \"invalid token\" trên site mới.",
+        "fetchedUnsaved": "{{title}} đã lấy danh sách model thành công; lần này dùng địa chỉ hoặc key chưa được lưu. Nhấn \"Lưu và đồng bộ\" để các cấu hình phía sau nhận giá trị mới.",
         "keyPlaceholderPaste": "Dán Key",
         "saveAndSync": "Lưu và đồng bộ",
         "upstreamModels": "Model upstream ({{status}})",

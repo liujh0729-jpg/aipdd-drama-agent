@@ -9543,6 +9543,8 @@
         "connectedPreview": "Connected {{preview}}",
         "notConnected": "Not connected",
         "keyPlaceholderKeep": "Leave empty to keep unchanged",
+        "keyRetainedOnBaseUrlChange": "Base URL changed but no API Key was entered: the previously saved key is being reused. If the new site needs a different token, paste the full key and save again; otherwise the old token returns \"invalid token\" on the new site.",
+        "fetchedUnsaved": "{{title}} model list fetched successfully; it used an address or key that is not saved yet. Click \"Save & sync\" so downstream settings pick it up.",
         "keyPlaceholderPaste": "Paste key",
         "saveAndSync": "Save & sync",
         "upstreamModels": "Upstream models ({{status}})",

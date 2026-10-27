@@ -20,6 +20,7 @@ from novelvideo.model_gateway_settings import (
     detect_comfyui_media_type,
     get_newapi_embedding_model_config,
     get_newapi_media_model_mappings,
+    is_masked_secret,
     parse_comfyui_channel_workflows,
     record_newapi_model_alias_mappings,
 )
@@ -563,18 +564,37 @@ async def fetch_custom_newapi_upstream_models(
     try:
         require_ce_gateway_management()
         saved_channel = _gateway.get_newapi_provider_channel(provider) or {}
-        upstream_key = (body.upstream_key or "").strip() or saved_channel.get(
-            "upstreamKey", ""
-        )
-        base_url = (
+        typed_key = str(body.upstream_key or "").strip()
+        if is_masked_secret(typed_key):
+            raise ValueError(
+                "提交的 API Key 是界面回显的掩码预览（如 sk-abcd...wxyz）而非完整令牌，"
+                "无法用它拉清单：请把完整 Key 粘进输入框后重试"
+            )
+        saved_key = str(saved_channel.get("upstreamKey") or "").strip()
+        upstream_key = typed_key or saved_key
+        # 地址与 Key 各自「来自本次提交」还是「来自库内已存」必须说清：只传 provider
+        # 的调用会回查库里那份，用户「刚填了新地址还没保存就点拉取」时发出去的是旧
+        # 地址 + 旧 Key，报错里的域名根本不是用户输入的那个（实测：填 movstory、报错
+        # 域名是 susciyuan，两边各执一词、无从判定）。
+        key_source = "本次提交" if typed_key else "库内已存（改完需先保存）"
+        base_url = str(
             body.base_url
             if body.base_url is not None
             else saved_channel.get("baseUrl", "")
         ).strip().rstrip("/")
+        base_source = "本次提交" if body.base_url else "库内已存（改完需先保存）"
         if not base_url:
             raise ValueError("baseUrl is required（先保存渠道或填写 Base URL）")
         if not upstream_key:
             raise ValueError(f"upstreamKey is required for provider {provider}")
+        if not typed_key and is_masked_secret(saved_key):
+            # 历史脏数据：在写库拦截加进来之前的某次保存里，掩码预览被当成了真 Key。
+            # 这种值发给上游必然 401，而且预览和用户手里那份看着一样，必须直接点名。
+            raise ValueError(
+                f"provider {provider} 库里已存的 API Key 是掩码预览"
+                f"（{mask_token(saved_key)}）而非完整令牌，无法用于拉取清单："
+                "请在渠道连接卡重新粘贴完整 Key 并保存"
+            )
         entries, error = await asyncio.to_thread(
             list_upstream_catalog,
             provider,
@@ -583,7 +603,19 @@ async def fetch_custom_newapi_upstream_models(
             force=bool(body.force),
         )
         if error:
-            raise HTTPException(status_code=502, detail=f"拉取上游模型清单失败：{error}")
+            # 报错必须把「这次实际用了哪个端点、哪把 Key、它从哪来」摊出来：渠道
+            # base+key 的真源在服务端库里，界面上只显示掩码占位，用户无从核对自己是
+            # 改对了还是根本没存进去（实测：库里存的是 A 站、用户以为填的是 B 站）。
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"拉取上游模型清单失败：{error}\n"
+                    f"本次实际请求：{_resolve_models_endpoint(base_url, provider)}/models"
+                    f"（provider={provider}，"
+                    f"Base URL={base_url or '（未填）'}[{base_source}]，"
+                    f"Key={mask_token(upstream_key)}[{key_source}]）"
+                ),
+            )
     except PermissionError as exc:
         raise _permission_error(exc) from exc
     except HTTPException:

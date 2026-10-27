@@ -9543,6 +9543,8 @@
         "connectedPreview": "已连接 {{preview}}",
         "notConnected": "未连接",
         "keyPlaceholderKeep": "留空则不修改",
+        "keyRetainedOnBaseUrlChange": "已更换 Base URL 但未填写 API Key：本次沿用了库里已存的旧 Key。新站点需要新令牌时请粘贴完整 Key 再保存一次，否则旧令牌在新站点会报「无效的令牌」。",
+        "fetchedUnsaved": "{{title}} 模型清单已拉取成功；本次用的是尚未保存的地址或 Key，点「保存并同步」后下游才会生效。",
         "keyPlaceholderPaste": "粘贴 Key",
         "saveAndSync": "保存并同步",
         "upstreamModels": "上游模型（{{status}}）",
