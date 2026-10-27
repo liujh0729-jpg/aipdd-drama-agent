@@ -237,11 +237,16 @@ is_pass_status() { case "$1" in Valid|Accepted) return 0 ;; *) return 1 ;; esac;
 # （常见于本机多 utun/TLS 抖动让 --wait 在轮询阶段报错退出，提交其实已成功入队），
 # 且有 id，则用 notarytool info 独立复核最终状态，避免把「已 Accepted 只是没等到最后一次
 # 轮询」误判成失败而重提重复排队。最终仍非通过态时，按 id 自动拉公证日志打印。
+SUBMIT_START_EPOCH="$(date -u +%s)"
 SUBMIT_OUT="$(xcrun notarytool submit "$SUBMIT" "${AUTH[@]}" --wait --output-format json 2>/tmp/notary-submit.err || true)"
 [[ -n "$SUBMIT_OUT" ]] || SUBMIT_OUT='{}'
+# 容忍 stdout 前置进度文本：notarytool 在 --wait 期间会先打 “[hh:mm:ss] …” 行再打 JSON，
+# 整串交给 json.load 会抛异常→解析成空状态（实测：Apple 侧已 Accepted，本地却判失败）。
 NOTARY_META="$(printf '%s' "$SUBMIT_OUT" | /usr/bin/python3 -c 'import json,sys
+raw = sys.stdin.read()
+i = raw.find("{")
 try:
-    r = json.load(sys.stdin).get("result", {}) or {}
+    r = json.loads(raw[i:]).get("result", {}) or {}
     print("%s\t%s" % (r.get("id", ""), r.get("status", "")))
 except Exception:
     print("\t")')"
@@ -258,6 +263,43 @@ except Exception:
   [[ -n "$RECHECK_STATUS" ]] && NOTARY_STATUS="$RECHECK_STATUS"
 fi
 if ! is_pass_status "$NOTARY_STATUS"; then
+  # 最后一道兜底：--wait 的轮询连接断掉时，notarytool 可能 stdout 空、stderr 也空，
+  # 但提交本身已在 Apple 建档（实测：1.1GB dmg 上传 25 分钟后本地判「提交失败」，
+  # history 里同一份 dmg 已是 Accepted）。这时按产物名去 history 追溯本次提交，
+  # 而不是重提一次——重提会让同一个包在队列里堆两条记录，还把等待时间翻倍。
+  log "仍未拿到通过态，按 history 追溯本次提交：$(basename "$SUBMIT")"
+  HIST_OUT="$(xcrun notarytool history "${AUTH[@]}" --output-format json 2>/dev/null || true)"
+  HIST_META="$(printf '%s' "$HIST_OUT" | /usr/bin/python3 -c 'import json,sys,datetime
+raw = sys.stdin.read()
+i = raw.find("{")
+try:
+    _d = json.loads(raw[i:]) or {}
+    # 实测顶层是 history（早先某些版本/文档叫 submissions），两个键都收，别赌某一个。
+    subs = _d.get("history") or _d.get("submissions") or []
+except Exception:
+    subs = []
+start, name = int(sys.argv[1]), sys.argv[2]
+best, best_t = None, -1
+for s in subs:
+    if s.get("name") != name:
+        continue
+    cd = (s.get("createdDate") or "")[:19]
+    try:
+        t = datetime.datetime.strptime(cd, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=datetime.timezone.utc).timestamp()
+    except Exception:
+        continue
+    if t >= start - 3600 and t > best_t:
+        best, best_t = s, t
+print("%s\t%s" % ((best or {}).get("id", ""), (best or {}).get("status", "")))' "$SUBMIT_START_EPOCH" "$(basename "$SUBMIT")")"
+  HIST_ID="${HIST_META%%$'\t'*}"
+  HIST_STATUS="${HIST_META#*$'\t'}"
+  if [[ -n "$HIST_STATUS" ]]; then
+    log "history 追溯：id=${HIST_ID:-?} status=${HIST_STATUS}"
+    NOTARY_ID="${HIST_ID:-$NOTARY_ID}"
+    NOTARY_STATUS="$HIST_STATUS"
+  fi
+fi
+if ! is_pass_status "$NOTARY_STATUS"; then
   echo "公证未通过（status=${NOTARY_STATUS:-提交失败}）：$SUBMIT" >&2
   [[ -s /tmp/notary-submit.err ]] && { echo '--- notarytool stderr ---' >&2; cat /tmp/notary-submit.err >&2; }
   if [[ -n "$NOTARY_ID" ]]; then
@@ -267,7 +309,9 @@ if ! is_pass_status "$NOTARY_STATUS"; then
   fi
   exit 13
 fi
-log "公证通过（status=$NOTARY_STATUS）"
+# ${...} 花括号不是风格问题：macOS 自带 bash 3.2 在 C locale 下会把紧跟变量名的
+# 全角括号首字节算进变量名，set -u 直接判未定义并把整个脚本打退（实测踩过）。
+log "公证通过（status=${NOTARY_STATUS}）"
 
 xcrun stapler staple "$TARGET_FOR_NOTARY"
 [[ "$TARGET_FOR_NOTARY" != "$APP" ]] && xcrun stapler staple "$APP"

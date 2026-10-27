@@ -108,7 +108,7 @@ case "$TARGET" in
 esac
 if [[ -n "$REQ_ARCH" ]]; then
   lipo -archs "$PYBIN" | grep -qw "$REQ_ARCH" \
-    || { echo "$TARGET：便携 Python 架构不符（要求 $REQ_ARCH，实为 $(lipo -archs "$PYBIN" 2>/dev/null)），缓存或下载串了架构——请清掉 /tmp/pbs-* 重跑" >&2; exit 4; }
+    || { echo "${TARGET}：便携 Python 架构不符（要求 ${REQ_ARCH}，实为 $(lipo -archs "$PYBIN" 2>/dev/null)），缓存或下载串了架构——请清掉 /tmp/pbs-* 重跑" >&2; exit 4; }
 fi
 
 # --------------------------------------------------- 2) 离线预装 CE 后端依赖
