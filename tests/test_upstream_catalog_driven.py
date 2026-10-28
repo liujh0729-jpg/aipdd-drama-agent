@@ -991,11 +991,21 @@ def test_media_auto_import_exposes_snapshot_in_catalog() -> None:
         ],
         base_url=BASE_URL,
     )
-    image_ids = {entry["id"] for entry in get_ce_media_model_catalog("image")}
-    video_ids = {entry["id"] for entry in get_ce_media_model_catalog("video")}
-    # 图片、视频被自动补进画布目录。
+    image = get_ce_media_model_catalog("image")
+    video = get_ce_media_model_catalog("video")
+    image_ids = {entry["id"] for entry in image}
+    video_ids = {entry["id"] for entry in video}
+    # 图片、视频被自动补进画布目录；唯一拥有该名字的渠道沿用裸模型名做入口 id。
     assert "ap-image-2.0" in image_ids
     assert "AP Seedance-2.0 -2" in video_ids
+    # 调用名同样走复合名（网关注册的唯一调用名），视频沿用 newapi_ 前缀。
+    by_id = {entry["id"]: entry for entry in image + video}
+    assert by_id["ap-image-2.0"]["apiModel"] == f"{PROVIDER}::ap-image-2.0"
+    assert by_id["AP Seedance-2.0 -2"]["apiModel"] == (
+        f"newapi_{PROVIDER}::AP Seedance-2.0 -2"
+    )
+    # 旧值（裸模型名）仍可解析到这一行，历史默认不会失效。
+    assert "ap-image-2.0" in by_id["ap-image-2.0"]["aliases"]
     # embedding / 纯文本绝不进图片/视频目录。
     assert "ap-qwen3-embedding:0.6b" not in image_ids | video_ids
     assert "ap-chat-3.8-flash" not in image_ids | video_ids
@@ -1004,7 +1014,7 @@ def test_media_auto_import_exposes_snapshot_in_catalog() -> None:
 
 
 def test_explicit_mapping_overrides_auto_and_disabled_hides() -> None:
-    """显式映射为权威：同名被禁用后，即便清单里有也不出现在画布目录。"""
+    """显式映射为权威：同一渠道的同名条目被禁用后，即便清单里有也不出现在画布目录。"""
     from novelvideo.model_gateway_settings import get_ce_media_model_catalog
 
     save_newapi_media_model_mappings(
@@ -1026,12 +1036,47 @@ def test_explicit_mapping_overrides_auto_and_disabled_hides() -> None:
         base_url=BASE_URL,
     )
     image_ids = {entry["id"] for entry in get_ce_media_model_catalog("image")}
-    # 显式禁用覆盖自动补全 → 图片目录里没有它。
+    # 显式禁用覆盖同一渠道的自动补全 → 图片目录里没有它。
     assert "ap-image-2.0" not in image_ids
     # 未被显式配置的视频模型仍自动出现。
     assert "AP Seedance-2.0 -2" in {
         entry["id"] for entry in get_ce_media_model_catalog("video")
     }
+
+
+def test_media_catalog_lists_same_model_per_channel() -> None:
+    """同名模型在两个渠道各列一行，调用名各自复合；裸名 id 仍归先配的渠道。"""
+    from novelvideo.model_gateway_settings import get_ce_media_model_catalog
+
+    save_newapi_provider_channels(
+        [
+            {"provider": PROVIDER, "baseUrl": BASE_URL, "upstreamKey": "sk-a"},
+            {
+                "provider": "newapi",
+                "baseUrl": "https://newapi.example/v1",
+                "upstreamKey": "sk-b",
+            },
+        ]
+    )
+    save_upstream_models_snapshot(
+        PROVIDER, [{"name": "ap-image-2.0"}], base_url=BASE_URL
+    )
+    save_upstream_models_snapshot(
+        "newapi",
+        [{"name": "ap-image-2.0"}],
+        base_url="https://newapi.example/v1",
+    )
+    entries = get_ce_media_model_catalog("image")
+    by_channel = {entry["channel"]: entry for entry in entries}
+    assert set(by_channel) == {PROVIDER, "newapi"}
+    assert by_channel[PROVIDER]["apiModel"] == f"{PROVIDER}::ap-image-2.0"
+    assert by_channel["newapi"]["apiModel"] == "newapi::ap-image-2.0"
+    # 入口 id 不重复：先配的渠道沿用裸模型名，后配的渠道用复合键。
+    assert by_channel[PROVIDER]["id"] == "ap-image-2.0"
+    assert by_channel["newapi"]["id"] == "newapi::ap-image-2.0"
+    # 裸名只挂在先配的渠道那一行：历史默认的解析口径不变。
+    assert "ap-image-2.0" in by_channel[PROVIDER]["aliases"]
+    assert "ap-image-2.0" not in by_channel["newapi"]["aliases"]
 
 
 def test_media_auto_import_can_be_disabled(monkeypatch: pytest.MonkeyPatch) -> None:

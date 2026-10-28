@@ -33,8 +33,14 @@ def _gateway_model_from_backend(backend: str | None) -> str:
         return get_newapi_video_model()
     for prefix in ("newapi_", "huimeng_", "huimengi_"):
         if lowered.startswith(prefix):
-            return value[len(prefix) :].strip()
-    return ""
+            value = value[len(prefix) :].strip()
+            break
+    else:
+        return ""
+    # 目录按渠道分行后，调用名是 ``provider::model`` 复合名；时长档位按裸模型名配置。
+    if "::" in value:
+        value = value.split("::", 1)[1].strip()
+    return value
 
 
 def video_duration_bounds_for_backend(

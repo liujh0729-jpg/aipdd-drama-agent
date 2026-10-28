@@ -219,6 +219,8 @@ def test_build_channel_model_mapping_compiles_per_provider(
         "DC-text-LLM": "glm-4.6",
         "DC-no-fallback-LLM": "ap-glm-5.2",
         "seedream-4": "seedream-4",
+        # 目录按「渠道 + 模型」发复合调用名：显式映射的模型也必须有自己的复合名。
+        "aipdd::seedream-4": "seedream-4",
         "DC-cognee-embedding": "doubao-embedding-vision",
     }
     # [aipdd fork delta] 拍平：备援编译退役（DC-text-LLM 不再进 ark 渠道）；媒体
@@ -226,8 +228,12 @@ def test_build_channel_model_mapping_compiles_per_provider(
     assert build_channel_model_mapping("ark") == {
         "DC-vision-LLM": "doubao-vision",
         "Doubao-Seedance": "doubao-seedance-1-0",
+        "ark::Doubao-Seedance": "doubao-seedance-1-0",
     }
-    assert build_channel_model_mapping("susciyuan") == {"only-other": "only-other"}
+    assert build_channel_model_mapping("susciyuan") == {
+        "only-other": "only-other",
+        "susciyuan::only-other": "only-other",
+    }
     assert build_channel_model_mapping("") == {}
     assert build_channel_model_mapping("unknown") == {}
 

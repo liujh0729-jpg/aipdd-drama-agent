@@ -2840,11 +2840,16 @@ def test_volcengine_image_mapping_surfaces_in_ce_image_catalog(monkeypatch, tmp_
 
     catalog = get_ce_media_model_catalog("image")
     entry = next(
-        item for item in catalog if item["id"] == "doubao-seedream-4-0-20260415"
+        item
+        for item in catalog
+        if item["id"] == "doubao-seedream-4-0-20260415"
     )
     assert entry["providerId"] == "newapi"
     assert entry["channel"] == "volcengine"
-    assert entry["apiModel"] == "doubao-seedream-4-0-20260415"
+    # 目录按「渠道 + 模型」展示：调用名是网关注册的复合名，选择即路由到该渠道；
+    # 入口 id 沿用裸模型名（该模型只此一个渠道拥有）。
+    assert entry["apiModel"] == "volcengine::doubao-seedream-4-0-20260415"
+    assert "doubao-seedream-4-0-20260415" in entry["aliases"]
     assert entry["request"]["endpoint"] == "images/generations"
 
     from novelvideo.catalog.media_model_discovery import apply_default_image_capabilities
@@ -4020,8 +4025,9 @@ def test_ce_media_model_catalog_uses_saved_custom_model_capabilities(
 
     assert len(catalog) == 1
     assert catalog[0]["id"] == "custom-video"
-    assert catalog[0]["apiModel"] == "newapi_custom-video"
+    assert catalog[0]["apiModel"] == "newapi_volcengine::custom-video"
     assert catalog[0]["label"] == "Custom Video"
+    assert "custom-video" in catalog[0]["aliases"]
     # [aipdd fork delta] 展示用渠道（画布模型选择器据此在模型旁做彩色渠道标注）；
     # providerId 仍是执行身份 newapi，channel 才是这条模型实际所属的渠道。
     assert catalog[0]["providerId"] == "newapi"

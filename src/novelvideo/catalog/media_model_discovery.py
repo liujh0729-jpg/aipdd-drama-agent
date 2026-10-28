@@ -366,7 +366,12 @@ def _declared_video_ref_cap(value: Any) -> int | None:
 
 
 def _entry_gateway_names(entry: dict[str, Any]) -> set[str]:
-    """一个目录条目可能对应到网关名的几种键位（含 ``newapi_`` 前缀 / 上游名）。"""
+    """一个目录条目可能对应到网关名的几种键位（含 ``newapi_`` 前缀 / 上游名）。
+
+    [aipdd fork delta] 目录键是 ``provider::model`` 复合调用名，但上游能力声明
+    （/v1/models、官方目录 supportedModes）按裸模型名索引；这里把复合名的裸名部分
+    也登记进来，避免按渠道分行后丢档位 / 模式声明。
+    """
 
     names: set[str] = set()
     for key in (
@@ -384,8 +389,11 @@ def _entry_gateway_names(entry: dict[str, Any]) -> set[str]:
         if not raw:
             continue
         names.add(raw)
-        if raw.startswith("newapi_"):
-            names.add(raw[len("newapi_") :])
+        bare = raw[len("newapi_") :] if raw.startswith("newapi_") else raw
+        if bare != raw:
+            names.add(bare)
+        if "::" in bare:
+            names.add(bare.split("::", 1)[1].strip())
     return {n for n in names if n}
 
 

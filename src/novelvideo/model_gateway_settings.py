@@ -833,15 +833,22 @@ def _media_auto_import_enabled() -> bool:
 def build_auto_media_mappings_from_snapshot() -> dict[str, dict[str, Any]]:
     """从各渠道上游快照派生「图片/视频/音频/音乐」映射行（只读、不落库）。
 
-    分类走真源 guess_media_type；embedding / text / other 不进媒体目录。同名以先出现的
-    渠道为准（与映射表按模型名唯一键的既有语义一致）。用户显式配的映射在合并时覆盖本
-    结果，因此这条链只做「补全」，从不改写人工配置。
+    分类走真源 guess_media_type；embedding / text / other 不进媒体目录。
+
+    [aipdd fork delta] 目录键是「渠道 + 模型」（``provider::model``），不是模型名：
+    两个渠道都有的同名模型各占一行、各自可选，选择即路由到该渠道（网关注册的复合
+    调用名天然唯一）。此前的「同名先到先得」会把后来渠道的模型整体吞掉——用户配了
+    aipdd 渠道，画布里却只有 newapi 的行。用户显式配的映射在合并时按同一对键覆盖
+    本结果，因此这条链只做「补全」，从不改写人工配置。
     """
     if not _uses_ce_gateway_settings() or not _media_auto_import_enabled():
         return {}
     from novelvideo.catalog.media_model_discovery import guess_media_type
 
     derived: dict[str, dict[str, Any]] = {}
+    # 裸名解析仍按「先配的渠道」兜底（与旧版同名先到先得一致）：只有第一个拥有该
+    # 名字的渠道行挂裸名别名，其它渠道行只能通过复合名选中。
+    claimed_names: set[str] = set()
     for channel in get_newapi_provider_channels():
         provider_key = str(channel.get("provider") or "").strip().lower()
         # comfyui 无 OpenAI 兼容上游清单，其模型由工作流真源管理，不参与自动补目录。
@@ -849,16 +856,22 @@ def build_auto_media_mappings_from_snapshot() -> dict[str, dict[str, Any]]:
             continue
         for entry in get_upstream_catalog(provider_key):
             name = str(entry.get("name") or "").strip()
-            if not name or name in derived:
+            if not name:
+                continue
+            key = provider_spot_model(provider_key, name)
+            if key in derived:
                 continue
             media_type = str(entry.get("mediaType") or "").strip().lower()
             if media_type not in _MEDIA_AUTO_ENDPOINTS:
                 media_type = str(guess_media_type(name) or "").strip().lower()
             if media_type not in _MEDIA_AUTO_ENDPOINTS:
                 continue
-            derived[name] = {
+            derived[key] = {
                 "provider": provider_key,
+                "model": name,
                 "upstreamModel": "",
+                "channelScoped": True,
+                "legacyName": name not in claimed_names,
                 "mediaType": media_type,
                 "label": name,
                 "enabled": True,
@@ -870,6 +883,7 @@ def build_auto_media_mappings_from_snapshot() -> dict[str, dict[str, Any]]:
                     }
                 },
             }
+            claimed_names.add(name)
     return derived
 
 
@@ -1403,6 +1417,11 @@ def build_channel_model_mapping(provider: str) -> dict[str, str]:
         if catalog and target not in catalog:
             continue
         mapping[model] = target
+        # [aipdd fork delta] 目录按「渠道 + 模型」发复合调用名：显式映射的模型也必须有
+        # 自己的复合名，否则跨渠道同名时裸名不注册、选中该渠道的行会 404。
+        spot, bare = split_provider_spot_model(model)
+        if not spot and bare:
+            mapping[provider_spot_model(provider_key, bare)] = target
     embedding = get_newapi_embedding_model_config()
     if str(embedding.get("provider") or "").strip().lower() == provider_key:
         internal = str(
@@ -2676,20 +2695,48 @@ def _media_model_catalog(
                 "parameters": [],
             },
         )
-        gateway_model = str(item.get("upstreamModel") or model)
-        api_model = model if wanted != "video" else f"newapi_{model}"
-        aliases = item.get("aliases") if isinstance(item.get("aliases"), list) else []
-        # [aipdd fork delta] 展示用渠道：条目在「默认生成模型」里配置的所属渠道
-        # （aipdd / openai / volcengine / comfyui ...）。providerId 是执行身份——
-        # 媒体调用统一经 LocalAPI，恒为 newapi；画布模型选择器读 channel 在模型旁
-        # 做彩色渠道标注，未登记的渠道由前端回落成中性样式。
+        # [aipdd fork delta] 目录键 = 「渠道 + 模型」：CE 渠道行的调用名取网关注册的
+        # 复合名 ``provider::model``（该渠道独有的名字才额外注册裸名）。comfyui 无
+        # OpenAI 兼容清单，调用名仍是模型名本身；官方目录（无 channelScoped 标记）
+        # 沿用原来的上游名，不参与渠道复合名。
         channel = str(item.get("provider") or "").strip().lower()
+        channel_scoped = bool(item.get("channelScoped"))
+        bare_model = str(item.get("model") or "").strip() if channel_scoped else ""
+        if channel_scoped:
+            if not bare_model:
+                _spot, bare_model = split_provider_spot_model(model)
+                bare_model = bare_model or model
+            if channel and channel != "comfyui":
+                gateway_model = provider_spot_model(channel, bare_model)
+            else:
+                gateway_model = bare_model
+        else:
+            gateway_model = str(item.get("upstreamModel") or model)
+            bare_model = gateway_model
+        api_model = gateway_model if wanted != "video" else f"newapi_{gateway_model}"
+        aliases = item.get("aliases") if isinstance(item.get("aliases"), list) else []
+        # 旧选择（裸模型名 / 上游真名）仍要能解析到这一行：只挂在「按旧口径拥有该
+        # 名字」的那一行上，避免同名多渠道时把历史默认悄悄改指到另一条渠道。
+        legacy_names = (
+            [
+                bare_model,
+                str(item.get("upstreamModel") or "").strip(),
+            ]
+            if item.get("legacyName")
+            else []
+        )
+        # 入口 id：按旧口径拥有裸名的那一行沿用裸模型名（旧画布节点 / 旧默认存的就是
+        # 它，换 id 会让它们失配）；其它渠道行用复合键区分。
+        entry_id = bare_model if item.get("legacyName") else model
+        # [aipdd fork delta] 展示用渠道：条目属于哪个渠道（aipdd / newapi / volcengine /
+        # comfyui ...）。providerId 是执行身份——媒体调用统一经 LocalAPI，恒为 newapi；
+        # 画布模型选择器读 channel 在模型旁做彩色渠道标注，未登记的渠道由前端回落成中性样式。
         result.append(
             {
                 **config,
-                "catalogId": model,
-                "catalog_id": model,
-                "id": model,
+                "catalogId": entry_id,
+                "catalog_id": entry_id,
+                "id": entry_id,
                 "providerId": "newapi",
                 "provider": "newapi",
                 "channel": channel,
@@ -2697,8 +2744,12 @@ def _media_model_catalog(
                 "api_model": api_model,
                 "gatewayModel": gateway_model,
                 "gateway_model": gateway_model,
-                "aliases": [str(alias) for alias in aliases if str(alias).strip()],
-                "label": str(item.get("label") or model),
+                "aliases": [
+                    str(alias)
+                    for alias in [*aliases, *legacy_names]
+                    if str(alias).strip() and str(alias).strip() != gateway_model
+                ],
+                "label": str(item.get("label") or (bare_model if channel_scoped else model)),
                 "sortOrder": int(item.get("sortOrder") or 100),
                 **({"enabled": False} if disabled else {}),
             }
@@ -2719,12 +2770,49 @@ def get_ce_media_model_catalog(
     """Expose CE-local media settings using the EE catalog response contract.
 
     [aipdd fork delta] 按网关清单自动补目录（基础原则）：显式映射（用户在「默认生成
-    模型」里的配置）为权威，同名时覆盖自动派生行；未被显式配置的上游图片/视频/音频/
-    音乐模型仍自动出现在画布目录，无需人工逐条曝光。
+    模型」里的配置）为权威，同一「渠道 + 模型」时覆盖自动派生行；未被显式配置的上游
+    图片/视频/音频/音乐模型仍自动出现在画布目录，无需人工逐条曝光。目录键统一为
+    ``provider::model``——同名模型在不同渠道各占一行，选择哪一行就路由到哪个渠道。
     """
+    explicit: dict[str, dict[str, Any]] = {}
+    for model, item in get_newapi_media_model_mappings().items():
+        provider_key, bare_model = split_provider_spot_model(model)
+        provider_key = provider_key or str(item.get("provider") or "").strip().lower()
+        bare_model = bare_model or model
+        if not provider_key or not bare_model:
+            continue
+        # comfyui 无 OpenAI 兼容清单、调用名就是模型名：键保持不变（hybrid 模式还要
+        # 按这个 id 与官方目录做覆盖合并）。
+        key = (
+            bare_model
+            if provider_key == "comfyui"
+            else provider_spot_model(provider_key, bare_model)
+        )
+        explicit[key] = {
+            **item,
+            "provider": provider_key,
+            "model": bare_model,
+            "channelScoped": True,
+            "legacyName": True,
+        }
+    auto = build_auto_media_mappings_from_snapshot()
+    # 显式映射为权威：某个模型被显式配置后，裸名解析跟着显式行走（旧版同名覆盖语义）。
+    explicit_names = {
+        str(item.get("model") or "").strip()
+        for key, item in explicit.items()
+        if "::" in key
+    }
+    auto = {
+        key: (
+            row
+            if str(row.get("model") or "") not in explicit_names
+            else {**row, "legacyName": False}
+        )
+        for key, row in auto.items()
+    }
     mappings = {
-        **build_auto_media_mappings_from_snapshot(),
-        **get_newapi_media_model_mappings(),
+        **auto,
+        **explicit,
     }
     return _media_model_catalog(
         mappings,
