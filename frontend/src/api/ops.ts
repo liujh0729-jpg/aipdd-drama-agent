@@ -180,6 +180,13 @@ export interface FreezoneGenPayload extends FreezoneNodeContext {
   genMode?: string | null;
   /** Only honored by openai gpt-image-2 (low / medium / high / auto). */
   quality?: string | null;
+  /**
+   * [aipdd fork delta] 为 true 时后端 runner 把产物登记进资产库「待分类资产」。
+   * 画布入口默认传 true，工具页按需求决定。
+   */
+  archiveToLibrary?: boolean;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）；写入 metadata.source_tool。 */
+  sourceTool?: string;
 }
 
 export interface FreezoneJobRef {
@@ -1773,6 +1780,8 @@ export async function submitFreezoneGen(
         ...(payload.modelId ? { model_id: payload.modelId } : {}),
         ...(payload.genMode ? { gen_mode: payload.genMode } : {}),
         quality: payload.quality ?? null,
+        ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
         ...nodeContextBody(payload),
       },
     },

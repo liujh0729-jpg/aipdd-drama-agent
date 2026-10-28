@@ -291,6 +291,8 @@ async def _start_or_enqueue_freezone_gen_job(
     task_display: dict[str, str] | None = None,
     model_params: dict[str, Any] | None = None,
     request_schema: dict[str, Any] | None = None,
+    archive_to_library: bool = False,
+    source_tool: str = "",
 ) -> dict:
     if ctx is not None:
         await _freezone._require_scoped_media_model(
@@ -338,6 +340,8 @@ async def _start_or_enqueue_freezone_gen_job(
                 "gen_mode": gen_mode or "",
                 "model_params": model_params or {},
                 "request_schema": request_schema or {},
+                **({"archive_to_library": True} if archive_to_library else {}),
+                **({"source_tool": source_tool} if source_tool else {}),
                 **display_payload,
             },
         )
@@ -433,6 +437,8 @@ async def freezone_gen(
         gen_mode=body.gen_mode or None,
         model_params=model_params,
         request_schema=request_schema,
+        archive_to_library=body.archive_to_library,
+        source_tool=body.source_tool,
     )
 
 

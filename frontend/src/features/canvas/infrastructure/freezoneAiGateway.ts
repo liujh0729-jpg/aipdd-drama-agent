@@ -191,6 +191,7 @@ async function submitJob(
       modelParams: payload.modelParams,
       canvasId,
       nodeId: payload.nodeId,
+      archiveToLibrary: true,
     });
     return { ref, projectId };
   }

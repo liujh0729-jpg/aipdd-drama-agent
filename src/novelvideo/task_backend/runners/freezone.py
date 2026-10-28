@@ -308,6 +308,7 @@ def _history_model_mode_extra(payload: dict) -> dict:
 # [aipdd fork delta] 工具页批量任务提交时带 archive_to_library=true，产物产出后
 # 自动登记进资产库「待分类资产」；画布等其它入口不带该标记，行为逐字不变。
 _TOOL_ARCHIVE_LABELS = {
+    "freezone_gen": "图片生成",
     "freezone_edit": "图片处理",
     "freezone_mask_edit": "图片处理",
     "freezone_video_erase": "视频去水印",
@@ -438,6 +439,15 @@ async def _run_freezone_gen_async(
     )
     if history_record:
         result["generation_history_record"] = history_record
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type=task_type,
+        job_id=job_id,
+        media="image",
+        url=str(result["output_url"]),
+        result=result,
+    )
     return result
 
 

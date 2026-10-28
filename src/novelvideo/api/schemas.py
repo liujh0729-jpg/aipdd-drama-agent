@@ -524,6 +524,21 @@ class FreezoneGenRequest(BaseModel):
     )
     gen_mode: Optional[str] = Field(default=None, description="可选：生成模式，用于还原节点时回填 genMode")
     model_params: dict[str, Any] = Field(default_factory=dict)
+    archive_to_library: bool = Field(
+        default=False,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。画布入口默认开启。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool，任务列表据此把任务只显示在产生它的"
+            "功能页。画布等其它入口保持为空。"
+        ),
+    )
 
 
 class FreezoneEditRequest(BaseModel):
