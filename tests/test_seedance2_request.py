@@ -983,6 +983,142 @@ def test_newapi_video_resolves_gateway_local_result_url():
     )
 
 
+def test_newapi_video_prefers_direct_upstream_url_over_gateway_proxy():
+    """网关产物代理要鉴权且转发受 SSRF 保护，任务体有上游直链时应优先直取。"""
+
+    from novelvideo.generators.video_generator import NewApiVideoGenerator
+
+    generator = NewApiVideoGenerator(
+        api_key="test-key",
+        endpoint="http://127.0.0.1:3100/v1",
+        model="h3-t2v",
+    )
+    task = {
+        "result_url": "http://localhost:3000/v1/videos/task_1/content",
+        "metadata": {"url": "https://ark.example/out.mp4"},
+    }
+
+    resolved = generator._resolve_result_url(
+        NewApiVideoGenerator._extract_video_url(task)
+    )
+    assert generator._is_gateway_url(resolved) is True
+    assert generator._direct_video_url(task) == "https://ark.example/out.mp4"
+    # 上游直链缺失 / 非 http(s) 时不参与替换，仍走网关代理兜底。
+    assert generator._direct_video_url({"metadata": {"url": "data:video/mp4;base64,AA"}}) == ""
+    assert generator._direct_video_url({}) == ""
+
+
+@pytest.mark.asyncio
+async def test_newapi_video_download_sends_token_only_for_gateway_urls(
+    tmp_path, monkeypatch
+):
+    from novelvideo.generators.video_generator import NewApiVideoGenerator
+    from novelvideo.utils import media_download
+
+    captured: dict[str, object] = {}
+
+    async def fake_download(url, output_path, *, headers=None, **_kwargs):
+        captured["url"] = url
+        captured["headers"] = headers
+        return object()
+
+    monkeypatch.setattr(media_download, "download_to_path", fake_download)
+    generator = NewApiVideoGenerator(
+        api_key="sk-runtime",
+        endpoint="http://127.0.0.1:3100/v1",
+        model="h3-t2v",
+    )
+
+    await generator._download_video(
+        "http://127.0.0.1:3100/v1/videos/task_1/content", str(tmp_path / "v.mp4")
+    )
+    assert captured["headers"] == {"Authorization": "Bearer sk-runtime"}
+
+    await generator._download_video(
+        "https://ark.example/out.mp4", str(tmp_path / "v2.mp4")
+    )
+    assert captured["headers"] is None
+
+
+@pytest.mark.asyncio
+async def test_newapi_video_delivery_falls_back_to_upstream_direct_url(
+    tmp_path, monkeypatch
+):
+    """网关中转 403/401 时回查 /v1/videos/<id>，用任务体里的上游直链重试。"""
+
+    from novelvideo.generators.video_generator import NewApiVideoGenerator
+    from novelvideo.ports.video_delivery import VideoDeliveryError, VideoDeliveryReceipt
+
+    generator = NewApiVideoGenerator(
+        api_key="sk-runtime",
+        endpoint="http://127.0.0.1:3100/v1",
+        model="h3-t2v",
+    )
+    attempts: list[str] = []
+    requested: list[str] = []
+
+    async def fake_download(url: str, _output_path: str):
+        attempts.append(url)
+        if "127.0.0.1" in url:
+            raise VideoDeliveryError("VIDEO_DOWNLOAD_HTTP_403", retryable=True)
+        return VideoDeliveryReceipt(method="download", size=5, sha256="digest")
+
+    async def fake_get_json(url: str):
+        requested.append(url)
+        return {
+            "id": "task_1",
+            "status": "completed",
+            "metadata": {"url": "https://ark.example/out.mp4"},
+        }
+
+    monkeypatch.setattr(generator, "_download_video", fake_download)
+    monkeypatch.setattr(generator, "_get_json", fake_get_json)
+
+    receipt = await generator._download_delivery(
+        "http://127.0.0.1:3100/v1/videos/task_1/content",
+        str(tmp_path / "v.mp4"),
+        "task_1",
+    )
+
+    assert requested == ["http://127.0.0.1:3100/v1/videos/task_1"]
+    assert attempts == [
+        "http://127.0.0.1:3100/v1/videos/task_1/content",
+        "https://ark.example/out.mp4",
+    ]
+    assert receipt.size == 5
+
+
+@pytest.mark.asyncio
+async def test_newapi_video_delivery_does_not_fall_back_for_direct_urls(
+    tmp_path, monkeypatch
+):
+    from novelvideo.generators.video_generator import NewApiVideoGenerator
+    from novelvideo.ports.video_delivery import VideoDeliveryError
+
+    generator = NewApiVideoGenerator(
+        api_key="sk-runtime",
+        endpoint="http://127.0.0.1:3100/v1",
+        model="h3-t2v",
+    )
+    requested: list[str] = []
+
+    async def fake_download(_url: str, _output_path: str):
+        raise VideoDeliveryError("VIDEO_DOWNLOAD_HTTP_404", retryable=True)
+
+    async def fake_get_json(url: str):
+        requested.append(url)
+        return {}
+
+    monkeypatch.setattr(generator, "_download_video", fake_download)
+    monkeypatch.setattr(generator, "_get_json", fake_get_json)
+
+    with pytest.raises(VideoDeliveryError):
+        await generator._download_delivery(
+            "https://ark.example/out.mp4", str(tmp_path / "v.mp4"), "task_1"
+        )
+    assert requested == []
+
+
 async def test_newapi_happyhorse_video_generator_uses_happyhorse_payload(tmp_path, monkeypatch):
     from pathlib import Path
 

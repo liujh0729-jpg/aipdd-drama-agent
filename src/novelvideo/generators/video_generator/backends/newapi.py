@@ -546,7 +546,51 @@ class NewApiVideoGenerator(VideoGeneratorBase):
     async def _download_video(self, url: str, output_path: str) -> VideoDeliveryReceipt:
         from novelvideo.utils.media_download import download_to_path
 
-        return await download_to_path(url, output_path)
+        # 网关的产物代理端点（/v1/videos/<id>/content）走 TokenOrUserAuth，不带
+        # Authorization 一律 401；命中网关地址时补上运行时令牌。
+        headers = (
+            {"Authorization": f"Bearer {self.api_key}"}
+            if self._is_gateway_url(url)
+            else None
+        )
+        return await download_to_path(url, output_path, headers=headers)
+
+    async def _direct_url_from_videos_api(self, task_id: str) -> str:
+        """回查 OpenAI 风格任务端点，取上游在任务体里给的产物直链。"""
+        public_id = str(task_id or "").strip()
+        if not public_id:
+            return ""
+        try:
+            payload = await self._get_json(
+                f"{self.base_url.rstrip('/')}/videos/{public_id}"
+            )
+        except Exception:
+            return ""
+        if not isinstance(payload, dict):
+            return ""
+        return self._direct_video_url(self._task_response_data(payload))
+
+    async def _download_delivery(
+        self, url: str, output_path: str, task_id: str
+    ) -> VideoDeliveryReceipt:
+        """下载产物；网关代理取不到时改走上游直链。
+
+        网关的 /v1/videos/<id>/content 在本机部署里可能整体不可用（内部转发有
+        SSRF 保护，fake-IP DNS 直接 403），而 OpenAI 风格任务端点里带着上游
+        （如 volces TOS）的直链，回查一次即可绕过代理。
+        """
+        try:
+            return await self._download_video(url, output_path)
+        except VideoDeliveryError as proxy_error:
+            if not self._is_gateway_url(url):
+                raise
+            direct_url = await self._direct_url_from_videos_api(task_id)
+            if not direct_url or direct_url == url:
+                raise
+            try:
+                return await self._download_video(direct_url, output_path)
+            except VideoDeliveryError as direct_error:
+                raise direct_error from proxy_error
 
     @staticmethod
     def _archive_state(task: dict) -> tuple[str, bool] | None:
@@ -1856,6 +1900,29 @@ class NewApiVideoGenerator(VideoGeneratorBase):
                 media.setdefault(key, []).append(url)
         return media
 
+    @staticmethod
+    def _direct_video_url(task: dict) -> str:
+        """任务体里上游给出的产物直链（``content_url`` / ``metadata.url`` / ``url``）。"""
+        if not isinstance(task, dict):
+            return ""
+        candidates: list[Any] = [task.get("content_url")]
+        metadata = task.get("metadata")
+        if isinstance(metadata, dict):
+            candidates.extend([metadata.get("url"), metadata.get("video_url")])
+        candidates.extend([task.get("url"), task.get("video_url")])
+        for value in candidates:
+            if not isinstance(value, str):
+                continue
+            candidate = value.strip()
+            if candidate.lower().startswith(("http://", "https://")):
+                return candidate
+        return ""
+
+    def _is_gateway_url(self, url: str) -> bool:
+        parsed = urllib.parse.urlsplit(str(url or "").strip())
+        gateway = urllib.parse.urlsplit(self.base_url)
+        return bool(parsed.netloc and gateway.netloc and parsed.netloc == gateway.netloc)
+
     def _resolve_result_url(self, result_url: str) -> str:
         """Make gateway-local result URLs reachable from this process."""
         value = str(result_url or "").strip()
@@ -2884,6 +2951,12 @@ class NewApiVideoGenerator(VideoGeneratorBase):
 
                     progress(0.9)
                     video_url = self._resolve_result_url(self._extract_video_url(task))
+                    # [aipdd fork delta] 上游直链优先：网关的 /videos/<id>/content 既
+                    # 要鉴权、内部转发又受 SSRF 保护（fake-IP DNS 下域名解析到
+                    # 198.18.x 会直接 403），任务体已带可直取的产物地址时不再绕网关。
+                    direct_url = self._direct_video_url(task)
+                    if direct_url and self._is_gateway_url(video_url):
+                        video_url = direct_url
                     archived_source = (
                         self._archived_video_source(task, fallback_url=video_url)
                         if archive_delivery is not None
@@ -2961,8 +3034,8 @@ class NewApiVideoGenerator(VideoGeneratorBase):
                                     "视频生成完成，正在下载...",
                                 )
                             )
-                            delivery = await self._download_video(
-                                video_url, output_path
+                            delivery = await self._download_delivery(
+                                video_url, output_path, task_id
                             )
                     except VideoDeliveryError as exc:
                         last_delivery_error = exc.code

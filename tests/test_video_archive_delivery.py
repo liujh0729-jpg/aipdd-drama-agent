@@ -507,8 +507,38 @@ class _Session:
     async def __aexit__(self, *_args):
         return None
 
-    def get(self, _url: str):
+    def get(self, _url: str, **_kwargs):
         return _Response(self._chunks)
+
+
+@pytest.mark.asyncio
+async def test_result_url_download_forwards_authorization_headers(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from novelvideo.utils import media_download
+
+    seen: dict[str, object] = {}
+
+    class _RecordingSession(_Session):
+        def get(self, _url: str, **kwargs):
+            seen["headers"] = kwargs.get("headers")
+            return _Response(self._chunks)
+
+    monkeypatch.setattr(
+        media_download.aiohttp,
+        "ClientSession",
+        lambda **kwargs: _RecordingSession([b"payload"], **kwargs),
+    )
+    output = tmp_path / "video.mp4"
+
+    await media_download.download_to_path(
+        "http://127.0.0.1:3100/v1/videos/task-1/content",
+        str(output),
+        headers={"Authorization": "Bearer sk-runtime"},
+    )
+
+    assert seen["headers"] == {"Authorization": "Bearer sk-runtime"}
+    assert output.read_bytes() == b"payload"
 
 
 @pytest.mark.asyncio
