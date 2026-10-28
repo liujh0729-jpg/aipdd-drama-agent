@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Elastic-2.0
 // Copyright (c) 2026 ClaymoreLab
 // [aipdd fork delta] 供应商渠道展示名统一 override（唯一真源）：
-// 默认四渠道：aipdd→AIPDD、newapi→LocalAPI（用户自配的 OpenAI 兼容外部
+// 默认四渠道：aipdd→AIPDD、newapi→NewAPI（用户自配的 OpenAI 兼容外部
 // 网关）、volcengine→VolcEngine、mediakit→火山 AI MediaKit（归属 VolcEngine 渠道，
 // 只是 Base URL / API Key 独立一份；en/vi 界面按语言取词显示 Volcengine AI MediaKit，
 // 见 localizedBrandName；与后端 model_plaza.py 的 _FORK_PROVIDER_LABELS
@@ -14,9 +14,9 @@ import i18n from "i18next";
 
 export const FORK_PROVIDER_LABELS: Record<string, string> = {
   aipdd: "AIPDD",
-  newapi: "LocalAPI",
-  // 「其它额外渠道」（用户附加在 LocalAPI 网关上的非默认渠道）：独立显示
-  // OpenAI，不与自配网关 newapi→LocalAPI 混同。
+  newapi: "NewAPI",
+  // 「其它额外渠道」（用户附加在 NewAPI 网关上的非默认渠道）：独立显示
+  // OpenAI，不与自配网关 newapi→NewAPI 混同。
   openai: "OpenAI",
   volcengine: "VolcEngine",
   // 中文界面用官方中文子产品线名；en/vi 按界面语言取词（见 localizedBrandName），

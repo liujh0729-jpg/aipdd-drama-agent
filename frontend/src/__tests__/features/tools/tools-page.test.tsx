@@ -539,7 +539,7 @@ describe("ToolsPage", () => {
     // frames 模式按 all_reference 能力过滤并预选目录首项；触发器同时标注渠道胶囊。
     const modelTrigger = await screen.findByRole("combobox", { name: "模型" });
     expect(modelTrigger).toHaveTextContent("Seedance 2.0 Fast");
-    expect(within(modelTrigger).getByText("LocalAPI")).toBeInTheDocument();
+    expect(within(modelTrigger).getByText("NewAPI")).toBeInTheDocument();
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(fileInput, {
@@ -1599,7 +1599,7 @@ describe("ToolsPage", () => {
     await userEvent.click(screen.getByRole("combobox", { name: "模型" }));
     expect(screen.queryByRole("group", { name: "Seedance 系列" })).not.toBeInTheDocument();
     const editOption = await screen.findByRole("option", { name: /Seedance 2.0 Mini/ });
-    expect(within(editOption).getByText("LocalAPI")).toBeInTheDocument();
+    expect(within(editOption).getByText("NewAPI")).toBeInTheDocument();
 
     // 上传一个视频：批量输入统一走 uploadFreezoneImage 拿到静态地址。
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;

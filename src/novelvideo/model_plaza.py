@@ -159,7 +159,7 @@ def _clean(value: Any) -> str:
 # embedding / model-slot），ComfyUI 等自带固定展示名的条目不受影响。
 _FORK_PROVIDER_LABELS: dict[str, str] = {
     "aipdd": "AIPDD",
-    "newapi": "LocalAPI",
+    "newapi": "NewAPI",
     # 「其它额外渠道」：独立于默认几家的附加渠道，展示 OpenAI 而非裸 id。
     "openai": "OpenAI",
     "volcengine": "VolcEngine",

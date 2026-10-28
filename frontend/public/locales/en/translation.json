@@ -9221,7 +9221,7 @@
     },
     "modelConfig": {
       "title": "Model Config",
-      "description": "Choose the official gateway, configure your own LocalAPI, or combine LocalAPI and official services.",
+      "description": "Choose the official gateway, configure your own NewAPI, or combine LocalAPI and official services.",
       "baseUrlHint": "The CE runtime configures the LocalAPI URL automatically.",
       "effectiveBadge": "Active: {{channel}}",
       "guide": "Configuration guide",
@@ -9380,7 +9380,7 @@
         "upstreamKey": "Upstream API Key",
         "baseUrlOverride": "Base URL Override",
         "baseUrlPlaceholder": "Usually empty; uses provider preset",
-        "baseUrlRequiredPlaceholder": "Enter your LocalAPI site URL, e.g. https://newapi.example.com",
+        "baseUrlRequiredPlaceholder": "Enter your NewAPI site URL, e.g. https://newapi.example.com",
         "removeChannel": "Remove channel",
         "noChannelsHint": "No provider channel has been added yet. Add a channel first, then select it for feature models.",
         "noChannels": "Add a provider channel first.",
@@ -9527,19 +9527,21 @@
         "types": {
           "image": "Image",
           "video": "Video",
-          "audio": "Audio"
+          "audio": "Audio",
+          "music": "Music"
         },
+        "jsonOnlyHint": "Audio / music models don't use a gateway endpoint; declare their capabilities in the JSON below.",
         "modelIdPlaceholder": "Model ID (e.g. ComfyUI workflow model name)"
       },
       "cards": {
-        "initFirst": "Complete \"Initialize\" above first, then add AIPDD / LocalAPI channels here.",
+        "initFirst": "Complete \"Initialize\" above first, then add AIPDD / NewAPI channels here.",
         "channelConnectTitle": "Channel Connections",
         "aipddDescription": "OpenAI-compatible gateway; the Base URL is a fixed endpoint, so there is nothing to fill in — just paste your key.",
         "volcengineDescription": "VolcEngine Ark OpenAI-compatible gateway: the Base URL is a fixed endpoint, so there is nothing to fill in — just paste your API key. Below it come the read-only upstream model list, the optional Doubao Speech ASR credentials, and the Volcengine AI MediaKit sub-block that belongs to this channel — the last two live with this channel and are not separate provider channels.",
-        "newApiExternalTitle": "LocalAPI",
-        "newApiExternalDescription": "Enter your own LocalAPI / OpenAI-compatible URL and key.",
-        "recommendedSites": "Recommended LocalAPI sites",
-        "recommendedSitesTip": "Open the curated list of LocalAPI sites and pick one that works for you.",
+        "newApiExternalTitle": "NewAPI",
+        "newApiExternalDescription": "Enter your own NewAPI / OpenAI-compatible URL and key.",
+        "recommendedSites": "Recommended NewAPI sites",
+        "recommendedSitesTip": "Open the curated list of NewAPI sites and pick one that works for you.",
         "noModelList": "{{title}} returned no model list (the upstream may not support /models)",
         "fetchFailed": "Failed to fetch models",
         "needApiKey": "Enter an API key first",
@@ -9570,7 +9572,7 @@
         "minimaxDescription": "MiniMax global site: text via the OpenAI-compatible endpoint, while H3 video / Speech audio / Music go through the official direct API. Base URL defaults to api.minimax.io/v1 (editable); the API Key is not interchangeable with the CN site.",
         "minimaxCnTitle": "MiniMax (CN)",
         "minimaxCnDescription": "MiniMax CN site: Base URL defaults to api.minimax.cn/v1 (editable) and the API Key is not interchangeable with the global site — configure the one matching your account region.",
-        "openaiDescription": "Official OpenAI channel: text / vision / embeddings / images / video / speech are all relayed by the built-in gateway's OpenAI-compatible adapter. Base URL defaults to api.openai.com/v1 (editable) and its API Key is separate from your own LocalAPI gateway. OpenAI ships no music model, so this channel never appears under \"Music\".",
+        "openaiDescription": "Official OpenAI channel: text / vision / embeddings / images / video / speech are all relayed by the built-in gateway's OpenAI-compatible adapter. Base URL defaults to api.openai.com/v1 (editable) and its API Key is separate from your own NewAPI gateway. OpenAI ships no music model, so this channel never appears under \"Music\".",
         "claudeDescription": "Official Anthropic Claude channel: the vendor only offers text and image-understanding models (no image / video / speech / music generation); the messages protocol is converted to OpenAI format by the built-in gateway. Base URL defaults to api.anthropic.com/v1 (editable).",
         "geminiDescription": "Official Google Gemini channel: text / vision / embeddings / images (Imagen) / video (Veo) / speech (TTS); the generateContent protocol is converted to OpenAI format by the built-in gateway. Base URL defaults to generativelanguage.googleapis.com/v1beta (editable). Lyria music uses an incompatible protocol and the gateway has no music route, so it is not wired up in this release.",
         "minimaxVoiceTitle": "MiniMax default voice (optional)",
@@ -9628,6 +9630,11 @@
         "dimensionPlaceholder": "Dim",
         "isDefaultBadge": "Default",
         "setAsDefault": "Set default",
+        "detailSettings": "Model settings",
+        "detailSaved": "Saved detailed settings for {{model}}",
+        "detailSaveFailed": "Failed to save model settings",
+        "detailHint": "Changes here are written to the media model mapping as soon as you save; refresh the canvas to apply.",
+        "detailSave": "Save settings",
         "loadingList": "Fetching models from channels…",
         "emptyPool": "No models yet. Save and sync a channel under \"Channel Connections\" above (or configure local ComfyUI), then click \"Refresh models\".",
         "emptyTab": "No matching models under \"{{label}}\"; switch tabs or expand \"Unclassified\" below.",
@@ -9907,23 +9914,23 @@
     "checkUpdateFailed": "Update check failed. Please try again later.",
     "seedanceAssets": {
       "title": "Seedance asset library & face verification",
-      "description": "Register reference images/videos into the Seedance private asset library and reference them at generation time; real-person assets also require the person to complete liveness verification. The library is only provided by LocalAPI gateways that support it — the probe result below is the answer.",
+      "description": "Register reference images/videos into the Seedance private asset library and reference them at generation time; real-person assets also require the person to complete liveness verification. The library is only provided by NewAPI gateways that support it — the probe result below is the answer.",
       "probe": {
         "refresh": "Re-probe",
-        "ready": "Confirmed: this LocalAPI supports the asset library",
-        "notReady": "Re-probed: this LocalAPI cannot use the asset library",
+        "ready": "Confirmed: this NewAPI supports the asset library",
+        "notReady": "Re-probed: this NewAPI cannot use the asset library",
         "failed": "Probe failed"
       },
       "upstreamError": "Upstream returned: ",
       "warning": "Notice",
       "target": "Target",
       "state": {
-        "supported": "This LocalAPI supports the asset library",
-        "unsupported": "This LocalAPI has no asset library",
+        "supported": "This NewAPI supports the asset library",
+        "unsupported": "This NewAPI has no asset library",
         "unauthorized": "The asset library route exists, but this key is rejected",
-        "ambiguous": "Cannot tell yet whether this LocalAPI supports the asset library",
-        "unconfigured": "No LocalAPI gateway configured yet",
-        "unreachable": "This LocalAPI gateway is unreachable"
+        "ambiguous": "Cannot tell yet whether this NewAPI supports the asset library",
+        "unconfigured": "No NewAPI gateway configured yet",
+        "unreachable": "This NewAPI gateway is unreachable"
       },
       "groupType": {
         "AIGC": "Virtual assets",

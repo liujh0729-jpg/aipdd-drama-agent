@@ -109,6 +109,10 @@ vi.mock("@/lib/queries/model-gateway", () => ({
     mutateAsync: mocks.syncProviderChannel,
     isPending: false,
   }),
+  useNewApiChannelTypes: () => ({
+    data: { ok: true, data: { items: [] } },
+    isLoading: false,
+  }),
 }));
 
 vi.mock("sonner", () => ({

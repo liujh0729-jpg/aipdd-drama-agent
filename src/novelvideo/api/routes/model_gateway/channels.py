@@ -51,17 +51,17 @@ router = APIRouter()
 # 没有的 fork 自有渠道则在列表末尾补合成行，保证「渠道管理」目录与已配置渠道
 # 一一对应）：
 #   newapi：镜像注册表里是 type 60 的「New API 上游适配器」（能力仅 text），但本
-#   fork 的外部 LocalAPI 渠道（provider key 已从 openai 重命名为 newapi）实际走
+#   fork 的外部 NewAPI 渠道（provider key 已从 openai 重命名为 newapi）实际走
 #   OpenAI 兼容适配器（type 1）。若不覆盖，前端 type 解析链（channelTypeByProvider
 #   按注册表解析）会把 newapi 解析成 60 并把错误 type 存进渠道真源，渠道能力筛选
-#   也会因只有 text 而丢 vision/媒体候选。此处整体覆盖为 type 1 + LocalAPI 展示名 +
+#   也会因只有 text 而丢 vision/媒体候选。此处整体覆盖为 type 1 + NewAPI 展示名 +
 #   全能力，屏蔽镜像内置的 type 60。
 #   aipdd：镜像注册表没有该类型，渠道目录里会凭空缺席（已配置的 AIPDD 渠道在
 #   「渠道管理」里看不到、状态无法对应）。按 fork 事实合成 type 1 + AIPDD 展示名 +
 #   全能力 + 预填 base 地址，与 PROVIDER_PRESETS / 连接卡保持一致。
 #   [aipdd fork delta req41 分类] 这里的 base 地址**可以预填**：AIPDD 是公共厂商渠道，
 #   渠道定了端点就定了（同 volcengine / mediakit）。只有 newapi 那一行必须留空：外部
-#   LocalAPI 网关有无数个，地址属于部署方自己的数据。
+#   NewAPI 网关有无数个，地址属于部署方自己的数据。
 #   mediakit：镜像注册表同样没有该类型。火山 AI MediaKit（视频高清 / 智能去字幕）
 #   本质归属 VolcEngine 渠道（同为火山引擎），只是 Base URL / API Key 各自一份；
 #   它的凭证真源在 video-enhance 配置（不进 LocalAPI 渠道表），但「供应商渠道管理」
@@ -71,7 +71,7 @@ router = APIRouter()
 _FORK_CHANNEL_TYPE_OVERRIDES: dict[str, dict[str, Any]] = {
     "newapi": {
         "type": 1,
-        "name": "LocalAPI",
+        "name": "NewAPI",
         "defaultBaseUrl": "",
         # 没有预设地址的渠道必须由用户自己填（前端据此把「通常不填」换成必填提示）：
         # 只写 defaultBaseUrl 为空是不够的，两者语义不同——空预设不等于无需填写。

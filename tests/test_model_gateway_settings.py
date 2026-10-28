@@ -2805,7 +2805,7 @@ def test_custom_newapi_channel_types_route_patches_volcengine_vision_and_image(
     assert items["openai"]["capabilities"] == ["text"]
     # 合成行：镜像注册表缺失的 fork 自有渠道（newapi / aipdd / mediakit）在末尾补齐，
     # 供「供应商渠道管理」目录与已配置渠道 / 渠道连接卡一一对应。
-    assert items["newapi"]["name"] == "LocalAPI"
+    assert items["newapi"]["name"] == "NewAPI"
     assert items["newapi"]["type"] == 1
     assert items["aipdd"]["name"] == "AIPDD"
     assert items["aipdd"]["status"] == 1

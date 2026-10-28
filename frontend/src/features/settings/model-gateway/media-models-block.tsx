@@ -46,6 +46,8 @@ import {
   getResponseErrorMessage,
   featureProviderLabel,
   MEDIA_ROW_GRID,
+  MEDIA_SAVE_KINDS,
+  isMediaSaveKind,
   CUSTOM_PROVIDER_CHANNEL_TYPES,
   readComfyUIWorkflows,
   readComfyUIModelName,
@@ -53,8 +55,11 @@ import {
   COMFY_WORKFLOW_MANAGED_CONFIG_KEY,
   providersSupportingCapability,
 } from "./shared";
+import type { ModelKind } from "@/components/settings/model-classification";
 import { FieldRow } from "./field-row";
 import { catalogCandidates } from "./provider-catalog-block";
+
+type MediaModelType = (typeof MEDIA_SAVE_KINDS)[number];
 
 function defaultComfyMediaModelConfig(
   model: string,
@@ -667,6 +672,12 @@ function LocalMediaModelEditor({
   configuredProviders,
   channelTypeByProvider,
   comfyOnly,
+  // [aipdd fork delta] 从默认生成模型面板按行进入时，模型名就是该行的真实上游
+  // 模型名：只读展示，避免改名把映射指向不存在的模型；同时不再要求渠道目录里
+  // 有这条记录（行来自上游 /models 清单，比目录更权威）。
+  modelReadOnly = false,
+  hintKey = "settings.modelConfig.mediaModels.capabilitiesHint",
+  submitLabelKey = "settings.modelConfig.mediaModels.applyModelEdit",
   onCancel,
   onSave,
 }: {
@@ -675,14 +686,21 @@ function LocalMediaModelEditor({
   configuredProviders: readonly FeatureModelProvider[];
   channelTypeByProvider: ReadonlyMap<string, NewApiChannelType>;
   comfyOnly: boolean;
+  modelReadOnly?: boolean;
+  hintKey?: string;
+  submitLabelKey?: string;
   onCancel: () => void;
   onSave: (model: string, entry: MediaModelEntry) => void;
 }) {
   const { t } = useTranslation();
-  const initialType = entry?.mediaType === "image" ? "image" : "video";
+  // [aipdd fork delta] 媒体类型不再只认图片/视频：默认生成模型面板按 TAB 传入
+  // audio/music，编辑时必须原样保留，否则会把音频/音乐条目改写成视频模型。
+  const initialType: MediaModelType = isMediaSaveKind(entry?.mediaType as ModelKind)
+    ? (entry?.mediaType as MediaModelType)
+    : "video";
   const [model, setModel] = useState(originalModel ?? "");
   const [label, setLabel] = useState(entry?.label ?? originalModel ?? "");
-  const [mediaType, setMediaType] = useState<"image" | "video">(initialType);
+  const [mediaType, setMediaType] = useState<MediaModelType>(initialType);
   const initialProviders = providersSupportingCapability(
     configuredProviders,
     channelTypeByProvider,
@@ -697,13 +715,18 @@ function LocalMediaModelEditor({
   );
   const [enabled, setEnabled] = useState(entry?.enabled !== false);
   const [sortOrder, setSortOrder] = useState(entry?.sortOrder ?? 100);
-  const defaultConfig = {
-    request: {
-      endpoint:
-        mediaType === "image" ? "images/generations" : "video/generations",
-      parameters: [],
-    },
-  };
+  const isImageOrVideo = mediaType === "image" || mediaType === "video";
+  // [aipdd fork delta] 音频 / 音乐不经网关，没有 request.endpoint 这一段；默认配置
+  // 留空，避免把 images/video 的端点写进厂商直连协议。
+  const defaultConfig = isImageOrVideo
+    ? {
+        request: {
+          endpoint:
+            mediaType === "image" ? "images/generations" : "video/generations",
+          parameters: [],
+        },
+      }
+    : {};
   const [configJson, setConfigJson] = useState(
     JSON.stringify(entry?.config ?? defaultConfig, null, 2),
   );
@@ -729,7 +752,8 @@ function LocalMediaModelEditor({
       ),
     [mediaType, provider, providerCatalog.data],
   );
-  const catalogDriven = Boolean(provider) && provider !== "comfyui";
+  const catalogDriven =
+    !modelReadOnly && Boolean(provider) && provider !== "comfyui";
   const handleCatalogPick = (name: string | null) => {
     const clean = String(name || "").trim();
     if (!clean) return;
@@ -768,7 +792,7 @@ function LocalMediaModelEditor({
       ? (parsedConfig[key] as unknown[]).map(String)
       : [];
 
-  const handleMediaTypeChange = (nextType: "image" | "video") => {
+  const handleMediaTypeChange = (nextType: MediaModelType) => {
     setMediaType(nextType);
     const nextProviders = providersSupportingCapability(
       configuredProviders,
@@ -778,6 +802,8 @@ function LocalMediaModelEditor({
     if (!nextProviders.includes(provider)) {
       setProvider(nextProviders[0] ?? "");
     }
+    // 音频 / 音乐没有网关端点概念：保留现有 config，不注入 images/video 端点。
+    if (nextType !== "image" && nextType !== "video") return;
     try {
       const current = JSON.parse(configJson) as Record<string, unknown>;
       const request =
@@ -859,12 +885,24 @@ function LocalMediaModelEditor({
             )}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            {t("settings.modelConfig.mediaModels.capabilitiesHint")}
+            {t(hintKey)}
           </p>
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
-        {catalogDriven ? (
+        {modelReadOnly ? (
+          <div className="grid grid-cols-[120px_1fr] items-center gap-3">
+            <Label className="justify-start text-[11px] font-normal text-muted-foreground">
+              {t("settings.modelConfig.mediaModels.modelId")}
+            </Label>
+            <Input
+              value={model}
+              readOnly
+              className="h-8 text-xs"
+              aria-label={t("settings.modelConfig.mediaModels.modelId")}
+            />
+          </div>
+        ) : catalogDriven ? (
           <div className="grid grid-cols-[120px_1fr] items-center gap-3">
             <Label className="justify-start text-[11px] font-normal text-muted-foreground">
               {t("settings.modelConfig.mediaModels.modelId")}
@@ -910,19 +948,18 @@ function LocalMediaModelEditor({
           <Select
             value={mediaType}
             onValueChange={(value) =>
-              handleMediaTypeChange(value as "image" | "video")
+              handleMediaTypeChange(value as MediaModelType)
             }
           >
             <SelectTrigger size="sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false}>
-              <SelectItem value="image">
-                {t("settings.modelConfig.mediaModels.types.image")}
-              </SelectItem>
-              <SelectItem value="video">
-                {t("settings.modelConfig.mediaModels.types.video")}
-              </SelectItem>
+              {MEDIA_SAVE_KINDS.map((kind) => (
+                <SelectItem key={kind} value={kind}>
+                  {t(`settings.modelConfig.mediaModels.types.${kind}`)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -949,7 +986,19 @@ function LocalMediaModelEditor({
             </SelectContent>
           </Select>
         </div>
-        {catalogDriven ? (
+        {modelReadOnly ? (
+          <div className="col-span-2 grid grid-cols-[120px_1fr] items-center gap-3">
+            <Label className="justify-start text-[11px] font-normal text-muted-foreground">
+              {t("settings.modelConfig.mediaModels.colUpstreamModel")}
+            </Label>
+            <Input
+              value={upstreamModel}
+              readOnly
+              className="h-8 text-xs"
+              aria-label={t("settings.modelConfig.mediaModels.colUpstreamModel")}
+            />
+          </div>
+        ) : catalogDriven ? (
           <div className="col-span-2 grid grid-cols-[120px_1fr] items-center gap-3">
             <Label className="justify-start text-[11px] font-normal text-muted-foreground">
               {t("settings.modelConfig.mediaModels.colUpstreamModel")}
@@ -1004,10 +1053,12 @@ function LocalMediaModelEditor({
         </label>
       </div>
       <div className="mt-3">
-        <p className="text-[11px] font-medium text-foreground">
-          {t("settings.modelConfig.mediaModels.commonCapabilities")}
-        </p>
-        <div className="mt-2 grid grid-cols-2 gap-3">
+        {isImageOrVideo ? (
+          <>
+            <p className="text-[11px] font-medium text-foreground">
+              {t("settings.modelConfig.mediaModels.commonCapabilities")}
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-3">
           <CatalogMultiSelectField
             label={t("settings.modelConfig.mediaModels.resolutionOptions")}
             value={stringOptions("resolutionOptions")}
@@ -1162,7 +1213,13 @@ function LocalMediaModelEditor({
               </div>
             </>
           )}
-        </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t("settings.modelConfig.mediaModels.jsonOnlyHint")}
+          </p>
+        )}
       </div>
       <div className="mt-3 border-t border-border/60 pt-3">
         <Label className="text-[11px] font-normal text-muted-foreground">
@@ -1180,7 +1237,7 @@ function LocalMediaModelEditor({
           {t("common.cancel")}
         </Button>
         <Button type="button" size="sm" onClick={handleSave}>
-          {t("settings.modelConfig.mediaModels.applyModelEdit")}
+          {t(submitLabelKey)}
         </Button>
       </div>
     </div>

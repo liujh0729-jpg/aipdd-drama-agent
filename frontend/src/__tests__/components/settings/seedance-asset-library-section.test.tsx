@@ -85,7 +85,7 @@ describe("SeedanceAssetLibrarySection 能力门控", () => {
       screen.queryByRole("button", { name: "创建认证会话" }),
     ).not.toBeInTheDocument();
     // 没结论也要有话可说，而不是让横幅空着让人以为页面坏了。
-    expect(screen.getByText("还没有可用的 LocalAPI 网关")).toBeInTheDocument();
+    expect(screen.getByText("还没有可用的 NewAPI 网关")).toBeInTheDocument();
   });
 
   it("这台 LocalAPI 没有素材库路由时讲清成因，并整块收起操作区", () => {
@@ -95,10 +95,10 @@ describe("SeedanceAssetLibrarySection 能力门控", () => {
     });
     render(<SeedanceAssetLibrarySection />);
 
-    expect(screen.getByText("这台 LocalAPI 没有素材库")).toBeInTheDocument();
+    expect(screen.getByText("这台 NewAPI 没有素材库")).toBeInTheDocument();
     expect(screen.getByText(/没有暴露 v2 素材库接口/)).toBeInTheDocument();
     // 口径本身要写在页面上：能力随网关而定，不是连了 LocalAPI 就有。
-    expect(screen.getByText(/素材库只由支持该能力的 LocalAPI 网关提供/)).toBeInTheDocument();
+    expect(screen.getByText(/素材库只由支持该能力的 NewAPI 网关提供/)).toBeInTheDocument();
     expect(enabledCalls.groups).toEqual([false]);
     expect(enabledCalls.assets).toEqual([false]);
     expect(screen.queryByText("素材组")).not.toBeInTheDocument();
@@ -145,7 +145,7 @@ describe("SeedanceAssetLibrarySection 能力门控", () => {
 
     expect(refreshMutate).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith(
-      "已重新探测：这台 LocalAPI 用不了素材库",
+      "已重新探测：这台 NewAPI 用不了素材库",
     );
   });
 

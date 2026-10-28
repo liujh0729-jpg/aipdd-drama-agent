@@ -38,7 +38,7 @@ __all__ = [
 # 名口径一致，但诊断文案要带上中文厂商名，用户才知道去哪个控制台。
 _PROVIDER_HINT_NAMES: dict[str, str] = {
     "aipdd": "AIPDD",
-    "newapi": "LocalAPI",
+    "newapi": "NewAPI",
     "openai": "OpenAI",
     "volcengine": "VolcEngine 火山方舟",
     "ark": "VolcEngine 火山方舟",

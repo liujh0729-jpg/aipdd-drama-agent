@@ -496,7 +496,7 @@ describe("StyleGalleryModal", () => {
     await user.click(screen.getByRole("option", { name: /Seedream 4/ }));
 
     expect(trigger).toHaveTextContent("Seedream 4");
-    expect(trigger).toHaveTextContent("LocalAPI");
+    expect(trigger).toHaveTextContent("NewAPI");
 
     await user.click(screen.getByText("AI 生成封面"));
     expect(mocks.generateCoverMutate).toHaveBeenCalledWith(

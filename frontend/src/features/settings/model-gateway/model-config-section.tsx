@@ -217,7 +217,9 @@ function ModelConfigSection({ open }: { open: boolean }) {
           ) : null}
           {/* [aipdd fork delta] 默认生成模型面板：网关配置完成后拉取上游模型清单。
               放在渠道连接卡之后、「高级」折叠之前——每个分类都必须设好默认模型，
-              否则生成时报「没有可用渠道 / 模型未找到」，故前置到重点位置强提示用户。 */}
+              否则生成时报「没有可用渠道 / 模型未找到」，故前置到重点位置强提示用户。
+              原先独立的「图片 / 视频 / 音频生成模型」表已并入本面板：每个模型行的
+              「模型详细设置」按钮直接打开同一套能力编辑器。 */}
           {mode === "custom" ? (
             <DefaultGenerationModelsPanel
               config={config}

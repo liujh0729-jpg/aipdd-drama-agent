@@ -87,7 +87,7 @@ PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
     # type=1 = OpenAI 兼容适配器。展示层只有四大渠道：mediakit（火山 AI MediaKit）
     # 归属 volcengine 渠道，凭证真源在 video-enhance 配置，不进本表。
     # base_url 留空：用户填自己的网关地址，不预填 OpenAI 官方地址。
-    "newapi": {"label": "LocalAPI", "type": 1, "base_url": ""},
+    "newapi": {"label": "NewAPI", "type": 1, "base_url": ""},
     # [aipdd fork delta #A] AIPDD 网关预设：OpenAI 兼容(type=1)，用户粘贴 API Key 并同步模型。
     # [aipdd fork delta req41 分类] base_url **可以预填**：AIPDD 是公共厂商渠道，
     # 地址由渠道类型唯一决定（与下面 volcengine / anthropic / api2d 同一类：拿到渠道就
@@ -2369,7 +2369,7 @@ def rename_gateway_openai_channel_to_newapi(
     }
     channel["id"] = existing_old["id"]
     channel["name"] = "DC-newapi"
-    label = str((PROVIDER_PRESETS.get("newapi") or {}).get("label") or "LocalAPI")
+    label = str((PROVIDER_PRESETS.get("newapi") or {}).get("label") or "NewAPI")
     if "created by DramaClaw CE provisioner" in str(channel.get("remark") or ""):
         channel["remark"] = f"created by DramaClaw CE provisioner for {label}"
     result = update_channel(

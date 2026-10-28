@@ -50,13 +50,16 @@ import {
   useSaveEmbeddingModel,
   useSaveMediaModelMappings,
   useFetchUpstreamModels,
+  useNewApiChannelTypes,
   type ModelGatewayConfig,
+  type NewApiChannelType,
   type SavedMediaModelConfig,
 } from "@/lib/queries/model-gateway";
 import { catalogCandidates } from "./provider-catalog-block";
 import {
   useSettingsStore,
   type FeatureModelProvider,
+  type MediaModelEntry,
 } from "@/stores/settingsStore";
 import {
   getRequestErrorMessage,
@@ -68,6 +71,7 @@ import {
   TEXT_DEFAULT_KEY,
   VISION_DEFAULT_KEY,
 } from "./shared";
+import { LocalMediaModelEditor } from "./media-models-block";
 
 // [aipdd fork delta] 火山 AI MediaKit 视频增强（生成式超分）的固定模型名：MediaKit
 // 是独立 connector、不来自网关上游 /models，连接成功后按此名注入「其它」TAB 作
@@ -196,6 +200,37 @@ function DefaultGenerationModelsPanel({
   const [loading, setLoading] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [tab, setTab] = useState<ModelKind>("image");
+  // [aipdd fork delta] 模型详细设置：原先独立成块的媒体模型能力表已并入本面板，
+  // 由每行的「模型详细设置」按钮打开同一套编辑器（`LocalMediaModelEditor`）。
+  const [detailRow, setDetailRow] = useState<{
+    key: string;
+    kind: NonNullable<MediaModelEntry["mediaType"]>;
+  } | null>(null);
+  // 渠道能力目录：编辑器用它筛掉不支持该媒体类型的渠道。
+  const providerChannels = useSettingsStore(
+    (s) => s.featureModelConfig.providerChannels,
+  );
+  const channelTypesQuery = useNewApiChannelTypes(
+    Boolean(config?.custom?.configured),
+  );
+  const channelTypeByProvider = useMemo(
+    () =>
+      new Map<string, NewApiChannelType>(
+        channelTypesQuery.data?.ok
+          ? channelTypesQuery.data.data.items.map(
+              (item) => [item.provider, item] as const,
+            )
+          : [],
+      ),
+    [channelTypesQuery.data],
+  );
+  const configuredProviders = useMemo(() => {
+    const set = new Set<string>(Object.keys(providerChannels ?? {}));
+    for (const channel of channels) {
+      if (channel.configured) set.add(channel.provider);
+    }
+    return Array.from(set).sort() as FeatureModelProvider[];
+  }, [channels, providerChannels]);
   // Embedding TAB：维度为必填（后端 SaveEmbeddingModelInput 要求 dimension:int）。
   const [embDimension, setEmbDimension] = useState<string>(
     embeddingConfig?.dimension ? String(embeddingConfig.dimension) : "1024",
@@ -606,6 +641,85 @@ function DefaultGenerationModelsPanel({
       );
     }
   };
+
+  // [aipdd fork delta] 「模型详细设置」保存：与「设为默认」共用同一份媒体映射真源，
+  // 但不改默认排序/启用状态之外的任何东西——这里只把该行的能力配置写回去。
+  // 编辑器里模型名只读（行来自上游清单），故只可能更新同一个键。
+  const saveDetail = async (model: string, entry: MediaModelEntry) => {
+    if (!detailRow) return;
+    const next: Record<string, SavedMediaModelConfig> = { ...mediaModels };
+    next[model] = {
+      provider: entry.provider,
+      upstreamModel: entry.upstreamModel,
+      ...(entry.mediaType ? { mediaType: entry.mediaType } : {}),
+      ...(entry.label ? { label: entry.label } : {}),
+      enabled: entry.enabled !== false,
+      sortOrder: entry.sortOrder ?? 100,
+      config: entry.config ?? {},
+    };
+    // 存量行里 config.endpoint 与 mediaType 不一致会让整批校验 400，整批对齐一次。
+    for (const [m, e] of Object.entries(next)) {
+      if (e.mediaType === "image" || e.mediaType === "video") {
+        next[m] = { ...e, config: normalizeMediaConfig(e.config, e.mediaType) };
+      }
+    }
+    try {
+      const res = await saveMappings.mutateAsync({
+        newApiBaseUrl: newApiBaseUrl.trim(),
+        models: next,
+      });
+      if (res.ok === true) {
+        setPool((prev) => {
+          const nextPool = { ...prev, [model]: entry.provider };
+          delete nextPool[`${entry.provider}${SPOT_SEPARATOR}${model}`];
+          return nextPool;
+        });
+        toast.success(
+          t("settings.modelConfig.modelList.detailSaved", { model }),
+        );
+        window.dispatchEvent(new Event("media-model-catalog-updated"));
+        setDetailRow(null);
+      } else {
+        toast.error(
+          getResponseErrorMessage(
+            res,
+            t("settings.modelConfig.modelList.detailSaveFailed"),
+          ),
+        );
+      }
+    } catch (error) {
+      toast.error(
+        await getRequestErrorMessage(
+          error,
+          t("settings.modelConfig.modelList.detailSaveFailed"),
+        ),
+      );
+    }
+  };
+
+  const detailModelName = detailRow ? displayModelName(detailRow.key) : "";
+  const detailRowProvider = detailRow
+    ? pool[detailRow.key] ||
+      spotParts(detailRow.key).provider ||
+      mediaModels[detailModelName]?.provider ||
+      ""
+    : "";
+  const detailEntry: MediaModelEntry | undefined = detailRow
+    ? mediaModels[detailModelName]
+      ? {
+          ...mediaModels[detailModelName],
+          provider: detailRowProvider || mediaModels[detailModelName].provider,
+        }
+      : {
+          provider: detailRowProvider as FeatureModelProvider,
+          upstreamModel: detailModelName,
+          mediaType: detailRow.kind,
+          label: detailModelName,
+          enabled: true,
+          sortOrder: 100,
+          config: {},
+        }
+    : undefined;
 
   // [aipdd fork delta] 「添加模型」：把目录里尚未出现在当前清单里的条目加进展示池，
   // 图片/视频/音频会写入 mediaModels 持久化；文本/Embedding 先加入本地 list，
@@ -1022,6 +1136,18 @@ function DefaultGenerationModelsPanel({
                         />
                       )
                     ) : null}
+                    {isMediaSaveKind(tab) ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => setDetailRow({ key: m, kind: tab })}
+                        disabled={rowBusy}
+                      >
+                        {t("settings.modelConfig.modelList.detailSettings")}
+                      </Button>
+                    ) : null}
                     {isDefault ? (
                       <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-300">
                         {t("settings.modelConfig.modelList.isDefaultBadge")}
@@ -1209,6 +1335,40 @@ function DefaultGenerationModelsPanel({
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* [aipdd fork delta] 模型详细设置：每行按钮打开的编辑器，与原「图片 / 视频 /
+          音频生成模型」表里的能力编辑是同一个组件。 */}
+      <Dialog
+        open={detailRow !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailRow(null);
+        }}
+      >
+        <DialogContent className="max-h-[88vh] w-[calc(100vw-2rem)] max-w-[900px] overflow-hidden p-0 sm:max-w-[900px]">
+          <DialogHeader className="sr-only">
+            <DialogTitle>
+              {t("settings.modelConfig.modelList.detailSettings")}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[88vh]">
+            {detailRow && detailEntry ? (
+              <LocalMediaModelEditor
+                key={`${detailRow.key}:${detailRow.kind}`}
+                originalModel={detailModelName}
+                entry={detailEntry}
+                configuredProviders={configuredProviders}
+                channelTypeByProvider={channelTypeByProvider}
+                comfyOnly={false}
+                modelReadOnly
+                hintKey="settings.modelConfig.modelList.detailHint"
+                submitLabelKey="settings.modelConfig.modelList.detailSave"
+                onCancel={() => setDetailRow(null)}
+                onSave={(model, entry) => void saveDetail(model, entry)}
+              />
+            ) : null}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>

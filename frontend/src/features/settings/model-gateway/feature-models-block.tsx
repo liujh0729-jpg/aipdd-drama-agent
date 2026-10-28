@@ -530,8 +530,8 @@ function FeatureModelsBlock({
         </>
       ) : null}
 
-      {/* [aipdd fork delta] 自定义模式下「图片/视频/音频生成模型」表与上方「默认生成模型」
-          面板重复，已隐藏；仅混合/仅媒体（mediaOnly，如 ComfyUI 工作流）场景保留。 */}
+      {/* 自定义模式逐模型的能力编辑不在这里：它由「默认生成模型」面板每行的
+          「模型详细设置」按钮打开；本块只服务混合/仅媒体（ComfyUI 工作流）场景。 */}
       {mediaOnly ? (
         <MediaModelsBlock
           configuredProviders={configuredProviders}
