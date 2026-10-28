@@ -400,12 +400,15 @@ describe("渠道连接卡：Key 保留", () => {
   });
 });
 
-// [aipdd fork delta] 拉上游清单必须用表单当前值。原先只传 provider，后端就一律回查
-// 库里已存的那对 base+key（库里只有「保存并同步」才更新），于是「填好新地址 + 新令牌
-// 就直接点拉取」时发出去的是旧地址 + 旧令牌，报出来的 401 域名根本不是用户输入的那个。
-// 守的是这条接线，不是上游返回内容本身。
-describe("渠道连接卡：拉取上游清单携带表单当前值", () => {
-  it("改了地址、贴了新 Key 但还没保存就点拉取：请求带上这一对，而不是库里旧的", async () => {
+// [aipdd fork delta] 「拉取模型」已改为「保存并拉取」：点它先把表单里的 base+key 落库
+// 为渠道真源，再带着这一对去拉清单。于是「填好新地址 + 新令牌」不会再把旧库存 Key 发
+// 出去（根治输入 movstory 却报 susciyuan 401），下游也立刻读到最新。守的是这条「先存后拉」接线。
+describe("渠道连接卡：保存并拉取携带表单当前值", () => {
+  it("改了地址、贴了新 Key 点「保存并拉取」：先落库这一对，再带它去拉清单", async () => {
+    mocks.saveProviderChannels.mockResolvedValue({
+      ok: true,
+      data: { channels: [] },
+    });
     render(
       <ProviderConnectCard
         title="NewAPI"
@@ -429,9 +432,13 @@ describe("渠道连接卡：拉取上游清单携带表单当前值", () => {
     });
     // 进入卡片时按已存配置自动拉过一次，这里只关心用户点按钮那一次。
     mocks.fetchUpstreamModels.mockClear();
+    mocks.saveProviderChannels.mockClear();
 
-    fireEvent.click(screen.getByRole("button", { name: /拉取模型/ }));
+    fireEvent.click(screen.getByRole("button", { name: /保存并拉取/ }));
 
+    // 先保存：把这一对写进渠道真源。
+    await waitFor(() => expect(mocks.saveProviderChannels).toHaveBeenCalled());
+    // 再拉取：请求带上刚保存的 base+key，而不是库里旧的。
     await waitFor(() => expect(mocks.fetchUpstreamModels).toHaveBeenCalled());
     expect(mocks.fetchUpstreamModels).toHaveBeenLastCalledWith({
       provider: "newapi",
@@ -440,7 +447,11 @@ describe("渠道连接卡：拉取上游清单携带表单当前值", () => {
     });
   });
 
-  it("用尚未保存的配置拉成功：提示还要点一次保存并同步，否则下游仍读旧值", async () => {
+  it("点「保存并拉取」会先落库：不再出现「尚未保存」提示", async () => {
+    mocks.saveProviderChannels.mockResolvedValue({
+      ok: true,
+      data: { channels: [] },
+    });
     render(
       <ProviderConnectCard
         title="NewAPI"
@@ -461,10 +472,13 @@ describe("渠道连接卡：拉取上游清单携带表单当前值", () => {
     });
     mocks.fetchUpstreamModels.mockClear();
 
-    fireEvent.click(screen.getByRole("button", { name: /拉取模型/ }));
+    fireEvent.click(screen.getByRole("button", { name: /保存并拉取/ }));
 
-    await waitFor(() =>
-      expect(toast.info).toHaveBeenCalledWith(expect.stringContaining("尚未保存")),
+    await waitFor(() => expect(mocks.saveProviderChannels).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.fetchUpstreamModels).toHaveBeenCalled());
+    // 值已落库，不该再提示「尚未保存」。
+    expect(toast.info).not.toHaveBeenCalledWith(
+      expect.stringContaining("尚未保存"),
     );
   });
 

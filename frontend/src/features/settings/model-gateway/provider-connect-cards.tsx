@@ -165,16 +165,13 @@ function ProviderConnectCard({
     if (saved?.baseUrl) setBaseUrl(saved.baseUrl);
   }, [fixedBaseUrl, presetBaseUrl, saved?.baseUrl]);
   const loadModels = useCallback(async () => {
-    // [aipdd fork delta] 拉清单必须携带表单当前值：原先只传 provider，后端就一律回查
-    // 库里已存的 base+key，而库里那份只有「保存并同步」才会更新。于是「填好新地址
-    // + 新令牌、还没点保存就点拉取」时发出去的是旧地址 + 旧令牌，报出来的 401 里那个
-    // 域名根本不是用户输入的（实测：输入 movstory、报错域名是 susciyuan），用户只会
-    // 认为「代码有问题」。留空的字段不传，保持沿用库内已存值的原有语义。
+    // [aipdd fork delta] 拉清单携带表单当前值：库里那份只有「保存」才会更新，
+    // 若只传 provider 后端会一律回查旧 base+key，于是「填好新地址 + 新令牌还没保存
+    // 就点拉取」时报出来的 401 域名根本不是用户输入的（实测：输入 movstory、报错
+    // 域名是 susciyuan）。现在「拉取模型」按钮已改为「先保存再拉取」（见 handleSave），
+    // 这里保留带表单值是为了自动刷新等只读路径也能取到最新。留空字段不传，沿用库内值。
     const typedBaseUrl = baseUrl.trim();
     const typedKey = key.trim();
-    const unsavedPair =
-      Boolean(typedKey) ||
-      (typedBaseUrl.length > 0 && typedBaseUrl !== (saved?.baseUrl ?? "").trim());
     try {
       const res = await fetchModels.mutateAsync({
         provider,
@@ -185,9 +182,6 @@ function ProviderConnectCard({
         setModels(res.data.models ?? []);
         if ((res.data.count ?? 0) === 0) {
           toast.info(t("settings.modelConfig.cards.noModelList", { title }));
-        } else if (unsavedPair) {
-          // 用尚未保存的配置拉成功：不落库的话下游（网关注册、默认模型）仍读旧值。
-          toast.info(t("settings.modelConfig.cards.fetchedUnsaved", { title }));
         }
       } else {
         toast.error(
@@ -202,7 +196,7 @@ function ProviderConnectCard({
         ),
       );
     }
-  }, [baseUrl, fetchModels, key, provider, saved?.baseUrl, title]);
+  }, [baseUrl, fetchModels, key, provider, title]);
   useEffect(() => {
     if (saved?.configured) void loadModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -466,15 +460,19 @@ function ProviderConnectCard({
                 variant="ghost"
                 size="sm"
                 className="h-6 gap-1 px-2 text-[11px]"
-                onClick={() => void loadModels()}
-                disabled={fetchModels.isPending}
+                // [aipdd fork delta] 「拉取模型」默认为「保存并拉取」：先把表单里的
+                // base+key 落库为渠道真源，再读取清单。这样库里存的就是当前输入的这对，
+                // 根治「没保存就拉取 → 发的是库里旧 Key → 401」，也让下游（网关注册、
+                // 默认生成模型、画布目录）立刻读到最新。handleSave 末尾已调 loadModels。
+                onClick={() => void handleSave()}
+                disabled={busy || fetchModels.isPending}
               >
-                {fetchModels.isPending ? (
+                {busy || fetchModels.isPending ? (
                   <Loader2 className="size-3 animate-spin" />
                 ) : (
                   <RotateCw className="size-3" />
                 )}
-                {t("settings.modelConfig.cards.fetchModels")}
+                {t("settings.modelConfig.cards.saveAndFetch")}
               </Button>
             </div>
             {models.length > 0 ? (
