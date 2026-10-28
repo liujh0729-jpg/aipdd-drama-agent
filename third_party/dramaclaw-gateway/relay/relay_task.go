@@ -290,7 +290,10 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if err != nil {
 		return nil, service.TaskErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
-	if resp != nil && resp.StatusCode != http.StatusOK {
+	// 异步任务提交成功的语义是 2xx：多数上游回 200，OpenAI/Sora 兼容的排队型
+	// 上游（如 ap-minimax-h3 所在网关）回 202 Accepted —— 只认 200 会把已经
+	// 排上队的任务当成失败，并把它塞进 fail_to_fetch_task 的 message 里丢掉。
+	if resp != nil && (resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices) {
 		responseBody, _ := io.ReadAll(resp.Body)
 		return nil, service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
 	}

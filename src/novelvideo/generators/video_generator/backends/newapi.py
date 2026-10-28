@@ -135,10 +135,22 @@ def _aipdd_video_input_caps(
     找会串读（本轮新登记了海外 / 国内两条 MiniMax 渠道，正好撞上这一枪）。
     """
 
-    from novelvideo.model_gateway_settings import upstream_catalog_entry
+    from novelvideo.model_gateway_settings import (
+        split_provider_spot_model,
+        upstream_catalog_entry,
+    )
     from novelvideo.catalog.upstream_catalog import declared_media_count, media_metadata
 
-    meta = media_metadata(upstream_catalog_entry(str(model or ""), provider=provider) or {})
+    # 调用名可能是「渠道 + 模型」复合名（目录按渠道分行后的唯一调用名），目录里存的是
+    # 裸模型名；这里按复合名拆回真名与所属渠道再查声明。
+    spot_provider, bare_model = split_provider_spot_model(str(model or ""))
+    meta = media_metadata(
+        upstream_catalog_entry(
+            bare_model or str(model or ""),
+            provider=provider or spot_provider,
+        )
+        or {}
+    )
 
     def _declared_count(key: str) -> int | None:
         # 走 ``declared_media_count``：同一渠道里图槽上限有 ``maxImageInputs``（H3）与
@@ -1004,7 +1016,24 @@ class NewApiVideoGenerator(VideoGeneratorBase):
     @classmethod
     def _task_id_from_submit_response(cls, submitted: dict) -> str:
         task = cls._task_response_data(submitted)
-        return str(task.get("task_id") or task.get("id") or "").strip()
+        task_id = str(task.get("task_id") or task.get("id") or "").strip()
+        if task_id:
+            return task_id
+        # 网关已向上游建单但回查状态失败时，会把上游任务快照塞在 ``message`` 里
+        # 以 JSON 字符串返回（``code == "fail_to_fetch_task"``）。此时任务真实存在，
+        # 直接取出 id 继续轮询，避免客户端误判失败导致重复提交/重复计费。
+        if str(submitted.get("code") or "").strip() == "fail_to_fetch_task":
+            raw_message = str(submitted.get("message") or "").strip()
+            if raw_message:
+                try:
+                    import json as _json
+
+                    parsed = _json.loads(raw_message)
+                except Exception:
+                    parsed = {}
+                if isinstance(parsed, dict):
+                    return str(parsed.get("id") or "").strip()
+        return ""
 
     async def _relay_seedance2_references(
         self,

@@ -898,6 +898,34 @@ def test_newapi_video_task_response_accepts_flat_and_data_wrapped_contracts():
     }
 
 
+def test_newapi_video_task_id_extracted_from_fail_to_fetch_task_envelope():
+    """网关已建单但回查状态失败时，从 message JSON 里取出上游任务 id 继续轮询。"""
+
+    from novelvideo.generators.video_generator import NewApiVideoGenerator
+
+    envelope = {
+        "code": "fail_to_fetch_task",
+        "message": (
+            '{"id":"1e4e2acc-31d6-43d5-95b8-bd837d388876",'
+            '"model":"ap-minimax-h3","status":"QUEUED",'
+            '"billing_unit":"second","estimated_awcoin":1800,"settled_awcoin":0}'
+        ),
+        "data": None,
+        "_newapi_request_id": "202610280930522194180008268d9d6QAJDb7qI",
+    }
+    assert (
+        NewApiVideoGenerator._task_id_from_submit_response(envelope)
+        == "1e4e2acc-31d6-43d5-95b8-bd837d388876"
+    )
+    # message 不是合法 JSON 时回落到空字符串，不抛异常。
+    assert (
+        NewApiVideoGenerator._task_id_from_submit_response(
+            {"code": "fail_to_fetch_task", "message": "not-json", "data": None}
+        )
+        == ""
+    )
+
+
 def test_newapi_video_result_url_prefers_normalized_task_result():
     from novelvideo.generators.video_generator import NewApiVideoGenerator
 
