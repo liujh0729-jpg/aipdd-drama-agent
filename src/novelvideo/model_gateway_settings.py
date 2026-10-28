@@ -803,6 +803,76 @@ def save_upstream_models_snapshot(
         return
 
 
+
+# [aipdd fork delta] 「按网关清单自动补目录」——画布媒体目录的基础原则：渠道拉回的
+# 上游清单里，凡归类为 image/video/audio/music 的模型，自动出现在画布对应目录，无需
+# 人工逐条曝光。刻意坚持只读补全、不改配置真源：映射表（用户在「默认生成模型」里的
+# 显式配置）仍是权威，同名时显式行覆盖自动行；自动行不落库、不发任何计费调用。
+# 可用 custom_newapi_media_auto_import=0 关闭，退回纯配置驱动。
+MEDIA_AUTO_IMPORT_SETTING_KEY = "custom_newapi_media_auto_import"
+_MEDIA_AUTO_ENDPOINTS: dict[str, str] = {
+    "image": "images/generations",
+    "video": "video/generations",
+    "audio": "audio/speech",
+    "music": "music_generation",
+}
+
+
+def _media_auto_import_enabled() -> bool:
+    """自动补目录开关：设置缺失/空 → 默认开启（这是基础原则）。"""
+    try:
+        settings = get_model_gateway_settings()
+    except Exception:  # noqa: BLE001 - 读不到设置时按默认开启处理
+        return True
+    raw = settings.get(MEDIA_AUTO_IMPORT_SETTING_KEY)
+    if raw is None or str(raw).strip() == "":
+        return True
+    return str(raw).strip().lower() not in {"0", "false", "off", "no", "disabled"}
+
+
+def build_auto_media_mappings_from_snapshot() -> dict[str, dict[str, Any]]:
+    """从各渠道上游快照派生「图片/视频/音频/音乐」映射行（只读、不落库）。
+
+    分类走真源 guess_media_type；embedding / text / other 不进媒体目录。同名以先出现的
+    渠道为准（与映射表按模型名唯一键的既有语义一致）。用户显式配的映射在合并时覆盖本
+    结果，因此这条链只做「补全」，从不改写人工配置。
+    """
+    if not _uses_ce_gateway_settings() or not _media_auto_import_enabled():
+        return {}
+    from novelvideo.catalog.media_model_discovery import guess_media_type
+
+    derived: dict[str, dict[str, Any]] = {}
+    for channel in get_newapi_provider_channels():
+        provider_key = str(channel.get("provider") or "").strip().lower()
+        # comfyui 无 OpenAI 兼容上游清单，其模型由工作流真源管理，不参与自动补目录。
+        if not provider_key or provider_key == "comfyui":
+            continue
+        for entry in get_upstream_catalog(provider_key):
+            name = str(entry.get("name") or "").strip()
+            if not name or name in derived:
+                continue
+            media_type = str(entry.get("mediaType") or "").strip().lower()
+            if media_type not in _MEDIA_AUTO_ENDPOINTS:
+                media_type = str(guess_media_type(name) or "").strip().lower()
+            if media_type not in _MEDIA_AUTO_ENDPOINTS:
+                continue
+            derived[name] = {
+                "provider": provider_key,
+                "upstreamModel": "",
+                "mediaType": media_type,
+                "label": name,
+                "enabled": True,
+                "sortOrder": 100,
+                "config": {
+                    "request": {
+                        "endpoint": _MEDIA_AUTO_ENDPOINTS[media_type],
+                        "parameters": [],
+                    }
+                },
+            }
+    return derived
+
+
 def get_upstream_catalog(provider: str) -> list[dict[str, Any]]:
     """[aipdd fork delta req40] 渠道目录（结构化条目）；无快照时为空表。
 
@@ -2646,9 +2716,18 @@ def get_ce_media_model_catalog(
     provider: str | None = None,
     include_disabled: bool = False,
 ) -> list[dict[str, Any]]:
-    """Expose CE-local media settings using the EE catalog response contract."""
+    """Expose CE-local media settings using the EE catalog response contract.
+
+    [aipdd fork delta] 按网关清单自动补目录（基础原则）：显式映射（用户在「默认生成
+    模型」里的配置）为权威，同名时覆盖自动派生行；未被显式配置的上游图片/视频/音频/
+    音乐模型仍自动出现在画布目录，无需人工逐条曝光。
+    """
+    mappings = {
+        **build_auto_media_mappings_from_snapshot(),
+        **get_newapi_media_model_mappings(),
+    }
     return _media_model_catalog(
-        get_newapi_media_model_mappings(),
+        mappings,
         media_type,
         provider=provider,
         include_disabled=include_disabled,

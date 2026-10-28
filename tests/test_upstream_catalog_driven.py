@@ -969,3 +969,78 @@ def test_upstream_catalog_entry_lookup_scans_all_providers() -> None:
     assert upstream_catalog_entry("np-model", PROVIDER) is None
     assert upstream_catalog_entry("np-model", "newapi") is not None
     assert upstream_catalog_entry("") is None
+
+
+# ---------------------------------------------------------------------------
+# [aipdd fork delta] 按网关清单自动补目录（基础原则）：拉回的 image/video/audio/music
+# 直接出现在画布对应目录，无需人工逐条曝光；且**只读派生、不写映射表**。钉住：
+# 只补媒体类型（embedding/text 不进）、显式映射为权威（禁用则隐藏）、开关可关。
+# ---------------------------------------------------------------------------
+
+
+def test_media_auto_import_exposes_snapshot_in_catalog() -> None:
+    from novelvideo.model_gateway_settings import get_ce_media_model_catalog
+
+    save_upstream_models_snapshot(
+        PROVIDER,
+        [
+            {"name": "ap-image-2.0"},
+            {"name": "AP Seedance-2.0 -2"},
+            {"name": "ap-qwen3-embedding:0.6b"},
+            {"name": "ap-chat-3.8-flash"},
+        ],
+        base_url=BASE_URL,
+    )
+    image_ids = {entry["id"] for entry in get_ce_media_model_catalog("image")}
+    video_ids = {entry["id"] for entry in get_ce_media_model_catalog("video")}
+    # 图片、视频被自动补进画布目录。
+    assert "ap-image-2.0" in image_ids
+    assert "AP Seedance-2.0 -2" in video_ids
+    # embedding / 纯文本绝不进图片/视频目录。
+    assert "ap-qwen3-embedding:0.6b" not in image_ids | video_ids
+    assert "ap-chat-3.8-flash" not in image_ids | video_ids
+    # 只读补全：映射表一行都没写（不污染配置真源）。
+    assert get_newapi_media_model_mappings() == {}
+
+
+def test_explicit_mapping_overrides_auto_and_disabled_hides() -> None:
+    """显式映射为权威：同名被禁用后，即便清单里有也不出现在画布目录。"""
+    from novelvideo.model_gateway_settings import get_ce_media_model_catalog
+
+    save_newapi_media_model_mappings(
+        {
+            "ap-image-2.0": {
+                "provider": PROVIDER,
+                "mediaType": "image",
+                "enabled": False,
+                "label": "我的图片模型",
+                "config": {
+                    "request": {"endpoint": "images/generations", "parameters": []}
+                },
+            }
+        }
+    )
+    save_upstream_models_snapshot(
+        PROVIDER,
+        [{"name": "ap-image-2.0"}, {"name": "AP Seedance-2.0 -2"}],
+        base_url=BASE_URL,
+    )
+    image_ids = {entry["id"] for entry in get_ce_media_model_catalog("image")}
+    # 显式禁用覆盖自动补全 → 图片目录里没有它。
+    assert "ap-image-2.0" not in image_ids
+    # 未被显式配置的视频模型仍自动出现。
+    assert "AP Seedance-2.0 -2" in {
+        entry["id"] for entry in get_ce_media_model_catalog("video")
+    }
+
+
+def test_media_auto_import_can_be_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    from novelvideo import model_gateway_settings
+
+    monkeypatch.setattr(
+        model_gateway_settings, "_media_auto_import_enabled", lambda: False
+    )
+    save_upstream_models_snapshot(
+        PROVIDER, [{"name": "ap-image-2.0"}], base_url=BASE_URL
+    )
+    assert model_gateway_settings.get_ce_media_model_catalog("image") == []
