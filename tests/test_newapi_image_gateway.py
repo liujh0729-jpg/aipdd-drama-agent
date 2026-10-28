@@ -27,7 +27,7 @@ def _reload_isolated(monkeypatch, module):
 
     裸 ``importlib.reload`` 会把当前（monkeypatch 注入的）env 钉进模块常量：
     env 由 pytest 恢复，但常量不回退，污染后续测试（历史缺陷：子集顺序下
-    ``test_scene_360_model_rejects_unknown_*`` 因 ``config.NEWAPI_IMAGE_MODEL``
+    ``test_scene_360_model_rejects_unknown_*`` 因 ``config.LOCALAPI_IMAGE_MODEL``
     残留非空而不再拒绝未知模型）。
 
     做法：reload **之前**先给每个现存属性登记一次原地 setattr——monkeypatch
@@ -111,12 +111,12 @@ def _pin_default_image_models(
 def test_dc_image_2_selection_maps_to_newapi_gpt_image2(monkeypatch, tmp_path):
     """默认图主位的名字只来自「设置 → 模型与渠道」，同名 env 完全不进配置。
 
-    [aipdd fork delta] 旧断言写的是 ``NEWAPI_IMAGE_MODEL=Acme-IMG-1``：一个设置页看不见、
+    [aipdd fork delta] 旧断言写的是 ``LOCALAPI_IMAGE_MODEL=Acme-IMG-1``：一个设置页看不见、
     渠道下架也不会自动取消的名字排在面板前面。现在同名 env 照设，但它不再参与解析。
     """
     _isolate_settings_db(monkeypatch, tmp_path)
     _as_ce_local(monkeypatch)
-    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "Acme-IMG-1")
+    monkeypatch.setenv("LOCALAPI_IMAGE_MODEL", "Acme-IMG-1")
     monkeypatch.setenv("DEFAULT_CHARACTER_IMAGE_SELECTION", "newapi_gpt_image2")
 
     import novelvideo.config as config
@@ -125,8 +125,8 @@ def test_dc_image_2_selection_maps_to_newapi_gpt_image2(monkeypatch, tmp_path):
 
     # 「默认生成模型」面板还没图源时，下拉退回两张通用槽位：label 里不带发行方模型名。
     assert config.character_image_selection_options() == {
-        "newapi_gpt_image2": "NewAPI Image",
-        "newapi_nanobanana2": "NewAPI Nano Banana 2",
+        "newapi_gpt_image2": "LocalAPI Image",
+        "newapi_nanobanana2": "LocalAPI Nano Banana 2",
     }
     assert config.get_character_image_selection() == "newapi_gpt_image2"
 
@@ -149,12 +149,12 @@ def test_dc_banana_2_selection_maps_to_newapi_nanobanana2(monkeypatch, tmp_path)
     """``newapi_nanobanana2`` 选项 = 面板里的**第二张**默认图，不再由 env 点名。
 
     [aipdd fork delta] 两个可见选项的差别落在面板顺序上：主位取第一条，副位取第二条
-    （只配一条时两个位同名）。``NEWAPI_NANOBANANA2_MODEL`` 照设也不用。
+    （只配一条时两个位同名）。``LOCALAPI_NANOBANANA2_MODEL`` 照设也不用。
     """
     _isolate_settings_db(monkeypatch, tmp_path)
     _as_ce_local(monkeypatch)
     _seed_image_mappings("ap-gpt-image-2", "ap-nanobanana-2")
-    monkeypatch.setenv("NEWAPI_NANOBANANA2_MODEL", "Acme-IMG-2")
+    monkeypatch.setenv("LOCALAPI_NANOBANANA2_MODEL", "Acme-IMG-2")
     monkeypatch.setenv("DEFAULT_CHARACTER_IMAGE_SELECTION", "newapi_nanobanana2")
 
     import novelvideo.config as config
@@ -175,7 +175,7 @@ def test_dc_banana_2_selection_maps_to_newapi_nanobanana2(monkeypatch, tmp_path)
 def test_fixed_asset_image_providers_default_to_newapi_when_env_is_empty(monkeypatch):
     """按用途钉图的那几个 PROVIDER 留空时跟随 newapi；模型名来自设置的默认图位。
 
-    [aipdd fork delta] ``NEWAPI_IMAGE_MODEL`` 不再提供任何模型名：默认图位没配就是空，
+    [aipdd fork delta] ``LOCALAPI_IMAGE_MODEL`` 不再提供任何模型名：默认图位没配就是空，
     由调用点按「未绑定可用模型」拦住，而不是拿一个 env 名字去打网关。
     """
     for key in (
@@ -186,7 +186,7 @@ def test_fixed_asset_image_providers_default_to_newapi_when_env_is_empty(monkeyp
     ):
         monkeypatch.setenv(key, "")
     _as_ce_local(monkeypatch)
-    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "Acme-IMG-1")
+    monkeypatch.setenv("LOCALAPI_IMAGE_MODEL", "Acme-IMG-1")
 
     import novelvideo.config as config
 
@@ -232,8 +232,8 @@ def test_purpose_image_envs_are_inert_and_settings_decide(monkeypatch, tmp_path)
     ):
         monkeypatch.setenv(key, "newapi")
     for key in (
-        "NEWAPI_IMAGE_MODEL",
-        "NEWAPI_NANOBANANA2_MODEL",
+        "LOCALAPI_IMAGE_MODEL",
+        "LOCALAPI_NANOBANANA2_MODEL",
         "SCENE_MASTER_IMAGE_MODEL",
         "SCENE_REVERSE_MASTER_IMAGE_MODEL",
         "SCENE_360_IMAGE_MODEL",
@@ -258,7 +258,7 @@ def test_purpose_image_envs_are_inert_and_settings_decide(monkeypatch, tmp_path)
     scene_reference_images = _reload_isolated(monkeypatch, scene_reference_images)
 
     # 常量层面就没读 env：这批键留空，只为让旧的导入和旧选项表继续可用。
-    assert config.NEWAPI_IMAGE_MODEL == config.NEWAPI_NANOBANANA2_MODEL == ""
+    assert config.LOCALAPI_IMAGE_MODEL == config.LOCALAPI_NANOBANANA2_MODEL == ""
     assert config.SCENE_MASTER_IMAGE_MODEL == config.SCENE_REVERSE_MASTER_IMAGE_MODEL == ""
     assert config.SCENE_360_IMAGE_MODEL == config.SCENE_ASSET_MODEL == ""
     assert config.PROP_REF_IMAGE_MODEL == config.CHARACTER_IMAGE_MODEL == ""
@@ -325,7 +325,7 @@ def test_newapi_sketch_config_defaults_to_dc_image2_low_quality(monkeypatch, tmp
     _isolate_settings_db(monkeypatch, tmp_path)
     _as_ce_local(monkeypatch)
     _seed_image_mappings("ap-gpt-image-2")
-    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "Acme-IMG-1")
+    monkeypatch.setenv("LOCALAPI_IMAGE_MODEL", "Acme-IMG-1")
     monkeypatch.setenv("DEFAULT_SKETCH_IMAGE_SELECTION", "newapi_gpt_image2")
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
@@ -360,7 +360,7 @@ def test_newapi_sketch_config_defaults_to_dc_image2_low_quality(monkeypatch, tmp
 
     assert image_bytes == b"sketch"
     assert error == ""
-    assert posted["timeout"] == grid_generation.NEWAPI_IMAGE_HTTP_TIMEOUT_SECONDS == 1800.0
+    assert posted["timeout"] == grid_generation.LOCALAPI_IMAGE_HTTP_TIMEOUT_SECONDS == 1800.0
     assert posted["json"]["model"] == "ap-gpt-image-2"
     assert posted["json"]["quality"] == "low"
     assert (posted["json"]["width"], posted["json"]["height"]) == (688, 1024)
@@ -401,7 +401,7 @@ def test_newapi_sketch_config_can_use_dc_banana2_without_quality(monkeypatch, tm
     _isolate_settings_db(monkeypatch, tmp_path)
     _as_ce_local(monkeypatch)
     _seed_image_mappings("ap-gpt-image-2", "ap-nanobanana-2")
-    monkeypatch.setenv("NEWAPI_NANOBANANA2_MODEL", "Acme-IMG-2")
+    monkeypatch.setenv("LOCALAPI_NANOBANANA2_MODEL", "Acme-IMG-2")
     monkeypatch.setenv("DEFAULT_SKETCH_IMAGE_SELECTION", "newapi_nanobanana2")
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
@@ -1195,13 +1195,13 @@ def test_newapi_image_call_relays_reference_images(monkeypatch):
         (
             b"ref-a",
             "png",
-            grid_generation.NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+            grid_generation.LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
             grid_generation.IMAGE_TRANSFORM_AI_REFERENCE_JPEG,
         ),
         (
             b"ref-b",
             "png",
-            grid_generation.NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+            grid_generation.LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
             grid_generation.IMAGE_TRANSFORM_AI_REFERENCE_JPEG,
         ),
     ]
@@ -1268,13 +1268,13 @@ def test_newapi_image_call_preserves_reference_image_extensions(monkeypatch):
         (
             b"jpg-bytes",
             "jpg",
-            grid_generation.NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+            grid_generation.LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
             grid_generation.IMAGE_TRANSFORM_AI_REFERENCE_JPEG,
         ),
         (
             b"webp-bytes",
             "webp",
-            grid_generation.NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+            grid_generation.LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
             grid_generation.IMAGE_TRANSFORM_AI_REFERENCE_JPEG,
         ),
     ]
@@ -1513,7 +1513,7 @@ def test_newapi_character_portrait_raise_on_error_preserves_provider_detail(monk
 
     monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-token")
     monkeypatch.setenv("LOCALAPI_BASE_URL", "http://newapi.test/v1")
-    monkeypatch.setenv("NEWAPI_IMAGE_MODEL", "Acme-IMG-1")
+    monkeypatch.setenv("LOCALAPI_IMAGE_MODEL", "Acme-IMG-1")
     monkeypatch.setenv("DEFAULT_CHARACTER_IMAGE_SELECTION", "newapi_gpt_image2")
     _reload_isolated(monkeypatch, config)
     monkeypatch.setattr(

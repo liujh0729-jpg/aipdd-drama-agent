@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/dramaclaw/localapi/common"
 	"github.com/google/uuid"
 )
 

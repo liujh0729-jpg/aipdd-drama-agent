@@ -1,11 +1,11 @@
-"""[aipdd fork delta req47] NewAPI v2 官方素材库（Seedance 私域素材 + 真人活体认证）客户端。
+"""[aipdd fork delta req47] LocalAPI v2 官方素材库（Seedance 私域素材 + 真人活体认证）客户端。
 
 两条用户口径（2026-10-08）钉死了本模块的形状：
 
-1. **素材库不是「接了 NewAPI 就有」**。实测差分判据（2026-10-08 容器内只读探针，零计费）：
+1. **素材库不是「接了 LocalAPI 就有」**。实测差分判据（2026-10-08 容器内只读探针，零计费）：
    - 内置网关：``POST {站点根}/v2/assets?Action=ListAssetGroups`` 与不存在的控制路径
      ``/v2/assets-probe-control`` **都返回 SPA 的 HTML**（HTTP 200 + ``text/html``）→ 这组路由没有；
-   - 另一台 NewAPI：``/v2/assets?Action=`` 进到令牌鉴权层（401 ``new_api_error`` 无效的令牌），
+   - 另一台 LocalAPI：``/v2/assets?Action=`` 进到令牌鉴权层（401 ``new_api_error`` 无效的令牌），
      而控制路径返回 SPA HTML → 这组路由存在（被自身令牌中间件挡住，能力未证实）。
    支持性因此只能**探测**（``probe_asset_library_support``），任何调用点都不许假定。
 2. **接口怎么样就怎么对照实现，不兼容错误**。请求体严格按上游文档的 PascalCase 字段与
@@ -102,7 +102,7 @@ class AssetLibraryUnauthorized(AssetLibraryError):
 
 
 class AssetLibraryUnsupported(AssetLibraryError):
-    """这台 NewAPI 没有暴露 v2 资产接口（响应是站点页面 / 404，不是资产信封）。"""
+    """这台 LocalAPI 没有暴露 v2 资产接口（响应是站点页面 / 404，不是资产信封）。"""
 
     kind = "unsupported"
 
@@ -114,7 +114,7 @@ class AssetLibraryTransportError(AssetLibraryError):
 
 
 class AssetLibraryNotConfigured(AssetLibraryError):
-    """解析不出 ``(站点根, Key)``：还没连 NewAPI 网关/渠道。"""
+    """解析不出 ``(站点根, Key)``：还没连 LocalAPI 网关/渠道。"""
 
     kind = "unconfigured"
 
@@ -166,7 +166,7 @@ ASSET_SORT_BY = ("CreateTime", "UpdateTime", "GroupId")
 
 
 def _first_credential_source() -> tuple[str, str, str] | None:
-    """按「显式设置 > 生效网关 > 已连 NewAPI 渠道」取第一条凑齐的 ``(根, Key, 来源)``。"""
+    """按「显式设置 > 生效网关 > 已连 LocalAPI 渠道」取第一条凑齐的 ``(根, Key, 来源)``。"""
 
     explicit_base = str(os.environ.get("SEEDANCE_ASSET_BASE_URL", "") or "").strip()
     explicit_key = str(os.environ.get("SEEDANCE_ASSET_API_KEY", "") or "").strip()
@@ -220,8 +220,8 @@ def resolve_asset_library_target(
     resolved = _first_credential_source()
     if resolved is None:
         raise AssetLibraryNotConfigured(
-            "Seedance 素材库未就绪：素材库只随 NewAPI 网关提供，请先在「设置 → 模型与渠道」"
-            "填好 NewAPI 地址与 Key（或连接一条 NewAPI 渠道）。"
+            "Seedance 素材库未就绪：素材库只随 LocalAPI 网关提供，请先在「设置 → 模型与渠道」"
+            "填好 LocalAPI 地址与 Key（或连接一条 LocalAPI 渠道）。"
         )
     resolved_origin, resolved_key, source = resolved
     # 只填一半也能跑：给了地址就沿用解析到的 Key，反之亦然。
@@ -285,7 +285,7 @@ def _post_action(
     status = int(getattr(response, "status_code", 0) or 0)
     if _looks_like_html(response):
         raise AssetLibraryUnsupported(
-            f"该 NewAPI 未暴露 v2 素材库接口（{action} 返回的是站点页面，不是资产信封）",
+            f"该 LocalAPI 未暴露 v2 素材库接口（{action} 返回的是站点页面，不是资产信封）",
             code="RouteNotFound",
             status=status,
         )
@@ -339,7 +339,7 @@ def _post_action(
             raise exc_cls(message, code=code, status=status)
         if status == 404:
             raise AssetLibraryUnsupported(
-                f"该 NewAPI 没有 v2 素材库接口（{action} 返回 404）",
+                f"该 LocalAPI 没有 v2 素材库接口（{action} 返回 404）",
                 code="NotFound",
                 status=status,
             )
@@ -582,7 +582,7 @@ def get_visual_validate_result(
 
 
 # ---------------------------------------------------------------------------
-# 能力探测：这台 NewAPI 「有没有」素材库只能问它自己，任何调用点都不许假定。
+# 能力探测：这台 LocalAPI 「有没有」素材库只能问它自己，任何调用点都不许假定。
 # ---------------------------------------------------------------------------
 
 
@@ -652,7 +652,7 @@ def probe_asset_library_support(
     api_key: str = "",
     force: bool = False,
 ) -> dict[str, object]:
-    """探测这台 NewAPI 是否暴露 v2 素材库，结果按 ``(地址, Key)`` 缓存 TTL 秒。
+    """探测这台 LocalAPI 是否暴露 v2 素材库，结果按 ``(地址, Key)`` 缓存 TTL 秒。
 
     用的判据是**差分**：拿真实 Action 的响应形态 + 一个绝不该存在的同段控制路径一起看，
     才能把「路由存在但令牌被拒」和「这台部署根本没有这组路由」分开——只看状态码会误判
@@ -678,7 +678,7 @@ def probe_asset_library_support(
         # 连不上不代表不支持，也不能缓存住——否则网关恢复后面板还灰着。
         return _probe_result(
             STATE_UNREACHABLE,
-            reason=f"无法连接该 NewAPI 网关：{exc.message}",
+            reason=f"无法连接该 LocalAPI 网关：{exc.message}",
             target=target,
             exc=exc,
         )
@@ -686,8 +686,8 @@ def probe_asset_library_support(
         result = _probe_result(
             STATE_UNSUPPORTED,
             reason=(
-                "这台 NewAPI 没有暴露 v2 素材库接口，素材库与真人认证不可用"
-                "（换一个支持素材库的 NewAPI 网关，或让当前网关开启该转发）"
+                "这台 LocalAPI 没有暴露 v2 素材库接口，素材库与真人认证不可用"
+                "（换一个支持素材库的 LocalAPI 网关，或让当前网关开启该转发）"
             ),
             target=target,
             exc=exc,
@@ -710,7 +710,7 @@ def probe_asset_library_support(
                 result = _probe_result(
                     STATE_AMBIGUOUS,
                     reason=(
-                        "无法判定这台 NewAPI 是否支持素材库：资产接口与控制路径返回了同形态的"
+                        "无法判定这台 LocalAPI 是否支持素材库：资产接口与控制路径返回了同形态的"
                         "错误（鉴权层覆盖了整段前缀）。"
                     ),
                     target=target,
@@ -728,7 +728,7 @@ def probe_asset_library_support(
                 result = _probe_result(
                     STATE_UNAUTHORIZED,
                     reason=(
-                        "这台 NewAPI 有素材库路由，但当前 Key 被它拒绝，能力尚未证实"
+                        "这台 LocalAPI 有素材库路由，但当前 Key 被它拒绝，能力尚未证实"
                         f"（上游原文：{exc.message}）"
                     ),
                     target=target,
@@ -787,13 +787,13 @@ def require_asset_library_supported() -> dict[str, object]:
     state = str(status.get("state") or "")
     if state == STATE_UNAUTHORIZED:
         raise AssetLibraryUnauthorized(
-            str(status.get("reason") or "当前 Key 被该 NewAPI 拒绝"),
+            str(status.get("reason") or "当前 Key 被该 LocalAPI 拒绝"),
             code=str(status.get("upstreamCode") or ""),
             status=int(status.get("httpStatus") or 0),
         )
     if state == STATE_UNCONFIGURED:
         raise AssetLibraryNotConfigured(str(status.get("reason") or "素材库未就绪"))
     raise AssetLibraryUnsupported(
-        str(status.get("reason") or "这台 NewAPI 不支持素材库"),
+        str(status.get("reason") or "这台 LocalAPI 不支持素材库"),
         code="AssetLibraryUnsupported",
     )

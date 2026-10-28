@@ -841,6 +841,10 @@ async def freezone_video_script_reverse(
                 "duration_sec": body.duration_sec,
                 "max_frames": body.max_frames,
                 "scene_threshold": body.scene_threshold,
+                # [aipdd fork delta req97] 默认入库（生成就入库），显式传 false 时
+                # 不带键、runner 不归档。
+                **({"archive_to_library": True} if body.archive_to_library else {}),
+                **({"source_tool": body.source_tool} if body.source_tool else {}),
             },
         )
     except ValueError as exc:

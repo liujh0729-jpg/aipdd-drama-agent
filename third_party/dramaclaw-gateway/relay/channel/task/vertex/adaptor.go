@@ -9,19 +9,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/model"
 	"github.com/gin-gonic/gin"
 
-	"github.com/QuantumNous/new-api/constant"
-	taskdto "github.com/QuantumNous/new-api/dto"
-	"github.com/QuantumNous/new-api/relay/channel"
-	geminitask "github.com/QuantumNous/new-api/relay/channel/task/gemini"
-	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
-	vertexcore "github.com/QuantumNous/new-api/relay/channel/vertex"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/dramaclaw/localapi/constant"
+	taskdto "github.com/dramaclaw/localapi/dto"
+	"github.com/dramaclaw/localapi/relay/channel"
+	geminitask "github.com/dramaclaw/localapi/relay/channel/task/gemini"
+	taskcommon "github.com/dramaclaw/localapi/relay/channel/task/taskcommon"
+	vertexcore "github.com/dramaclaw/localapi/relay/channel/vertex"
+	relaycommon "github.com/dramaclaw/localapi/relay/common"
+	"github.com/dramaclaw/localapi/relaykit/dto"
+	"github.com/dramaclaw/localapi/service"
 )
 
 // ============================

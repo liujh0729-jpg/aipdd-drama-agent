@@ -1,6 +1,6 @@
 # gitleaks 配置 — dramaclaw-ce
 # 默认规则 + 一条自定义规则：覆盖环境/配置文件中被赋真实值的凭据键
-#   （NEWAPI_API_KEY / *_PASSWORD / *_TOKEN / *_SECRET / *_API_KEY）。
+#   （LOCALAPI_API_KEY / *_PASSWORD / *_TOKEN / *_SECRET / *_API_KEY）。
 #   .py / 测试 / 文档 / .env.example 中的变量名引用与占位符默认放行。
 # 本地 pre-commit 钩子与 CI secret-scan 共用本配置。
 
@@ -34,8 +34,8 @@ regexes = [
 [[rules]]
 id = "env-credential-real-value"
 description = "环境/配置文件中凭据键被赋真实值（疑似误提交密钥）"
-regex = '''(?i)\b(NEWAPI_API_KEY|[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|API[_-]?KEY|PRIVATE[_-]?KEY|ACCESS[_-]?KEY))\b\s*[:=]\s*['"]?([A-Za-z0-9][A-Za-z0-9_\-./+=]{7,})['"]?'''
-keywords = ["password", "secret", "token", "api_key", "apikey", "access_key", "private_key", "newapi_api_key"]
+regex = '''(?i)\b(LOCALAPI_API_KEY|[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|API[_-]?KEY|PRIVATE[_-]?KEY|ACCESS[_-]?KEY))\b\s*[:=]\s*['"]?([A-Za-z0-9][A-Za-z0-9_\-./+=]{7,})['"]?'''
+keywords = ["password", "secret", "token", "api_key", "apikey", "access_key", "private_key", "localapi_api_key"]
 
   [rules.allowlist]
   description = "放行代码引用、占位符、测试桩"

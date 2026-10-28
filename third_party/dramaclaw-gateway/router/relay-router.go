@@ -1,11 +1,11 @@
 package router
 
 import (
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/controller"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/relay"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/dramaclaw/localapi/constant"
+	"github.com/dramaclaw/localapi/controller"
+	"github.com/dramaclaw/localapi/middleware"
+	"github.com/dramaclaw/localapi/relay"
+	"github.com/dramaclaw/localapi/relaykit/types"
 
 	"github.com/gin-gonic/gin"
 )

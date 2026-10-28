@@ -338,7 +338,7 @@ describe("渠道连接卡：Key 保留", () => {
 
     render(
       <ProviderConnectCard
-        title="NewAPI"
+        title="LocalAPI"
         description="外部 OpenAI 兼容渠道"
         provider="newapi"
         presetBaseUrl="https://newapi.example/v1"
@@ -375,7 +375,7 @@ describe("渠道连接卡：Key 保留", () => {
   it("未配置渠道留空 Key 保存：拦截并提示，不发起保存", async () => {
     render(
       <ProviderConnectCard
-        title="NewAPI"
+        title="LocalAPI"
         description="外部 OpenAI 兼容渠道"
         provider="newapi"
         presetBaseUrl="https://newapi.example/v1"
@@ -411,7 +411,7 @@ describe("渠道连接卡：保存并拉取携带表单当前值", () => {
     });
     render(
       <ProviderConnectCard
-        title="NewAPI"
+        title="LocalAPI"
         description="外部 OpenAI 兼容渠道"
         provider="newapi"
         presetBaseUrl="https://old.example/v1"
@@ -454,7 +454,7 @@ describe("渠道连接卡：保存并拉取携带表单当前值", () => {
     });
     render(
       <ProviderConnectCard
-        title="NewAPI"
+        title="LocalAPI"
         description="外部 OpenAI 兼容渠道"
         provider="newapi"
         presetBaseUrl="https://old.example/v1"
@@ -490,7 +490,7 @@ describe("渠道连接卡：保存并拉取携带表单当前值", () => {
 
     render(
       <ProviderConnectCard
-        title="NewAPI"
+        title="LocalAPI"
         description="外部 OpenAI 兼容渠道"
         provider="newapi"
         presetBaseUrl="https://old.example/v1"
@@ -547,7 +547,7 @@ describe("渠道连接卡：官网直达链接", () => {
   it("未登记官网的渠道不渲染链接", () => {
     render(
       <ProviderConnectCard
-        title="NewAPI"
+        title="LocalAPI"
         description="外部 OpenAI 兼容渠道"
         provider="newapi"
         presetBaseUrl="https://newapi.example/v1"
@@ -564,11 +564,11 @@ describe("渠道连接卡：官网直达链接", () => {
   });
 });
 
-// [aipdd fork delta] 外部 NewAPI 站点：默认地址留空（自建网关 / 反代 / 云厂中转各不
-// 相同），卡上给一个「推荐 NewAPI 站点」入口，点开就是官方整理的站点清单。
-describe("NewAPI 渠道：默认站点留空 + 推荐站点入口", () => {
+// [aipdd fork delta] 外部 LocalAPI 站点：默认地址留空（自建网关 / 反代 / 云厂中转各不
+// 相同），卡上给一个「推荐 LocalAPI 站点」入口，点开就是官方整理的站点清单。
+describe("LocalAPI 渠道：默认站点留空 + 推荐站点入口", () => {
   /** 去掉已保存的 newapi 凭据：复现「第一次填这张卡」的形态。 */
-  function configWithoutNewAPI(): ModelGatewayConfig {
+  function configWithoutLocalAPI(): ModelGatewayConfig {
     const base = panelConfig() as unknown as Record<string, unknown>;
     const provisioner = (base.provisioner ?? {}) as Record<string, unknown>;
     const channels = (provisioner.providerChannels ?? []) as Array<{
@@ -584,20 +584,20 @@ describe("NewAPI 渠道：默认站点留空 + 推荐站点入口", () => {
   }
 
   function newApiCard(): HTMLElement {
-    const header = screen.getByRole("button", { name: "NewAPI" });
+    const header = screen.getByRole("button", { name: "LocalAPI" });
     return header.closest("div.rounded-md") as HTMLElement;
   }
 
   it("未保存时 Base URL 为空，不预填任何站点", () => {
     render(
       <ProviderConnectCards
-        config={configWithoutNewAPI()}
+        config={configWithoutLocalAPI()}
         loading={false}
         newApiBaseUrl="https://newapi.example/v1"
       />,
     );
     // 卡片默认折叠：展开后才能断言填写区。
-    fireEvent.click(screen.getByRole("button", { name: "NewAPI" }));
+    fireEvent.click(screen.getByRole("button", { name: "LocalAPI" }));
 
     const input = within(newApiCard()).getByRole("textbox");
     expect(input).toHaveValue("");
@@ -605,7 +605,7 @@ describe("NewAPI 渠道：默认站点留空 + 推荐站点入口", () => {
     expect(input).toHaveAttribute("placeholder", "");
   });
 
-  it("卡上有「推荐 NewAPI 站点」链接：新窗口打开官方清单", () => {
+  it("卡上有「推荐 LocalAPI 站点」链接：新窗口打开官方清单", () => {
     render(
       <ProviderConnectCards
         config={panelConfig()}
@@ -613,10 +613,10 @@ describe("NewAPI 渠道：默认站点留空 + 推荐站点入口", () => {
         newApiBaseUrl="https://newapi.example/v1"
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "NewAPI" }));
+    fireEvent.click(screen.getByRole("button", { name: "LocalAPI" }));
 
     const link = within(newApiCard()).getByRole("link", {
-      name: "推荐 NewAPI 站点",
+      name: "推荐 LocalAPI 站点",
     });
     expect(link).toHaveAttribute(
       "href",
@@ -626,11 +626,11 @@ describe("NewAPI 渠道：默认站点留空 + 推荐站点入口", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(link).toHaveAttribute(
       "title",
-      "打开官方整理的 NewAPI 站点清单，自行挑选一个可用的站点。",
+      "打开官方整理的 LocalAPI 站点清单，自行挑选一个可用的站点。",
     );
-    // 只有 NewAPI 卡带这个入口：其它渠道的地址有各自的固定端点或官方文档。
+    // 只有 LocalAPI 卡带这个入口：其它渠道的地址有各自的固定端点或官方文档。
     expect(
-      screen.getAllByRole("link", { name: "推荐 NewAPI 站点" }),
+      screen.getAllByRole("link", { name: "推荐 LocalAPI 站点" }),
     ).toHaveLength(1);
   });
 });
@@ -655,7 +655,7 @@ describe("渠道连接：火山 AI MediaKit 归属 VolcEngine", () => {
     expect(volcCard).not.toBeNull();
     expect(within(volcCard as HTMLElement).getByText("火山 AI MediaKit")).toBeInTheDocument();
 
-    // 顶层「渠道连接」的卡与渠道目录一一对应（AIPDD / VolcEngine / NewAPI / 三家
+    // 顶层「渠道连接」的卡与渠道目录一一对应（AIPDD / VolcEngine / LocalAPI / 三家
     // 官方 / MiniMax 两站 / ComfyUI）：
     // MediaKit 不再自成一张顶层卡，全页只出现一次子区块标题。
     expect(screen.getAllByText("火山 AI MediaKit")).toHaveLength(1);
@@ -713,7 +713,7 @@ describe("渠道连接：火山 AI MediaKit 归属 VolcEngine", () => {
     expect(
       screen.getByText("https://mediakit.cn-beijing.volces.com/api/v1"),
     ).toBeInTheDocument();
-    // 只有地址因人而异的渠道保留可填 Base URL：NewAPI、MiniMax 两站，以及
+    // 只有地址因人而异的渠道保留可填 Base URL：LocalAPI、MiniMax 两站，以及
     // [aipdd fork delta req48] 的 OpenAI / Claude / Gemini（官方地址只是预填值）。
     expect(screen.getAllByText("Base URL")).toHaveLength(6);
     expect(
@@ -1142,7 +1142,7 @@ describe("渠道目录：状态对齐（MediaKit 不占渠道行）", () => {
     {
       type: 1,
       provider: "newapi",
-      name: "NewAPI",
+      name: "LocalAPI",
       description: "",
       icon: "",
       defaultBaseUrl: "",
@@ -1198,7 +1198,7 @@ describe("渠道目录：状态对齐（MediaKit 不占渠道行）", () => {
     );
   }
 
-  it("MediaKit 不在渠道目录占行：真源已配置的 NewAPI 显示已添加，未配置渠道显示添加", async () => {
+  it("MediaKit 不在渠道目录占行：真源已配置的 LocalAPI 显示已添加，未配置渠道显示添加", async () => {
     renderChannelsBlock();
 
     fireEvent.click(screen.getByRole("button", { name: /渠道管理/ }));
@@ -1208,7 +1208,7 @@ describe("渠道目录：状态对齐（MediaKit 不占渠道行）", () => {
     // 配置，不进渠道表）：即使后端 channel/types 仍会注入 mediakit 品牌行，
     // 前端也要在目录里过滤掉。
     expect(screen.queryByText("火山 AI MediaKit")).not.toBeInTheDocument();
-    // NewAPI（后端真源已配置、本地行未 hydrate）显示「删除」。
+    // LocalAPI（后端真源已配置、本地行未 hydrate）显示「删除」。
     expect(screen.getAllByRole("button", { name: "删除" })).toHaveLength(1);
     // ComfyUI 未配置 → 显示「添加」。
     expect(screen.getAllByRole("button", { name: "添加" })).toHaveLength(1);
@@ -1217,27 +1217,27 @@ describe("渠道目录：状态对齐（MediaKit 不占渠道行）", () => {
   it("主列表口径对齐：真源已配置渠道渲染为行", async () => {
     renderChannelsBlock();
 
-    // 不打开「渠道管理」弹窗：真源已配置的 NewAPI 也应出现在主列表，而不是只在
+    // 不打开「渠道管理」弹窗：真源已配置的 LocalAPI 也应出现在主列表，而不是只在
     // 弹窗里显示「删除」（用户添加了渠道却看不到的回归项）。
     expect(
       screen.getByRole("button", { name: /保存渠道配置/ }),
     ).toBeInTheDocument();
-    // NewAPI 主列表行（真源已配置，本地行未 hydrate）。
-    expect(await screen.findAllByText("NewAPI")).not.toHaveLength(0);
+    // LocalAPI 主列表行（真源已配置，本地行未 hydrate）。
+    expect(await screen.findAllByText("LocalAPI")).not.toHaveLength(0);
     // [aipdd fork delta] MediaKit 只读行与「已连接（视频增强）」标识一并撤掉：
     // 填写 / 清除都在上方 VolcEngine 卡内的子区块。
     expect(screen.queryByText("火山 AI MediaKit")).not.toBeInTheDocument();
     expect(screen.queryByText("已连接（视频增强）")).not.toBeInTheDocument();
   });
 
-  // [aipdd fork delta] NewAPI 是唯一没有渠道预设的渠道（外部网关地址属于部署方数据）：
+  // [aipdd fork delta] LocalAPI 是唯一没有渠道预设的渠道（外部网关地址属于部署方数据）：
   // 通用文案「通常不填，使用渠道预设」用在它身上恰好说反了——它必须填。
-  it("Base URL 提示按渠道分流：NewAPI 提示必须填，而不是「通常不填」", async () => {
+  it("Base URL 提示按渠道分流：LocalAPI 提示必须填，而不是「通常不填」", async () => {
     renderChannelsBlock();
 
     expect(
       await screen.findByPlaceholderText(
-        "请填写你的 NewAPI 站点地址，如 https://newapi.example.com",
+        "请填写你的 LocalAPI 站点地址，如 https://newapi.example.com",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("通常不填，使用渠道预设")).toBeNull();

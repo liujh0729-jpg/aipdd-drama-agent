@@ -252,7 +252,7 @@ async def test_c1_eg21_caller_propagates_exact_context_bytes_and_stable_object_i
     assert len(set(call["object_id"] for call in calls["facade"])) == len(references)
     assert [call["ext"] for call in calls["facade"]] == extensions
     assert all(
-        call["ttl"] == grid_generation.NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS
+        call["ttl"] == grid_generation.LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS
         for call in calls["facade"]
     )
     assert calls["legacy"] == []

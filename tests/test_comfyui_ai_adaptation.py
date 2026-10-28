@@ -50,7 +50,7 @@ def _isolate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
         "MODEL_GATEWAY_RUNTIME_VERSION",
         "LOCALAPI_API_KEY",
         "LOCALAPI_BASE_URL",
-        "OFFICIAL_NEWAPI_BASE_URL",
+        "OFFICIAL_LOCALAPI_BASE_URL",
         "LOCALAPI_ADMIN_BASE_URL",
         "COMFYUI_BASE_URL",
     ):
@@ -511,11 +511,11 @@ def _gateway_client() -> TestClient:
 
 
 def _patch_provisioner(monkeypatch, captured: dict[str, Any]) -> None:
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setattr(
         model_gateway,
         "get_provisioner_config",
-        lambda: type("Cfg", (), {"admin_base_url": "http://new-api:3000"})(),
+        lambda: type("Cfg", (), {"admin_base_url": "http://localapi:3000"})(),
     )
     monkeypatch.setattr(
         model_gateway,

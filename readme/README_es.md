@@ -337,10 +337,10 @@ cd dramaclaw
 cp .env.example .env
 # Edita .env — fija PROMPT_EXPORT_PASSWORD a un valor no predeterminado.
 
-docker compose up -d --build   # compila y arranca tres servicios: api / newapi (LocalAPI) / web
+docker compose up -d --build   # compila y arranca tres servicios: api / localapi (LocalAPI) / web
 ```
 
-Ambos checkouts son repos git normales: edita, `git pull`, recompila. ¿Solo cambió el código de DramaClaw? `docker compose up -d --build api web`. ¿Solo la pasarela? `docker compose up -d --build newapi`. ¿Clonaste la pasarela en otro sitio, o prefieres que Docker la obtenga de git? Fija `DRAMACLAW_GATEWAY_SRC` en `.env` a esa ruta o a `https://github.com/dramaclaw/dramaclaw-gateway.git#main`.
+Ambos checkouts son repos git normales: edita, `git pull`, recompila. ¿Solo cambió el código de DramaClaw? `docker compose up -d --build api web`. ¿Solo la pasarela? `docker compose up -d --build localapi`. ¿Clonaste la pasarela en otro sitio, o prefieres que Docker la obtenga de git? Fija `DRAMACLAW_GATEWAY_SRC` en `.env` a esa ruta o a `https://github.com/dramaclaw/dramaclaw-gateway.git#main`.
 
 **Sin compilación** — extrae las imágenes publicadas (sin clonar la pasarela):
 
@@ -358,7 +358,7 @@ Pasos completos en el [Inicio rápido](../docs/en/getting-started/quickstart.md)
 
 Fija versiones o cambia de registro en `.env` (`DRAMACLAW_VERSION`, `DRAMACLAW_GATEWAY_VERSION`, `DRAMACLAW_IMAGE_PREFIX`) — esto aplica solo al modo de imagen (`docker-compose.release.yml`). China continental: fija `DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` y fija ambas versiones (el espejo ACR solo lleva tags fijados).
 
-> ¿Migrando desde un checkout antiguo? Para la compilación desde fuente, primero `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (la pasarela ahora se compila desde ese checkout hermano; sin ella la compilación se detiene con `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` fueron eliminados — usa `docker-compose.yml` (compilación fuente) / `docker-compose.release.yml` (imágenes). Los nombres de servicio y los volúmenes `ce-data` / `newapi-data` no cambian; los datos existentes se reutilizan tal cual. El puerto de LocalAPI ahora solo se enlaza a `127.0.0.1` por defecto; fija `ST_NEWAPI_BIND=0.0.0.0` en `.env` si necesitas acceso remoto a él.
+> ¿Migrando desde un checkout antiguo? Para la compilación desde fuente, primero `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (la pasarela ahora se compila desde ese checkout hermano; sin ella la compilación se detiene con `unable to prepare context`). `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` fueron eliminados — usa `docker-compose.yml` (compilación fuente) / `docker-compose.release.yml` (imágenes). Los nombres de servicio y los volúmenes `ce-data` / `localapi-data` no cambian; los datos existentes se reutilizan tal cual. El puerto de LocalAPI ahora solo se enlaza a `127.0.0.1` por defecto; fija `ST_LOCALAPI_BIND=0.0.0.0` en `.env` si necesitas acceso remoto a él.
 
 ### Host en la nube / VPS (Linux) — despliegue compartido o público
 
@@ -372,7 +372,7 @@ cp .env.example .env
 #    Edit .env: set ST_LOCAL_PASSWORD, PROMPT_EXPORT_PASSWORD and your model
 #    keys / official DC key before you start.
 
-# 2 · build & bring the stack up (api / newapi gateway / web, all from source)
+# 2 · build & bring the stack up (api / localapi gateway / web, all from source)
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
@@ -395,16 +395,16 @@ uv run novelvideo api --port 8780   # arranca la API REST (CE por defecto en tar
 
 Frontend en una segunda terminal: `cd frontend && pnpm install && pnpm dev`.
 
-**Pasarela.** En modo **Official** no necesitas nada más. En modo **Custom** o **LocalAPI + Official Hybrid** la API espera una pasarela en `127.0.0.1:3000` cuyo archivo SQLite es `./state/newapi/one-api.db` (a eso escribe "Initialize" en Settings; `LOCALAPI_ADMIN_BASE_URL` en `.env` ya apunta ahí). Ejecuta la imagen publicada con ese directorio montado:
+**Pasarela.** En modo **Official** no necesitas nada más. En modo **Custom** o **LocalAPI + Official Hybrid** la API espera una pasarela en `127.0.0.1:3000` cuyo archivo SQLite es `./state/localapi/localapi.db` (a eso escribe "Initialize" en Settings; `LOCALAPI_ADMIN_BASE_URL` en `.env` ya apunta ahí). Ejecuta la imagen publicada con ese directorio montado:
 
 ```bash
-mkdir -p state/newapi
+mkdir -p state/localapi
 docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
-  -v "$PWD/state/newapi:/data" \
+  -v "$PWD/state/localapi:/data" \
   claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
 ```
 
-o ejecuta la pasarela desde fuente en el checkout hermano (`make dev-api` / `make dev-web` en [dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway#develop), o `go build` y arranca el binario con `SQLITE_PATH=<path to>/dramaclaw/state/newapi/one-api.db`).
+o ejecuta la pasarela desde fuente en el checkout hermano (`make dev-api` / `make dev-web` en [dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway#develop), o `go build` y arranca el binario con `SQLITE_PATH=<path to>/dramaclaw/state/localapi/localapi.db`).
 
 <br/>
 
@@ -438,7 +438,7 @@ DramaClaw se mantiene neutral en modelos — todos los modelos de texto / imagen
 
 > 🧠 **Trae tu propio cómputo — menos coste, más control.** La pasarela está hecha para que *tú* elijas dónde corre cada generación:
 > - **Cómputo ocioso de AIPDD (reduce costes).** Conectar el canal **AIPDD** permite que la generación se ejecute en el **pool de cómputo ocioso** de la plataforma, así que el trabajo pesado de dramaturgia por lotes sale a una fracción del precio bajo demanda — la palanca más grande para bajar el coste de producción. Regístrate en <https://www.aipdd.work> para obtener una API key de AIPDD y añádela como canal en **Settings → Models & Channels**.
-> - **NewAPI, combínalo libremente.** La pasarela **NewAPI** integrada te deja registrar muchos proveedores como canales y **combinarlos como quieras** — oficiales, AIPDD, una máquina auto-alojada, o cualquier endpoint compatible con OpenAI — por modelo y por etapa. Para los canales NewAPI recomendamos **buscar tus propios proveedores y comparar precios**; hay una lista de referencia seleccionada aquí: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
+> - **LocalAPI, combínalo libremente.** La pasarela **LocalAPI** integrada te deja registrar muchos proveedores como canales y **combinarlos como quieras** — oficiales, AIPDD, una máquina auto-alojada, o cualquier endpoint compatible con OpenAI — por modelo y por etapa. Para los canales LocalAPI recomendamos **buscar tus propios proveedores y comparar precios**; hay una lista de referencia seleccionada aquí: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
 > - **ComfyUI, en tu propia GPU —la forma más barata de correr la generación del lienzo.** Un adaptador **ComfyUI** de primer nivel dirige la generación de imagen / vídeo a un flujo que corre en **tu máquina**: tu GPU renderiza, **sin cuotas cloud por llamada** — los trabajos pesados te cuestan solo electricidad, muy por debajo de cualquier modelo alojado. Registra tu endpoint ComfyUI local como canal en el modo **Custom** o **Hybrid**.
 >   - **La forma más rápida de tener ComfyUI** — sin instalación manual ni entorno de Python: descarga nuestro **cliente de cómputo (算力客户端)** incluido y ejecuta el instalador: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.
 >
@@ -448,7 +448,7 @@ Recorrido completo en [Configurar modelos](../docs/en/getting-started/configurin
 
 ### LocalAPI: dramaclaw-gateway
 
-El servicio `newapi` de `docker-compose.yml` es [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), el fork propio de DramaClaw de [New API](https://github.com/QuantumNous/new-api). Habla el contrato **DC-Media** que DramaClaw usa para imagen / vídeo / audio (roles de medio, referencias, primeros / últimos fotogramas) y convierte cada solicitud a la API nativa del proveedor. Imagen: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) en Docker Hub, fijada por `DRAMACLAW_GATEWAY_VERSION` en `.env`. Queda inactiva en modo Official y solo se usa una vez cambias a **Custom** o **LocalAPI + Official Hybrid**.
+El servicio `localapi` de `docker-compose.yml` es [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), el fork propio de DramaClaw de [New API](https://github.com/QuantumNous/new-api). Habla el contrato **DC-Media** que DramaClaw usa para imagen / vídeo / audio (roles de medio, referencias, primeros / últimos fotogramas) y convierte cada solicitud a la API nativa del proveedor. Imagen: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) en Docker Hub, fijada por `DRAMACLAW_GATEWAY_VERSION` en `.env`. Queda inactiva en modo Official y solo se usa una vez cambias a **Custom** o **LocalAPI + Official Hybrid**.
 
 Adaptadores de proveedor incluidos hoy en la pasarela (mira la [matriz de soporte de canales](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md) para el estado de verificación): ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. ¿Quieres otro proveedor? La pasarela tiene un [generador de andamiaje y guía de contribución](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
 

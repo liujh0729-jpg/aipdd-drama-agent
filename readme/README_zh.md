@@ -366,10 +366,10 @@ cd dramaclaw
 cp .env.example .env
 # 编辑 .env —— 把 PROMPT_EXPORT_PASSWORD 改成非默认值。
 
-docker compose up -d --build   # 构建并起三个服务：api / newapi（LocalAPI）/ web
+docker compose up -d --build   # 构建并起三个服务：api / localapi（LocalAPI）/ web
 ```
 
-两个 checkout 都是普通 git 仓库：改代码、`git pull`、重建。只改了 DramaClaw 代码：`docker compose up -d --build api web`；只改了网关：`docker compose up -d --build newapi`。网关 clone 放在别处，或者想让 Docker 直接从 git 拉？在 `.env` 里把 `DRAMACLAW_GATEWAY_SRC` 设成那个路径或 `https://github.com/dramaclaw/dramaclaw-gateway.git#main`。
+两个 checkout 都是普通 git 仓库：改代码、`git pull`、重建。只改了 DramaClaw 代码：`docker compose up -d --build api web`；只改了网关：`docker compose up -d --build localapi`。网关 clone 放在别处，或者想让 Docker 直接从 git 拉？在 `.env` 里把 `DRAMACLAW_GATEWAY_SRC` 设成那个路径或 `https://github.com/dramaclaw/dramaclaw-gateway.git#main`。
 
 **免构建** —— 改拉已发布镜像（不需要 clone 网关）：
 
@@ -387,7 +387,7 @@ docker compose -f docker-compose.release.yml up -d
 
 版本与镜像源在 `.env` 里钉：`DRAMACLAW_VERSION`、`DRAMACLAW_GATEWAY_VERSION`、`DRAMACLAW_IMAGE_PREFIX`——仅镜像模式（`docker-compose.release.yml`）生效。国内拉取慢：设 `DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` 并同时钉两个版本（ACR 镜像只有钉 tag，没有 latest）。
 
-> 从旧版本升级？源码构建的先 `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway`（网关现在从这个并排 checkout 构建，没有它会报 `unable to prepare context`）。`docker-compose.selfhosted.yml`、`docker-compose.selfhosted.release.yml` 已移除——改用 `docker-compose.yml`（源码构建）/ `docker-compose.release.yml`（镜像）。服务名与 `ce-data` / `newapi-data` 数据卷不变，已有数据原样复用。LocalAPI 端口默认只绑 `127.0.0.1`，需要远程访问时在 `.env` 设 `ST_NEWAPI_BIND=0.0.0.0`。
+> 从旧版本升级？源码构建的先 `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway`（网关现在从这个并排 checkout 构建，没有它会报 `unable to prepare context`）。`docker-compose.selfhosted.yml`、`docker-compose.selfhosted.release.yml` 已移除——改用 `docker-compose.yml`（源码构建）/ `docker-compose.release.yml`（镜像）。服务名与 `ce-data` / `localapi-data` 数据卷不变，已有数据原样复用。LocalAPI 端口默认只绑 `127.0.0.1`，需要远程访问时在 `.env` 设 `ST_LOCALAPI_BIND=0.0.0.0`。
 
 ### 云服务器 / VPS（Linux）—— 共享或公开部署
 
@@ -401,7 +401,7 @@ cp .env.example .env
 #    Edit .env: set ST_LOCAL_PASSWORD, PROMPT_EXPORT_PASSWORD and your model
 #    keys / official DC key before you start.
 
-# 2 · build & bring the stack up (api / newapi gateway / web, all from source)
+# 2 · build & bring the stack up (api / localapi gateway / web, all from source)
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
@@ -424,16 +424,16 @@ uv run novelvideo api --port 8780   # 启动 REST API（CE 默认 inline 任务�
 
 另开一个终端起前端：`cd frontend && pnpm install && pnpm dev`。
 
-**网关。** **官方**模式什么都不用再跑。**自定义**或**LocalAPI + 官方混合**模式下，API 需要一个跑在 `127.0.0.1:3000` 的网关，且它的 SQLite 文件在 `./state/newapi/one-api.db`（设置页的「初始化」写的就是这个文件；`.env` 里的 `LOCALAPI_ADMIN_BASE_URL` 默认已指向这个地址）。要么用发布镜像并把这个目录挂进去：
+**网关。** **官方**模式什么都不用再跑。**自定义**或**LocalAPI + 官方混合**模式下，API 需要一个跑在 `127.0.0.1:3000` 的网关，且它的 SQLite 文件在 `./state/localapi/localapi.db`（设置页的「初始化」写的就是这个文件；`.env` 里的 `LOCALAPI_ADMIN_BASE_URL` 默认已指向这个地址）。要么用发布镜像并把这个目录挂进去：
 
 ```bash
-mkdir -p state/newapi
+mkdir -p state/localapi
 docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
-  -v "$PWD/state/newapi:/data" \
+  -v "$PWD/state/localapi:/data" \
   claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
 ```
 
-要么在旁边的 checkout 里从源码跑网关（[dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/README.zh_CN.md#开发) 的 `make dev-api` / `make dev-web`，或者 `go build` 后用 `SQLITE_PATH=<路径>/dramaclaw/state/newapi/one-api.db` 启动二进制）。
+要么在旁边的 checkout 里从源码跑网关（[dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/README.zh_CN.md#开发) 的 `make dev-api` / `make dev-web`，或者 `go build` 后用 `SQLITE_PATH=<路径>/dramaclaw/state/localapi/localapi.db` 启动二进制）。
 
 <br/>
 
@@ -487,7 +487,7 @@ DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音�
 
 > 🧠 **自带算力，任选其一 —— 更省钱，也更有掌控。** 网关的设计让**你自己**决定每次生成跑在哪里：
 > - **AIPDD 闲置算力（大幅降本）。** 接入 **AIPDD** 渠道后，生成可走平台的**闲置算力池**，批量重活短剧的成本只有按需价的一小部分 —— 这是压低成本最有效的一招。到 <https://www.aipdd.work> 注册获取 AIPDD API Key，再在**设置 → 模型与渠道**里把它加为一个渠道。
-> - **NewAPI，自由搭配。** 内置的 **NewAPI** 网关可以把多家供应商注册为渠道，并**按你的想法任意组合** —— 官方、AIPDD、自托管机器、或任意 OpenAI 兼容端点 —— 按模型、按环节分别选择。NewAPI 渠道建议**自行寻找供应商并比价**，这里有一份整理好的参考清单：<https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>。
+> - **LocalAPI，自由搭配。** 内置的 **LocalAPI** 网关可以把多家供应商注册为渠道，并**按你的想法任意组合** —— 官方、AIPDD、自托管机器、或任意 OpenAI 兼容端点 —— 按模型、按环节分别选择。LocalAPI 渠道建议**自行寻找供应商并比价**，这里有一份整理好的参考清单：<https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>。
 > - **ComfyUI，用你自己的 GPU —— 跑画布任务最省钱的一条路。** 一级 **ComfyUI** 适配器把生图 / 生视频路由到**你本机**跑的工作流：由你的 GPU 出图，**不占用按次云端额度** —— 重活只花电费，远低于任何托管模型。在**自定义**或**混合**模式里把本地 ComfyUI 端点注册为渠道即可。
 >   - **最省事的 ComfyUI 安装方式** —— 无需手动装、也不用配 Python 环境，直接下载我们打包好的**算力客户端**，装上就能用：<https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>。
 >
@@ -497,7 +497,7 @@ DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音�
 
 ### LocalAPI：dramaclaw-gateway
 
-`docker-compose.yml` 里的 `newapi` 服务就是 [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway)，DramaClaw 自己维护的 [New API](https://github.com/QuantumNous/new-api) 分支。它实现了 DramaClaw 图片 / 视频 / 音频所用的 **DC-Media** 协议（媒体角色、参考图、首尾帧），并把每个请求转换成各供应商的原生接口。镜像在 Docker Hub：[`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)，版本由 `.env` 里的 `DRAMACLAW_GATEWAY_VERSION` 钉住。官方模式下它只是常驻待命，切到**自定义**或**LocalAPI + 官方混合**后才会被使用。
+`docker-compose.yml` 里的 `localapi` 服务就是 [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway)，DramaClaw 自己维护的 [New API](https://github.com/QuantumNous/new-api) 分支。它实现了 DramaClaw 图片 / 视频 / 音频所用的 **DC-Media** 协议（媒体角色、参考图、首尾帧），并把每个请求转换成各供应商的原生接口。镜像在 Docker Hub：[`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)，版本由 `.env` 里的 `DRAMACLAW_GATEWAY_VERSION` 钉住。官方模式下它只是常驻待命，切到**自定义**或**LocalAPI + 官方混合**后才会被使用。
 
 网关目前自带的供应商适配器（验证状态见 [渠道支持矩阵](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/README.md)）：ComfyUI · MiniMax H3 / 海螺 · 火山引擎豆包 / Seedance · 阿里 · 可灵 · 即梦 · Vertex AI · Gemini · OpenAI / Sora · Suno。想接别的供应商？网关提供了[适配器脚手架和贡献指南](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.zh_CN.md)。
 

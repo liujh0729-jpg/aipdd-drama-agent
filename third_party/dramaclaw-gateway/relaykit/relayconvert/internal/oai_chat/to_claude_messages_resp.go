@@ -3,10 +3,10 @@ package oaichat
 import (
 	"strings"
 
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/reasonmap"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	"github.com/dramaclaw/localapi/relaykit/dto"
+	"github.com/dramaclaw/localapi/relaykit/reasonmap"
+	"github.com/dramaclaw/localapi/relaykit/relayconvert/convmeta"
+	kitutil "github.com/dramaclaw/localapi/relaykit/relayconvert/kitutil"
 	"github.com/samber/lo"
 )
 

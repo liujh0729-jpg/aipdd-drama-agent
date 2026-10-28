@@ -6,7 +6,7 @@
 # 网关源码默认取仓内 ./third_party/dramaclaw-gateway；改用外部 checkout：.env 设 DRAMACLAW_GATEWAY_SRC=<路径>。
 # 三服务：api + LocalAPI（dramaclaw-gateway，:3000）+ web（:8080）。
 # 首启打开 http://localhost:8080 → 设置 → 模型与渠道：选「官方」粘贴 DC key、或「自定义」一键初始化 LocalAPI、或「LocalAPI + 官方混合」。
-# 默认模式是官方，此时 LocalAPI 只是常驻待命；.env 写 NEWAPI_PROVISIONER_ENABLED=false 可禁用一键初始化。
+# 默认模式是官方，此时 LocalAPI 只是常驻待命；.env 写 LOCALAPI_PROVISIONER_ENABLED=false 可禁用一键初始化。
 services:
   api:
     build:
@@ -46,16 +46,16 @@ services:
       LOCALAPI_BASE_URL: "${LOCALAPI_BASE_URL:-}"
       # 以下四项只给 provisioner 用（用户切到「自定义 / LocalAPI + 官方混合」时一键初始化 LocalAPI），
       # 由 compose 强制覆盖 .env 里的 127.0.0.1 地址（进容器是错的）。
-      LOCALAPI_ADMIN_BASE_URL: http://newapi:3000
-      NEWAPI_SQL_DSN: local
-      NEWAPI_SQLITE_PATH: /newapi-data/one-api.db
-      NEWAPI_ADMIN_USERNAME: root
-      # 默认开；用户在同目录 .env 里写 NEWAPI_PROVISIONER_ENABLED=false 即可关（compose 插值读 .env）。
-      NEWAPI_PROVISIONER_ENABLED: "${NEWAPI_PROVISIONER_ENABLED:-true}"
+      LOCALAPI_ADMIN_BASE_URL: http://localapi:3000
+      LOCALAPI_SQL_DSN: local
+      LOCALAPI_SQLITE_PATH: /localapi-data/localapi.db
+      LOCALAPI_ADMIN_USERNAME: root
+      # 默认开；用户在同目录 .env 里写 LOCALAPI_PROVISIONER_ENABLED=false 即可关（compose 插值读 .env）。
+      LOCALAPI_PROVISIONER_ENABLED: "${LOCALAPI_PROVISIONER_ENABLED:-true}"
       # [aipdd fork delta] 模型名不在 env 里选（TEXT/VISION_MODEL_FALLBACK 已随解析链
       # 一起去掉），本编排只透传对外地址这一项部署数据：留空时由代码按请求 Host 推导。
       # 本编排不写死模型名 / 主机名 —— 那些是部署方的数据。
-      NEWAPI_PUBLIC_BASE_URL: "${NEWAPI_PUBLIC_BASE_URL:-}"
+      LOCALAPI_PUBLIC_BASE_URL: "${LOCALAPI_PUBLIC_BASE_URL:-}"
       # [aipdd fork delta] HyperFrames 渲染服务地址（讲解视频/渠道短视频出片，引擎即服务）：
       # compose 注入容器内网地址；未起 renderer 时出片任务报「渲染服务不可达」，不影响其余功能。
       DRAMACLAW_RENDERER_URL: "${DRAMACLAW_RENDERER_URL:-http://renderer:9847}"
@@ -65,15 +65,15 @@ services:
       - "${ST_API_PORT:-8780}:8780"
     volumes:
       - ce-data:/data
-      - newapi-data:/newapi-data
+      - localapi-data:/localapi-data
     # 只等网关容器启动，不等其健康：官方模式用户不用网关，网关拉不到/端口冲突不能拖垮 api。
     depends_on:
-      newapi:
+      localapi:
         condition: service_started
 
   # LocalAPI（OpenAI 兼容），DramaClaw 维护的修改版，源码 https://github.com/dramaclaw/dramaclaw-gateway 。
-  # 默认使用 newapi-data 卷里的 SQLite；DramaClaw 通过共享卷自动初始化管理员、运行令牌、渠道与模型映射。
-  newapi:
+  # 默认使用 localapi-data 卷里的 SQLite；DramaClaw 通过共享卷自动初始化管理员、运行令牌、渠道与模型映射。
+  localapi:
     build:
       context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
       dockerfile: Dockerfile
@@ -81,14 +81,14 @@ services:
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
-      # 留空 = 内置 SQLite（容器内 /data/one-api.db），与 api 侧 /newapi-data/one-api.db 是同一文件。
+      # 留空 = 内置 SQLite（容器内 /data/localapi.db），与 api 侧 /localapi-data/localapi.db 是同一文件。
       SQL_DSN: ""
     # 默认只绑本机回环：网关的首启 setup 页在初始化前对任何能访问 3000 的人开放。
-    # 需要从别的机器进网关后台时，.env 设 ST_NEWAPI_BIND=0.0.0.0。
+    # 需要从别的机器进网关后台时，.env 设 ST_LOCALAPI_BIND=0.0.0.0。
     ports:
-      - "${ST_NEWAPI_BIND:-127.0.0.1}:${ST_NEWAPI_PORT:-3000}:3000"
+      - "${ST_LOCALAPI_BIND:-127.0.0.1}:${ST_LOCALAPI_PORT:-3000}:3000"
     volumes:
-      - newapi-data:/data
+      - localapi-data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/status >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -152,4 +152,4 @@ services:
 
 volumes:
   ce-data:
-  newapi-data:
+  localapi-data:

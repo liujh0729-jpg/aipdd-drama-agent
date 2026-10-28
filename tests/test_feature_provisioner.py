@@ -92,10 +92,10 @@ def _ce_local_settings(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     for key in (*FEATURE_SLOTS.keys(), "TEXT_MODEL_FALLBACK", "VISION_MODEL_FALLBACK"):
         monkeypatch.delenv(key, raising=False)
     for key in (
-        "NEWAPI_IMAGE_MODEL",
-        "NEWAPI_VIDEO_MODEL",
-        "NEWAPI_AUDIO_MODEL",
-        "NEWAPI_ASR_MODEL",
+        "LOCALAPI_IMAGE_MODEL",
+        "LOCALAPI_VIDEO_MODEL",
+        "LOCALAPI_AUDIO_MODEL",
+        "LOCALAPI_ASR_MODEL",
         "MODEL_GATEWAY_MODE",
         "LOCALAPI_API_KEY",
         "LOCALAPI_BASE_URL",
@@ -355,7 +355,7 @@ def test_embedding_slot_is_only_reported_never_written() -> None:
 def _gateway_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[TestClient, list[dict[str, Any]]]:
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     payloads: list[dict[str, Any]] = []
 
     def fake_upsert_channel(_cfg, _admin, payload):

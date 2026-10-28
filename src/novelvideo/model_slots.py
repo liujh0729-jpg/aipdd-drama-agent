@@ -604,7 +604,7 @@ def resolve_slot(
 def resolve_media_slot(media_type: str) -> str:
     """解析媒体默认槽位（image / video / audio / asr）：只看设置里的默认位。
 
-    [aipdd fork delta] 以前第一层是 ``NEWAPI_{IMAGE,VIDEO,AUDIO,ASR}_MODEL`` env 覆盖：
+    [aipdd fork delta] 以前第一层是 ``LOCALAPI_{IMAGE,VIDEO,AUDIO,ASR}_MODEL`` env 覆盖：
     它比「设置 → 模型与渠道」的默认生成模型面板还高，面板里换了模型而 env 还写着旧名时，
     用户看到的和实际调用的不是同一个模型。现在真源只有媒体模型映射表（同类型里
     enabled 且 sortOrder 最小的那一条）。

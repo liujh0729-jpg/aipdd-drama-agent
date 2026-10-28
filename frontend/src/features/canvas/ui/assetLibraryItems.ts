@@ -59,6 +59,8 @@ const MEDIA_FALLBACK_EXTENSION: Record<AssetLibraryMedia, string> = {
   video: 'mp4',
   audio: 'mp3',
   draft: 'zip',
+  model3d: 'glb',
+  text: 'txt',
 };
 
 /**
@@ -123,6 +125,10 @@ export const ASSET_CATEGORIES: AssetCategoryDef[] = [
   // [aipdd fork delta] 「剪映草稿」类目：只收 VectCut 产物（media="draft"），不接受
   // 上传，所以 media 为空数组——上传对话框据此把它从可传标签里排除。
   { key: 'draft', labelKey: 'canvas.assetLibrary.category.draft', media: [] },
+  // [aipdd fork delta req98] 「3D」「文本」类目：只收生成产物（media="model3d"/"text"），
+  // 与剪映草稿一样不接受上传（media 为空数组）。
+  { key: 'model3d', labelKey: 'canvas.assetLibrary.category.model3d', media: [] },
+  { key: 'text', labelKey: 'canvas.assetLibrary.category.text', media: [] },
 ];
 
 /** 类目筛选器的「全部类别」key。文件夹范围由独立导航控制，不再混入同一排。 */
@@ -157,6 +163,8 @@ export function deriveCategory(
     return source;
   }
   if (media === 'draft') return 'draft';
+  // 与后端 _resolve_library_category 同口径：3D / 文本载体对号入座同名标签。
+  if (media === 'model3d' || media === 'text') return media;
   return media === 'audio' ? 'audio' : 'other';
 }
 
@@ -221,6 +229,8 @@ export const RESERVED_FOLDER_NAMES = [
   '剪映草稿',
   '俯视图',
   '故事版',
+  '3D',
+  '文本',
 ];
 // i18n-exempt-end
 
@@ -339,6 +349,13 @@ function itemUrl(media: AssetLibraryMedia, it: Record<string, unknown>): string 
   if (media === 'audio') return typeof it.audio_url === 'string' ? it.audio_url : '';
   // 剪映草稿没有可直接预览的文件 URL，只承载 draft_id（下载走草稿包代理端点）。
   if (media === 'draft') return '';
+  // [aipdd fork delta req98] 3D 模型 / txt 文档的文件地址字段。
+  if (media === 'model3d') {
+    return typeof it.model3d_url === 'string' ? it.model3d_url : '';
+  }
+  if (media === 'text') {
+    return typeof it.text_url === 'string' ? it.text_url : '';
+  }
   const urls = it.image_urls ?? it.imageUrls ?? it.images;
   if (Array.isArray(urls)) {
     const first = urls.find((u): u is string => typeof u === 'string');
@@ -390,7 +407,11 @@ export function normalizeLibraryList(payload: unknown): LibraryItem[] {
       // 缺省 image 兼容老数据（历史条目没有 media 字段）。
       const mediaRaw = typeof it.media === 'string' ? it.media : 'image';
       const media: AssetLibraryMedia =
-        mediaRaw === 'video' || mediaRaw === 'audio' || mediaRaw === 'draft'
+        mediaRaw === 'video' ||
+        mediaRaw === 'audio' ||
+        mediaRaw === 'draft' ||
+        mediaRaw === 'model3d' ||
+        mediaRaw === 'text'
           ? mediaRaw
           : 'image';
       const sourceRaw = typeof it.source === 'string' ? it.source : 'upload';

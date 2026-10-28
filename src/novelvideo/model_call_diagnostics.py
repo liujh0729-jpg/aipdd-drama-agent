@@ -38,7 +38,7 @@ __all__ = [
 # 名口径一致，但诊断文案要带上中文厂商名，用户才知道去哪个控制台。
 _PROVIDER_HINT_NAMES: dict[str, str] = {
     "aipdd": "AIPDD",
-    "newapi": "NewAPI",
+    "newapi": "LocalAPI",
     "openai": "OpenAI",
     "volcengine": "VolcEngine 火山方舟",
     "ark": "VolcEngine 火山方舟",
@@ -51,7 +51,7 @@ _REQUEST_ID_RE = re.compile(r"request id[:：]\s*([0-9a-zA-Z\-]+)", re.IGNORECAS
 
 # 上游错误码里明确指向「账号没开通 / 无权限」的那一族（火山方舟形状）。
 _ARK_NOT_GRANTED_CODES = ("invalidendpointornotfound", "accessdeniedexception")
-# 指向「本地网关没把模型绑到可用渠道」的那一族（new-api 形状）。
+# 指向「本地网关没把模型绑到可用渠道」的那一族（localapi 形状）。
 _GATEWAY_UNBOUND_CODES = ("model_not_found", "endpoint_not_found")
 
 
@@ -242,7 +242,7 @@ def _guidance(
 ) -> str:
     """按错误特征给最可行动的一句处理指引。
 
-    判定顺序很重要：``model_not_found`` 是本地网关（new-api distributor）的话，
+    判定顺序很重要：``model_not_found`` 是本地网关（localapi distributor）的话，
     ``InvalidEndpointOrModel.NotFound`` 是上游火山方舟的话，两者都是「404」但
     该去改的地方完全不同 —— 先看谁的措辞，再看状态码。
     """

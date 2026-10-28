@@ -302,7 +302,7 @@ export interface FastApiErrorResponse {
   ok?: false;
 }
 
-/** 一个 NewAPI 渠道：provider + 上游 Key + DC 模型名→上游模型名映射。 */
+/** 一个 LocalAPI 渠道：provider + 上游 Key + DC 模型名→上游模型名映射。 */
 export interface CustomChannelInput {
   provider: string;
   type?: number;
@@ -669,9 +669,9 @@ export function useEnableHybrid() {
 export function useInitCustomNewApi() {
   const qc = useQueryClient();
   return useMutation({
-    // 初始化要连 NewAPI、建 token、写库，耗时较长，放宽超时。
+    // 初始化要连 LocalAPI、建 token、写库，耗时较长，放宽超时。
     // 后端 provisioner 的 wait_for_db / wait_for_newapi / wait_for_admin_user 是串联的，
-    // 各自按 NEWAPI_PROVISIONER_INIT_TIMEOUT_MS（默认 120s）重试；前端预算必须盖住
+    // 各自按 LOCALAPI_PROVISIONER_INIT_TIMEOUT_MS（默认 120s）重试；前端预算必须盖住
     // 这个最坏窗口，否则网关冷启动时先在前端超时（ky 60s 会抛 Request timed out），
     // 而后端还在后台把 init 跑完，界面却停在失败态。
     mutationFn: (input: InitCustomNewApiInput) =>
@@ -746,7 +746,7 @@ export function useSaveProviderChannels() {
   });
 }
 
-/** 删除 CE 本地及 NewAPI 中的 ComfyUI 渠道和媒体模型映射。 */
+/** 删除 CE 本地及 LocalAPI 中的 ComfyUI 渠道和媒体模型映射。 */
 export function useClearComfyUIConfig() {
   const qc = useQueryClient();
   return useMutation({
@@ -765,7 +765,7 @@ export function useClearComfyUIConfig() {
   });
 }
 
-/** 更新 NewAPI 中已存在的供应商渠道 key / Base URL，不改模型映射。 */
+/** 更新 LocalAPI 中已存在的供应商渠道 key / Base URL，不改模型映射。 */
 export function useSyncProviderChannel() {
   const qc = useQueryClient();
   return useMutation({
@@ -975,7 +975,7 @@ export function useAdaptComfyUIWorkflows() {
   });
 }
 
-/** 写入单个 NewAPI 渠道。 */
+/** 写入单个 LocalAPI 渠道。 */
 export function useSaveCustomChannel() {
   const qc = useQueryClient();
   return useMutation({
@@ -1010,7 +1010,7 @@ export function useSaveMediaModels() {
 }
 
 /** [aipdd fork delta] 仅写入本地媒体模型映射（mediaType/sortOrder/enabled），
- * 不重复 upsert NewAPI 渠道。供「默认生成模型」面板一键设默认使用，避免
+ * 不重复 upsert LocalAPI 渠道。供「默认生成模型」面板一键设默认使用，避免
  * /media-models 整批渠道 upsert 中任一失败就导致默认不生效。 */
 export function useSaveMediaModelMappings() {
   const qc = useQueryClient();
@@ -1045,7 +1045,7 @@ export function useSaveEmbeddingModel() {
   });
 }
 
-/** 保存 NewAPI 参考媒体 relay 配置。 */
+/** 保存 LocalAPI 参考媒体 relay 配置。 */
 export function useSaveMediaRelayConfig() {
   const qc = useQueryClient();
   return useMutation({
@@ -1156,7 +1156,7 @@ export function useSaveOperatorSecurityConfig() {
   });
 }
 
-/** 批量写入 NewAPI 渠道（功能模型映射保存）。后端支持部分成功。 */
+/** 批量写入 LocalAPI 渠道（功能模型映射保存）。后端支持部分成功。 */
 export function useSaveCustomChannelsBatch() {
   const qc = useQueryClient();
   return useMutation({

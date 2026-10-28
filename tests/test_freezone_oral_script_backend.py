@@ -248,6 +248,8 @@ async def test_oral_script_route_normalizes_at_the_gate(
     assert captured["rewrite_hard_hits"] is False
     assert captured["model_text"] == "DC-llm-custom"
     assert captured["source_tool"] == "oral-script"
+    # 默认生成就入库：txt 口播稿进资产库「文本」载体。
+    assert captured["archive_to_library"] is True
 
 
 @pytest.mark.asyncio
@@ -270,6 +272,28 @@ async def test_oral_script_route_defaults_without_a_topic(
     assert captured["duration_s"] == 60
     assert captured["title_count"] == 3
     assert captured["rewrite_hard_hits"] is True
+    assert captured["archive_to_library"] is True
+
+
+@pytest.mark.asyncio
+async def test_oral_script_route_omits_archive_key_when_disabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """显式关闭时不往 payload 写归档键（画布等入口的口径）。"""
+
+    captured: dict[str, object] = {}
+    _patch_oral_route(monkeypatch, tmp_path, captured)
+
+    await oral_script_ops.freezone_oral_script(
+        project="59",
+        body=FreezoneOralScriptRequest(
+            material="只给一段素材。",
+            archive_to_library=False,
+        ),
+        user={"username": "admin"},
+    )
+
+    assert "archive_to_library" not in captured
 
 
 @pytest.mark.asyncio

@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/model"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/setting"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/constant"
+	"github.com/dramaclaw/localapi/dto"
+	"github.com/dramaclaw/localapi/logger"
+	"github.com/dramaclaw/localapi/model"
+	relaycommon "github.com/dramaclaw/localapi/relay/common"
+	relayconstant "github.com/dramaclaw/localapi/relay/constant"
+	"github.com/dramaclaw/localapi/setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -62,7 +62,7 @@ func PrepareMidjourneyTaskBilling(relayInfo *relaycommon.RelayInfo, task *model.
 
 // SettleMidjourneyTaskBilling charges a persisted legacy task and records the applied stages.
 func SettleMidjourneyTaskBilling(relayInfo *relaycommon.RelayInfo, task *model.Midjourney, prepared bool) (bool, error) {
-	if !prepared {
+	if common.BillingDisabled || !prepared {
 		return false, nil
 	}
 	if relayInfo == nil {
@@ -95,6 +95,9 @@ func SettleMidjourneyTaskBilling(relayInfo *relaycommon.RelayInfo, task *model.M
 
 // RefundMidjourneyQuota reverses every accounting element recorded for a billed legacy task.
 func RefundMidjourneyQuota(ctx context.Context, task *model.Midjourney, reason string) bool {
+	if common.BillingDisabled {
+		return true
+	}
 	quota := task.Quota
 	if quota == 0 {
 		return true

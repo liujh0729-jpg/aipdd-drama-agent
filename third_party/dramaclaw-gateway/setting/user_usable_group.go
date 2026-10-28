@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/dramaclaw/localapi/common"
 )
 
 var userUsableGroups = map[string]string{

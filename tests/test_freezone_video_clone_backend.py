@@ -885,9 +885,9 @@ async def test_video_clone_runner_full_chain_with_frame_reference(
         lambda _ctx, rel, **_k: f"/static/{rel}",
     )
     # 逐镜时长先经 normalize_video_duration_for_backend 规整，钳制范围随
-    # NEWAPI_VIDEO_DURATION_BOUNDS 环境配置变化；这里清空配置钉住链路本身
+    # LOCALAPI_VIDEO_DURATION_BOUNDS 环境配置变化；这里清空配置钉住链路本身
     # （seedance 系列的最短时长钳制由 video_duration 自身的用例覆盖）。
-    monkeypatch.setattr("novelvideo.config.NEWAPI_VIDEO_DURATION_BOUNDS", "")
+    monkeypatch.setattr("novelvideo.config.LOCALAPI_VIDEO_DURATION_BOUNDS", "")
     monkeypatch.setattr(
         freezone_runner,
         "_archive_tool_output_to_library",
@@ -1170,7 +1170,7 @@ async def test_video_clone_runner_appends_content_references_to_every_shot(
         "novelvideo.api.deps.make_static_url_for_context",
         lambda _ctx, rel, **_k: f"/static/{rel}",
     )
-    monkeypatch.setattr("novelvideo.config.NEWAPI_VIDEO_DURATION_BOUNDS", "")
+    monkeypatch.setattr("novelvideo.config.LOCALAPI_VIDEO_DURATION_BOUNDS", "")
     monkeypatch.setattr(
         freezone_runner, "_archive_tool_output_to_library", lambda **_kwargs: None
     )
@@ -1300,7 +1300,7 @@ async def test_video_clone_runner_subject_priority_submits_only_content_referenc
         "novelvideo.api.deps.make_static_url_for_context",
         lambda _ctx, rel, **_k: f"/static/{rel}",
     )
-    monkeypatch.setattr("novelvideo.config.NEWAPI_VIDEO_DURATION_BOUNDS", "")
+    monkeypatch.setattr("novelvideo.config.LOCALAPI_VIDEO_DURATION_BOUNDS", "")
     monkeypatch.setattr(
         freezone_runner, "_archive_tool_output_to_library", lambda **_kwargs: None
     )

@@ -3682,7 +3682,7 @@ third_party/dramaclaw-gateway/model/user_session_test.go,AGPL-3.0-only,© Quantu
 third_party/dramaclaw-gateway/model/user_update_test.go,AGPL-3.0-only,© QuantumNous and contributors; DramaClaw gateway fork,"vendored upstream dramaclaw-gateway (AGPL-3.0-only), see third_party/README.md"
 third_party/dramaclaw-gateway/model/utils.go,AGPL-3.0-only,© QuantumNous and contributors; DramaClaw gateway fork,"vendored upstream dramaclaw-gateway (AGPL-3.0-only), see third_party/README.md"
 third_party/dramaclaw-gateway/model/vendor_meta.go,AGPL-3.0-only,© QuantumNous and contributors; DramaClaw gateway fork,"vendored upstream dramaclaw-gateway (AGPL-3.0-only), see third_party/README.md"
-third_party/dramaclaw-gateway/new-api.service,AGPL-3.0-only,© QuantumNous and contributors; DramaClaw gateway fork,"vendored upstream dramaclaw-gateway (AGPL-3.0-only), see third_party/README.md"
+third_party/dramaclaw-gateway/localapi.service,AGPL-3.0-only,© QuantumNous and contributors; DramaClaw gateway fork,"vendored upstream dramaclaw-gateway (AGPL-3.0-only), see third_party/README.md"
 third_party/dramaclaw-gateway/oauth/discord.go,AGPL-3.0-only,© QuantumNous and contributors; DramaClaw gateway fork,"vendored upstream dramaclaw-gateway (AGPL-3.0-only), see third_party/README.md"
 third_party/dramaclaw-gateway/oauth/generic.go,AGPL-3.0-only,© QuantumNous and contributors; DramaClaw gateway fork,"vendored upstream dramaclaw-gateway (AGPL-3.0-only), see third_party/README.md"
 third_party/dramaclaw-gateway/oauth/github.go,AGPL-3.0-only,© QuantumNous and contributors; DramaClaw gateway fork,"vendored upstream dramaclaw-gateway (AGPL-3.0-only), see third_party/README.md"

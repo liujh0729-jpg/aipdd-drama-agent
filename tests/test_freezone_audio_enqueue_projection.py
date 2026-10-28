@@ -209,6 +209,8 @@ async def test_speech_payload_is_unchanged_when_no_projector_is_installed(
         "target_episode",
         "target_beat",
         # [aipdd fork delta] WP-D: billing 段随额度体系删除，键集必须不再出现它。
+        # [aipdd fork delta req97] 默认「生成就入库」：语音也是最终产物，键默认在。
+        "archive_to_library",
     }
     # Even without a projector, the enqueue-side prerequisite check resolves
     # the selected voice once before allocating the job.

@@ -257,7 +257,7 @@ def test_fresh_config_ignores_env_model_name_but_keeps_newapi_transport(
     save_official_newapi_key(api_key="root-key", activate=True)
     # [aipdd fork delta req41] 网关地址是部署数据（env / 数据库），不再是代码常量：
     # 用例显式给一个，验证它确实透到 Hermes 的 transport 配置里。
-    monkeypatch.setenv("OFFICIAL_NEWAPI_BASE_URL", "https://official.env.example/v1")
+    monkeypatch.setenv("OFFICIAL_LOCALAPI_BASE_URL", "https://official.env.example/v1")
     (isolated_workspace / ".env").write_text(
         "\n".join(
             [

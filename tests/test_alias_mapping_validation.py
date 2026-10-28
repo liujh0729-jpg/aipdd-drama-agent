@@ -426,7 +426,7 @@ def _register_local_auth_port():
 
 
 def _gateway_client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, list]:
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     payloads: list[dict] = []
     monkeypatch.setattr(
         model_gateway,

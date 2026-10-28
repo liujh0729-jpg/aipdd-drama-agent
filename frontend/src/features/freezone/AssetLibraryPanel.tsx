@@ -2124,10 +2124,18 @@ function assetToDragPayload(asset: LibraryAsset): CanvasAssetDragPayload | null 
   return { kind: "image", label: asset.label, url: asset.url, aspectRatio: asset.aspectRatio, source: sourceMeta, mainlineContext: mainline };
 }
 
-/** 资产库条目 → 画布节点 payload。库里只有图/视频/音频三种可拖拽媒介，没有 3D。 */
+/** 资产库条目 → 画布节点 payload。画布可拖拽媒介只有图/视频/音频；3D/文本/草稿不入画布。 */
 function libraryItemToDragPayload(entry: LibraryItem): CanvasAssetDragPayload | null {
-  // [aipdd fork delta] 剪映草稿没有可拖拽的素材 URL（只承载 draft_id），不进画布。
-  if (entry.media === "draft" || !entry.url) return null;
+  // [aipdd fork delta] 剪映草稿没有可拖拽的素材 URL（只承载 draft_id），
+  // 3D / 文本载体画布侧没有对应节点形态，都不进画布。
+  if (
+    entry.media === "draft" ||
+    entry.media === "model3d" ||
+    entry.media === "text" ||
+    !entry.url
+  ) {
+    return null;
+  }
   return {
     kind: entry.media,
     label: entry.name,

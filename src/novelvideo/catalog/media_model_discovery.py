@@ -613,7 +613,7 @@ def reset_gateway_caps_cache() -> None:
 # [aipdd fork delta] vres「真·跟随网关声明」：从 OpenAI 兼容渠道的 /v1/models
 # 拉逐模型能力元数据。
 #
-# NewAPI 与 AIPDD 是两个独立渠道：NewAPI 渠道字段（models / model_mapping /
+# LocalAPI 与 AIPDD 是两个独立渠道：LocalAPI 渠道字段（models / model_mapping /
 # setting / param_override）不含任何逐模型能力声明；而 AIPDD 这类网关会在自己的
 # ``/v1/models``（鉴权只认 Bearer）回每个模型的 ``aipdd.capabilities.media_metadata``
 # —— 分辨率 / 比例 / 时长的权威来源。这里把这份声明接进发现层，让画布视频
@@ -736,9 +736,9 @@ def _gateway_pricing_url(base_url: str) -> str:
 
 
 def _extract_pricing_capabilities(payload: Any) -> dict[str, dict[str, Any]]:
-    """NewAPI 系 /api/pricing 响应 → {模型名: {"resolutionOptions": [...]}}。
+    """LocalAPI 系 /api/pricing 响应 → {模型名: {"resolutionOptions": [...]}}。
 
-    [aipdd fork delta] vres 扩展：NewAPI 系网关的 /v1/models 只回模型名与
+    [aipdd fork delta] vres 扩展：LocalAPI 系网关的 /v1/models 只回模型名与
     supported_endpoint_types，不含分辨率档位；但其 /api/pricing（前端定价页
     同源接口）逐模型声明 task_pricing_resolutions / task_pricing.by_resolution
     —— 这正是网关提交时强校验的「已发布分辨率」（不在列表 = unsupported_resolution
@@ -835,7 +835,7 @@ def _collect_gateway_capabilities_sync() -> dict[str, dict[str, Any]]:
             if caps:
                 merged = result.setdefault(model_id, {})
                 merged.update(caps)
-        # [aipdd fork delta] vres 扩展：NewAPI 系网关的分辨率声明不在 /v1/models
+        # [aipdd fork delta] vres 扩展：LocalAPI 系网关的分辨率声明不在 /v1/models
         # （只回 supported_endpoint_types），而在 /api/pricing——逐模型就是提交时
         # 强校验的「已发布分辨率」。只补空：/v1/models 的权威声明优先，定价声明
         # 兜底；拿不到静默跳过。预算受限：模型段已花超时就不再打拿不到的请求。

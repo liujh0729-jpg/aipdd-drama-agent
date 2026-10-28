@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"strings"
 
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	relaycommon "github.com/dramaclaw/localapi/relay/common"
+	"github.com/dramaclaw/localapi/relaykit/dto"
+	"github.com/dramaclaw/localapi/relaykit/types"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"

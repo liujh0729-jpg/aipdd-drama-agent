@@ -27,10 +27,10 @@ import {
   videoModelSupportsGenerateAudio,
   videoModelReferenceDisabledReason,
   videoMultiImageAutoSwitchMode,
-  videoNoUpstreamResetMode,
   videoReferenceAutoSwitchAction,
   type VideoReferenceAutoSwitchAction,
   videoSubmitMediaRejectionReason,
+  videoUpstreamClearedResetMode,
   videoUpstreamImageDefaultMode,
 } from "@/features/canvas/nodes/shared/videoModelCapabilities";
 
@@ -1452,10 +1452,8 @@ describe("videoModeRequiresMedia — 该模式是否必须有上游素材", () =
   });
 });
 
-describe("videoNoUpstreamResetMode — 素材撤空后退回文生视频", () => {
-  const EMPTY = { images: 0, videos: 0, audios: 0 };
-
-  it("上游清空后，任何素材模式都退回文生视频", () => {
+describe("videoUpstreamClearedResetMode — 素材撤空后退回文生视频", () => {
+  it("上游从有素材变成空，任何素材模式都退回文生视频", () => {
     for (const mode of [
       "allReference",
       "imageReference",
@@ -1464,31 +1462,43 @@ describe("videoNoUpstreamResetMode — 素材撤空后退回文生视频", () =>
       "firstLastFrame",
       "videoEdit",
     ] as VideoGenMode[]) {
-      expect(videoNoUpstreamResetMode(mode, EMPTY)).toBe("textToVideo");
+      expect(videoUpstreamClearedResetMode(mode, 1, 0)).toBe("textToVideo");
     }
   });
 
-  it("已经是文生视频就不动（避免每帧都发一次 patch）", () => {
-    expect(videoNoUpstreamResetMode("textToVideo", EMPTY)).toBeNull();
+  it("空节点上主动切到全能参考不退回（没有素材下降沿）", () => {
+    expect(videoUpstreamClearedResetMode("allReference", 0, 0)).toBeNull();
+    expect(videoUpstreamClearedResetMode("imageReference", 0, 0)).toBeNull();
+    expect(videoUpstreamClearedResetMode("firstFrame", 0, 0)).toBeNull();
   });
 
-  it.each([
-    ["图片", { images: 1, videos: 0, audios: 0 }],
-    ["视频", { images: 0, videos: 1, audios: 0 }],
-    ["音频", { images: 0, videos: 0, audios: 1 }],
-  ] as const)("上游还有%s素材时不动", (_label, counts) => {
-    expect(videoNoUpstreamResetMode("allReference", counts)).toBeNull();
+  it("已经是文生视频就不动（避免每帧都发一次 patch）", () => {
+    expect(videoUpstreamClearedResetMode("textToVideo", 2, 0)).toBeNull();
+  });
+
+  it("上游还有剩余素材、没降到 0 时不动", () => {
+    expect(videoUpstreamClearedResetMode("allReference", 3, 1)).toBeNull();
+  });
+
+  it("素材从 0 增加时不动", () => {
+    expect(videoUpstreamClearedResetMode("allReference", 0, 1)).toBeNull();
   });
 });
 
 describe("VideoNode 接线：素材撤空 → 文生视频", () => {
   const source = readFileSync("src/features/canvas/nodes/VideoNode.tsx", "utf8");
 
-  it("反向复位 effect 按节点类型口径判定，不用已解析 URL 口径", () => {
+  it("复位按「前后素材数」的下降沿判定，节点类型口径计数", () => {
+    expect(source).toContain("videoUpstreamClearedResetMode(");
+    expect(source).toContain("previousMaterialSourceCountRef.current");
     // upstreamCounts（已解析 URL）会把空态 CTA 刚铺好、还没出图的图片节点算成 0 张，
     // 用它当场就会把三个 CTA 顶回文生视频。
+    expect(source).toContain("upstreamTypeCounts.images +");
+  });
+
+  it("参考链接/文档也算素材来源，撤掉它同样触发复位", () => {
     expect(source).toContain(
-      "videoNoUpstreamResetMode(genMode, upstreamTypeCounts)",
+      "(data.referenceFileUrl?.trim() || data.referenceLink?.trim() ? 1 : 0)",
     );
   });
 

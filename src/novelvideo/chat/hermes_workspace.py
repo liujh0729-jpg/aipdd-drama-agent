@@ -42,7 +42,7 @@ _CONFIG_YAML_TEMPLATE = """# AIPDD-managed hermes config.
 #
 # Edit with care; this file may be regenerated.
 #
-# Model routes through the selected NewAPI gateway (OpenAI-compatible), unified
+# Model routes through the selected LocalAPI gateway (OpenAI-compatible), unified
 # with the video/image generators. The endpoint is non-secret workspace config;
 # AIPDD injects the key into the worker process as LOCALAPI_API_KEY.
 
@@ -120,7 +120,7 @@ def _root_value(*names: str) -> str:
 
 
 def _effective_newapi_gateway() -> tuple[str, str]:
-    """Return effective NewAPI ``(api_key, base_url)`` for Hermes.
+    """Return effective LocalAPI ``(api_key, base_url)`` for Hermes.
 
     CE resolves the UI-selected gateway from settings.db. EE has no CE settings
     database and resolves its deployment-level LOCALAPI_API_KEY / LOCALAPI_BASE_URL
@@ -147,7 +147,7 @@ def effective_gateway_fingerprint() -> str:
 
 
 def effective_gateway_credentials() -> tuple[str, str]:
-    """Return the NewAPI credentials injected into a newly spawned worker."""
+    """Return the LocalAPI credentials injected into a newly spawned worker."""
     return _effective_newapi_gateway()
 
 
@@ -619,7 +619,7 @@ def _migrate_acp_toolsets(text: str) -> str:
 
 
 def _ensure_model_gateway_config(config_yaml: Path) -> None:
-    """Reconcile the managed NewAPI provider without persisting its secret.
+    """Reconcile the managed LocalAPI provider without persisting its secret.
 
     Hermes 0.18 resolves ``custom_providers[].key_env`` from the subprocess
     environment. Existing workspaces are normalized lazily on their next spawn,

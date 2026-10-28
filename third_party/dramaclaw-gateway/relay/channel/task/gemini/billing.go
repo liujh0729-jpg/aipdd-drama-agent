@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relaycommon "github.com/dramaclaw/localapi/relay/common"
 )
 
 // ParseVeoDurationSeconds extracts durationSeconds from metadata.

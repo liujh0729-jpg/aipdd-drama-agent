@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/dramaclaw/localapi/relaykit/dto"
 )
 
 func normalizeDCMediaImageRequest(request *dto.ImageRequest) error {

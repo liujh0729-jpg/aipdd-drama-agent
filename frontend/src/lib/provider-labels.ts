@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Elastic-2.0
 // Copyright (c) 2026 ClaymoreLab
 // [aipdd fork delta] 供应商渠道展示名统一 override（唯一真源）：
-// 默认四渠道：aipdd→AIPDD、newapi→NewAPI（用户自配的 OpenAI 兼容外部
+// 默认四渠道：aipdd→AIPDD、newapi→LocalAPI（用户自配的 OpenAI 兼容外部
 // 网关）、volcengine→VolcEngine、mediakit→火山 AI MediaKit（归属 VolcEngine 渠道，
 // 只是 Base URL / API Key 独立一份；en/vi 界面按语言取词显示 Volcengine AI MediaKit，
 // 见 localizedBrandName；与后端 model_plaza.py 的 _FORK_PROVIDER_LABELS
@@ -14,9 +14,9 @@ import i18n from "i18next";
 
 export const FORK_PROVIDER_LABELS: Record<string, string> = {
   aipdd: "AIPDD",
-  newapi: "NewAPI",
-  // 「其它额外渠道」（用户附加在 NewAPI 网关上的非默认渠道）：独立显示
-  // OpenAI，不与自配网关 newapi→NewAPI 混同。
+  newapi: "LocalAPI",
+  // 「其它额外渠道」（用户附加在 LocalAPI 网关上的非默认渠道）：独立显示
+  // OpenAI，不与自配网关 newapi→LocalAPI 混同。
   openai: "OpenAI",
   volcengine: "VolcEngine",
   // 中文界面用官方中文子产品线名；en/vi 按界面语言取词（见 localizedBrandName），
@@ -91,8 +91,8 @@ export function providerOfficialSiteUrl(provider: string): string {
   return PROVIDER_OFFICIAL_SITES[key] || "";
 }
 
-// [aipdd fork delta] NewAPI 渠道类型名兜底表：设置面板「渠道 API Key」里按渠道
-// 类型展示的英文名（自 NewAPI channel types 精简而来）。原在 settings-dialog.tsx
+// [aipdd fork delta] LocalAPI 渠道类型名兜底表：设置面板「渠道 API Key」里按渠道
+// 类型展示的英文名（自 LocalAPI channel types 精简而来）。原在 settings-dialog.tsx
 // 内部维护，画布模型选择器的渠道标注也要用同一张表，故收敛到本文件——渠道展示
 // 名的唯一真源，勿再散落到各渲染点。
 // i18n-exempt-start —— 服务商品牌名，不跟界面语言走
@@ -165,7 +165,7 @@ export const CHANNEL_BRAND_LABELS: Record<string, string> = {
 };
 
 /**
- * 画布渠道标注用展示名：fork override → NewAPI 渠道类型名 → 自有品牌名 →
+ * 画布渠道标注用展示名：fork override → LocalAPI 渠道类型名 → 自有品牌名 →
  * 原样回显。传入空串返回空串（调用方据此不渲染标注）。
  */
 export function providerChannelLabel(provider: string): string {
@@ -183,7 +183,7 @@ export function providerChannelLabel(provider: string): string {
 // 渠道配色：chart-1..5 是 DESIGN.md 批准的唯一数据序列色，全部经 index.css 的
 // theme token 取色（不硬编码 hex）；未登记的渠道回落中性灰，绝不猜色。
 const CHANNEL_BADGE_TONES: Record<string, string> = {
-  // NewAPI 渠道及其它额外渠道（openai）：青
+  // LocalAPI 渠道及其它额外渠道（openai）：青
   newapi: "bg-chart-1/16 text-chart-1",
   openai: "bg-chart-1/16 text-chart-1",
   // AIPDD 直连渠道：天蓝

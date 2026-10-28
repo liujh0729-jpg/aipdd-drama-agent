@@ -50,10 +50,10 @@ from novelvideo.usage.video_request_usage import (
 )
 
 from .backend_utils import (
-    NEWAPI_DISABLED_VIDEO_MODELS,
-    NEWAPI_MAINLINE_SEEDANCE2_MODELS,
-    NEWAPI_VIDEO_BACKEND_PREFIX,
-    NEWAPI_VIDEO_DISPLAY_LABELS,
+    LOCALAPI_DISABLED_VIDEO_MODELS,
+    LOCALAPI_MAINLINE_SEEDANCE2_MODELS,
+    LOCALAPI_VIDEO_BACKEND_PREFIX,
+    LOCALAPI_VIDEO_DISPLAY_LABELS,
     _coerce_video_backend_value,
     _is_loopback_server_address,
     _seedance2_config_mapping,
@@ -71,8 +71,8 @@ from .backends.newapi import NewApiVideoError, NewApiVideoGenerator
 from .backends.seedance import SeedanceVideoGenerator
 from .backends.seedance2 import ShotReference, Seedance2VideoGenerator
 from .egress import (
-    NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
-    NEWAPI_VIDEO_HTTP_TIMEOUT_SECONDS,
+    LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+    LOCALAPI_VIDEO_HTTP_TIMEOUT_SECONDS,
     VideoEgressError,
     _POST_ACCEPT_AUTHZ_MAX_RETRIES,
     _POST_ACCEPT_AUTHZ_RETRY_BASE_SECONDS,

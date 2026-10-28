@@ -64,7 +64,7 @@ CHROME_EXCL=(-not -path '*/Google Chrome for Testing.app/*')
 find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) "${CHROME_EXCL[@]}" -print0 \
   | sign_files_parallel \
   || { echo "批量签名动态库（.dylib/.so）失败" >&2; exit 1; }
-# 1b) 可执行文件（MacOS 主程序、bin/ 下 nginx/ffmpeg/new-api；同样排除 Chrome 子树，交给 1c 深签）
+# 1b) 可执行文件（MacOS 主程序、bin/ 下 nginx/ffmpeg/localapi；同样排除 Chrome 子树，交给 1c 深签）
 find "$APP" -type f -perm -u+x ! -name '*.dylib' ! -name '*.so' ! -name '*.so.*' "${CHROME_EXCL[@]}" -print0 \
   | sign_files_parallel \
   || { echo "批量签名可执行文件失败" >&2; exit 1; }

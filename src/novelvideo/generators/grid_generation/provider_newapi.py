@@ -1,4 +1,4 @@
-"""NewAPI 图片 API 调用（含组织出网与参考图 relay）（B3 拆包自单文件 grid_generation.py）。"""
+"""LocalAPI 图片 API 调用（含组织出网与参考图 relay）（B3 拆包自单文件 grid_generation.py）。"""
 
 import asyncio
 import base64
@@ -27,22 +27,22 @@ from .image_sizes import (
     resolve_openai_image_size,
     _legacy_newapi_image_quality_default,
 )
-from .constants import logger, NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS
+from .constants import logger, LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS
 from .aipdd_geometry import _aipdd_image_geometry_endpoint, _apply_aipdd_image_geometry
 from .newapi_protocol import (
     _newapi_safe_request_context,
-    NEWAPI_IMAGE_HTTP_TIMEOUT_SECONDS,
-    NEWAPI_IMAGE_MAX_ATTEMPTS,
+    LOCALAPI_IMAGE_HTTP_TIMEOUT_SECONDS,
+    LOCALAPI_IMAGE_MAX_ATTEMPTS,
     _is_newapi_transient_image_status,
-    NEWAPI_IMAGE_RETRY_BASE_SECONDS,
+    LOCALAPI_IMAGE_RETRY_BASE_SECONDS,
     _newapi_image_output,
     _newapi_image_status,
-    NEWAPI_IMAGE_MAX_POLLS,
-    _NEWAPI_IMAGE_FAILURE_STATUSES,
+    LOCALAPI_IMAGE_MAX_POLLS,
+    _LOCALAPI_IMAGE_FAILURE_STATUSES,
     _newapi_image_error,
-    _NEWAPI_IMAGE_SUCCESS_STATUSES,
-    _NEWAPI_IMAGE_PENDING_STATUSES,
-    NEWAPI_IMAGE_POLL_INTERVAL_SECONDS,
+    _LOCALAPI_IMAGE_SUCCESS_STATUSES,
+    _LOCALAPI_IMAGE_PENDING_STATUSES,
+    LOCALAPI_IMAGE_POLL_INTERVAL_SECONDS,
     _newapi_safe_header_summary,
     _newapi_context_for_error,
 )
@@ -93,7 +93,7 @@ async def _call_newapi_image_api(
     }
     if aspect_ratio in {"auto", "adaptive"}:
         # Images use ``auto`` as the public follow-input ratio value. Keep
-        # resolution independent and let NewAPI infer the geometry.
+        # resolution independent and let LocalAPI infer the geometry.
         metadata["ratio"] = "auto"
     else:
         # Fixed geometry keeps the selected ratio as semantic metadata while
@@ -254,7 +254,7 @@ async def _call_newapi_image_api(
         )
 
         async with httpx.AsyncClient(
-            timeout=NEWAPI_IMAGE_HTTP_TIMEOUT_SECONDS,
+            timeout=LOCALAPI_IMAGE_HTTP_TIMEOUT_SECONDS,
             follow_redirects=True,
         ) as client:
             # [aipdd fork delta] aipdd 网关把真实图片模型的偶发失败统一包成
@@ -263,12 +263,12 @@ async def _call_newapi_image_api(
             # 瞬态状态（特定 400 / 408/409/425/429 / 5xx）；非瞬态 4xx 与传输异常
             # 不重试（前者是确定性拒绝，重试没有意义；后者沿用原有单次错误上报）。
             response = None
-            for attempt in range(1, NEWAPI_IMAGE_MAX_ATTEMPTS + 1):
+            for attempt in range(1, LOCALAPI_IMAGE_MAX_ATTEMPTS + 1):
                 logger.info(
                     "DramaClawAPI image POST start: %s (attempt %d/%d)",
                     request_context.get("endpoint"),
                     attempt,
-                    NEWAPI_IMAGE_MAX_ATTEMPTS,
+                    LOCALAPI_IMAGE_MAX_ATTEMPTS,
                 )
                 candidate = await client.post(
                     f"{endpoint}{request_path}",
@@ -279,14 +279,14 @@ async def _call_newapi_image_api(
                 if status_code >= 400 and _is_newapi_transient_image_status(
                     status_code, candidate.text
                 ):
-                    if attempt < NEWAPI_IMAGE_MAX_ATTEMPTS:
-                        wait_seconds = NEWAPI_IMAGE_RETRY_BASE_SECONDS * (2 ** (attempt - 1))
+                    if attempt < LOCALAPI_IMAGE_MAX_ATTEMPTS:
+                        wait_seconds = LOCALAPI_IMAGE_RETRY_BASE_SECONDS * (2 ** (attempt - 1))
                         logger.warning(
                             "DramaClawAPI image transient rejection status=%s (attempt %d/%d), "
                             "retrying in %.1fs: %s",
                             status_code,
                             attempt,
-                            NEWAPI_IMAGE_MAX_ATTEMPTS,
+                            LOCALAPI_IMAGE_MAX_ATTEMPTS,
                             wait_seconds,
                             (candidate.text or "")[:200],
                         )
@@ -340,28 +340,28 @@ async def _call_newapi_image_api(
                     task_id,
                     _newapi_image_status(result) or "queued",
                 )
-                for poll_count in range(NEWAPI_IMAGE_MAX_POLLS):
+                for poll_count in range(LOCALAPI_IMAGE_MAX_POLLS):
                     status = _newapi_image_status(result)
-                    if status in _NEWAPI_IMAGE_FAILURE_STATUSES:
+                    if status in _LOCALAPI_IMAGE_FAILURE_STATUSES:
                         return None, "", (
                             "DramaClawAPI image task failed: "
                             f"{_newapi_image_error(result)}"
                         )
-                    if status in _NEWAPI_IMAGE_SUCCESS_STATUSES:
+                    if status in _LOCALAPI_IMAGE_SUCCESS_STATUSES:
                         return None, "", (
                             "DramaClawAPI image task completed without image data: "
                             f"task_id={task_id}"
                         )
-                    if poll_count > 0 or status not in _NEWAPI_IMAGE_PENDING_STATUSES:
+                    if poll_count > 0 or status not in _LOCALAPI_IMAGE_PENDING_STATUSES:
                         logger.info(
                             "DramaClawAPI image task polling: task_id=%s status=%s poll=%d/%d",
                             task_id,
                             status or "queued",
                             poll_count + 1,
-                            NEWAPI_IMAGE_MAX_POLLS,
+                            LOCALAPI_IMAGE_MAX_POLLS,
                         )
-                    if poll_count > 0 or status in _NEWAPI_IMAGE_PENDING_STATUSES:
-                        await asyncio.sleep(NEWAPI_IMAGE_POLL_INTERVAL_SECONDS)
+                    if poll_count > 0 or status in _LOCALAPI_IMAGE_PENDING_STATUSES:
+                        await asyncio.sleep(LOCALAPI_IMAGE_POLL_INTERVAL_SECONDS)
 
                     task_response = await client.get(
                         f"{endpoint}{request_path}/{task_id}",
@@ -382,12 +382,12 @@ async def _call_newapi_image_api(
                     if image_b64 or image_url:
                         break
                     status = _newapi_image_status(result)
-                    if status in _NEWAPI_IMAGE_FAILURE_STATUSES:
+                    if status in _LOCALAPI_IMAGE_FAILURE_STATUSES:
                         return None, "", (
                             "DramaClawAPI image task failed: "
                             f"{_newapi_image_error(result)}"
                         )
-                    if status in _NEWAPI_IMAGE_SUCCESS_STATUSES:
+                    if status in _LOCALAPI_IMAGE_SUCCESS_STATUSES:
                         return None, "", (
                             "DramaClawAPI image task completed without image data: "
                             f"task_id={task_id}"
@@ -450,7 +450,7 @@ async def _call_newapi_image_api(
                 )
                 return image_bytes, "", ""
             if image_url:
-                # NewAPI 返 URL 而非 b64 时,要二次 GET 拉图。这个 await 是常见的
+                # LocalAPI 返 URL 而非 b64 时,要二次 GET 拉图。这个 await 是常见的
                 # "newapi 已生成但任务还在 await" hang 点 —— 用单独的短 timeout
                 # (60s),避免落入外层 client 的 600s global timeout 拖很久。
                 # 加 phase log 让 hang 时能定位卡在哪。
@@ -691,7 +691,7 @@ async def _relay_reference_images_for_newapi(
                     object_id=object_id,
                     context=context,
                     ext=_image_ext(image_ref),
-                    ttl=NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+                    ttl=LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
                 )
             )
         return urls
@@ -699,7 +699,7 @@ async def _relay_reference_images_for_newapi(
     def upload_all() -> list[str]:
         urls: list[str] = []
         relay_ttl = _gg.media_relay_ttl_seconds(
-            minimum=NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+            minimum=LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
         )
         for image_ref in reference_images:
             urls.append(

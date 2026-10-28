@@ -279,6 +279,8 @@ async def test_video_script_reverse_route_enqueues_full_payload(
     assert payload["duration_sec"] == 15.0
     assert payload["max_frames"] == 12
     assert payload["scene_threshold"] == pytest.approx(0.4)
+    # 默认生成就入库：反推剧本 txt 进资产库「文本」载体。
+    assert payload["archive_to_library"] is True
 
 
 @pytest.mark.asyncio
@@ -313,6 +315,7 @@ async def test_video_script_reverse_route_defaults_when_fields_omitted(
     assert payload["duration_sec"] is None
     assert payload["max_frames"] == 20
     assert payload["scene_threshold"] == pytest.approx(0.3)
+    assert payload["archive_to_library"] is True
 
 
 @pytest.mark.asyncio

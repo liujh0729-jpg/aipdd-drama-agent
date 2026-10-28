@@ -1,13 +1,13 @@
-"""[aipdd fork delta req47] NewAPI v2 素材库客户端与能力门控（零网络，全 fake httpx）。
+"""[aipdd fork delta req47] LocalAPI v2 素材库客户端与能力门控（零网络，全 fake httpx）。
 
-钉住的三件事，正是用户口径「素材库仅支持 NewAPI 支持素材库的情况，并不是所有 NewAPI 都支持」
+钉住的三件事，正是用户口径「素材库仅支持 LocalAPI 支持素材库的情况，并不是所有 LocalAPI 都支持」
 在代码层面的落点：
 
 1. **支持性只能探测**：探测用差分判据（真实 Action 的响应形态 + 一条绝不该存在的控制路径），
    把「路由存在但 Key 被拒」和「这台部署根本没有这组路由」分开，含糊结论不缓存、不放开写操作。
 2. **接口按上游原样对照**：``POST {站点根}/v2/assets?Action=&Version=``、PascalCase 字段、
    ``{ResponseMetadata, Result}`` 信封；上游错误码与原文一律透出，不改写不吞。
-3. **地址不写死**：目标 ``(站点根, Key)`` 只从「显式传入 > 生效网关 > 已连 NewAPI 渠道」推导。
+3. **地址不写死**：目标 ``(站点根, Key)`` 只从「显式传入 > 生效网关 > 已连 LocalAPI 渠道」推导。
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ def _error_envelope(code: str, message: str, *, status: int = 400) -> Resp:
     )
 
 
-SPA_HTML = "<!doctype html><html lang=\"en\"><head><title>NewAPI</title></head></html>"
+SPA_HTML = "<!doctype html><html lang=\"en\"><head><title>LocalAPI</title></head></html>"
 
 
 def _fake_http(
@@ -415,7 +415,7 @@ def test_envelope_401_is_unauthorized_but_still_an_asset_envelope(monkeypatch) -
 
 
 def test_relay_token_error_is_verbatim_and_not_an_envelope(monkeypatch) -> None:
-    """实测形态：NewAPI 令牌层用 OpenAI 风格错误体（无效的令牌），原文照透出。"""
+    """实测形态：LocalAPI 令牌层用 OpenAI 风格错误体（无效的令牌），原文照透出。"""
 
     _fake_http(
         monkeypatch,
@@ -695,7 +695,7 @@ def test_create_asset_route_is_gated_before_calling_upstream(monkeypatch) -> Non
     called: list[dict] = []
 
     def _gate():
-        raise AssetLibraryUnsupported("这台 NewAPI 没有暴露 v2 素材库接口", code="RouteNotFound")
+        raise AssetLibraryUnsupported("这台 LocalAPI 没有暴露 v2 素材库接口", code="RouteNotFound")
 
     def _create(**kwargs):
         called.append(kwargs)

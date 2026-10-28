@@ -80,7 +80,7 @@ if (-not $SkipChecks) {
     $required = @(
         'python\python.exe',
         'bin\nginx.exe',
-        'bin\new-api.exe',
+        'bin\localapi.exe',
         'bin\uv.exe',
         'app\dist\index.html',
         'app\src\novelvideo',

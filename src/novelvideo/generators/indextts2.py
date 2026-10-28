@@ -207,7 +207,7 @@ async def _transcode_audio_to_mp3(source_path: Path, output_path: Path) -> None:
 class IndexTTS2Client:
     """IndexTTS2 client for ``audio/speech`` synthesis from a reference sample.
 
-    默认经生效网关（NewAPI）调用；模型绑定到自带 base+key 的 provider 渠道
+    默认经生效网关（LocalAPI）调用；模型绑定到自带 base+key 的 provider 渠道
     （如 aipdd）且未显式传凭据时按渠道路由——aipdd host 走原生异步任务协议
     （提交 → 轮询 → 下载 → 转 mp3），其余渠道保持 OpenAI 兼容协议。
     """
@@ -489,7 +489,7 @@ class IndexTTS2Client:
             if is_fatal_upstream_quota_error(exc):
                 raise
             return TTSResult(
-                success=False, error=f"{exc.__class__.__name__}: NewAPI audio failed"
+                success=False, error=f"{exc.__class__.__name__}: LocalAPI audio failed"
             )
 
     async def _generate_via_aipdd_direct(

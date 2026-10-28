@@ -27,7 +27,7 @@ from novelvideo.model_slots import (
 # 地址，否则换网关地址 / 换机器部署时旧地址会继续被当成有效值打出去。
 # 旧实现把某个具体域名钉在源码常量里（上一版是 ``https://susciyuan.com/v1``），
 # 那等于「代码比部署更早知道网关在哪」—— 正是 req40/req41 要消灭的那类硬编码。
-OFFICIAL_NEWAPI_BASE_URL_ENVS = ("OFFICIAL_NEWAPI_BASE_URL",)
+OFFICIAL_LOCALAPI_BASE_URL_ENVS = ("OFFICIAL_LOCALAPI_BASE_URL",)
 
 
 def official_newapi_base_url() -> str:
@@ -39,7 +39,7 @@ def official_newapi_base_url() -> str:
     先读 LOCALAPI_BASE_URL，不需要这里再兜一层。
     """
 
-    for env_name in OFFICIAL_NEWAPI_BASE_URL_ENVS:
+    for env_name in OFFICIAL_LOCALAPI_BASE_URL_ENVS:
         value = str(os.environ.get(env_name) or "").strip().rstrip("/")
         if value:
             return value

@@ -177,7 +177,7 @@ def build_limited_index_data_points(
                 logger.info(
                     "Cognee embedding concurrency bypassed for engine=%s "
                     "provider=%s; COGNEE_EMBEDDING_BATCH_CONCURRENCY currently "
-                    "applies only to NewAPI/custom LiteLLM embeddings",
+                    "applies only to LocalAPI/custom LiteLLM embeddings",
                     type(embedding_engine).__name__ if embedding_engine else "none",
                     provider or "unknown",
                 )

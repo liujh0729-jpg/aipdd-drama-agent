@@ -1,8 +1,8 @@
 """Every DC-*-LLM alias the backend calls must be mappable in Custom mode.
 
-Custom mode writes NewAPI channel model mappings only for the rows listed in
+Custom mode writes LocalAPI channel model mappings only for the rows listed in
 ``frontend/src/lib/feature-models.ts``. An alias the backend uses but the
-frontend never lists can never be mapped, so NewAPI answers
+frontend never lists can never be mapped, so LocalAPI answers
 ``No available channel for model DC-...`` (issue #490, DC-character-builder-LLM).
 """
 

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	relayconstant "github.com/dramaclaw/localapi/relay/constant"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -97,7 +97,7 @@ INVOKE_TTS_VOICE = "tts-voice"
 INVOKE_ASR_TRANSCRIPTION = "asr-transcription"
 INVOKE_SYSTEMONE = "systemone"
 # [aipdd fork delta req46] 音乐不走网关：广场卡上得如实标成「直连音乐生成」，
-# 而不是让人以为能在 NewAPI 里直接调。同样不可探活（会产生真实计费）。
+# 而不是让人以为能在 LocalAPI 里直接调。同样不可探活（会产生真实计费）。
 INVOKE_DIRECT_MUSIC = "direct-music"
 
 # 只有 OpenAI 兼容的同步端点才允许真发请求（max_tokens=1 / input="hi" 的极小用量）；
@@ -121,10 +121,10 @@ PLAZA_PROBE_TIMEOUT_SECONDS = 20.0
 API_KEY_PLACEHOLDER = "<API_KEY>"
 
 # [aipdd fork delta req41] 调用示例里「对外可复制」的网关地址**不猜主机名**。外部
-# NewAPI 网关有无数个，地址是部署方自己的数据（跟渠道 / 模型名同一类，代码不能比
+# LocalAPI 网关有无数个，地址是部署方自己的数据（跟渠道 / 模型名同一类，代码不能比
 # 部署更早知道）：旧实现把容器内主机名硬改成 ``localhost``，等于假定「用户一定在这
 # 台机器上」，局域网 / 域名反代部署下复制出来的示例地址全部连不通。
-# 现在的优先级：显式 ``NEWAPI_PUBLIC_BASE_URL`` > 当前请求自己的 origin（浏览器能打开
+# 现在的优先级：显式 ``LOCALAPI_PUBLIC_BASE_URL`` > 当前请求自己的 origin（浏览器能打开
 # 这个页面就说明该 origin 对它可达；对外出口固定是 ``/gateway/v1``，见
 # frontend/docker/nginx.conf.template 与 vite dev proxy）> 如实返回生效网关地址（后台
 # 任务等无请求上下文时）。
@@ -151,7 +151,7 @@ def _clean(value: Any) -> str:
 
 # [aipdd fork delta] 渠道展示名 override，与前端 settings / 模型广场的
 # FORK_PROVIDER_LABELS 对齐：aipdd 统一显示 AIPDD；newapi（用户自配的 OpenAI
-# 兼容外部网关）显示 NewAPI；openai 是用户附加在网关上的「其它额外渠道」
+# 兼容外部网关）显示 LocalAPI；openai 是用户附加在网关上的「其它额外渠道」
 # （不在默认四渠道之列）显示 OpenAI；volcengine（火山方舟）显示 VolcEngine；
 # mediakit（火山 AI MediaKit）虽作为独立产品线条目展示，但渠道归属 VolcEngine
 #（同为火山引擎，只是 Base URL / API Key 独立），不让裸 provider id 漏进渠道筛选；
@@ -159,7 +159,7 @@ def _clean(value: Any) -> str:
 # embedding / model-slot），ComfyUI 等自带固定展示名的条目不受影响。
 _FORK_PROVIDER_LABELS: dict[str, str] = {
     "aipdd": "AIPDD",
-    "newapi": "NewAPI",
+    "newapi": "LocalAPI",
     # 「其它额外渠道」：独立于默认几家的附加渠道，展示 OpenAI 而非裸 id。
     "openai": "OpenAI",
     "volcengine": "VolcEngine",
@@ -180,7 +180,7 @@ _FORK_PROVIDER_LABELS: dict[str, str] = {
 
 
 # [aipdd fork delta] 「功能位」分区只保留本 fork 自建 / 已接入渠道的模型：
-# AIPDD、外部 NewAPI（newapi）与其它额外渠道（openai）、火山引擎系（volcengine /
+# AIPDD、外部 LocalAPI（newapi）与其它额外渠道（openai）、火山引擎系（volcengine /
 # ark / doubao / doubaovideo / jimeng）、ComfyUI、火山 AI MediaKit、MiniMax 双站
 # （minimax / minimax_cn）、以及 req48 接入的三家官方渠道（openai_official /
 # anthropic / gemini）。功能位指向这些之外的渠道（或已移除的映射）时不进本分区。
@@ -270,7 +270,7 @@ def _is_container_internal_host(url: str) -> bool:
 
 def newapi_public_base_url(*, base_url: str | None = None) -> str:
     """调用示例里对外可复制的网关地址（见上面 req41 注：不猜主机名）。"""
-    override = _clean(os.environ.get("NEWAPI_PUBLIC_BASE_URL"))
+    override = _clean(os.environ.get("LOCALAPI_PUBLIC_BASE_URL"))
     if override:
         return normalize_relay_base_url(override)
     origin = _clean(_REQUEST_ORIGIN.get())

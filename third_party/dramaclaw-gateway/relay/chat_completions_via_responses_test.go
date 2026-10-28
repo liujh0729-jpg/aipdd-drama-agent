@@ -4,8 +4,8 @@ import (
 	"math"
 	"testing"
 
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/types"
+	relaycommon "github.com/dramaclaw/localapi/relay/common"
+	"github.com/dramaclaw/localapi/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

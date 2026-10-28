@@ -3,9 +3,9 @@ package middleware
 import (
 	"bytes"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/constant"
+	"github.com/dramaclaw/localapi/model"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"

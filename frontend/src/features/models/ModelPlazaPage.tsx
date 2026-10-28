@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 // [aipdd fork delta] 渠道展示名（与设置面板 / 画布标注同一张表）：fork override →
-// NewAPI 渠道类型名 → 自有品牌名（aipdd→AIPDD、openai→OpenAI、mediakit 按界面
+// LocalAPI 渠道类型名 → 自有品牌名（aipdd→AIPDD、openai→OpenAI、mediakit 按界面
 // 语言取词：zh 火山 AI MediaKit / en・vi Volcengine AI MediaKit）。
 import { localizedBrandName, providerChannelLabel } from "@/lib/provider-labels";
 import {

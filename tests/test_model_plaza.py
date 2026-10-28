@@ -53,14 +53,14 @@ def _clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "MODEL_GATEWAY_RUNTIME_VERSION",
         "LOCALAPI_API_KEY",
         "LOCALAPI_BASE_URL",
-        "NEWAPI_PUBLIC_BASE_URL",
+        "LOCALAPI_PUBLIC_BASE_URL",
         "TEXT_MODEL_FALLBACK",
         "VISION_MODEL_FALLBACK",
-        "NEWAPI_TEXT_MODEL",
-        "NEWAPI_IMAGE_MODEL",
-        "NEWAPI_NANOBANANA2_MODEL",
+        "LOCALAPI_TEXT_MODEL",
+        "LOCALAPI_IMAGE_MODEL",
+        "LOCALAPI_NANOBANANA2_MODEL",
         "COGNEE_EMBEDDING_MODEL",
-        "INDEXTTS2_NEWAPI_MODEL",
+        "INDEXTTS2_LOCALAPI_MODEL",
         "TTS_PROVIDER",
         "MEDIAKIT_API_KEY",
         "MEDIAKIT_BASE_URL",
@@ -418,7 +418,7 @@ def test_plaza_channel_names_follow_fork_provider_labels(
     """[aipdd fork delta] 渠道展示名与前端 FORK_PROVIDER_LABELS 对齐。
 
     provider=openai 是用户附加的「其它额外渠道」（非默认五家），显示 OpenAI
-    而不是裸 id，也不与自配网关 newapi→NewAPI 混同——模型广场卡片与筛选器
+    而不是裸 id，也不与自配网关 newapi→LocalAPI 混同——模型广场卡片与筛选器
     都读 channelName。
     """
     _seed_full_plaza(monkeypatch, tmp_path)
@@ -587,7 +587,7 @@ def test_plaza_in_use_by_reverse_lookup_respects_effective_layer(
     # 的绑定，这是「模型只读设置、不读 .env」的可执行契约。
     monkeypatch.setenv("TEXT_MODEL_FALLBACK", "ap-glm-5.2")
     monkeypatch.setenv("VISION_MODEL_FALLBACK", "ap-glm-5.2")
-    monkeypatch.setenv("NEWAPI_TEXT_MODEL", "ap-glm-5.2")
+    monkeypatch.setenv("LOCALAPI_TEXT_MODEL", "ap-glm-5.2")
     monkeypatch.setenv("HERMES_MODEL", "ap-glm-5.2")
     monkeypatch.setenv("STYLE_ANALYZER_MODEL", "ap-vision-pro")
     refreshed = _by_id(model_plaza.build_model_plaza())
@@ -662,7 +662,7 @@ def test_plaza_model_slot_hides_foreign_provider_models(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    """[aipdd fork delta] 「模型功能位」分区只保留本 fork 渠道（AIPDD / NewAPI /
+    """[aipdd fork delta] 「模型功能位」分区只保留本 fork 渠道（AIPDD / LocalAPI /
     火山引擎 / ComfyUI / MediaKit）：功能位指向外部渠道时不再列进本分区（清理规则）。
 
     空 provider 的内置别名不受影响：它们没有指向任何外部渠道，且「功能位全量列出」
@@ -761,8 +761,8 @@ def test_plaza_public_base_url_comes_from_request_origin_not_host_guess(
     model_plaza.set_request_origin("http://192.168.1.20:8080")
     assert model_plaza.newapi_public_base_url() == "http://192.168.1.20:8080/gateway/v1"
 
-    # NEWAPI_PUBLIC_BASE_URL 显式覆盖优先（要固定成另一个域名时才用）。
-    monkeypatch.setenv("NEWAPI_PUBLIC_BASE_URL", "http://192.168.1.20:3000")
+    # LOCALAPI_PUBLIC_BASE_URL 显式覆盖优先（要固定成另一个域名时才用）。
+    monkeypatch.setenv("LOCALAPI_PUBLIC_BASE_URL", "http://192.168.1.20:3000")
     override = model_plaza.newapi_public_base_url()
     assert override == "http://192.168.1.20:3000/v1"
 
@@ -773,8 +773,8 @@ def test_plaza_public_base_url_comes_from_request_origin_not_host_guess(
     slot_cards = [m for m in refreshed["models"] if m["connector"] == "model-slot"]
     assert len(slot_cards) == len(model_slots.FEATURE_SLOTS)
     # env 名现在在 extra.env：指针型 env 不得长出卡片（标题与 env 都不含它）。
-    assert all(m.get("slot") != "NEWAPI_PUBLIC_BASE_URL" for m in slot_cards)
-    assert all(m["displayName"] != "NEWAPI_PUBLIC_BASE_URL" for m in slot_cards)
+    assert all(m.get("slot") != "LOCALAPI_PUBLIC_BASE_URL" for m in slot_cards)
+    assert all(m["displayName"] != "LOCALAPI_PUBLIC_BASE_URL" for m in slot_cards)
     model_plaza.set_request_origin("")
 
 

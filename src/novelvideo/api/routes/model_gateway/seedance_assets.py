@@ -1,6 +1,6 @@
 """[aipdd fork delta req47] Seedance 私域素材库 / 真人活体认证路由。
 
-一切操作都先过「这台 NewAPI 到底有没有素材库」的探测闸门（``newapi_asset_library``
+一切操作都先过「这台 LocalAPI 到底有没有素材库」的探测闸门（``newapi_asset_library``
 模块文档串里记着实测差分判据）：探测不支持就 503 拦下并给出可执行出路，绝不带着
 「应该有吧」的假设去打卡不存在的接口。上游错误原文一律透出到 ``detail``，前端
 ``getRequestErrorMessage`` 只吃字符串 detail，所以这里统一拼成 ``[码] 原文``。

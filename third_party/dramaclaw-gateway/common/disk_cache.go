@@ -18,7 +18,7 @@ const (
 )
 
 // 统一的缓存目录名
-const diskCacheDir = "new-api-body-cache"
+const diskCacheDir = "localapi-body-cache"
 
 // GetDiskCacheDir 获取统一的磁盘缓存目录
 // 注意：每次调用都会重新计算，以响应配置变化

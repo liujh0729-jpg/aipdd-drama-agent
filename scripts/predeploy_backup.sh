@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Elastic-2.0
 # [aipdd fork delta] 部署前状态库备份：把 api 容器 /data 下的全部 SQLite 与网关
-# one-api.db 一致性快照到宿主机 backups/predeploy-<stamp>/，并逐个跑 integrity_check。
+# localapi.db 一致性快照到宿主机 backups/predeploy-<stamp>/，并逐个跑 integrity_check。
 #
 # 为什么要脚本化：容器镜像是精简构建，**容器内没有 sqlite3 CLI**，只能走 Python
 # sqlite3 的 Backup API（在线备份，读写中也能拿到一致快照）。这段代码过去每次部署
@@ -59,11 +59,11 @@ docker exec "$api_container" rm -rf /tmp/predeploy-dbs
 echo "=== gateway ===" | tee -a "$dest/_backup.log"
 if docker ps --format '{{.Names}}' | grep -qx "$gateway_container"; then
   docker exec "$gateway_container" sh -c \
-    'cp /data/one-api.db /tmp/one-api.db && echo "snapshot=$(stat -c %s /tmp/one-api.db)"' \
+    'cp /data/localapi.db /tmp/localapi.db && echo "snapshot=$(stat -c %s /tmp/localapi.db)"' \
     | tee -a "$dest/_backup.log"
-  docker cp "$gateway_container":/tmp/one-api.db "$dest/newapi-one-api.db"
-  docker exec "$gateway_container" rm -f /tmp/one-api.db
-  echo "copied -> $dest/newapi-one-api.db" | tee -a "$dest/_backup.log"
+  docker cp "$gateway_container":/tmp/localapi.db "$dest/newapi-localapi.db"
+  docker exec "$gateway_container" rm -f /tmp/localapi.db
+  echo "copied -> $dest/newapi-localapi.db" | tee -a "$dest/_backup.log"
 else
   echo "跳过网关（容器 $gateway_container 未运行）" | tee -a "$dest/_backup.log"
 fi

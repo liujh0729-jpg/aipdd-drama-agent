@@ -183,7 +183,7 @@ class Scene360CatalogModelAuthority:
 
 def _default_image_model_for_stage() -> str:
     """[aipdd fork delta] 拆解上游一体化图像模型：默认 image 只由「默认
-    生成模型」面板写入的 media mappings 解析。``NEWAPI_IMAGE_MODEL`` env 已退出这条链
+    生成模型」面板写入的 media mappings 解析。``LOCALAPI_IMAGE_MODEL`` env 已退出这条链
     （面板里换了模型而 env 还指着旧名时，看到和调用的不是同一个模型）；读不到设置就回
     空串，由调用点按「未绑定」处理。"""
     try:

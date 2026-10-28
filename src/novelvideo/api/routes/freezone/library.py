@@ -22,6 +22,7 @@ from novelvideo.api.schemas import FreezoneAssetLibraryFolderPatchRequest
 from novelvideo.api.schemas import FreezoneAssetLibraryFolderRequest
 from novelvideo.api.schemas import FreezoneAssetLibraryItemPatchRequest
 from novelvideo.api.schemas import FreezoneVideoCharacterLibraryItemRequest
+from novelvideo.director_world.stage_manifest import stage_dir
 from novelvideo.freezone.video_node import DRAFT_FOLDER_KEY
 from novelvideo.freezone.video_node import MAINLINE_FOLDER_KEY
 from novelvideo.freezone.video_node import STYLE_COVER_ITEM_PREFIX
@@ -347,6 +348,19 @@ async def freezone_sync_asset_library_from_mainline(
                     "media": "image",
                     "source": "scene",
                     "url": master_url,
+                }
+            )
+        # [aipdd fork delta req98] 提交后的 360 全景（scene360）落在舞台目录的
+        # pano_360.png，与 master 一样幂等同步进资产库，归主线文件夹的「场景」类目。
+        pano_url = _static_url(stage_dir(project_dir, name) / "pano_360.png")
+        if pano_url:
+            assets.append(
+                {
+                    "id": f"mainline:scene:{name}:pano",
+                    "name": f"{name} · 360 全景",
+                    "media": "image",
+                    "source": "scene",
+                    "url": pano_url,
                 }
             )
 

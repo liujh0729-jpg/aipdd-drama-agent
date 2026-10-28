@@ -900,7 +900,7 @@ def _audio_upload_content_type(audio_path: Path) -> str:
 def _gateway_transcription_detail(exc: BaseException) -> str:
     """把上游报错包成可诊断摘要：HTTP 状态 + 上游 message（不含任何凭据）。
 
-    背景：以前所有异常都被压成一句 ``NewAPI audio transcription failed``（并
+    背景：以前所有异常都被压成一句 ``LocalAPI audio transcription failed``（并
     ``from None`` 掉因果链），用户和运维看不出是「网关没给该模型绑可用渠道」还是
     「鉴权失败 / 上游超时」，也没法行动。这里只取状态码与上游错误文本（截断），
     并对最常见、最可行动的 ``model_not_found`` / "No available channel" 给出指引。

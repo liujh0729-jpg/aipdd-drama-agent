@@ -25,7 +25,7 @@ from novelvideo.api.routes.freezone import (
     _template_edit_aspect_ratio,
 )
 from novelvideo.api.schemas import CanvasPayload, PresetCanvasRequest, PushRequest
-from novelvideo.config import NEWAPI_IMAGE_MODEL, OPENAI_IMAGE_MODEL
+from novelvideo.config import LOCALAPI_IMAGE_MODEL, OPENAI_IMAGE_MODEL
 from novelvideo.freezone import image_node
 from novelvideo.freezone.presets import (
     build_canvas_payload_from_context,
@@ -3421,7 +3421,7 @@ def test_split_provider_and_model_accepts_newapi_selection_key() -> None:
     provider, model = _split_provider_and_model(None, "newapi_gpt_image2")
 
     assert provider == "newapi"
-    assert model == NEWAPI_IMAGE_MODEL
+    assert model == LOCALAPI_IMAGE_MODEL
 
 
 def test_freezone_defaults_to_newapi_gpt_image2() -> None:
@@ -3475,7 +3475,7 @@ async def test_masked_redraw_uses_default_newapi_model(
     assert result["ok"] is True
     assert captured["task_type"] == "freezone_mask_edit"
     assert captured["provider"] == "newapi"
-    assert captured["model"] == NEWAPI_IMAGE_MODEL
+    assert captured["model"] == LOCALAPI_IMAGE_MODEL
     assert captured["quality"] == "low"
     # [aipdd fork delta] WP-D: 报价片段随额度体系删除；擦除任务真正要带上的是蒙版
     # 与出图规格，改守这些执行侧字段。
@@ -3519,16 +3519,75 @@ async def test_mask_edit_job_uses_reference_edit_provider_routing(
         image_size="2K",
         quality="medium",
         provider="newapi",
-        model=NEWAPI_IMAGE_MODEL,
+        model=LOCALAPI_IMAGE_MODEL,
     )
 
     assert out.exists()
     assert captured["reference_images"] == [str(base), str(mask)]
     assert captured["config"]["provider"] == "newapi"
-    assert captured["config"]["model"] == NEWAPI_IMAGE_MODEL
+    assert captured["config"]["model"] == LOCALAPI_IMAGE_MODEL
     # Image 2 = 源图 + 红色高亮标注；模型只改红色区域，且红色不进入结果。
     assert "red-highlighted region" in captured["prompt"]
     assert "must NOT appear in the output" in captured["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_mask_edit_runner_archives_generated_image(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """局部重绘也是「生成」：带标记的任务跑完要登记进资产库「待分类资产」。"""
+    from novelvideo.freezone import jobs as freezone_jobs
+    from novelvideo.freezone.video_node import load_video_character_library
+    from novelvideo.task_backend.runners import freezone as freezone_runner
+
+    ctx = _project_ctx(tmp_path)
+    project_dir = ctx.output_dir
+    base = project_dir / "assets" / "characters" / "陈默" / "portrait.png"
+    mask = project_dir / "freezone" / "_uploads" / "mask.png"
+    _write_image(base, size=(1024, 1024))
+    _write_image(mask, size=(1024, 1024))
+    out = project_dir / "freezone" / "_outputs" / "freezone_mask_edit" / "job_mask" / "out.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    _write_image(out)
+
+    async def fake_run_freezone_mask_edit(**_kwargs):
+        return out
+
+    class FakeTaskManager:
+        def update_progress_for_project(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr(freezone_jobs, "run_freezone_mask_edit", fake_run_freezone_mask_edit)
+    monkeypatch.setattr(freezone_runner, "get_task_manager", lambda: FakeTaskManager())
+
+    envelope = {
+        "task_type": "freezone_mask_edit",
+        "payload": {
+            "job_id": "job_mask",
+            "project_dir": str(project_dir),
+            "base_path": str(base),
+            "mask_path": str(mask),
+            "prompt": "erase",
+            "archive_to_library": True,
+        },
+    }
+    result = await freezone_runner._run_freezone_mask_edit_async(envelope, ctx)
+
+    stored = load_video_character_library(project_dir)
+    assert len(stored) == 1
+    assert stored[0]["id"] == "tool-job_mask"
+    assert stored[0]["name"] == "portrait·图片处理"
+    assert stored[0]["folder"] == "other"
+    assert stored[0]["image_urls"] == [result["output_url"]]
+    assert result["archived_to_library"] is True
+    assert result["library_item_id"] == "tool-job_mask"
+
+    # 不带标记（画布等入口）时不动库。
+    envelope["payload"].pop("archive_to_library")
+    plain = await freezone_runner._run_freezone_mask_edit_async(envelope, ctx)
+    assert "archived_to_library" not in plain
+    assert len(load_video_character_library(project_dir)) == 1
 
 
 def test_camera_prompt_contains_camera_body_lens_focal_and_aperture() -> None:
@@ -3774,6 +3833,96 @@ async def test_freezone_gen_route_passes_output_dir_and_quality(
     # 具体命中的上游模型名取决于部署目录，这里只守「选择键已解成真实模型」。
     assert captured["payload"]["model"]
     assert "billing" not in captured["payload"]
+
+
+@pytest.mark.asyncio
+async def test_freezone_gen_route_forwards_library_archive_marker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """画布「图片生成」节点带 ``archive_to_library`` 提交时，入队载荷收到该标记。
+
+    [aipdd fork delta] runner 完成后据此把产物登记进资产库「待分类资产」；不带标记
+    的入口保持不入库。这条链是本轮补上的：过去图片侧从 schema 到 payload 全程缺失。
+    """
+    project_dir, _output_dir = _patch_freezone_project(
+        monkeypatch, tmp_path, username="admin", project="58"
+    )
+    _patch_default_media_model_catalog(monkeypatch)
+    captured: dict[str, object] = {}
+
+    async def fake_enqueue_project_task(_ctx: ProjectContext, **kwargs):
+        captured.update(kwargs)
+        captured["payload"] = kwargs.get("payload") or {}
+        return SimpleNamespace(
+            task_state=SimpleNamespace(task_id="task_gen"),
+            backend="celery",
+            queue="node.node_a.default",
+        )
+
+    monkeypatch.setattr(freezone_routes, "get_task_backend", lambda: SimpleNamespace(enqueue_project_task=fake_enqueue_project_task))
+    monkeypatch.setattr(freezone_routes, "_new_job_id", lambda: "job_gen")
+
+    await freezone_routes.freezone_gen(
+        project="proj_freezone",
+        body=freezone_routes.FreezoneGenRequest(
+            prompt="衣服好看点",
+            model="newapi_gpt_image2",
+            canvas_id="default",
+            node_id="node_gen",
+            archive_to_library=True,
+            source_tool="canvas",
+        ),
+        user={"username": "admin"},
+    )
+
+    assert captured["payload"]["archive_to_library"] is True
+    assert captured["payload"]["source_tool"] == "canvas"
+    assert captured["payload"]["project_dir"] == str(project_dir)
+
+
+@pytest.mark.asyncio
+async def test_freezone_gen_route_defaults_to_archive_explicit_false_omits_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[aipdd fork delta] 默认「生成就入库」：不传标记载荷即带 True；显式 false 才不带键。"""
+    _patch_freezone_project(monkeypatch, tmp_path, username="admin", project="58")
+    _patch_default_media_model_catalog(monkeypatch)
+    captured: dict[str, object] = {}
+
+    async def fake_enqueue_project_task(_ctx: ProjectContext, **kwargs):
+        captured.update(kwargs)
+        captured["payload"] = kwargs.get("payload") or {}
+        return SimpleNamespace(
+            task_state=SimpleNamespace(task_id="task_gen"),
+            backend="celery",
+            queue="node.node_a.default",
+        )
+
+    monkeypatch.setattr(freezone_routes, "get_task_backend", lambda: SimpleNamespace(enqueue_project_task=fake_enqueue_project_task))
+    monkeypatch.setattr(freezone_routes, "_new_job_id", lambda: "job_gen")
+
+    await freezone_routes.freezone_gen(
+        project="proj_freezone",
+        body=freezone_routes.FreezoneGenRequest(
+            prompt="衣服好看点", model="newapi_gpt_image2"
+        ),
+        user={"username": "admin"},
+    )
+    assert captured["payload"]["archive_to_library"] is True
+
+    await freezone_routes.freezone_gen(
+        project="proj_freezone",
+        body=freezone_routes.FreezoneGenRequest(
+            prompt="衣服好看点",
+            model="newapi_gpt_image2",
+            archive_to_library=False,
+        ),
+        user={"username": "admin"},
+    )
+    assert "archive_to_library" not in captured["payload"]
+    assert "source_tool" not in captured["payload"]
 
 
 @pytest.mark.asyncio
@@ -4213,6 +4362,7 @@ def test_freezone_image_to_3gs_runner_records_project_node_history(
                 "source_kind": "master",
                 "canvas_id": "canvas_a",
                 "node_id": "node_3gs",
+                "archive_to_library": True,
             },
         },
         ctx,
@@ -4244,6 +4394,16 @@ def test_freezone_image_to_3gs_runner_records_project_node_history(
     assert not history[-1]["result"]["splat_url"].startswith(str(project_dir))
     assert not history[-1]["result"]["ply_path"].startswith(str(project_dir))
     assert all(update.get("progress") < 1.0 for update in progress_updates)
+
+    # [aipdd fork delta req98] 图生 3D 产物按「生成就入库」登记进「待分类资产」，
+    # 走 3D 载体（category=model3d，URL 落 model3d_url）。
+    from novelvideo.freezone.video_node import load_video_character_library
+
+    stored = load_video_character_library(project_dir)
+    assert [it["category"] for it in stored] == ["model3d"]
+    assert stored[0]["folder"] == "other"
+    assert stored[0]["model3d_url"] == result["url"]
+    assert result["archived_to_library"] is True
 
 
 @pytest.mark.asyncio
@@ -7516,16 +7676,16 @@ async def test_skill_run_scene_360_uses_reverse_master_and_scene_slot_target(
     assert captured["payload"]["step"] == "pano_from_master"
     assert captured["payload"]["params"]["provider"] == "newapi"
     # [aipdd fork delta] 去厂商化后 payload 携带的是图源选择键（未配置
-    # NEWAPI_IMAGE_MODEL 时不解出静态模型名），运行期由媒体模型面板/media
-    # mappings 解析；配置了 NEWAPI_IMAGE_MODEL 时才是解析值。表达式与实现同构：
+    # LOCALAPI_IMAGE_MODEL 时不解出静态模型名），运行期由媒体模型面板/media
+    # mappings 解析；配置了 LOCALAPI_IMAGE_MODEL 时才是解析值。表达式与实现同构：
     # resolved_model or 选择键（见 freezone.py 的 params.model 拼装）。
     assert captured["payload"]["params"]["model"] == (
-        NEWAPI_IMAGE_MODEL or FREEZONE_DEFAULT_IMAGE_MODEL
+        LOCALAPI_IMAGE_MODEL or FREEZONE_DEFAULT_IMAGE_MODEL
     )
     assert resolve_scene_360_image_model(
         provider=captured["payload"]["params"]["provider"],
         model=captured["payload"]["params"]["model"],
-    ) == NEWAPI_IMAGE_MODEL
+    ) == LOCALAPI_IMAGE_MODEL
     assert captured["payload"]["params"]["image_size"] == "2K"
     assert captured["payload"]["params"]["update_manifest"] is False
     assert captured["payload"]["params"]["master_path"].endswith("/assets/scenes/小区/master.png")

@@ -11,9 +11,11 @@
 import { useMemo, useState, type DragEvent as ReactDragEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Box,
   ChevronDown,
   ChevronRight,
   Clapperboard,
+  FileText,
   Folder,
   Image as ImageIcon,
   Loader2,
@@ -39,17 +41,29 @@ import { cn } from "@/lib/utils";
 
 import { AGENT_ASSET_DRAG_MIME } from "../core";
 
-/** 素材行 → 可引用的参考条目；剪映草稿与坏 URL 返回 null（不可引用）。 */
+/** 素材行 → 可引用的参考条目；剪映草稿 / 3D / 文本与坏 URL 返回 null（不可引用）。 */
 function referenceOf(item: LibraryItem): AgentTurnReference | null {
-  if (item.media === "draft" || !item.url) return null;
+  if (
+    item.media === "draft" ||
+    item.media === "model3d" ||
+    item.media === "text" ||
+    !item.url
+  ) {
+    return null;
+  }
   return { name: item.name || item.url, url: item.url, media: item.media };
 }
 
-const MEDIA_ICONS: Record<AgentTurnReferenceMedia | "draft", LucideIcon> = {
+const MEDIA_ICONS: Record<
+  AgentTurnReferenceMedia | "draft" | "model3d" | "text",
+  LucideIcon
+> = {
   image: ImageIcon,
   video: Video,
   audio: Music,
   draft: Clapperboard,
+  model3d: Box,
+  text: FileText,
 };
 
 export function AssetTreePanel({
@@ -185,7 +199,11 @@ function ItemRow({
   const reference = referenceOf(item);
   const Icon = MEDIA_ICONS[item.media] ?? ImageIcon;
   const label = item.name || item.url;
-  const hint = reference ? t("agent.assets.addReference") : t("agent.assets.draftDisabled");
+  const hint = reference
+    ? t("agent.assets.addReference")
+    : item.media === "model3d" || item.media === "text"
+      ? t("agent.assets.fileDisabled")
+      : t("agent.assets.draftDisabled");
 
   return (
     <div

@@ -17,9 +17,9 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/dramaclaw/localapi/relaykit/dto"
+	"github.com/dramaclaw/localapi/relaykit/relayconvert/convmeta"
+	"github.com/dramaclaw/localapi/relaykit/types"
 	"github.com/stretchr/testify/require"
 )
 

@@ -5,13 +5,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting"
-	"github.com/QuantumNous/new-api/setting/config"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/performance_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
-	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/setting"
+	"github.com/dramaclaw/localapi/setting/config"
+	"github.com/dramaclaw/localapi/setting/operation_setting"
+	"github.com/dramaclaw/localapi/setting/performance_setting"
+	"github.com/dramaclaw/localapi/setting/ratio_setting"
+	"github.com/dramaclaw/localapi/setting/system_setting"
 	"gorm.io/gorm"
 )
 

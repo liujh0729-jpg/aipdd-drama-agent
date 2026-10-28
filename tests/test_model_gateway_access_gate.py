@@ -1,6 +1,6 @@
 """网关管理面权限闸门 `require_model_gateway_access` 的边界回归。
 
-网关配置含渠道上游密钥 + NewAPI 管理员令牌、决定全平台模型流量去向，属管理员
+网关配置含渠道上游密钥 + LocalAPI 管理员令牌、决定全平台模型流量去向，属管理员
 配置面。曾整组路由仅 `get_api_user`（任意登录态），使机器凭证（agent 会话 /
 统一 API 密钥 st-…）与非 owner 成员都能读写网关——现收窄为：机器凭证一律拒；
 写操作再要 owner；只读留给浏览器会话（成员 UI 需 /model-plaza、/config 列模型）。

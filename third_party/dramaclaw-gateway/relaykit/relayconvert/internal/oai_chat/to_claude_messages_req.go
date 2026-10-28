@@ -6,12 +6,12 @@ import (
 	"strings"
 
 	"context"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	relaymedia "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/media"
-	sharedclaude "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/shared/claude"
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
+	"github.com/dramaclaw/localapi/relaykit/dto"
+	"github.com/dramaclaw/localapi/relaykit/relayconvert/convmeta"
+	relaymedia "github.com/dramaclaw/localapi/relaykit/relayconvert/internal/media"
+	sharedclaude "github.com/dramaclaw/localapi/relaykit/relayconvert/internal/shared/claude"
+	kitutil "github.com/dramaclaw/localapi/relaykit/relayconvert/kitutil"
+	"github.com/dramaclaw/localapi/relaykit/relayconvert/reasoning"
 )
 
 const (

@@ -1150,6 +1150,9 @@ async def freezone_douyin_copywrite(
         "video": video,
         "model": candidate["id"],
         "source_tool": body.source_tool,
+        # [aipdd fork delta req97] 默认入库（生成就入库），显式传 false 时不带键、
+        # runner 不归档。
+        **({"archive_to_library": True} if body.archive_to_library else {}),
     }
     try:
         return await _freezone._enqueue_or_start_freezone_douyin_copywrite(
@@ -1253,6 +1256,9 @@ async def freezone_media_copywrite(
         "platform": platform,
         "model": candidate["id"],
         "source_tool": body.source_tool,
+        # [aipdd fork delta req97] 默认入库（生成就入库），显式传 false 时不带键、
+        # runner 不归档（文案 txt 与下载的视频/音频素材一并关闭）。
+        **({"archive_to_library": True} if body.archive_to_library else {}),
     }
     try:
         return await _freezone._enqueue_or_start_freezone_media_copywrite(

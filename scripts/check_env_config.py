@@ -86,7 +86,7 @@ COMMON_REVERSE_ENV_ALLOWLIST: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
     (
         re.compile(r"^(?:MODEL|LLM|EMBEDDING)_(?:PROVIDER|MODEL|NAME|API_KEY|BASE_URL|ENDPOINT|TIMEOUT|THINKING_LEVEL|DIMENSIONS|API_VERSION)$"),
-        "Legacy/generic model adapter env; current operator contract uses NEWAPI_/COGNEE_ keys.",
+        "Legacy/generic model adapter env; current operator contract uses LOCALAPI_/COGNEE_ keys.",
     ),
     (
         re.compile(r"^COGNEE_(?:LLM|EMBEDDING)_(?:API_KEY|API_VERSION|ENDPOINT|TIMEOUT)$"),
@@ -107,7 +107,7 @@ COMMON_REVERSE_ENV_ALLOWLIST: tuple[tuple[re.Pattern[str], str], ...] = (
             r"VOLCENGINE|COMFYUI|COSYVOICE|FISH|EDGE_TTS|NANOBANANA|HUIMENG|"
             r"SKETCH_GATE|SKETCH_EDIT|VOXEL|PANO|SOG|STAGE_COLLISION|BACKUP_OSS)_.*$"
         ),
-        "Optional legacy/provider-specific integration env outside the curated NewAPI template.",
+        "Optional legacy/provider-specific integration env outside the curated LocalAPI template.",
     ),
     (
         re.compile(
@@ -129,7 +129,7 @@ COMMON_REVERSE_ENV_ALLOWLIST: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
     (
         re.compile(r"^(?:BACKUP_ENV_NAME|BACKUP_STAGE_DIR|BACKUP_SYNC_OUTPUT)$"),
-        "Optional backup integration env outside the current NewAPI-first template contract.",
+        "Optional backup integration env outside the current LocalAPI-first template contract.",
     ),
     (
         re.compile(
@@ -154,15 +154,15 @@ CE_REVERSE_ENV_ALLOWLIST: tuple[tuple[re.Pattern[str], str], ...] = (
         "CE does not expose it as operator configuration.",
     ),
     (
-        re.compile(r"^NEWAPI_(?:API_KEY|BASE_URL)$"),
+        re.compile(r"^LOCALAPI_(?:API_KEY|BASE_URL)$"),
         "EE deployment credentials read by shared CE/EE gateway code; CE dynamic "
         "credentials live in settings.db and intentionally omit these variables.",
     ),
     (
         re.compile(
-            r"^NEWAPI_(?:SQL_DSN|SQLITE_PATH|ADMIN_USERNAME)$"
+            r"^LOCALAPI_(?:SQL_DSN|SQLITE_PATH|ADMIN_USERNAME)$"
         ),
-        "Advanced NewAPI provisioner overrides; CE launchers and the self-hosted compose "
+        "Advanced LocalAPI provisioner overrides; CE launchers and the self-hosted compose "
         "supply managed SQLite values, so these are intentionally absent from the public template.",
     ),
     (
@@ -267,7 +267,7 @@ CE_REVERSE_ENV_ALLOWLIST: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         re.compile(r"^LOCALAPI_(?:API_KEY|BASE_URL)$"),
         "Self-hosted gateway credentials read by shared CE/EE code and the subprocess "
-        "allowlist; CE dynamic credentials live in settings.db, so like NEWAPI_* these "
+        "allowlist; CE dynamic credentials live in settings.db, so like LOCALAPI_* these "
         "variables are intentionally omitted from the public template.",
     ),
 )

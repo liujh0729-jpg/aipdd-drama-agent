@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: Elastic-2.0
 // Copyright (c) 2026 ClaymoreLab
-import { Clapperboard, Download, Music, Send, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+  Box,
+  Clapperboard,
+  Download,
+  FileText,
+  Music,
+  Send,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -73,6 +83,16 @@ export function AssetLibraryPreviewDialog({
                 {t('canvas.assetLibrary.preview.draftHint')}
               </p>
             </div>
+          ) : entry.media === 'model3d' ? (
+            // [aipdd fork delta req98] 3D 模型没有浏览器可直接铺的画面，给说明 + 下载。
+            <div className="flex w-full max-w-lg flex-col items-center gap-4 rounded-lg border border-white/[0.07] bg-white/[0.03] px-8 py-12 text-center">
+              <Box className="h-10 w-10 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {t('canvas.assetLibrary.preview.model3dHint')}
+              </p>
+            </div>
+          ) : entry.media === 'text' ? (
+            <TextFilePreview url={src} />
           ) : entry.media === 'image' ? (
             <img
               src={src}
@@ -129,5 +149,46 @@ export function AssetLibraryPreviewDialog({
         </footer>
       </section>
     </div>
+  );
+}
+
+/**
+ * [aipdd fork delta req98] 文本文档（txt）预览：拉取文件内容就地展示；加载失败退回
+ * 图标 + 说明，下载动作始终可用（footer 里）。
+ */
+function TextFilePreview({ url }: { url: string }) {
+  const { t } = useTranslation();
+  const [content, setContent] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(url)
+      .then((res) => (res.ok ? res.text() : Promise.reject(new Error('http'))))
+      .then((text) => {
+        if (alive) setContent(text);
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+
+  if (failed) {
+    return (
+      <div className="flex w-full max-w-lg flex-col items-center gap-4 rounded-lg border border-white/[0.07] bg-white/[0.03] px-8 py-12 text-center">
+        <FileText className="h-10 w-10 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {t('canvas.assetLibrary.preview.textHint')}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <pre className="max-h-[56vh] w-full max-w-2xl overflow-auto whitespace-pre-wrap break-words rounded-md border border-white/[0.07] bg-white/[0.03] p-5 text-left text-[13px] leading-relaxed text-foreground">
+      {content ?? t('canvas.assetLibrary.preview.loading')}
+    </pre>
   );
 }

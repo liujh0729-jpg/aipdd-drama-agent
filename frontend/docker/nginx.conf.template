@@ -11,7 +11,7 @@ upstream supertale_backend {
 # 对外统一从本项目的 /gateway/v1/ 出口暴露 OpenAI 兼容 API；网关自带后台页面不再对外。
 # 见 docker-compose.aipdd.yml 的 newapi.expose。模型广场里给人复制的对外地址默认就
 # 是「本出口的同一个 origin + /gateway/v1」（[req41] 不再在代码里猜 localhost，也不
-# 需要部署方写 NEWAPI_PUBLIC_BASE_URL；要固定成别的域名时才用那个 env）。
+# 需要部署方写 LOCALAPI_PUBLIC_BASE_URL；要固定成别的域名时才用那个 env）。
 # 原直连网关容器的 upstream dramaclaw_gateway 已移除：/gateway/v1/ 改反代到后端
 # 统一入口 /api/v1/openai/，由后端校验统一密钥（设置 → API 密钥）后转发出网关。
 
@@ -139,7 +139,7 @@ server {
     }
 
     # [aipdd fork delta] 网关出口：只放 /v1/*（模型调用），不放网关自带后台。
-    # 模型广场的调用示例地址：部署方显式配了 NEWAPI_PUBLIC_BASE_URL 就用它，否则按本
+    # 模型广场的调用示例地址：部署方显式配了 LOCALAPI_PUBLIC_BASE_URL 就用它，否则按本
     # 请求的 origin 推导（[req41]：代码不猜 localhost / 端口）。
     # 反代到后端统一入口 /api/v1/openai/：后端用统一密钥（设置 → API 密钥）鉴权，
     # 再把请求转发出 newapi 网关（整条链路与 MCP 接入共用同一把 st- 密钥）。

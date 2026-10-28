@@ -5,7 +5,7 @@
 
 > 在 macOS / Windows / Linux 上装好 DramaClaw CE 的运行环境。只想最快跑起来,直接看 [快速开始](quickstart.md);本篇覆盖各平台前置与本地开发两种装法。
 
-DramaClaw CE 是单机服务,**无需 PostgreSQL / Redis**。Docker 起 `api` + `newapi`（LocalAPI）+ `web`;模型默认走 DramaClaw 官方网关,在设置页切到自定义模式后走 LocalAPI。本机不跑模型,普通机器即可。
+DramaClaw CE 是单机服务,**无需 PostgreSQL / Redis**。Docker 起 `api` + `localapi`（LocalAPI）+ `web`;模型默认走 DramaClaw 官方网关,在设置页切到自定义模式后走 LocalAPI。本机不跑模型,普通机器即可。
 
 ## 两种装法选一
 
@@ -77,13 +77,13 @@ curl http://localhost:8780/api/v1/config   # 返回 200 即正常
 
 ### 4. 网关（仅自定义 / LocalAPI + 官方混合模式需要）
 
-官方模式什么都不用再跑。另外两种模式下，API 需要一个跑在 `127.0.0.1:3000` 的网关（`.env` 里 `LOCALAPI_ADMIN_BASE_URL` 的默认值），且它的 SQLite 文件在 `./state/newapi/one-api.db`，设置页的「初始化」写的就是这个文件。从 vendored 源码构建网关并把这个目录挂进去：
+官方模式什么都不用再跑。另外两种模式下，API 需要一个跑在 `127.0.0.1:3000` 的网关（`.env` 里 `LOCALAPI_ADMIN_BASE_URL` 的默认值），且它的 SQLite 文件在 `./state/localapi/localapi.db`，设置页的「初始化」写的就是这个文件。从 vendored 源码构建网关并把这个目录挂进去：
 
 ```bash
-mkdir -p state/newapi
+mkdir -p state/localapi
 docker build -t aipdd/gateway ./third_party/dramaclaw-gateway
 docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
-  -v "$PWD/state/newapi:/data" \
+  -v "$PWD/state/localapi:/data" \
   aipdd/gateway
 ```
 

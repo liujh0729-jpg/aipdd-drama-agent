@@ -3,11 +3,11 @@ package relayconvert
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	sharedgemini "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/shared/gemini"
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/dramaclaw/localapi/relaykit/dto"
+	"github.com/dramaclaw/localapi/relaykit/relayconvert/convmeta"
+	sharedgemini "github.com/dramaclaw/localapi/relaykit/relayconvert/internal/shared/gemini"
+	kitutil "github.com/dramaclaw/localapi/relaykit/relayconvert/kitutil"
+	"github.com/dramaclaw/localapi/relaykit/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

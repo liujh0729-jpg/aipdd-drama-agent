@@ -3,7 +3,7 @@ package controller
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/dramaclaw/localapi/setting/system_setting"
 	"github.com/stretchr/testify/assert"
 )
 

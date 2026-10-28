@@ -24,7 +24,7 @@ RES="$DESKTOP_DIR/src-tauri/resources"
 
 command -v cargo >/dev/null || { echo "缺少 cargo（rustup 未装？）" >&2; exit 3; }
 cargo tauri --version >/dev/null 2>&1 || { echo "缺少 tauri-cli：cargo install tauri-cli --version \"^2\"" >&2; exit 3; }
-[[ -d "$RES/python" && -f "$RES/bin/nginx" && -f "$RES/bin/new-api" ]] || {
+[[ -d "$RES/python" && -f "$RES/bin/nginx" && -f "$RES/bin/localapi" ]] || {
   echo "resources 未准备，请先： scripts/prepare-resources.sh $RES_TARGET" >&2; exit 4; }
 
 cd "$DESKTOP_DIR"

@@ -116,6 +116,10 @@ async def freezone_video_compose(
                     "background_color": body.background_color,
                     "keep_original_audio": body.keep_original_audio,
                     "tracks": resolved_tracks,
+                    # [aipdd fork delta] 产物入库标记：合成成片是最终产物，提交方
+                    # （画布/工具/agent）带标记时 runner 把结果登记进资产库。
+                    **({"archive_to_library": True} if body.archive_to_library else {}),
+                    **({"source_tool": body.source_tool} if body.source_tool else {}),
                 },
             )
         _freezone._start_freezone_video_compose_task(

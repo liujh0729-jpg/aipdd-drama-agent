@@ -51,8 +51,8 @@ import {
   MEDIAKIT_BASE_URL,
   MINIMAX_BASE_URL,
   MINIMAX_CN_BASE_URL,
-  NEWAPI_DEFAULT_BASE_URL,
-  NEWAPI_RECOMMENDED_SITES_URL,
+  LOCALAPI_DEFAULT_BASE_URL,
+  LOCALAPI_RECOMMENDED_SITES_URL,
   OPENAI_OFFICIAL_BASE_URL,
   ANTHROPIC_BASE_URL,
   GEMINI_BASE_URL,
@@ -60,11 +60,11 @@ import {
 // [aipdd fork delta] 渠道名旁的官网直达链接（URL 真源在 @/lib/provider-labels）。
 import { ProviderOfficialSiteLink } from "./provider-official-site-link";
 
-// [aipdd fork delta] 简洁的“渠道连接”卡片：把 AIPDD / 外部 NewAPI（OpenAI 兼容）
+// [aipdd fork delta] 简洁的“渠道连接”卡片：把 AIPDD / 外部 LocalAPI（OpenAI 兼容）
 // 的 Base URL + Key 直接摆到自定义页最前面，点“保存并同步”即写入渠道真源（settings 库）。
 // 渠道 provider key 为四大渠道：aipdd / newapi / volcengine / comfyui。
 // [aipdd fork delta] AIPDD / VolcEngine 的 Base URL 是本产品的固定端点（不随部署环境变，
-// 用户填错只会把已跑通的渠道拉坏），所以只读展示不录入；NewAPI / ComfyUI 地址
+// 用户填错只会把已跑通的渠道拉坏），所以只读展示不录入；LocalAPI / ComfyUI 地址
 // 因用户而异，仍然是输入框。
 // 火山 AI MediaKit 不再占一张独立卡：它本质属于 VolcEngine 渠道，因此作为 VolcEngine
 // 卡内的子区块（extra）交付；它的 Base URL 同样是固定端点，只读展示。
@@ -101,7 +101,7 @@ function ProviderConnectCard({
    */
   minimaxVoiceCredentials?: boolean;
   /**
-   * [aipdd fork delta] Base URL 旁推荐的站点清单（可选）：外部 NewAPI 网关地址千差万别，
+   * [aipdd fork delta] Base URL 旁推荐的站点清单（可选）：外部 LocalAPI 网关地址千差万别，
    * 默认值留空，用户点这个链接去官方整理的清单里自己挑一个可用站点。
    * 链接用 target=_blank：浏览器版开新标签页；DMG/EXE 壳里由 desktop 的
    * on_new_window / on_navigation 转交系统默认浏览器（不在应用内开第二个 WebView）。
@@ -570,8 +570,8 @@ function ProviderConnectCard({
 
 // [aipdd fork delta] 火山 AI MediaKit 配置子区块：视频「高清」+「智能去字幕」共用
 // 同一份 API Key（Base URL 为固定端点，不录入）。本质属于 VolcEngine 渠道，
-// 因此不再与 AIPDD / NewAPI / ComfyUI 并排占一张顶层卡，而是嵌在 VolcEngine 卡内（extra）。
-// 保存仍走 video-enhance/config（凭证真源独立于 NewAPI 渠道表），保存后 invalidate
+// 因此不再与 AIPDD / LocalAPI / ComfyUI 并排占一张顶层卡，而是嵌在 VolcEngine 卡内（extra）。
+// 保存仍走 video-enhance/config（凭证真源独立于 LocalAPI 渠道表），保存后 invalidate
 // 网关配置查询自动回显。
 function MediaKitConnectCard({ saved }: { saved?: VideoEnhanceConfig }) {
   const { t } = useTranslation();
@@ -792,9 +792,9 @@ function ProviderConnectCards({
         description={t("settings.modelConfig.cards.newApiExternalDescription")}
         provider="newapi"
         // [aipdd fork delta] 默认站点为空：地址是部署方数据，不预填；
-        // 卡上给「推荐 NewAPI 站点」按钮，用户自己去清单里挑。
-        presetBaseUrl={NEWAPI_DEFAULT_BASE_URL}
-        recommendedSitesUrl={NEWAPI_RECOMMENDED_SITES_URL}
+        // 卡上给「推荐 LocalAPI 站点」按钮，用户自己去清单里挑。
+        presetBaseUrl={LOCALAPI_DEFAULT_BASE_URL}
+        recommendedSitesUrl={LOCALAPI_RECOMMENDED_SITES_URL}
         saved={savedFor("newapi")}
       />
       {/*

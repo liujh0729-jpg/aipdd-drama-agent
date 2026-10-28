@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ClaymoreLab
 // [aipdd fork delta req47] Seedance 私域素材库 / 真人活体认证的查询层。
 //
-// 关键口径：素材库**不是「连了 NewAPI 就有」**。状态接口回的是探测结论
+// 关键口径：素材库**不是「连了 LocalAPI 就有」**。状态接口回的是探测结论
 // （supported / unsupported / unauthorized / ambiguous / unconfigured / unreachable），
 // 面板与这些查询都以探测结论为前提——不支持时连列表请求都不该发出去，
 // 免得用户看到一排「未知错误」，而真正的答案只有一句「这台网关没有这组接口」。

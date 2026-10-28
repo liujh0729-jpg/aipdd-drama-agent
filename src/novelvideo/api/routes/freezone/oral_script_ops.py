@@ -82,6 +82,9 @@ async def freezone_oral_script(
         "rewrite_hard_hits": bool(body.rewrite_hard_hits),
         "model_text": body.model_text.strip(),
         "source_tool": body.source_tool,
+        # [aipdd fork delta req97] 默认入库（生成就入库），显式传 false 时不带键、
+        # runner 不归档。
+        **({"archive_to_library": True} if body.archive_to_library else {}),
     }
     if ctx is not None:
         projection_payload = await _freezone._task_projection_payload(

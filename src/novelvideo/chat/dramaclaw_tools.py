@@ -2799,8 +2799,8 @@ def _handle_vectcut_save_draft(args: dict[str, Any], **_: Any) -> str:
 # 短视频 / 人声复刻 / 对口型 / 换人 / 视频去水印 / 图片去水印 / 抖音文案提取）
 #
 # 与前端「工具」栏目九个面板一一对应：复用同一批 freezone 路由与任务队列。
-# 除抖音文案提取外，产物默认登记进资产库「待分类资产」（archive_to_library=false
-# 关闭）；抖音文案提取产物是文案 txt，素材库三类媒介无文本载体，不归档。
+# 产物默认登记进资产库「待分类资产」（archive_to_library=false 关闭）；抖音
+# 文案提取的文案 txt 随 req98 起走资产库「文本」载体，同样默认归档。
 # 提交返回 {"ok": true, "data": {task_type, job_id, task_key}}；完成后用
 # GET /projects/{project}/freezone/jobs/{task_type}/{job_id}/result 取产物 URL。
 # ---------------------------------------------------------------------------
@@ -3475,14 +3475,18 @@ def _handle_douyin_copywrite(args: dict[str, Any], **_: Any) -> str:
 
     模型候选由 /freezone/douyin-copywrite/models 提供（网关拉取的模型 list 过滤
     ASR 同类 + 内置 FunASR），由用户显式指定，不按固定路由顺序。产物是文案
-    txt（素材库三类媒介无文本载体，不归档）；文案全文随任务结果返回。
+    txt，默认归档进资产库「文本」载体（archive_to_library=false 关闭）；文案
+    全文仍随任务结果返回。
     """
     try:
         project = _project_from_args(args)
         video = str(args.get("video") or "").strip()
         if not video:
             raise ValueError("video is required (a Douyin share link or share text)")
-        body: dict[str, Any] = {"video": video}
+        body: dict[str, Any] = {
+            "video": video,
+            "archive_to_library": _tools_page_archive_flag(args),
+        }
         model = str(args.get("model") or "").strip()
         if model:
             body["model"] = model
@@ -6819,13 +6823,14 @@ TOOLS = (
             "to ASR-family entries such as Doubao Seed ASR, plus the built-in FunASR "
             "channel) — the user picks explicitly, there is no fixed fallback order. "
             "The result carries the full script text plus a txt URL (text/text_url); "
-            "the txt is NOT archived into the asset library (its media types have no "
-            "text carrier). Poll with GET /projects/{project}/freezone/jobs/"
-            "freezone_douyin_copywrite/{job_id}/result.",
+            "the txt is archived into the asset library text carrier by default "
+            "(archive_to_library=false opts out). Poll with GET /projects/{project}/"
+            "freezone/jobs/freezone_douyin_copywrite/{job_id}/result.",
             {
                 "project_id": _TOOLS_PAGE_PROJECT_PROP,
                 "video": {"type": "string", "description": "Douyin share link (a v.douyin.com short link, the full share text or a video URL all work)."},
                 "model": {"type": "string", "description": "ASR candidate id from /freezone/douyin-copywrite/models, e.g. 'gateway:volc:doubao-seed-asr' or 'funasr:aipdd:aipdd_funasr_transcribe'; empty falls back to the built-in FunASR channel (the tool UI has no default; pick explicitly)."},
+                "archive_to_library": {"type": "boolean", "description": "true=文案 txt 登记进资产库「待分类资产」（文本载体，默认 true，false 关闭）。"},
             },
             ["video"],
         ),

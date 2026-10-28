@@ -21,7 +21,7 @@ data.db 的历史任务里还带着它 —— 于是下一次调用又撞回
 
     # 多个名字、额外指定网关库
     uv run python scripts/scan_model_remnants.py ap-old-llm DC-old-slot \
-        --gateway-db /path/to/one-api.db
+        --gateway-db /path/to/localapi.db
 
 退出码：0 = 一处都没找到；1 = 有残留（按行打印位置与清理动作）。
 """
@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-# 网关（new-api）库里值得看的表与列：名字可能出现在渠道声明、映射、路由能力位、
+# 网关（localapi）库里值得看的表与列：名字可能出现在渠道声明、映射、路由能力位、
 # 令牌白名单、异步任务与自定义模型元数据里。``logs`` 只看数量（历史记录，不作为
 # 可清理项报告 —— 清它没有意义）。
 GATEWAY_SCAN: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -370,7 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--gateway-db",
         default="",
-        help="网关 one-api.db 路径（默认 <state>/newapi/one-api.db 与 <state>/_shared/oneapi.db）",
+        help="网关 localapi.db 路径（默认 <state>/newapi/localapi.db 与 <state>/_shared/oneapi.db）",
     )
     parser.add_argument(
         "--text-file",
@@ -398,7 +398,7 @@ def main(argv: list[str] | None = None) -> int:
         [Path(args.gateway_db)]
         if args.gateway_db
         else [
-            state_dir / "newapi" / "one-api.db",
+            state_dir / "newapi" / "localapi.db",
             state_dir / "_shared" / "oneapi.db",
         ]
     )

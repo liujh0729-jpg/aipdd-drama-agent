@@ -1,8 +1,8 @@
 package convmeta
 
 import (
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/dramaclaw/localapi/relaykit/dto"
+	"github.com/dramaclaw/localapi/relaykit/types"
 )
 
 // GuessRelayFormatFromRequest infers the relay format from a request DTO's

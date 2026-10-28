@@ -8,13 +8,13 @@ import (
 	"sync"
 
 	"context"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	claudemessages "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/claude_messages"
-	geminichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/gemini_chat"
-	oaichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_chat"
-	oairesponses "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_responses"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/dramaclaw/localapi/relaykit/dto"
+	"github.com/dramaclaw/localapi/relaykit/relayconvert/convmeta"
+	claudemessages "github.com/dramaclaw/localapi/relaykit/relayconvert/internal/claude_messages"
+	geminichat "github.com/dramaclaw/localapi/relaykit/relayconvert/internal/gemini_chat"
+	oaichat "github.com/dramaclaw/localapi/relaykit/relayconvert/internal/oai_chat"
+	oairesponses "github.com/dramaclaw/localapi/relaykit/relayconvert/internal/oai_responses"
+	"github.com/dramaclaw/localapi/relaykit/types"
 )
 
 type RequestConverterFunc func(c context.Context, info convmeta.Meta, request any) (any, error)

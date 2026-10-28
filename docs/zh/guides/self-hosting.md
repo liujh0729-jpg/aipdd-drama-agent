@@ -5,7 +5,7 @@
 
 > 用 Docker 部署、配置、升级、备份 DramaClaw CE。
 
-CE 三个容器：`api` + `newapi`（LocalAPI，切到自定义/LocalAPI + 官方混合模式前闲置）+ `web`，**无 PostgreSQL / 无 Redis / 无 Celery**（`ST_EDITION=ce`，任务在进程内 inline 执行）。模型默认走 DramaClaw 官方网关。
+CE 三个容器：`api` + `localapi`（LocalAPI，切到自定义/LocalAPI + 官方混合模式前闲置）+ `web`，**无 PostgreSQL / 无 Redis / 无 Celery**（`ST_EDITION=ce`，任务在进程内 inline 执行）。模型默认走 DramaClaw 官方网关。
 
 仓库里有两份 compose 文件，**两者都全部源码构建、不拉任何已发布镜像**。`docker-compose.release.yml` 是三服务运行定义（env / 端口 / 卷 / 健康检查）的唯一来源，并且自带各自的 `build:` 块；`docker-compose.yml`（默认入口）只是 `extends` 它。DramaClaw 网关已 vendored 进仓（`third_party/dramaclaw-gateway`，AGPL-3.0），**无需再单独 clone**。用 `docker compose up -d --build` 构建。
 
@@ -35,11 +35,11 @@ cp .env.example .env
 
 | 项 | 值 | 说明 |
 |---|---|---|
-| 服务 | `api` + `newapi` + `web` | 无 PG/Redis；`newapi` 是 LocalAPI，由 vendored 的 `third_party/dramaclaw-gateway` 构建 |
-| 构建上下文 | `api` = `.` · `newapi` = `${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}` · `web` = `./frontend` | 本地构建镜像名 `aipdd/api`、`aipdd/gateway`、`aipdd/web`；零外部镜像 |
+| 服务 | `api` + `localapi` + `web` | 无 PG/Redis；`localapi` 是 LocalAPI，由 vendored 的 `third_party/dramaclaw-gateway` 构建 |
+| 构建上下文 | `api` = `.` · `localapi` = `${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}` · `web` = `./frontend` | 本地构建镜像名 `aipdd/api`、`aipdd/gateway`、`aipdd/web`；零外部镜像 |
 | 网关源码 | `third_party/dramaclaw-gateway`（vendored） | 想改用自己的 checkout 构建：`.env` 设 `DRAMACLAW_GATEWAY_SRC=<路径>` |
 | 端口 | `8780:8780` | REST API。发布到所有网卡；单用户信任开启时（未启用 `ST_CE_MULTI_USER`）任何请求都免登录被当成本地 owner——请把 8780 挡在反代/防火墙之后，或只绑 `127.0.0.1`。绑定未被确认为仅回环时，启动日志会告警 |
-| 网关管理端口 | `${ST_NEWAPI_BIND:-127.0.0.1}:${ST_NEWAPI_PORT:-3000}:3000` |  默认只绑 `127.0.0.1`；`.env` 设 `ST_NEWAPI_BIND=0.0.0.0` 放开。**[aipdd fork] `docker-compose.aipdd.yml` 不再映射该端口**：网关只作项目内部传输层，对外统一走 web 的 `/gateway/v1/`（模型广场调用示例即 `NEWAPI_PUBLIC_BASE_URL`） |
+| 网关管理端口 | `${ST_LOCALAPI_BIND:-127.0.0.1}:${ST_LOCALAPI_PORT:-3000}:3000` |  默认只绑 `127.0.0.1`；`.env` 设 `ST_LOCALAPI_BIND=0.0.0.0` 放开。**[aipdd fork] `docker-compose.aipdd.yml` 不再映射该端口**：网关只作项目内部传输层，对外统一走 web 的 `/gateway/v1/`（模型广场调用示例即 `LOCALAPI_PUBLIC_BASE_URL`） |
 | 强制环境 | `ST_EDITION=ce`、清空 control-plane/Redis/Celery | CE 模式不可降级 |
 | 数据卷 | `ce-data:/data`（输出为 `/data/output`） | 持久化项目数据库、设置和生成媒体 |
 
@@ -88,18 +88,18 @@ docker run --rm -v dramaclaw-ce_ce-data:/data -v "$PWD":/backup alpine \
 
 然后照常起服务（`docker compose up -d`）。数据卷备份已包含生成媒体；`.env` 仍需单独备份。
 
-- `newapi-data` 卷存放 LocalAPI 的 SQLite 数据库（上游渠道、密钥、token），不可再生——按同样方式备份：
+- `localapi-data` 卷存放 LocalAPI 的 SQLite 数据库（上游渠道、密钥、token），不可再生——按同样方式备份：
 
 ```bash
-docker run --rm -v dramaclaw-ce_newapi-data:/data -v "$PWD":/backup alpine \
-  tar czf /backup/newapi-data.tgz -C /data .
+docker run --rm -v dramaclaw-ce_localapi-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/localapi-data.tgz -C /data .
 ```
 
 按同样方式恢复到目标卷：
 
 ```bash
-docker run --rm -v dramaclaw-ce_newapi-data:/data -v "$PWD":/backup alpine \
-  tar xzf /backup/newapi-data.tgz -C /data
+docker run --rm -v dramaclaw-ce_localapi-data:/data -v "$PWD":/backup alpine \
+  tar xzf /backup/localapi-data.tgz -C /data
 ```
 
 ## 6. 升级
@@ -111,9 +111,9 @@ git pull
 docker compose up -d --build
 ```
 
-`docker compose up -d --build` 会连网关一起从 vendored 的 `third_party/dramaclaw-gateway` 重新构建（Go + bun，要几分钟）。只改了本仓代码时，只重建两个本地服务：`docker compose up -d --build api web`；只改了 vendored 网关时：`docker compose up -d --build newapi`。
+`docker compose up -d --build` 会连网关一起从 vendored 的 `third_party/dramaclaw-gateway` 重新构建（Go + bun，要几分钟）。只改了本仓代码时，只重建两个本地服务：`docker compose up -d --build api web`；只改了 vendored 网关时：`docker compose up -d --build localapi`。
 
-升级不会碰你的 `.env`；`ce-data` 与 `newapi-data` 卷原样复用。
+升级不会碰你的 `.env`；`ce-data` 与 `localapi-data` 卷原样复用。
 
 如果旧版本曾将媒体写入容器内 `/app/output`，请在启动新版本**之前**运行一次迁移（zip 用户没有 git 仓库，直接从 GitHub 下载 `scripts/migrate_docker_output.py`）：
 
@@ -135,14 +135,14 @@ docker compose up -d
 
 ### 从旧 checkout 升级
 
-`docker-compose.selfhosted.yml` 与 `docker-compose.selfhosted.release.yml` 已移除，改用上面两份文件——服务名与 `ce-data` / `newapi-data` 数据卷不变，已有数据原样复用。
+`docker-compose.selfhosted.yml` 与 `docker-compose.selfhosted.release.yml` 已移除，改用上面两份文件——服务名与 `ce-data` / `localapi-data` 数据卷不变，已有数据原样复用。
 
 | 以前 | 现在 |
 |---|---|
 | `docker compose up -d --build`（源码构建、旁边放一个 `../dramaclaw-gateway` clone） | 同一命令；网关现在取自 vendored 的 `third_party/dramaclaw-gateway`，无需旁边再 clone |
 | `docker compose -f docker-compose.release.yml up -d`（镜像模式） | 镜像模式已退役——`docker-compose.release.yml` 现在也源码构建；加 `--build` |
-| `docker compose -f docker-compose.selfhosted.yml ...` / `docker-compose.selfhosted.release.yml ...` | 改用 `docker-compose.yml` / `docker-compose.release.yml`（均源码构建）；`newapi-data` 卷复用，先备份 |
-| `.env` 里的 `LOCALAPI_BASE_URL` / `LOCALAPI_API_KEY` / `ST_*_PORT` / `INSTALL_WORLD` / `NEWAPI_PROVISIONER_ENABLED` | 含义不变，继续生效 |
+| `docker compose -f docker-compose.selfhosted.yml ...` / `docker-compose.selfhosted.release.yml ...` | 改用 `docker-compose.yml` / `docker-compose.release.yml`（均源码构建）；`localapi-data` 卷复用，先备份 |
+| `.env` 里的 `LOCALAPI_BASE_URL` / `LOCALAPI_API_KEY` / `ST_*_PORT` / `INSTALL_WORLD` / `LOCALAPI_PROVISIONER_ENABLED` | 含义不变，继续生效 |
 
 ## 7. 排错
 
@@ -150,7 +150,7 @@ docker compose up -d
 |---|---|
 | 容器起不来 | `docker compose logs api`；多半是 `.env` 网关地址/Key 未改或不可达 |
 | 8780 端口占用 | 改 compose `ports` 左值，如 `8888:8780` |
-| 3000 端口被占用（LocalAPI 起不来） | **[aipdd fork] `docker-compose.aipdd.yml` 不映射 3000**，本项只见于上游那两个编排文件。上游默认只绑 `127.0.0.1`，`.env` 设 `ST_NEWAPI_PORT=<空闲端口>` 后重启即可；`api` 不等网关健康，不会被卡住。 |
+| 3000 端口被占用（LocalAPI 起不来） | **[aipdd fork] `docker-compose.aipdd.yml` 不映射 3000**，本项只见于上游那两个编排文件。上游默认只绑 `127.0.0.1`，`.env` 设 `ST_LOCALAPI_PORT=<空闲端口>` 后重启即可；`api` 不等网关健康，不会被卡住。 |
 | 模型调用报错 | 确认网关可达、`*_MODEL` 名在网关后台存在 |
 
 ## 相关

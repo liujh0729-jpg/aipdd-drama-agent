@@ -59,11 +59,8 @@ TOOLS_PAGE_TOOL_NAMES = {
     "aipdd_drama_douyin_copywrite",
 }
 
-# [aipdd fork delta] 不归档的工具：抖音文案提取的产物是文案文本（txt），素材库
-# 三类媒介（image/video/audio）无文本载体，因此不设 archive_to_library 参数。
-NON_ARCHIVING_TOOL_NAMES = {"aipdd_drama_douyin_copywrite"}
-
-
+# [aipdd fork delta req98] 资产库新增文本载体后，工具页全部工具（含抖音文案
+# 提取的 txt 产物）都按「生成就入库」默认归档，不再有例外。
 def test_tools_page_group_registered_with_self_consistent_schemas():
     plugin = _load_plugin_module()
     tools = [item for item in plugin.TOOLS if item[0] in TOOLS_PAGE_TOOL_NAMES]
@@ -76,10 +73,8 @@ def test_tools_page_group_registered_with_self_consistent_schemas():
         params = schema["parameters"]
         for field in params["required"]:
             assert field in params["properties"], f"{name}: required {field} not in properties"
-        # 工具页口径：产物默认自动入库，显式 false 才关闭；不归档工具（文案
-        # txt 无素材库载体）除外。
-        if name not in NON_ARCHIVING_TOOL_NAMES:
-            assert "archive_to_library" in params["properties"], name
+        # 工具页口径：产物默认自动入库，显式 false 才关闭。
+        assert "archive_to_library" in params["properties"], name
 
 
 def test_tools_page_tools_require_main_api_credentials():
@@ -782,14 +777,25 @@ def test_douyin_copywrite_handler_posts_link_body(monkeypatch):
     # 分享文案去空白后整体透传（后端从中解析链接）；选定模型原样回传。
     assert body["video"] == "7.53 复制打开抖音 https://v.douyin.com/abc123/"
     assert body["model"] == "gateway:volc:doubao-seed-asr"
-    # 产物是文案 txt，不归档：不带 archive_to_library。
-    assert "archive_to_library" not in body
+    # 产物是文案 txt：工具页默认生成就入库（资产库「文本」载体）。
+    assert body["archive_to_library"] is True
 
     # 未指定模型：body 不带 model，由后端默认（FunASR）。
     plugin._handle_douyin_copywrite(
         {"project_id": "demo", "video": "https://v.douyin.com/abc123/"}
     )
-    assert calls[-1][2] == {"video": "https://v.douyin.com/abc123/"}
+    assert calls[-1][2] == {
+        "video": "https://v.douyin.com/abc123/",
+        "archive_to_library": True,
+    }
+
+    # 显式关闭：仅影响归档开关，其余字段不变。
+    body: dict[str, object] = {
+        "project_id": "demo",
+        "video": "https://v.douyin.com/abc123/",
+    }
+    plugin._handle_douyin_copywrite({**body, "archive_to_library": False})
+    assert calls[-1][2]["archive_to_library"] is False
 
 
 def test_douyin_copywrite_handler_requires_video(monkeypatch):

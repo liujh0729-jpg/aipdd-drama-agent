@@ -6,7 +6,7 @@ import { createCatalogStore } from "@/features/canvas/modelCatalog/createCatalog
 
 // [aipdd fork delta] 画布脚本/文本节点的文本模型候选 hook。
 // 数据源是全局端点 GET /api/v1/model-gateway/text-models（后端聚合
-// NewAPI 渠道 model_mapping，默认文本模型排首项），不挂项目作用域，
+// LocalAPI 渠道 model_mapping，默认文本模型排首项），不挂项目作用域，
 // 所以整个模块只有一份状态。兜底策略与音频 hook 同理：文本没有可
 // 硬编码的官方列表，拉取失败回落空列表，面板/提交侧按「留空走后端
 // 默认模型」解释。

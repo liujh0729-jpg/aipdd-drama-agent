@@ -285,12 +285,12 @@ def resolve_freezone_video_backend(model: str | None) -> str:
             return backend
 
     from novelvideo.generators.video_generator import (
-        NEWAPI_DISABLED_VIDEO_MODELS,
+        LOCALAPI_DISABLED_VIDEO_MODELS,
         parse_newapi_video_backend,
     )
 
     # [aipdd fork delta] 负向过滤器：被禁用的网关模型（非 5 渠道）即使显式传入也拒绝。
-    if _freezone_video_model_from_backend(text) in NEWAPI_DISABLED_VIDEO_MODELS:
+    if _freezone_video_model_from_backend(text) in LOCALAPI_DISABLED_VIDEO_MODELS:
         raise ValueError(f"unknown video model: {text}")
     if parse_newapi_video_backend(text):
         return text
@@ -968,7 +968,9 @@ def compose_library_with_style_covers(
 # 生成新的俯视图节点、可继续编辑。与前端 assetLibraryItems.ts 的 ASSET_CATEGORIES 一致。
 # [aipdd fork delta] 新增「故事版」类目：分镜脚本页 AI 生成的分镜板参考图（media="image"），
 # 「镜头生成视频」「草图生成渲染图」选参考图时可取用。与前端 ASSET_CATEGORIES 一致。
-LIBRARY_CATEGORIES = ("other", "character", "scene", "prop", "sketch", "style", "audio", "draft", "topdown", "storyVersion")
+# [aipdd fork delta req98] 新增「3D」「文本」类目：只收生成产物（media="model3d"/"text"），
+# 与剪映草稿（draft）一样不走上传链路；URL 落在 model3d_url / text_url 字段。
+LIBRARY_CATEGORIES = ("other", "character", "scene", "prop", "sketch", "style", "audio", "draft", "topdown", "storyVersion", "model3d", "text")
 
 # 资产库目录树。文件夹（保存位置）和类目（标签）是两个独立维度：类目只管
 # 「这素材是干嘛的」，文件夹管「它放在哪」。系统文件夹两个——主线同步来的一律
@@ -994,6 +996,8 @@ RESERVED_FOLDER_NAMES = (
     "剪映草稿",
     "俯视图",
     "故事版",
+    "3D",
+    "文本",
 )
 FOLDER_NAME_MAX_LEN = 20
 
@@ -1150,7 +1154,12 @@ def _resolve_library_category(
             return str(kept)
     if source in ("character", "scene", "prop", "sketch"):
         return source
-    return "audio" if media == "audio" else "other"
+    if media == "audio":
+        return "audio"
+    # [aipdd fork delta req98] 3D / 文本载体对号入座同名标签（同音频→音效机制）。
+    if media in ("model3d", "text"):
+        return str(media)
+    return "other"
 
 
 def _upsert_library_item(
@@ -1167,6 +1176,8 @@ def _upsert_library_item(
     folder: str | None = None,
     draft_id: str | None = None,
     scene: dict[str, Any] | None = None,
+    model3d_url: str | None = None,
+    text_url: str | None = None,
 ) -> dict[str, Any]:
     """纯内存 upsert：按 id 就地更新或追加 ``items``，返回写入的条目。
 
@@ -1176,7 +1187,7 @@ def _upsert_library_item(
     urls = list(image_urls or [])
     if media == "video":
         cover = video_url
-    elif media == "audio":
+    elif media in ("audio", "model3d", "text", "draft"):
         cover = None
     else:
         cover = urls[0] if urls else None
@@ -1212,6 +1223,9 @@ def _upsert_library_item(
         "image_urls": urls,
         "video_url": video_url,
         "audio_url": audio_url,
+        # [aipdd fork delta req98] 3D / 文本载体的文件地址字段（只收生成产物）。
+        "model3d_url": model3d_url,
+        "text_url": text_url,
         "cover_url": cover,
         "created_at": existing.get("created_at") if existing else now,
         "updated_at": now,
@@ -1245,10 +1259,13 @@ def add_video_character_library_item(
     folder: str | None = None,
     draft_id: str | None = None,
     scene: dict[str, Any] | None = None,
+    model3d_url: str | None = None,
+    text_url: str | None = None,
 ) -> dict[str, Any]:
     """把一条素材登记到资产库。
 
-    图片走 ``image_urls``，视频/音频走 ``video_url`` / ``audio_url``。``item_id``
+    图片走 ``image_urls``，视频/音频走 ``video_url`` / ``audio_url``，3D 模型 /
+    文本文件走 ``model3d_url`` / ``text_url``。``item_id``
     非空时按 id upsert（主线同步用稳定合成 id，重复同步是更新而非新增）。
     ``category`` 是用途类目（标签），``folder`` 是保存位置，两者互不影响，缺省时
     分别按来源/媒介、按类目兜底推导；``draft_id`` 只给剪映草稿条目（media="draft"）
@@ -1269,6 +1286,8 @@ def add_video_character_library_item(
             folder=folder,
             draft_id=draft_id,
             scene=scene,
+            model3d_url=model3d_url,
+            text_url=text_url,
         )
         save_video_character_library(project_dir, items)
     return item
@@ -1330,13 +1349,16 @@ def archive_generated_library_item(
             media=media,
             source="upload",
             # 显式落在「待分类资产」：source 非 upload 会被兜底进主线，位置口径
-            # 以这里的显式 folder 为准。音频额外带上「音效」标签；图片/视频保持
-            # 无标签（folder=other 会把标签一并兜底成 other，即「待分类」）。
+            # 以这里的显式 folder 为准。音频额外带上「音效」标签、3D/文本带
+            # 同名标签（req98）；图片/视频保持无标签（folder=other 会把标签一并
+            # 兜底成 other，即「待分类」）。
             folder="other",
-            category="audio" if media == "audio" else None,
+            category="audio" if media == "audio" else str(media) if media in ("model3d", "text") else None,
             image_urls=[url] if media == "image" else None,
             video_url=url if media == "video" else None,
             audio_url=url if media == "audio" else None,
+            model3d_url=url if media == "model3d" else None,
+            text_url=url if media == "text" else None,
         )
     except Exception:
         logger.warning(

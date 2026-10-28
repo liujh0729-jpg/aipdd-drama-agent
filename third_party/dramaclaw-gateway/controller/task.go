@@ -3,12 +3,12 @@ package controller
 import (
 	"strconv"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/relay"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/constant"
+	"github.com/dramaclaw/localapi/dto"
+	"github.com/dramaclaw/localapi/model"
+	"github.com/dramaclaw/localapi/relay"
+	"github.com/dramaclaw/localapi/types"
 
 	"github.com/gin-gonic/gin"
 )

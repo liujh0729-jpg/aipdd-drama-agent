@@ -1,4 +1,4 @@
-"""NewAPI 图片协议：状态判定、错误提取、输出解析、请求上下文（B3 拆包自单文件 grid_generation.py）。"""
+"""LocalAPI 图片协议：状态判定、错误提取、输出解析、请求上下文（B3 拆包自单文件 grid_generation.py）。"""
 
 import hashlib
 from typing import Any
@@ -8,28 +8,28 @@ from novelvideo.manual_shots import beat_order_value
 from .constants import HUIMENG_IMAGE2_SINGLE_CELL_SELECTION
 
 
-NEWAPI_IMAGE_HTTP_TIMEOUT_SECONDS = 1800.0
+LOCALAPI_IMAGE_HTTP_TIMEOUT_SECONDS = 1800.0
 
 # [aipdd fork delta] newapi/aipdd 图片请求瞬时失败重试（见 _call_newapi_image_api）。
-NEWAPI_IMAGE_MAX_ATTEMPTS = 4
-NEWAPI_IMAGE_RETRY_BASE_SECONDS = 1.5
+LOCALAPI_IMAGE_MAX_ATTEMPTS = 4
+LOCALAPI_IMAGE_RETRY_BASE_SECONDS = 1.5
 
 # [aipdd fork delta] 异步图片任务（提交返回 task_id、轮询 GET 取图）的轮询参数与
 # 状态词表。迁移到 grid_generation 时这组常量与轮询流程一起丢了，而测试仍在守
 # （tests/test_newapi_image_async.py）：FLUX-GGUF-T2I-V2 等网关模型以队列任务
 # 形式出图，没有轮询就只会拿回一个没有图片的 queued 载荷。
-NEWAPI_IMAGE_POLL_INTERVAL_SECONDS = 2.0
-NEWAPI_IMAGE_MAX_POLLS = 900
+LOCALAPI_IMAGE_POLL_INTERVAL_SECONDS = 2.0
+LOCALAPI_IMAGE_MAX_POLLS = 900
 
-_NEWAPI_IMAGE_SUCCESS_STATUSES = {"completed", "succeeded", "success", "done"}
-_NEWAPI_IMAGE_FAILURE_STATUSES = {
+_LOCALAPI_IMAGE_SUCCESS_STATUSES = {"completed", "succeeded", "success", "done"}
+_LOCALAPI_IMAGE_FAILURE_STATUSES = {
     "failed",
     "error",
     "canceled",
     "cancelled",
     "expired",
 }
-_NEWAPI_IMAGE_PENDING_STATUSES = {
+_LOCALAPI_IMAGE_PENDING_STATUSES = {
     "queued",
     "pending",
     "processing",
@@ -38,7 +38,7 @@ _NEWAPI_IMAGE_PENDING_STATUSES = {
     "submitted",
 }
 
-_NEWAPI_TRANSIENT_IMAGE_MARKERS = (
+_LOCALAPI_TRANSIENT_IMAGE_MARKERS = (
     "未通过上游校验",
     "上游校验",
 )
@@ -47,7 +47,7 @@ _NEWAPI_TRANSIENT_IMAGE_MARKERS = (
 def _is_newapi_transient_image_status(status: int, body: str | None) -> bool:
     """Whether a newapi image HTTP failure is a retryable transient blip.
 
-    [aipdd fork delta] aipdd/NewAPI 会把真实上游图片模型的偶发失败（临时超时、
+    [aipdd fork delta] aipdd/LocalAPI 会把真实上游图片模型的偶发失败（临时超时、
     限流、瞬时不可用）统一包成 HTTP 400「请求参数或媒体素材未通过上游校验」，而不
     是回真正的 5xx。实测同一条请求重试即可恢复（约 1/4 概率抖动），所以只把这枚带
     上游校验措辞的特定 400 当作可重试瞬态。5xx 维持 app 层不重试（见
@@ -56,7 +56,7 @@ def _is_newapi_transient_image_status(status: int, body: str | None) -> bool:
     """
     if status == 400:
         text = (body or "").lower()
-        return any(marker.lower() in text for marker in _NEWAPI_TRANSIENT_IMAGE_MARKERS)
+        return any(marker.lower() in text for marker in _LOCALAPI_TRANSIENT_IMAGE_MARKERS)
     return False
 
 

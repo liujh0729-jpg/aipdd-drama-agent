@@ -3,8 +3,8 @@ package doubao
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/dramaclaw/localapi/common"
+	relaycommon "github.com/dramaclaw/localapi/relay/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -816,6 +816,10 @@ async def freezone_audio_separate(
                     "source_path": source_path.as_posix(),
                     "target_episode": body.target_episode,
                     "target_beat": body.target_beat,
+                    # [aipdd fork delta] 分离出的音频/无声视频是最终产物，带标记时
+                    # runner 登记进资产库「待分类资产」。
+                    **({"archive_to_library": True} if body.archive_to_library else {}),
+                    **({"source_tool": body.source_tool} if body.source_tool else {}),
                 },
             )
         _start_freezone_audio_separate_task(
@@ -1022,6 +1026,10 @@ async def freezone_audio_eleven_music(
                     "force_instrumental": body.force_instrumental,
                     "respect_sections_durations": body.respect_sections_durations,
                     "output_format": body.output_format,
+                    # [aipdd fork delta] 音乐是最终产物，带标记时 runner 登记进
+                    # 资产库「待分类资产」。
+                    **({"archive_to_library": True} if body.archive_to_library else {}),
+                    **({"source_tool": body.source_tool} if body.source_tool else {}),
                 },
             )
         _freezone._raise_project_context_required("freezone_audio_eleven_music")

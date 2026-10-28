@@ -173,9 +173,9 @@ def test_comfyui_channel_update_replaces_removed_workflow_models():
 @respx.mock
 def test_list_channel_types_normalizes_newapi_metadata():
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
-        sqlite_path="/tmp/one-api.db",
+        sqlite_path="/tmp/localapi.db",
         admin_username="root",
         init_timeout_ms=1000,
         relay_token_name="dramaclaw-ce-runtime",
@@ -187,7 +187,7 @@ def test_list_channel_types_normalizes_newapi_metadata():
         token_created=False,
     )
     route = respx.get(
-        "http://new-api:3000/api/channel/types",
+        "http://localapi:3000/api/channel/types",
         params={"status": 1},
     ).mock(
         return_value=Response(
@@ -254,7 +254,7 @@ def _isolate_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path):
         "LOCALAPI_BASE_URL",
         # [aipdd fork delta req41] 这两个现在分别是官方模式地址与管理面地址的唯一 env
         # 来源：不留宿主 .env / 开发机环境把预设值泄进用例。
-        "OFFICIAL_NEWAPI_BASE_URL",
+        "OFFICIAL_LOCALAPI_BASE_URL",
         "LOCALAPI_ADMIN_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
@@ -642,7 +642,7 @@ def test_newapi_runtime_credentials_allow_explicit_override(monkeypatch, tmp_pat
 
 def test_newapi_text_model_defaults_to_300_second_timeout(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.delenv("NEWAPI_TEXT_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("LOCALAPI_TEXT_TIMEOUT_SECONDS", raising=False)
     monkeypatch.delenv("DC_TEST_MODEL_TIMEOUT_SECONDS", raising=False)
     save_custom_newapi_gateway(
         base_url="http://127.0.0.1:3000",
@@ -671,7 +671,7 @@ def test_legacy_pydantic_factory_uses_ce_gateway_settings(monkeypatch, tmp_path)
     monkeypatch.setenv("MODEL_API_KEY", "sk-stale-env-secret")
     monkeypatch.setenv("MODEL_BASE_URL", "https://stale-env.example/v1")
     save_custom_newapi_gateway(
-        base_url="http://new-api:3000",
+        base_url="http://localapi:3000",
         api_key="sk-database-secret",
         activate=True,
     )
@@ -691,7 +691,7 @@ def test_legacy_pydantic_factory_uses_ce_gateway_settings(monkeypatch, tmp_path)
     assert result == "newapi-model"
     assert captured["model_name"] == "DC-legacy-agent-LLM"
     assert captured["api_key"] == "sk-database-secret"
-    assert captured["base_url"] == "http://new-api:3000/v1"
+    assert captured["base_url"] == "http://localapi:3000/v1"
     assert captured["timeout_seconds"] == 300.0
 
 
@@ -743,7 +743,7 @@ def test_ee_media_model_mappings_do_not_open_ce_settings(monkeypatch, tmp_path):
 def test_ee_platform_video_paths_do_not_open_ce_settings_db(monkeypatch, tmp_path):
     """[aipdd fork delta] EE 的视频路径不碰 CE 的 settings.db，也不从 env 里挑模型名。
 
-    旧守卫拦的是「有没有调用 CE 的媒体映射读取函数」——那时 EE 靠 ``NEWAPI_VIDEO_MODEL``
+    旧守卫拦的是「有没有调用 CE 的媒体映射读取函数」——那时 EE 靠 ``LOCALAPI_VIDEO_MODEL``
     env 拿默认模型，那次调用根本不会发生。env 退出解析链后默认模型统一走媒体映射读取，
     EE 分支由 :func:`get_newapi_media_model_mappings` 自己短路回空字典，真正的边界不再是
     调用与否，而是**有没有打开 CE 的库**。这里把它换成记账 + 断言没打开，同时钉住
@@ -763,7 +763,7 @@ def test_ee_platform_video_paths_do_not_open_ce_settings_db(monkeypatch, tmp_pat
     monkeypatch.setattr(config, "LOCALAPI_API_KEY", "sk-ee-secret")
     monkeypatch.setattr(config, "LOCALAPI_BASE_URL", "https://ee-gateway.example/v1")
     monkeypatch.setattr(model_gateway_settings, "_connect", _no_open)
-    monkeypatch.setenv("NEWAPI_VIDEO_MODEL", "env-only-video-model")
+    monkeypatch.setenv("LOCALAPI_VIDEO_MODEL", "env-only-video-model")
 
     generator = NewApiVideoGenerator(model="seedance-2.0")
     options = newapi_video_backend_options()
@@ -918,7 +918,7 @@ def test_model_gateway_status_keeps_official_section_when_custom_is_active(
         activate=True,
     )
     save_custom_newapi_gateway(
-        base_url="http://new-api:3000",
+        base_url="http://localapi:3000",
         api_key="sk-custom-secret",
         activate=True,
     )
@@ -930,7 +930,7 @@ def test_model_gateway_status_keeps_official_section_when_custom_is_active(
 
     assert status["mode"] == MODE_CUSTOM
     assert status["effective"]["source"] == "custom"
-    assert status["effective"]["baseUrl"] == "http://new-api:3000/v1"
+    assert status["effective"]["baseUrl"] == "http://localapi:3000/v1"
     assert status["official"]["baseUrl"] == ""
     # [aipdd fork delta req41] 数据库里只存了 official 的 key、没存地址：地址真正
     # 的来源是「未配置」，不能再像旧版那样拿源码常量充成 "database"。
@@ -977,7 +977,7 @@ def test_official_gateway_source_reports_real_origin(monkeypatch, tmp_path):
     assert status["official"]["source"] == "unconfigured"
 
     # 2) 只有专用 env —— 地址来自环境。
-    monkeypatch.setenv("OFFICIAL_NEWAPI_BASE_URL", "https://official.env.example/v1")
+    monkeypatch.setenv("OFFICIAL_LOCALAPI_BASE_URL", "https://official.env.example/v1")
     status = build_model_gateway_status()
     assert status["official"]["baseUrl"] == "https://official.env.example/v1"
     assert status["official"]["source"] == "environment"
@@ -1006,7 +1006,7 @@ def test_model_gateway_official_url_ignores_newapi_base_url_env(monkeypatch, tmp
     assert effective.api_key == "sk-database-secret"
 
     # 只有专用 env 才能给官方模式定地址。
-    monkeypatch.setenv("OFFICIAL_NEWAPI_BASE_URL", "https://official.env.example/v1")
+    monkeypatch.setenv("OFFICIAL_LOCALAPI_BASE_URL", "https://official.env.example/v1")
     assert get_effective_newapi_config().base_url == "https://official.env.example/v1"
 
 
@@ -1049,7 +1049,7 @@ def test_ee_cannot_mutate_ce_model_gateway_settings(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.setenv("ST_EDITION", "ee")
     monkeypatch.setenv("ST_CONTROL_PLANE_DSN", "postgresql://control-plane")
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     app = FastAPI()
     app.include_router(model_gateway.router)
@@ -1081,8 +1081,8 @@ def test_ce_runtime_refresh_never_mutates_process_environment(monkeypatch, tmp_p
         monkeypatch.setenv(key, value)
     # [aipdd fork delta req41] 官方模式地址不再由代码预设：这里要它「真的配上了」
     # 才能断言 configured=True，所以拿专用 env 给一个地址。
-    monkeypatch.setenv("OFFICIAL_NEWAPI_BASE_URL", "https://official.env.example/v1")
-    tracked["OFFICIAL_NEWAPI_BASE_URL"] = "https://official.env.example/v1"
+    monkeypatch.setenv("OFFICIAL_LOCALAPI_BASE_URL", "https://official.env.example/v1")
+    tracked["OFFICIAL_LOCALAPI_BASE_URL"] = "https://official.env.example/v1"
     monkeypatch.setattr(global_video_optimizer, "_global_video_optimizer", object())
     save_official_newapi_key(api_key="sk-database-secret", activate=True)
 
@@ -1098,18 +1098,18 @@ def test_ce_runtime_refresh_never_mutates_process_environment(monkeypatch, tmp_p
 
 
 def test_newapi_base_url_normalizers_keep_admin_and_relay_urls_separate():
-    assert normalize_admin_base_url("http://new-api:3000/v1") == "http://new-api:3000"
-    assert normalize_admin_base_url("http://new-api:3000/") == "http://new-api:3000"
-    assert normalize_relay_base_url("http://new-api:3000") == "http://new-api:3000/v1"
+    assert normalize_admin_base_url("http://localapi:3000/v1") == "http://localapi:3000"
+    assert normalize_admin_base_url("http://localapi:3000/") == "http://localapi:3000"
+    assert normalize_relay_base_url("http://localapi:3000") == "http://localapi:3000/v1"
     assert (
-        normalize_relay_base_url("http://new-api:3000/v1") == "http://new-api:3000/v1"
+        normalize_relay_base_url("http://localapi:3000/v1") == "http://localapi:3000/v1"
     )
 
 
 def test_normalize_admin_base_url_adds_missing_scheme():
     # [aipdd fork delta] 只填 host:port（漏协议）不再撞「must be an HTTP service URL」。
-    assert normalize_admin_base_url("new-api:3000") == "http://new-api:3000"
-    assert normalize_admin_base_url("new-api:3000/v1") == "http://new-api:3000"
+    assert normalize_admin_base_url("localapi:3000") == "http://localapi:3000"
+    assert normalize_admin_base_url("localapi:3000/v1") == "http://localapi:3000"
     assert normalize_admin_base_url("127.0.0.1:3000") == "http://127.0.0.1:3000"
     # 已带 https 不动。
     assert normalize_admin_base_url("https://gw.example") == "https://gw.example"
@@ -1197,14 +1197,14 @@ def test_build_channel_payload_strips_trailing_v1_from_gateway_base():
 @respx.mock
 def test_ensure_newapi_setup_creates_root_when_instance_is_fresh():
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
-        sqlite_path="/tmp/one-api.db",
+        sqlite_path="/tmp/localapi.db",
         admin_username="root",
         init_timeout_ms=1000,
         relay_token_name="dramaclaw-ce-runtime",
     )
-    respx.get("http://new-api:3000/api/setup").mock(
+    respx.get("http://localapi:3000/api/setup").mock(
         side_effect=[
             Response(200, json={"success": True, "data": {"status": False}}),
             Response(
@@ -1232,7 +1232,7 @@ def test_ensure_newapi_setup_creates_root_when_instance_is_fresh():
             ),
         ]
     )
-    setup_request = respx.post("http://new-api:3000/api/setup").mock(
+    setup_request = respx.post("http://localapi:3000/api/setup").mock(
         return_value=Response(200, json={"success": True})
     )
 
@@ -1264,14 +1264,14 @@ def test_ensure_newapi_setup_auto_seeds_credentials_for_fresh_instance():
     # [aipdd fork delta] 本地网关是内部调用：fresh 且不带凭据时不再报错，
     # 而是自动生成一次性 root 凭据过 /api/setup（admin_username 兼底 root）。
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
-        sqlite_path="/tmp/one-api.db",
+        sqlite_path="/tmp/localapi.db",
         admin_username="root",
         init_timeout_ms=1000,
         relay_token_name="dramaclaw-ce-runtime",
     )
-    respx.get("http://new-api:3000/api/setup").mock(
+    respx.get("http://localapi:3000/api/setup").mock(
         side_effect=[
             Response(200, json={"success": True, "data": {"status": False}}),
             Response(
@@ -1299,7 +1299,7 @@ def test_ensure_newapi_setup_auto_seeds_credentials_for_fresh_instance():
             ),
         ]
     )
-    setup_request = respx.post("http://new-api:3000/api/setup").mock(
+    setup_request = respx.post("http://localapi:3000/api/setup").mock(
         return_value=Response(200, json={"success": True})
     )
 
@@ -1318,14 +1318,14 @@ def test_ensure_newapi_setup_auto_seeds_credentials_for_fresh_instance():
 @respx.mock
 def test_ensure_newapi_setup_finishes_setup_when_root_already_exists():
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
-        sqlite_path="/tmp/one-api.db",
+        sqlite_path="/tmp/localapi.db",
         admin_username="root",
         init_timeout_ms=1000,
         relay_token_name="dramaclaw-ce-runtime",
     )
-    respx.get("http://new-api:3000/api/setup").mock(
+    respx.get("http://localapi:3000/api/setup").mock(
         side_effect=[
             Response(200, json={"success": True, "data": {"status": False}}),
             Response(
@@ -1353,7 +1353,7 @@ def test_ensure_newapi_setup_finishes_setup_when_root_already_exists():
             ),
         ]
     )
-    setup_request = respx.post("http://new-api:3000/api/setup").mock(
+    setup_request = respx.post("http://localapi:3000/api/setup").mock(
         return_value=Response(200, json={"success": True})
     )
 
@@ -1371,14 +1371,14 @@ def test_ensure_newapi_setup_finishes_setup_when_root_already_exists():
 @respx.mock
 def test_ensure_newapi_setup_skips_post_when_instance_is_initialized():
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
-        sqlite_path="/tmp/one-api.db",
+        sqlite_path="/tmp/localapi.db",
         admin_username="root",
         init_timeout_ms=1000,
         relay_token_name="dramaclaw-ce-runtime",
     )
-    respx.get("http://new-api:3000/api/setup").mock(
+    respx.get("http://localapi:3000/api/setup").mock(
         side_effect=[
             Response(200, json={"success": True, "data": {"status": True}}),
             Response(
@@ -1394,7 +1394,7 @@ def test_ensure_newapi_setup_skips_post_when_instance_is_initialized():
             ),
         ]
     )
-    setup_request = respx.post("http://new-api:3000/api/setup").mock(
+    setup_request = respx.post("http://localapi:3000/api/setup").mock(
         return_value=Response(200, json={"success": True})
     )
 
@@ -1419,9 +1419,9 @@ def test_upsert_channel_replaces_existing_dc_provider_channel():
     """[aipdd fork delta] 拍平改造：upsert 的 model_mapping 按「替换」语义整体覆写，
     旧键不残留（merge 会让历史键永久回流）。"""
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
-        sqlite_path="/tmp/one-api.db",
+        sqlite_path="/tmp/localapi.db",
         admin_username="root",
         init_timeout_ms=1000,
         relay_token_name="dramaclaw-ce-runtime",
@@ -1439,7 +1439,7 @@ def test_upsert_channel_replaces_existing_dc_provider_channel():
         base_url="https://dashscope-new.example.com",
     )
 
-    respx.get("http://new-api:3000/api/channel/").mock(
+    respx.get("http://localapi:3000/api/channel/").mock(
         return_value=Response(
             200,
             json={
@@ -1451,7 +1451,7 @@ def test_upsert_channel_replaces_existing_dc_provider_channel():
             },
         )
     )
-    respx.get("http://new-api:3000/api/channel/3").mock(
+    respx.get("http://localapi:3000/api/channel/3").mock(
         return_value=Response(
             200,
             json={
@@ -1470,7 +1470,7 @@ def test_upsert_channel_replaces_existing_dc_provider_channel():
             },
         )
     )
-    update_route = respx.put("http://new-api:3000/api/channel/").mock(
+    update_route = respx.put("http://localapi:3000/api/channel/").mock(
         return_value=Response(200, json={"success": True})
     )
 
@@ -1495,9 +1495,9 @@ def test_upsert_channel_replaces_existing_dc_provider_channel():
 @respx.mock
 def test_update_provider_channel_credentials_preserves_models_and_mapping():
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
-        sqlite_path="/tmp/one-api.db",
+        sqlite_path="/tmp/localapi.db",
         admin_username="root",
         init_timeout_ms=1000,
         relay_token_name="dramaclaw-ce-runtime",
@@ -1509,7 +1509,7 @@ def test_update_provider_channel_credentials_preserves_models_and_mapping():
         token_created=False,
     )
 
-    respx.get("http://new-api:3000/api/channel/").mock(
+    respx.get("http://localapi:3000/api/channel/").mock(
         return_value=Response(
             200,
             json={
@@ -1521,7 +1521,7 @@ def test_update_provider_channel_credentials_preserves_models_and_mapping():
             },
         )
     )
-    respx.get("http://new-api:3000/api/channel/3").mock(
+    respx.get("http://localapi:3000/api/channel/3").mock(
         return_value=Response(
             200,
             json={
@@ -1547,7 +1547,7 @@ def test_update_provider_channel_credentials_preserves_models_and_mapping():
             },
         )
     )
-    update_route = respx.put("http://new-api:3000/api/channel/").mock(
+    update_route = respx.put("http://localapi:3000/api/channel/").mock(
         return_value=Response(200, json={"success": True})
     )
 
@@ -1578,9 +1578,9 @@ def test_update_provider_channel_credentials_preserves_models_and_mapping():
 @respx.mock
 def test_update_provider_channel_credentials_clears_base_url_override():
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
-        sqlite_path="/tmp/one-api.db",
+        sqlite_path="/tmp/localapi.db",
         admin_username="root",
         init_timeout_ms=1000,
         relay_token_name="dramaclaw-ce-runtime",
@@ -1592,7 +1592,7 @@ def test_update_provider_channel_credentials_clears_base_url_override():
         token_created=False,
     )
 
-    respx.get("http://new-api:3000/api/channel/").mock(
+    respx.get("http://localapi:3000/api/channel/").mock(
         return_value=Response(
             200,
             json={
@@ -1604,7 +1604,7 @@ def test_update_provider_channel_credentials_clears_base_url_override():
             },
         )
     )
-    respx.get("http://new-api:3000/api/channel/3").mock(
+    respx.get("http://localapi:3000/api/channel/3").mock(
         return_value=Response(
             200,
             json={
@@ -1623,7 +1623,7 @@ def test_update_provider_channel_credentials_clears_base_url_override():
             },
         )
     )
-    update_route = respx.put("http://new-api:3000/api/channel/").mock(
+    update_route = respx.put("http://localapi:3000/api/channel/").mock(
         return_value=Response(200, json={"success": True})
     )
 
@@ -1652,9 +1652,9 @@ def test_upsert_channel_replaces_mapping_without_cross_channel_dedupe():
     关侧天然隔离，系统不做任何隐式裁决。
     """
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
-        sqlite_path="/tmp/one-api.db",
+        sqlite_path="/tmp/localapi.db",
         admin_username="root",
         init_timeout_ms=1000,
         relay_token_name="dramaclaw-ce-runtime",
@@ -1671,7 +1671,7 @@ def test_upsert_channel_replaces_mapping_without_cross_channel_dedupe():
         model_mapping={"DC-hermes-LLM": "google/gemini-2.5-flash"},
     )
 
-    respx.get("http://new-api:3000/api/channel/").mock(
+    respx.get("http://localapi:3000/api/channel/").mock(
         return_value=Response(
             200,
             json={
@@ -1685,7 +1685,7 @@ def test_upsert_channel_replaces_mapping_without_cross_channel_dedupe():
             },
         )
     )
-    respx.get("http://new-api:3000/api/channel/4").mock(
+    respx.get("http://localapi:3000/api/channel/4").mock(
         return_value=Response(
             200,
             json={
@@ -1708,7 +1708,7 @@ def test_upsert_channel_replaces_mapping_without_cross_channel_dedupe():
     )
     # 渠道 3 故意不 mock：拍平后它既不该被读详情也不该被写——一旦回归 dedupe
     # 触碰其它渠道，respx 会因未匹配请求直接报错（防回归探针）。
-    update_route = respx.put("http://new-api:3000/api/channel/").mock(
+    update_route = respx.put("http://localapi:3000/api/channel/").mock(
         return_value=Response(200, json={"success": True})
     )
 
@@ -1732,21 +1732,21 @@ def test_upsert_channel_replaces_mapping_without_cross_channel_dedupe():
 def test_provisioner_enabled_by_default_and_can_be_disabled(monkeypatch):
     monkeypatch.setenv("ST_EDITION", "ce")
     monkeypatch.delenv("ST_CONTROL_PLANE_DSN", raising=False)
-    monkeypatch.delenv("NEWAPI_PROVISIONER_ENABLED", raising=False)
+    monkeypatch.delenv("LOCALAPI_PROVISIONER_ENABLED", raising=False)
     require_provisioner_enabled()
 
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "false")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "false")
     with pytest.raises(PermissionError, match="not enabled"):
         require_provisioner_enabled()
 
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     require_provisioner_enabled()
 
 
 def test_provisioner_is_always_disabled_in_ee(monkeypatch):
     monkeypatch.setenv("ST_EDITION", "ee")
     monkeypatch.setenv("ST_CONTROL_PLANE_DSN", "postgresql://control-plane")
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     with pytest.raises(PermissionError, match="not enabled"):
         require_provisioner_enabled()
@@ -1758,8 +1758,8 @@ def test_newapi_db_defaults_to_managed_ce_sqlite_and_does_not_create_empty_file(
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("NEWAPI_SQL_DSN", raising=False)
-    monkeypatch.delenv("NEWAPI_SQLITE_PATH", raising=False)
+    monkeypatch.delenv("LOCALAPI_SQL_DSN", raising=False)
+    monkeypatch.delenv("LOCALAPI_SQLITE_PATH", raising=False)
 
     cfg = model_gateway.get_provisioner_config()
 
@@ -1770,18 +1770,18 @@ def test_newapi_db_defaults_to_managed_ce_sqlite_and_does_not_create_empty_file(
     assert model_gateway.get_provisioner_config().admin_base_url == "http://newapi:3000"
     monkeypatch.delenv("LOCALAPI_ADMIN_BASE_URL", raising=False)
     assert cfg.sql_dsn == "local"
-    assert cfg.sqlite_path == str(tmp_path / "state" / "newapi" / "one-api.db")
+    assert cfg.sqlite_path == str(tmp_path / "state" / "localapi" / "localapi.db")
     with pytest.raises(RuntimeError, match="does not exist"):
         open_newapi_db(cfg)
 
-    assert not (tmp_path / "state" / "newapi" / "one-api.db").exists()
+    assert not (tmp_path / "state" / "localapi" / "localapi.db").exists()
 
 
 def test_newapi_db_rejects_missing_sqlite_file(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
-    missing = tmp_path / "missing-one-api.db"
-    monkeypatch.setenv("NEWAPI_SQL_DSN", "local")
-    monkeypatch.setenv("NEWAPI_SQLITE_PATH", str(missing))
+    missing = tmp_path / "missing-localapi.db"
+    monkeypatch.setenv("LOCALAPI_SQL_DSN", "local")
+    monkeypatch.setenv("LOCALAPI_SQLITE_PATH", str(missing))
 
     with pytest.raises(RuntimeError, match="does not exist"):
         open_newapi_db(model_gateway.get_provisioner_config())
@@ -1792,28 +1792,28 @@ def test_newapi_db_rejects_missing_sqlite_file(monkeypatch, tmp_path):
 def test_provisioner_config_prefers_saved_database_settings(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
     monkeypatch.setenv(
-        "NEWAPI_SQL_DSN", "postgresql://env:envpass@127.0.0.1:5432/envdb"
+        "LOCALAPI_SQL_DSN", "postgresql://env:envpass@127.0.0.1:5432/envdb"
     )
-    monkeypatch.setenv("NEWAPI_SQLITE_PATH", "/env/one-api.db")
-    monkeypatch.setenv("NEWAPI_ADMIN_USERNAME", "env-root")
-    monkeypatch.setenv("LOCALAPI_ADMIN_BASE_URL", "http://env-new-api:3000")
+    monkeypatch.setenv("LOCALAPI_SQLITE_PATH", "/env/localapi.db")
+    monkeypatch.setenv("LOCALAPI_ADMIN_USERNAME", "env-root")
+    monkeypatch.setenv("LOCALAPI_ADMIN_BASE_URL", "http://env-localapi:3000")
     save_custom_newapi_gateway(
-        base_url="http://saved-new-api:3000/v1",
+        base_url="http://saved-localapi:3000/v1",
         api_key="sk-custom-secret",
-        admin_base_url="http://saved-new-api:3000",
+        admin_base_url="http://saved-localapi:3000",
         activate=True,
     )
     save_newapi_database_config(
         sql_dsn="local",
-        sqlite_path="/saved/one-api.db",
+        sqlite_path="/saved/localapi.db",
         admin_username="saved-root",
     )
 
     cfg = get_provisioner_config()
 
-    assert cfg.admin_base_url == "http://saved-new-api:3000"
+    assert cfg.admin_base_url == "http://saved-localapi:3000"
     assert cfg.sql_dsn == "local"
-    assert cfg.sqlite_path == "/saved/one-api.db"
+    assert cfg.sqlite_path == "/saved/localapi.db"
     assert cfg.admin_username == "saved-root"
 
 
@@ -1823,18 +1823,18 @@ def test_provisioner_config_request_database_overrides_saved_settings(
     _isolate_settings_db(monkeypatch, tmp_path)
     save_newapi_database_config(
         sql_dsn="local",
-        sqlite_path="/saved/one-api.db",
+        sqlite_path="/saved/localapi.db",
         admin_username="saved-root",
     )
 
     cfg = get_provisioner_config(
-        "http://request-new-api:3000",
+        "http://request-localapi:3000",
         sql_dsn="postgresql://request:secret@127.0.0.1:5432/newapi",
         sqlite_path="",
         admin_username="request-root",
     )
 
-    assert cfg.admin_base_url == "http://request-new-api:3000"
+    assert cfg.admin_base_url == "http://request-localapi:3000"
     assert cfg.sql_dsn == "postgresql://request:secret@127.0.0.1:5432/newapi"
     assert cfg.sqlite_path == ""
     assert cfg.admin_username == "request-root"
@@ -1936,7 +1936,7 @@ def test_ce_model_gateway_config_uses_provisioner_builder(monkeypatch, tmp_path)
     _isolate_settings_db(monkeypatch, tmp_path)
     expected = {
         "enabled": True,
-        "adminBaseUrl": "http://new-api:3000",
+        "adminBaseUrl": "http://localapi:3000",
         "dbConfigured": True,
         "database": {"configured": True},
         "adminUsername": "root",
@@ -1945,7 +1945,7 @@ def test_ce_model_gateway_config_uses_provisioner_builder(monkeypatch, tmp_path)
         "providerChannels": [],
         "mediaModels": {},
         "embeddingModel": {},
-        "relayBaseUrl": "http://new-api:3000/v1",
+        "relayBaseUrl": "http://localapi:3000/v1",
     }
     monkeypatch.setattr(model_gateway, "build_provisioner_status", lambda: expected)
     app = FastAPI()
@@ -1989,10 +1989,10 @@ def test_enable_official_gateway_route_switches_mode_when_enabled(
     monkeypatch, tmp_path
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     # [aipdd fork delta req41] 官方地址只认专用 env（代码不预设站点），路由
     # 改成调 ``app_config.official_newapi_base_url()``，所以这里得 setenv 而不是 setattr 常量。
-    monkeypatch.setenv("OFFICIAL_NEWAPI_BASE_URL", "https://official.example/v1")
+    monkeypatch.setenv("OFFICIAL_LOCALAPI_BASE_URL", "https://official.example/v1")
     monkeypatch.setattr(
         model_gateway.app_config, "LOCALAPI_API_KEY", "sk-official-secret"
     )
@@ -2001,7 +2001,7 @@ def test_enable_official_gateway_route_switches_mode_when_enabled(
         activate=True,
     )
     save_custom_newapi_gateway(
-        base_url="http://new-api:3000",
+        base_url="http://localapi:3000",
         api_key="sk-custom-secret",
         activate=True,
     )
@@ -2329,7 +2329,7 @@ def test_save_official_gateway_route_persists_user_registered_key(
     monkeypatch, tmp_path
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setattr(
         model_gateway.app_config, "LOCALAPI_BASE_URL", "https://env.example/v1"
     )
@@ -2366,10 +2366,10 @@ def test_save_official_gateway_route_ignores_submitted_gateway_url(
     monkeypatch, tmp_path
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     # [aipdd fork delta req41] 官方地址只认专用 env：代码不预设站点，路由也不采纳
     # 前端提交的 URL（防把官方模式变成任意中转）。
-    monkeypatch.setenv("OFFICIAL_NEWAPI_BASE_URL", "https://official.env.example/v1")
+    monkeypatch.setenv("OFFICIAL_LOCALAPI_BASE_URL", "https://official.env.example/v1")
     monkeypatch.setattr(
         model_gateway.app_config, "LOCALAPI_BASE_URL", "https://env.example/v1"
     )
@@ -2400,7 +2400,7 @@ def test_save_official_gateway_route_ignores_submitted_gateway_url(
 
 def test_custom_newapi_init_route_accepts_empty_body(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     calls = {}
 
     class Admin:
@@ -2415,7 +2415,7 @@ def test_custom_newapi_init_route_accepts_empty_body(monkeypatch, tmp_path):
             "Cfg",
             (),
             {
-                "admin_base_url": "http://new-api:3000",
+                "admin_base_url": "http://localapi:3000",
                 "relay_token_name": "dramaclaw-ce-runtime",
             },
         )()
@@ -2461,8 +2461,8 @@ def test_custom_newapi_init_route_accepts_empty_body(monkeypatch, tmp_path):
     data = response.json()["data"]
     assert calls["base_url"] is None
     assert data["mode"] == MODE_CUSTOM
-    assert data["newApiAdminBaseUrl"] == "http://new-api:3000"
-    assert data["newApiBaseUrl"] == "http://new-api:3000/v1"
+    assert data["newApiAdminBaseUrl"] == "http://localapi:3000"
+    assert data["newApiBaseUrl"] == "http://localapi:3000/v1"
     assert "sk-runtime-secret" not in response.text
 
 
@@ -2470,7 +2470,7 @@ def test_custom_newapi_init_route_persists_request_database_config(
     monkeypatch, tmp_path
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     calls = {}
 
     class Admin:
@@ -2486,7 +2486,7 @@ def test_custom_newapi_init_route_persists_request_database_config(
             "Cfg",
             (),
             {
-                "admin_base_url": "http://new-api:3000",
+                "admin_base_url": "http://localapi:3000",
                 "relay_token_name": "dramaclaw-ce-runtime",
                 "sql_dsn": kwargs["sql_dsn"],
                 "sqlite_path": kwargs["sqlite_path"],
@@ -2532,20 +2532,20 @@ def test_custom_newapi_init_route_persists_request_database_config(
     response = client.post(
         "/model-gateway/custom/newapi/init",
         json={
-            "newApiBaseUrl": "http://new-api:3000",
+            "newApiBaseUrl": "http://localapi:3000",
             "database": {
                 "sqlDsn": "local",
-                "sqlitePath": "/Users/hg/data/new-api/one-api.db",
+                "sqlitePath": "/Users/hg/data/localapi/localapi.db",
                 "adminUsername": "root",
             },
         },
     )
 
     assert response.status_code == 200
-    assert calls["base_url"] == "http://new-api:3000"
+    assert calls["base_url"] == "http://localapi:3000"
     assert calls["kwargs"] == {
         "sql_dsn": "local",
-        "sqlite_path": "/Users/hg/data/new-api/one-api.db",
+        "sqlite_path": "/Users/hg/data/localapi/localapi.db",
         "admin_username": "root",
     }
     data = response.json()["data"]
@@ -2555,9 +2555,9 @@ def test_custom_newapi_init_route_persists_request_database_config(
     assert "sqlitePath" not in data["database"]
     cfg = get_provisioner_config()
     assert cfg.sql_dsn == "local"
-    assert cfg.sqlite_path == "/Users/hg/data/new-api/one-api.db"
+    assert cfg.sqlite_path == "/Users/hg/data/localapi/localapi.db"
     assert cfg.admin_username == "root"
-    assert cfg.admin_base_url == "http://new-api:3000"
+    assert cfg.admin_base_url == "http://localapi:3000"
 
 
 def test_bootstrap_local_gateway_provisions_when_not_configured(monkeypatch):
@@ -2649,7 +2649,7 @@ def test_custom_newapi_channels_batch_reuses_admin_and_masks_keys(
     monkeypatch, tmp_path
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     calls: dict[str, list[object] | int] = {"payloads": [], "ensure_admin": 0}
 
     class Admin:
@@ -2659,8 +2659,8 @@ def test_custom_newapi_channels_batch_reuses_admin_and_masks_keys(
         access_token = "admin-secret"
 
     def fake_get_config(base_url=None, **_kwargs):
-        assert base_url == "http://new-api:3000"
-        return type("Cfg", (), {"admin_base_url": "http://new-api:3000"})()
+        assert base_url == "http://localapi:3000"
+        return type("Cfg", (), {"admin_base_url": "http://localapi:3000"})()
 
     def fake_ensure_admin(_cfg):
         calls["ensure_admin"] = int(calls["ensure_admin"]) + 1
@@ -2692,7 +2692,7 @@ def test_custom_newapi_channels_batch_reuses_admin_and_masks_keys(
     response = client.post(
         "/model-gateway/custom/newapi/channels/batch",
         json={
-            "newApiBaseUrl": "http://new-api:3000",
+            "newApiBaseUrl": "http://localapi:3000",
             "channels": [
                 {
                     "provider": "ali",
@@ -2745,7 +2745,7 @@ def test_custom_newapi_channel_types_route_patches_volcengine_vision_and_image(
     不改写。
     """
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     class Admin:
         admin_user_id = 1
@@ -2758,7 +2758,7 @@ def test_custom_newapi_channel_types_route_patches_volcengine_vision_and_image(
     monkeypatch.setattr(
         model_gateway,
         "get_provisioner_config",
-        lambda **_kwargs: type("Cfg", (), {"admin_base_url": "http://new-api:3000"})(),
+        lambda **_kwargs: type("Cfg", (), {"admin_base_url": "http://localapi:3000"})(),
     )
     monkeypatch.setattr(
         model_gateway, "ensure_admin_access_token", lambda _cfg: Admin()
@@ -2805,7 +2805,7 @@ def test_custom_newapi_channel_types_route_patches_volcengine_vision_and_image(
     assert items["openai"]["capabilities"] == ["text"]
     # 合成行：镜像注册表缺失的 fork 自有渠道（newapi / aipdd / mediakit）在末尾补齐，
     # 供「供应商渠道管理」目录与已配置渠道 / 渠道连接卡一一对应。
-    assert items["newapi"]["name"] == "NewAPI"
+    assert items["newapi"]["name"] == "LocalAPI"
     assert items["newapi"]["type"] == 1
     assert items["aipdd"]["name"] == "AIPDD"
     assert items["aipdd"]["status"] == 1
@@ -2870,7 +2870,7 @@ def test_minimax_channel_types_override_mirror_adapter_and_synthesize_cn(
     走不到 OpenAI 兼容协议，缺 music 则「设置 › 音乐」的候选过滤直接筛不到渠道。
     """
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     class Admin:
         admin_user_id = 1
@@ -2883,7 +2883,7 @@ def test_minimax_channel_types_override_mirror_adapter_and_synthesize_cn(
     monkeypatch.setattr(
         model_gateway,
         "get_provisioner_config",
-        lambda **_kwargs: type("Cfg", (), {"admin_base_url": "http://new-api:3000"})(),
+        lambda **_kwargs: type("Cfg", (), {"admin_base_url": "http://localapi:3000"})(),
     )
     monkeypatch.setattr(
         model_gateway, "ensure_admin_access_token", lambda _cfg: Admin()
@@ -3067,7 +3067,7 @@ def test_custom_newapi_provider_channels_route_persists_and_masks_keys(
     tmp_path,
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     app = FastAPI()
     app.include_router(model_gateway.router)
@@ -3128,7 +3128,7 @@ def test_custom_newapi_provider_channels_route_removes_final_channel(
     tmp_path,
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     app = FastAPI()
     app.include_router(model_gateway.router)
@@ -3232,13 +3232,13 @@ def test_comfyui_provider_channel_writes_workflows_to_newapi(
     tmp_path,
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(
         model_gateway,
         "get_provisioner_config",
-        lambda: type("Cfg", (), {"admin_base_url": "http://new-api:3000"})(),
+        lambda: type("Cfg", (), {"admin_base_url": "http://localapi:3000"})(),
     )
     monkeypatch.setattr(
         model_gateway,
@@ -3302,12 +3302,12 @@ def test_comfyui_provider_channel_writes_workflows_to_newapi(
 
 def test_comfyui_workflow_routes_create_one_media_model(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     captured: dict[str, object] = {}
     monkeypatch.setattr(
         model_gateway,
         "get_provisioner_config",
-        lambda: type("Cfg", (), {"admin_base_url": "http://new-api:3000"})(),
+        lambda: type("Cfg", (), {"admin_base_url": "http://localapi:3000"})(),
     )
     monkeypatch.setattr(
         model_gateway,
@@ -3419,7 +3419,7 @@ def test_comfyui_workflow_routes_require_one_model_name(monkeypatch, tmp_path):
 
 def test_clear_comfyui_removes_channel_and_media_models(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     save_newapi_provider_channels(
         [
             {
@@ -3473,7 +3473,7 @@ def test_clear_comfyui_removes_channel_and_media_models(monkeypatch, tmp_path):
     monkeypatch.setattr(
         model_gateway,
         "get_provisioner_config",
-        lambda: type("Cfg", (), {"admin_base_url": "http://new-api:3000"})(),
+        lambda: type("Cfg", (), {"admin_base_url": "http://localapi:3000"})(),
     )
     monkeypatch.setattr(
         model_gateway,
@@ -3506,7 +3506,7 @@ def test_custom_newapi_provider_channel_sync_updates_newapi_and_local_config(
     tmp_path,
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     class Admin:
         admin_user_id = 1
@@ -3522,7 +3522,7 @@ def test_custom_newapi_provider_channel_sync_updates_newapi_and_local_config(
         lambda _base_url=None, **_kwargs: type(
             "Cfg",
             (),
-            {"admin_base_url": "http://new-api:3000"},
+            {"admin_base_url": "http://localapi:3000"},
         )(),
     )
     monkeypatch.setattr(
@@ -3562,7 +3562,7 @@ def test_custom_newapi_provider_channel_sync_updates_newapi_and_local_config(
     response = client.post(
         "/model-gateway/custom/newapi/provider-channel/sync",
         json={
-            "newApiBaseUrl": "http://new-api:3000",
+            "newApiBaseUrl": "http://localapi:3000",
             "provider": "ali",
             "upstreamKey": "sk-ali-new-upstream-secret",
             "baseUrl": "https://dashscope-new.example.com/",
@@ -3607,7 +3607,7 @@ def test_custom_newapi_provider_channel_sync_allows_clearing_saved_base_url(
     tmp_path,
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     save_newapi_provider_channels(
         [
             {
@@ -3632,7 +3632,7 @@ def test_custom_newapi_provider_channel_sync_allows_clearing_saved_base_url(
         lambda _base_url=None, **_kwargs: type(
             "Cfg",
             (),
-            {"admin_base_url": "http://new-api:3000"},
+            {"admin_base_url": "http://localapi:3000"},
         )(),
     )
     monkeypatch.setattr(
@@ -3672,7 +3672,7 @@ def test_custom_newapi_provider_channel_sync_allows_clearing_saved_base_url(
     response = client.post(
         "/model-gateway/custom/newapi/provider-channel/sync",
         json={
-            "newApiBaseUrl": "http://new-api:3000",
+            "newApiBaseUrl": "http://localapi:3000",
             "provider": "ali",
             "upstreamKey": "sk-ali-new-upstream-secret",
             "baseUrl": "",
@@ -3708,7 +3708,7 @@ def test_custom_newapi_provider_channel_sync_does_not_save_when_newapi_update_fa
     tmp_path,
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     class Admin:
         admin_user_id = 1
@@ -3722,7 +3722,7 @@ def test_custom_newapi_provider_channel_sync_does_not_save_when_newapi_update_fa
         lambda _base_url=None, **_kwargs: type(
             "Cfg",
             (),
-            {"admin_base_url": "http://new-api:3000"},
+            {"admin_base_url": "http://localapi:3000"},
         )(),
     )
     monkeypatch.setattr(
@@ -3754,7 +3754,7 @@ def test_custom_newapi_provider_channel_sync_does_not_save_when_newapi_update_fa
     response = client.post(
         "/model-gateway/custom/newapi/provider-channel/sync",
         json={
-            "newApiBaseUrl": "http://new-api:3000",
+            "newApiBaseUrl": "http://localapi:3000",
             "provider": "ali",
             "upstreamKey": "sk-ali-new-upstream-secret",
         },
@@ -3774,7 +3774,7 @@ def test_custom_newapi_channels_batch_uses_saved_provider_channel_config(
     tmp_path,
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     save_newapi_provider_channels(
         [
             {
@@ -3799,7 +3799,7 @@ def test_custom_newapi_channels_batch_uses_saved_provider_channel_config(
         lambda _base_url=None, **_kwargs: type(
             "Cfg",
             (),
-            {"admin_base_url": "http://new-api:3000"},
+            {"admin_base_url": "http://localapi:3000"},
         )(),
     )
     monkeypatch.setattr(
@@ -3846,7 +3846,7 @@ def test_custom_newapi_media_models_groups_by_provider_and_persists_mapping(
     tmp_path,
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     save_newapi_provider_channels(
         [
             {
@@ -3876,7 +3876,7 @@ def test_custom_newapi_media_models_groups_by_provider_and_persists_mapping(
         lambda _base_url=None, **_kwargs: type(
             "Cfg",
             (),
-            {"admin_base_url": "http://new-api:3000"},
+            {"admin_base_url": "http://localapi:3000"},
         )(),
     )
     monkeypatch.setattr(
@@ -3902,7 +3902,7 @@ def test_custom_newapi_media_models_groups_by_provider_and_persists_mapping(
     response = client.post(
         "/model-gateway/custom/newapi/media-models",
         json={
-            "newApiBaseUrl": "http://new-api:3000",
+            "newApiBaseUrl": "http://localapi:3000",
             "models": {
                 "ap-image-2": {
                     "provider": "newapi",
@@ -4155,7 +4155,7 @@ def test_custom_newapi_media_models_rejects_official_value_models(
     monkeypatch, tmp_path
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     app = FastAPI()
     app.include_router(model_gateway.router)
@@ -4182,7 +4182,7 @@ def test_custom_newapi_embedding_model_writes_mapping_and_persists_dimension(
     tmp_path,
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     save_newapi_provider_channels(
         [
             {
@@ -4207,7 +4207,7 @@ def test_custom_newapi_embedding_model_writes_mapping_and_persists_dimension(
         lambda _base_url=None, **_kwargs: type(
             "Cfg",
             (),
-            {"admin_base_url": "http://new-api:3000"},
+            {"admin_base_url": "http://localapi:3000"},
         )(),
     )
     monkeypatch.setattr(
@@ -4233,7 +4233,7 @@ def test_custom_newapi_embedding_model_writes_mapping_and_persists_dimension(
     response = client.post(
         "/model-gateway/custom/newapi/embedding-model",
         json={
-            "newApiBaseUrl": "http://new-api:3000",
+            "newApiBaseUrl": "http://localapi:3000",
             "provider": "newapi",
             "upstreamModel": "text-embedding-3-large",
             "dimension": 1024,
@@ -4370,7 +4370,7 @@ def test_custom_newapi_channels_batch_reports_partial_failure(monkeypatch, tmp_p
     # 再编译投影；故同一批里两个渠道必须分属不同 provider，否则它们的别名会
     # 按设计汇入同一个 provider 的真源并互相出现在对方投影里。
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     class Admin:
         admin_user_id = 1
@@ -4384,7 +4384,7 @@ def test_custom_newapi_channels_batch_reports_partial_failure(monkeypatch, tmp_p
         lambda _base_url=None, **_kwargs: type(
             "Cfg",
             (),
-            {"admin_base_url": "http://new-api:3000"},
+            {"admin_base_url": "http://localapi:3000"},
         )(),
     )
     monkeypatch.setattr(
@@ -4458,7 +4458,7 @@ def test_custom_newapi_channels_batch_reports_partial_failure(monkeypatch, tmp_p
 
 def test_media_relay_config_route_persists_and_masks_oss_keys(monkeypatch, tmp_path):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_PROVIDER", "aliyun_oss")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_TTL_SECONDS", 1800)
     monkeypatch.setattr(model_gateway.app_config, "OSS_RELAY_ENDPOINT", "env.endpoint")
@@ -4498,7 +4498,7 @@ def test_media_relay_config_route_persists_and_masks_cloudinary_keys(
     monkeypatch, tmp_path
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_PROVIDER", "aliyun_oss")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_TTL_SECONDS", 1800)
     monkeypatch.setattr(model_gateway.app_config, "OSS_RELAY_ENDPOINT", "env.endpoint")
@@ -4544,7 +4544,7 @@ def test_media_relay_config_route_supports_partial_credential_updates(
     monkeypatch, tmp_path
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_PROVIDER", "aliyun_oss")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_TTL_SECONDS", 1800)
     monkeypatch.setattr(model_gateway.app_config, "OSS_RELAY_ENDPOINT", "")
@@ -4600,7 +4600,7 @@ def test_media_relay_config_route_preserves_inactive_provider_credentials(
     monkeypatch, tmp_path
 ):
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_PROVIDER", "aliyun_oss")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_TTL_SECONDS", 1800)
     monkeypatch.setattr(model_gateway.app_config, "OSS_RELAY_ENDPOINT", "")
@@ -4677,7 +4677,7 @@ def test_media_relay_config_route_persists_and_masks_aws_s3_keys(
     # [aipdd fork delta] AWS S3 档：与阿里云 OSS 并行，保存后回写 CE 设置库，
     # 完整 AK/SK 不下发（只回脱敏 preview）。
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_PROVIDER", "local")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_TTL_SECONDS", 1800)
     for name in (
@@ -4727,7 +4727,7 @@ def test_media_relay_config_route_persists_and_masks_aws_s3_keys(
 def test_media_relay_config_route_rejects_incomplete_aws_s3(monkeypatch, tmp_path):
     # [aipdd fork delta] AWS S3 必填 region + bucket + AK + SK，缺字段当场 400。
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_PROVIDER", "local")
     monkeypatch.setattr(model_gateway.app_config, "MEDIA_RELAY_TTL_SECONDS", 1800)
     for name in (

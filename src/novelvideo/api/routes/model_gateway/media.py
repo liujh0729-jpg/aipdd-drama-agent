@@ -185,7 +185,7 @@ async def save_custom_newapi_media_models(body: SaveMediaModelsBody) -> dict[str
                     message = str(
                         response.get("message") or response.get("error") or ""
                     ).strip()
-                item["error"] = message or "NewAPI rejected media model channel update"
+                item["error"] = message or "LocalAPI rejected media model channel update"
             results.append(item)
         except Exception as exc:
             results.append(
@@ -216,7 +216,7 @@ async def save_custom_newapi_media_models(body: SaveMediaModelsBody) -> dict[str
 
 
 # [aipdd fork delta] 仅写入本地媒体模型映射(mediaModels：mediaType/sortOrder/enabled)，
-# 不重复 upsert NewAPI 渠道。供「默认生成模型」面板一键设默认 / 归类使用，
+# 不重复 upsert LocalAPI 渠道。供「默认生成模型」面板一键设默认 / 归类使用，
 # 避免 /media-models 整批渠道 upsert 中任一模型失败就导致默认不生效。
 # [aipdd fork delta] 真源写入后 best-effort 重投影受影响渠道：本接口不 upsert
 # 渠道的历史行为会让官方渠道的直通清单停留在旧态；聚合渠道（上游清单镜像官方

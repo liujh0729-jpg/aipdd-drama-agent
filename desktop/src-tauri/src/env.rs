@@ -21,10 +21,16 @@ impl RuntimePaths {
             resource: native_path(resource),
         };
         // 预建可写目录，避免各服务首次写文件时因目录缺失失败。
-        // gateway 必须预建：new-api 以 app-data/gateway 为 cwd 启动（oneapi.db 落此），
+        // gateway 必须预建：localapi 以 app-data/gateway 为 cwd 启动（localapi.db 落此），
         // 目录不存在会让 Command::current_dir 的 spawn 直接失败。
         for sub in ["state", "output", "runtime", "logs", "models", "gateway"] {
             std::fs::create_dir_all(p.app_data.join(sub))?;
+        }
+        // 旧版网关库名为 one-api.db，升级后原地改名沿用同一份数据。
+        let legacy_db = p.gateway_dir().join("one-api.db");
+        let current_db = p.gateway_dir().join("localapi.db");
+        if !current_db.exists() && legacy_db.exists() {
+            let _ = std::fs::rename(&legacy_db, &current_db);
         }
         Ok(p)
     }
@@ -44,7 +50,7 @@ impl RuntimePaths {
         nested
     }
 
-    /// 内置二进制（nginx、new-api、ffmpeg、chromium、hermes）。
+    /// 内置二进制（nginx、localapi、ffmpeg、chromium、hermes）。
     pub fn bin(&self, name: &str) -> PathBuf {
         self.rel(&format!("bin/{name}"))
     }
@@ -102,7 +108,7 @@ impl RuntimePaths {
         self.rel("nginx")
     }
 
-    /// 网关 SQLite 落盘目录（把网关工作目录设为此处，one-api.db 即落在 app-data）。
+    /// 网关 SQLite 落盘目录（把网关工作目录设为此处，localapi.db 即落在 app-data）。
     pub fn gateway_dir(&self) -> PathBuf {
         self.app_data.join("gateway")
     }
@@ -153,16 +159,16 @@ impl RuntimePaths {
             ("LOCALAPI_ADMIN_BASE_URL".into(), "http://127.0.0.1:3000".into()),
             // 网关初始化（custom/newapi/init）走「直连 SQLite 找/写 admin」的链路
             // （newapi_provisioner.wait_for_db → ensure_admin_access_token）。随包
-            // new-api 以 gateway_dir 为 cwd 启动，库文件落 <app_data>/gateway/one-api.db；
-            // 而 provisioner 在 NEWAPI_SQLITE_PATH 未设时会回退到代码默认
-            // STATE_DIR/newapi/one-api.db——桌面端那个路径不存在，wait_for_db 会吞异常
+            // localapi 以 gateway_dir 为 cwd 启动，库文件落 <app_data>/gateway/localapi.db；
+            // 而 provisioner 在 LOCALAPI_SQLITE_PATH 未设时会回退到代码默认
+            // STATE_DIR/localapi/localapi.db——桌面端那个路径不存在，wait_for_db 会吞异常
             // 空转到 init 超时（真机事故：前端 60s 先抛 Request timed out，后端还在干等 120s）。
             // 与 docker-compose.aipdd.yml 同法：显式把网关真实库路径喂给 provisioner，
             // dsn=local + sqlite_path 指向随包网关写的同一个文件。
-            ("NEWAPI_SQL_DSN".into(), "local".into()),
+            ("LOCALAPI_SQL_DSN".into(), "local".into()),
             (
-                "NEWAPI_SQLITE_PATH".into(),
-                self.gateway_dir().join("one-api.db").display().to_string(),
+                "LOCALAPI_SQLITE_PATH".into(),
+                self.gateway_dir().join("localapi.db").display().to_string(),
             ),
             // Python 行为。
             ("PYTHONUNBUFFERED".into(), "1".into()),
@@ -239,7 +245,7 @@ pub fn missing_required_bins(paths: &RuntimePaths) -> Vec<String> {
     let checks: [(&str, PathBuf); 5] = [
         ("python", paths.python()),
         ("nginx", paths.bin(if cfg!(windows) { "nginx.exe" } else { "nginx" })),
-        ("new-api", paths.bin(if cfg!(windows) { "new-api.exe" } else { "new-api" })),
+        ("localapi", paths.bin(if cfg!(windows) { "localapi.exe" } else { "localapi" })),
         ("ffmpeg", paths.bin(if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" })),
         ("frontend-dist", paths.web_root()),
     ];
@@ -310,12 +316,12 @@ mod tests {
         // 所有平台都必须禁用 user site。
         assert_eq!(env["PYTHONNOUSERSITE"], "1");
         // 网关初始化靠直连 SQLite 找 admin：必须把库路径指到随包网关真正写的
-        // <app_data>/gateway/one-api.db，否则 provisioner 回退到不存在的默认路径、
+        // <app_data>/gateway/localapi.db，否则 provisioner 回退到不存在的默认路径、
         // wait_for_db 空转到超时（见 base_env 注释里的真机事故）。
-        assert_eq!(env["NEWAPI_SQL_DSN"], "local");
+        assert_eq!(env["LOCALAPI_SQL_DSN"], "local");
         assert_eq!(
-            PathBuf::from(&env["NEWAPI_SQLITE_PATH"]),
-            paths.gateway_dir().join("one-api.db")
+            PathBuf::from(&env["LOCALAPI_SQLITE_PATH"]),
+            paths.gateway_dir().join("localapi.db")
         );
         std::fs::remove_dir_all(&root).ok();
     }

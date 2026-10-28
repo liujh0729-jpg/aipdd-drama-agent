@@ -98,8 +98,8 @@ def _seedance2_duration_from_config(config: dict, fallback: float) -> float:
     except (TypeError, ValueError):
         return fallback
 
-NEWAPI_VIDEO_BACKEND_PREFIX = "newapi_"
-NEWAPI_VIDEO_DISPLAY_LABELS = {
+LOCALAPI_VIDEO_BACKEND_PREFIX = "newapi_"
+LOCALAPI_VIDEO_DISPLAY_LABELS = {
     "seedance-1.0-pro-fast": "Seedance1.0 Pro Fast",
     "seedance-1.5-pro": "Seedance1.5 Pro",
     "seedance-2.0": "Seedance2.0",
@@ -109,12 +109,12 @@ NEWAPI_VIDEO_DISPLAY_LABELS = {
     "seedance-2.0-mini": "Seedance2.0 Mini",
     "seedance-2.5": "Seedance2.5",
 }
-NEWAPI_MAINLINE_SEEDANCE2_MODELS = (
+LOCALAPI_MAINLINE_SEEDANCE2_MODELS = (
     "seedance-2.0",
     "seedance-2.0-fast",
     "seedance-2.0-mini",
 )
-NEWAPI_DISABLED_VIDEO_MODELS = {"grok-video-channel"}
+LOCALAPI_DISABLED_VIDEO_MODELS = {"grok-video-channel"}
 
 
 def parse_newapi_video_backend(backend: str | None) -> str | None:
@@ -123,10 +123,10 @@ def parse_newapi_video_backend(backend: str | None) -> str | None:
     if lowered == "newapi":
         from novelvideo.config import get_newapi_video_model
 
-        # [aipdd fork delta] 默认视频模型只读设置：env ``NEWAPI_VIDEO_MODEL`` 已退出解析链。
+        # [aipdd fork delta] 默认视频模型只读设置：env ``LOCALAPI_VIDEO_MODEL`` 已退出解析链。
         return get_newapi_video_model()
-    if lowered.startswith(NEWAPI_VIDEO_BACKEND_PREFIX):
-        model = value[len(NEWAPI_VIDEO_BACKEND_PREFIX) :].strip()
+    if lowered.startswith(LOCALAPI_VIDEO_BACKEND_PREFIX):
+        model = value[len(LOCALAPI_VIDEO_BACKEND_PREFIX) :].strip()
         return model or None
     return None
 
@@ -134,7 +134,7 @@ def parse_newapi_video_backend(backend: str | None) -> str | None:
 def newapi_video_backend_options(
     *, include_seedance2_variants: bool = False
 ) -> dict[str, str]:
-    from novelvideo.config import NEWAPI_VIDEO_MODELS
+    from novelvideo.config import LOCALAPI_VIDEO_MODELS
     from novelvideo.shared.runtime_env import is_ce_effective
 
     # [aipdd fork delta req40] CE：候选只来自用户配置（媒体模型映射 = 渠道目录里挑
@@ -144,8 +144,8 @@ def newapi_video_backend_options(
     if not is_ce_effective():
         models = [
             model
-            for model in NEWAPI_VIDEO_MODELS
-            if model not in NEWAPI_DISABLED_VIDEO_MODELS
+            for model in LOCALAPI_VIDEO_MODELS
+            if model not in LOCALAPI_DISABLED_VIDEO_MODELS
         ]
     else:
         try:
@@ -159,17 +159,17 @@ def newapi_video_backend_options(
                     mapping.get("enabled") is not False
                     and media_type == "video"
                     and model not in models
-                    and model not in NEWAPI_DISABLED_VIDEO_MODELS
+                    and model not in LOCALAPI_DISABLED_VIDEO_MODELS
                 ):
                     models.append(model)
         except (RuntimeError, ImportError):
             pass
     if include_seedance2_variants:
-        for model in NEWAPI_MAINLINE_SEEDANCE2_MODELS:
+        for model in LOCALAPI_MAINLINE_SEEDANCE2_MODELS:
             if model not in models:
                 models.append(model)
     return {
-        f"{NEWAPI_VIDEO_BACKEND_PREFIX}{model}": NEWAPI_VIDEO_DISPLAY_LABELS.get(
+        f"{LOCALAPI_VIDEO_BACKEND_PREFIX}{model}": LOCALAPI_VIDEO_DISPLAY_LABELS.get(
             model, model
         )
         for model in models
@@ -183,9 +183,9 @@ def _coerce_video_backend_value(backend: VideoBackend | str | None) -> str:
         return backend.value
     value = str(backend).strip()
     lowered = value.lower()
-    if lowered.startswith(NEWAPI_VIDEO_BACKEND_PREFIX):
+    if lowered.startswith(LOCALAPI_VIDEO_BACKEND_PREFIX):
         return (
-            f"{NEWAPI_VIDEO_BACKEND_PREFIX}{value[len(NEWAPI_VIDEO_BACKEND_PREFIX) :]}"
+            f"{LOCALAPI_VIDEO_BACKEND_PREFIX}{value[len(LOCALAPI_VIDEO_BACKEND_PREFIX) :]}"
         )
     return "comfyui" if lowered == "jimeng" else lowered
 

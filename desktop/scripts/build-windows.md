@@ -35,7 +35,7 @@
    仓库里的 `go.sum` 仍会做本地哈希校验，完整性不受影响。
 
 > 只缺 Go/bun 时也能出包：先用其它机器编好网关，出包时给
-> `prepare-resources.sh` 传 `NEWAPI_BIN=<new-api.exe 路径>` 跳过 Go 构建（同 `NGINX_BIN`/`FFMPEG_BIN` 的思路）。
+> `prepare-resources.sh` 传 `LOCALAPI_BIN=<localapi.exe 路径>` 跳过 Go 构建（同 `NGINX_BIN`/`FFMPEG_BIN` 的思路）。
 
 ## 2. 准备资源（win-x64）
 
@@ -52,7 +52,7 @@ resources\
   python\python.exe              便携 Python（python-build-standalone win-x64 install_only）
   python\Lib\site-packages\      打包期离线预装的全部 CE 依赖（用户端零 pip）
   python\Scripts\                console script 入口
-  bin\{nginx.exe,new-api.exe,ffmpeg.exe,ffprobe.exe,uv.exe,chrome\}
+  bin\{nginx.exe,localapi.exe,ffmpeg.exe,ffprobe.exe,uv.exe,chrome\}
   app\dist\                      vite 产出的前端站点（nginx 托管）
   app\src\novelvideo\            后端源码副本（PYTHONPATH）
   app\services\{vectcut,faceswap}\   随包服务本体（换脸边车引擎 server.py 在此）
@@ -75,7 +75,7 @@ resources\
 | PATH 前置 | `python/bin` | `python` + `python\Scripts` |
 
 可选开关（与 mac 相同）：`INSTALL_WORLD=1`（torch，体积剧增）、`INSTALL_RENDERER=1`（本地 HyperFrames producer）、
-`SKIP_CHROMIUM=1`、`NGINX_VER=`、`FFMPEG_BIN=`、`NEWAPI_BIN=`、`PBS_URL=`/`PBS_RELEASE=`。
+`SKIP_CHROMIUM=1`、`NGINX_VER=`、`FFMPEG_BIN=`、`LOCALAPI_BIN=`、`PBS_URL=`/`PBS_RELEASE=`。
 
 下载源事实核对（2026-10 在真实 Win10 x64 构建机上逐项跑通）：
 - nginx 官方 win zip（`nginx.org/download/nginx-<ver>.zip`）内**只有 `nginx.exe`，无附带 DLL**（PCRE/OpenSSL/Zlib 已静态链接），可直接自包含分发。
@@ -204,7 +204,7 @@ Win10 21H2+/Win11 一般已随 Edge 内置 WebView2 Runtime，缺失时安装向
 $env:CODESIGN_PFX     = 'D:\certs\aipdd-code.pfx'   # 或用 -Thumbprint 走本地证书存储
 $env:CODESIGN_PFX_PWD = '****'                       # 口令只走环境变量，绝不入库
 
-# ① 构建前：签 resources 内全部内嵌 PE（nginx/new-api/ffmpeg/chrome + 便携 Python 的 exe/dll/pyd）
+# ① 构建前：签 resources 内全部内嵌 PE（nginx/localapi/ffmpeg/chrome + 便携 Python 的 exe/dll/pyd）
 powershell -ExecutionPolicy Bypass -File scripts\win-sign.ps1 -Stage Resources -DryRun   # 先看清单
 powershell -ExecutionPolicy Bypass -File scripts\win-sign.ps1 -Stage Resources
 
@@ -252,7 +252,7 @@ signtool verify /pa /v "…\AIPDD DramaClaw_2.1.7_x64-setup.exe"
    否则首次运行会往 `site-packages` 写几千个 `__pycache__`，Windows 上留卸载残骸、
    macOS 上直接破坏 `.app` 签名。
 5. **自检**（`env::missing_required_bins`）：按平台检查 `python.exe` / `nginx.exe` /
-   `new-api.exe` / `ffmpeg.exe` / `app\dist`，缺件即面板红字提示。
+   `localapi.exe` / `ffmpeg.exe` / `app\dist`，缺件即面板红字提示。
 
 ## 7. 已知风险（Windows 专项）
 
@@ -287,14 +287,14 @@ signtool verify /pa /v "…\AIPDD DramaClaw_2.1.7_x64-setup.exe"
 
 | 项 | 结果 |
 |---|---|
-| `prepare-resources.sh win-x64`（真件） | 6 步全通过。产出 `resources/`：python 27 372 个文件 796MB、app 1 046 个 150MB、bin 312 个 544MB（nginx/new-api 119MB/ffmpeg+ffprobe 各 138MB/chrome 目录）＝**28 733 个文件、未压缩 2.39GB** |
+| `prepare-resources.sh win-x64`（真件） | 6 步全通过。产出 `resources/`：python 27 372 个文件 796MB、app 1 046 个 150MB、bin 312 个 544MB（nginx/localapi 119MB/ffmpeg+ffprobe 各 138MB/chrome 目录）＝**28 733 个文件、未压缩 2.39GB** |
 | 便携 Python | `cpython-3.12.15+20261009-x86_64-pc-windows-msvc-install_only.tar.gz`（脚本按 §2 的 `%2B` 解析后取到），`python\python.exe -V` 正常 |
-| Go 网关 | `new-api.exe` 119,952,896 B；装后启动日志 `New API ready in 277ms` |
+| Go 网关 | `localapi.exe` 119,952,896 B；装后启动日志 `New API ready in 277ms` |
 | 前端 | `pnpm build` → `resources/app/dist`（`index.html` 3,020 B） |
 | Chromium | Chrome for Testing 按 §2 的小写 `win64` 取到并整目录进 `bin/chrome`（307 个文件） |
 | `build-windows.ps1` 出包 | 退出码 0。`AIPDD DramaClaw_2.1.7_x64-setup.exe` **700,438,828 B（668MB）**，sha256 `264f15a7b91e87a11400bbe94ee528337d61c881e0f118b611bbd73a7eaeca0c`，同名 `.json` sidecar 已写 |
 | 静默安装 `/S` | 退出码 0，**58s**（Defender 实时扫描参与下），装到 `%LOCALAPPDATA%\AIPDD DramaClaw`，共 **28 735 个文件**＝资源的 28 733 ＋壳 exe ＋卸载器，**不多不少** |
-| 包内关键件 | `dramaclaw-desktop.exe`、`resources\python\python.exe`、`bin\{nginx,new-api,ffmpeg,ffprobe}.exe`、**`bin\chrome\chrome.exe`（4,537,856 B）**、`app\dist\index.html` 全在——§3.2 那条 `resources/bin/chrome/**/*` 在真包里验证生效 |
+| 包内关键件 | `dramaclaw-desktop.exe`、`resources\python\python.exe`、`bin\{nginx,localapi,ffmpeg,ffprobe}.exe`、**`bin\chrome\chrome.exe`（4,537,856 B）**、`app\dist\index.html` 全在——§3.2 那条 `resources/bin/chrome/**/*` 在真包里验证生效 |
 | 桌面集成 | 快捷方式、开始菜单 `AIPDD` 目录、HKCU 卸载项均生成 |
 | **起服（真件）** | 启动后约 10s 内四端口全开：`:8080`→200、`:3000`→200、`:9001`→404、`:8780`→404（后两个根路径本就无路由，就绪判定走 TCP 探活；`/api/v1/config` 实测 200） |
 | 窗口 | WebView2 正常渲染：启动卡（标题 `AIPDD DramaClaw`，无边框 660×380，只有品牌+版本+百分比+阶段文字+`AIPDD算力平台：www.aipdd.work`，窗口底色与页面一致不闪白）→ 百分比按真实阶段进度爬，就绪后自动开主窗口并关掉启动卡；诊断窗口（标题 `AIPDD DramaClaw · 服务状态`）仅在启动失败、点「查看详细信息」时出现 |
@@ -305,7 +305,7 @@ signtool verify /pa /v "…\AIPDD DramaClaw_2.1.7_x64-setup.exe"
 ### 8.2 上一轮的替身联调结论（保留备查）
 
 上一轮没有 Go/bun，装不了真网关，所以桌面壳用 `--no-bundle` 出 exe 后直接实跑，被测资源是
-真 `nginx.exe` + 真便携 Python + 两个替身（40 行 Rust 假 `new-api.exe`、打印中文的 stdlib
+真 `nginx.exe` + 真便携 Python + 两个替身（40 行 Rust 假 `localapi.exe`、打印中文的 stdlib
 HTTP 服务假 `aipdd_server.py`）。其中**只有 8.1 覆盖不到的项**留在这里：
 
 | 项 | 结果 |
@@ -313,7 +313,7 @@ HTTP 服务假 `aipdd_server.py`）。其中**只有 8.1 覆盖不到的项**留
 | `cargo check` / `cargo clippy`（Windows 分支全开） | 通过，零告警 |
 | 渲染后的 `app-data/nginx/nginx.conf` | 路径全部正斜杠且无 `\\?\` 前缀；`include`/`root`/`pid` 均生效（nginx 正常起服） |
 | 日志采集 | `logs/gateway.log` 里故意发的 **GBK 字节行**被正确解码成中文（读线程不再中断）；`logs/vectcut.log` 收到便携 Python 的 UTF-8 中文与 `sys.executable` 路径 |
-| 失败路径 | 后端依赖未装时 `logs/api.log` 完整收到 Python traceback；缺 `new-api.exe` 时自检直接拦下 |
+| 失败路径 | 后端依赖未装时 `logs/api.log` 完整收到 Python traceback；缺 `localapi.exe` 时自检直接拦下 |
 | `proc_win` 进程树回归：`terminate_tree` 连带杀孙进程、`shutdown_all` 清残留 | `cargo test -- --ignored` 2 passed |
 | nginx 官方 win zip 自包含性 | 实测包内仅 `nginx.exe`，无 DLL 依赖 |
 | `win-sign.ps1` 待签清单枚举 | `-Stage Resources -DryRun` 列出便携 Python 内 58 个 PE |

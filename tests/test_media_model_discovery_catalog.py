@@ -518,11 +518,11 @@ def test_gateway_reference_image_cap_reads_both_declared_spellings() -> None:
     assert declared_media_count({}, "maxImageInputs") is None
 
 
-# [aipdd fork delta] req08：NewAPI 系网关的 /api/pricing 逐模型声明「已发布分辨率」
+# [aipdd fork delta] req08：LocalAPI 系网关的 /api/pricing 逐模型声明「已发布分辨率」
 # （task_pricing_resolutions / task_pricing.by_resolution），提交时强校验——不在
 # 列表内 = unsupported_resolution 拒单（实测 AP Seedance-2.0 高性价比版只发布
 # 1080p/4k，UI 传 720p 被顶回）。这份声明要接进能力发现，供目录 / 提交链路吸附。
-NEWAPI_PRICING_PAYLOAD = {
+LOCALAPI_PRICING_PAYLOAD = {
     "success": True,
     "data": [
         {
@@ -549,7 +549,7 @@ NEWAPI_PRICING_PAYLOAD = {
 
 def test_extract_pricing_capabilities_reads_declared_and_by_resolution() -> None:
     caps = media_model_discovery._extract_pricing_capabilities(
-        NEWAPI_PRICING_PAYLOAD
+        LOCALAPI_PRICING_PAYLOAD
     )
     assert caps["AP Seedance-2.0 高性价比版"]["resolutionOptions"] == ["1080p", "4k"]
     # task_pricing_resolutions 缺失时回落到 by_resolution 的档位键。
@@ -563,7 +563,7 @@ def test_gateway_pricing_url_only_for_versioned_v1_root() -> None:
         media_model_discovery._gateway_pricing_url("https://susciyuan.com/v1")
         == "https://susciyuan.com/api/pricing"
     )
-    # Ark 系 /api/v3 根没有 NewAPI 的定价接口，不尝试。
+    # Ark 系 /api/v3 根没有 LocalAPI 的定价接口，不尝试。
     assert (
         media_model_discovery._gateway_pricing_url("https://ark.example.com/api/v3")
         == ""
@@ -596,7 +596,7 @@ def test_collector_merges_pricing_resolutions_fill_only(monkeypatch) -> None:
 
         def get(self, url, headers=None):
             if url.endswith("/api/pricing"):
-                return _FakeResponse(NEWAPI_PRICING_PAYLOAD)
+                return _FakeResponse(LOCALAPI_PRICING_PAYLOAD)
             return _FakeResponse(
                 {
                     "data": [

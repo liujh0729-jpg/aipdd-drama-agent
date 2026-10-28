@@ -19,7 +19,7 @@ router = APIRouter()
 
 
 def _api_video_backend_options() -> list[VideoBackendOption]:
-    from novelvideo.config import NEWAPI_VIDEO_DURATION_BOUNDS
+    from novelvideo.config import LOCALAPI_VIDEO_DURATION_BOUNDS
     from novelvideo.generators.video_generator import (
         NewApiVideoGenerator,
         newapi_video_backend_options,
@@ -39,7 +39,7 @@ def _api_video_backend_options() -> list[VideoBackendOption]:
         if value not in hidden_mainline_backends
     }
     duration_bounds = NewApiVideoGenerator._parse_duration_bounds_config(
-        NEWAPI_VIDEO_DURATION_BOUNDS
+        LOCALAPI_VIDEO_DURATION_BOUNDS
     )
     default_backend = VideoGenerateRequest().video_backend
     backend_options: list[VideoBackendOption] = []
@@ -114,7 +114,7 @@ def _api_video_backend_options_from_catalog(
 ) -> list[VideoBackendOption]:
     """把视频媒体模型目录（与画布 /freezone/video/models 同源）映射成分镜视频后端选项。
 
-    [aipdd fork delta] 分镜视频过去下拉来自写死的 ``NEWAPI_VIDEO_MODELS``，与画布走的
+    [aipdd fork delta] 分镜视频过去下拉来自写死的 ``LOCALAPI_VIDEO_MODELS``，与画布走的
     网关实拉目录不同源，导致「列表写死、参数按模型名写死」。现在：
 
     - 可选模型 = 目录里的全部视频模型（不再写死）；
@@ -124,7 +124,7 @@ def _api_video_backend_options_from_catalog(
       supported_modes、参考素材上限仍按名字派生 —— 这些是目录不承载的前端 UI 能力。
     """
 
-    from novelvideo.config import NEWAPI_VIDEO_DURATION_BOUNDS
+    from novelvideo.config import LOCALAPI_VIDEO_DURATION_BOUNDS
     from novelvideo.generators.video_generator import (
         NewApiVideoGenerator,
         parse_newapi_video_backend,
@@ -136,7 +136,7 @@ def _api_video_backend_options_from_catalog(
         "newapi_happyhorse-1.0",
     }
     duration_bounds = NewApiVideoGenerator._parse_duration_bounds_config(
-        NEWAPI_VIDEO_DURATION_BOUNDS
+        LOCALAPI_VIDEO_DURATION_BOUNDS
     )
     default_backend = VideoGenerateRequest().video_backend
     backend_options: list[VideoBackendOption] = []

@@ -394,7 +394,7 @@ def _register_local_auth_port():
 
 def _gateway_client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, list]:
     """搭一个只含 model-gateway 路由的 app，并把渠道写入换成 spy。"""
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     payloads: list[dict] = []
     monkeypatch.setattr(
         model_gateway,

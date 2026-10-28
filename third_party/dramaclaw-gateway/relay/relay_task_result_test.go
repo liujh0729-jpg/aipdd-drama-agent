@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
+	"github.com/dramaclaw/localapi/constant"
+	"github.com/dramaclaw/localapi/model"
+	"github.com/dramaclaw/localapi/relay/channel/task/taskcommon"
 	"github.com/stretchr/testify/require"
 )
 

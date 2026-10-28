@@ -159,10 +159,10 @@ def _ce_local_settings(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
         "FREEZONE_TRANSLATION_MODEL",
         "TEXT_MODEL_FALLBACK",
         "VISION_MODEL_FALLBACK",
-        "NEWAPI_IMAGE_MODEL",
-        "NEWAPI_VIDEO_MODEL",
-        "NEWAPI_AUDIO_MODEL",
-        "NEWAPI_ASR_MODEL",
+        "LOCALAPI_IMAGE_MODEL",
+        "LOCALAPI_VIDEO_MODEL",
+        "LOCALAPI_AUDIO_MODEL",
+        "LOCALAPI_ASR_MODEL",
     ):
         monkeypatch.delenv(key, raising=False)
     set_model_gateway_mode(MODE_CUSTOM)
@@ -535,7 +535,7 @@ def test_resolve_slot_ignores_process_env(monkeypatch: pytest.MonkeyPatch) -> No
         "DIRECTOR_SCREENWRITER_MODEL": "DC-director-screenwriter-LLM",
         "TEXT_MODEL_FALLBACK": "gateway::fallback",
         "VISION_MODEL_FALLBACK": "gateway::fallback-vision",
-        "NEWAPI_TEXT_MODEL": "gateway::echo",
+        "LOCALAPI_TEXT_MODEL": "gateway::echo",
     }.items():
         monkeypatch.setenv(key, value)
 

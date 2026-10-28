@@ -82,7 +82,7 @@ import {
 import { useModelTaskAccess } from '@/lib/model-task-access';
 import { readUrl } from '@/lib/url-params';
 // [aipdd fork delta] 脚本节点按类型选文本模型：候选来自
-// /model-gateway/text-models（后端聚合 NewAPI 渠道 model_mapping）。
+// /model-gateway/text-models（后端聚合 LocalAPI 渠道 model_mapping）。
 import { ProviderModelPicker } from '@/features/canvas/ui/ProviderModelPicker';
 import { useFreezoneTextModels } from '@/features/canvas/hooks/useFreezoneTextModels';
 import { backendErrorToastMessage } from '@/lib/api-errors';

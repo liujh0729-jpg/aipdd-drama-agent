@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/relay/channel/codex"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/constant"
+	"github.com/dramaclaw/localapi/model"
+	"github.com/dramaclaw/localapi/relay/channel/codex"
+	"github.com/dramaclaw/localapi/service"
 
 	"github.com/gin-gonic/gin"
 )

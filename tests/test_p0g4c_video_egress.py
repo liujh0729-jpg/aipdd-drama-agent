@@ -1373,7 +1373,7 @@ def test_comfy_channel_driven_ignores_hardcoded_server_and_secrets(
 def test_comfy_newapi_prefix_channel_model_bypasses_newapi_bridge(
     monkeypatch,
 ) -> None:
-    """[aipdd fork delta] newapi_<comfyui 渠道模型> 不得回落 NewAPI 桥接。"""
+    """[aipdd fork delta] newapi_<comfyui 渠道模型> 不得回落 LocalAPI 桥接。"""
     from novelvideo.generators import video_generator as vg
 
     monkeypatch.setattr(

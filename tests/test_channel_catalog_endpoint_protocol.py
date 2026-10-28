@@ -205,7 +205,7 @@ def test_videos_request_paths_take_declared_submit_and_lookup(monkeypatch, tmp_p
     assert videos_request_paths("aipdd::vid-declared", True) == ("videos", "/videos/")
     # 目录没声明端点：仍按 EP_VIDEOS 提交，轮询前缀回 ``{submit}/``。
     assert videos_request_paths("vid-silent", True) == ("videos", "/videos/")
-    # 没命中异步协议：通用 NewAPI 路径，与旧实现逐字相同。
+    # 没命中异步协议：通用 LocalAPI 路径，与旧实现逐字相同。
     assert videos_request_paths("vid-declared", False) == (
         "video/generations",
         "/video/generations/",

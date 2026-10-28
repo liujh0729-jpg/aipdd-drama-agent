@@ -43,7 +43,7 @@ async def freezone_ai_staging_prop(
     ctx, _username, _project_name, _project_dir, _output_dir = await _freezone._resolve_freezone_project(
         project, user, required_role="editor"
     )
-    # Product requests always use the edition's effective NewAPI gateway.
+    # Product requests always use the edition's effective LocalAPI gateway.
     # Keep low-level overrides available to offline helpers, but never accept
     # credentials or an endpoint from an HTTP payload.
     request = dict(request)
@@ -523,4 +523,6 @@ async def freezone_multi_view(
         provider=None,
         model=body.model or FREEZONE_DEFAULT_IMAGE_MODEL,
         quality=body.quality or "medium",
+        archive_to_library=body.archive_to_library,
+        source_tool=body.source_tool,
     )

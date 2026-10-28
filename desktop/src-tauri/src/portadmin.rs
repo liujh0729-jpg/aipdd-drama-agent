@@ -16,7 +16,7 @@ use std::process::Stdio;
 /// 受管端口（启动顺序）：`(服务显示名, 默认端口)`。端口健康检测与释放都以这份清单为准。
 pub const WATCH_PORTS: &[(&str, u16)] = &[
     ("Nginx 反代 / 前端", 8080),
-    ("newapi 网关 (Go)", 3000),
+    ("LocalAPI 网关 (Go)", 3000),
     ("FastAPI 主服务 (Python)", 8780),
     ("VectCut 剪辑 (Python)", 9001),
 ];

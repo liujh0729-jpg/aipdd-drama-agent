@@ -60,7 +60,7 @@ async def save_custom_newapi_embedding_model(
             message = str(
                 response.get("message") or response.get("error") or ""
             ).strip()
-        item["error"] = message or "NewAPI rejected embedding model channel update"
+        item["error"] = message or "LocalAPI rejected embedding model channel update"
         return {
             "ok": False,
             "data": {

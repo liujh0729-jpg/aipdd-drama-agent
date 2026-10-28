@@ -96,8 +96,8 @@ def test_render_settings_returns_current_selection_and_options(monkeypatch, tmp_
     assert body["data"]["render_image_selection"] == "newapi_nanobanana2"
     # [aipdd fork delta] 图源选项 label 已去厂商化（上游为 上游私有别名 / 上游私有别名）。
     assert body["data"]["options"] == {
-        "newapi_gpt_image2": "NewAPI Image",
-        "newapi_nanobanana2": "NewAPI Nano Banana 2",
+        "newapi_gpt_image2": "LocalAPI Image",
+        "newapi_nanobanana2": "LocalAPI Nano Banana 2",
     }
     assert body["data"]["sketch_aspect_padding"] is True
     assert "force_half_k" not in body["data"]
@@ -175,8 +175,8 @@ def test_sketch_settings_returns_current_selection_and_options(monkeypatch, tmp_
     assert body["data"]["sketch_image_selection"] == "newapi_nanobanana2"
     # [aipdd fork delta] 图源选项 label 已去厂商化（上游为 上游私有别名 / 上游私有别名）。
     assert body["data"]["options"] == {
-        "newapi_gpt_image2": "NewAPI Image",
-        "newapi_nanobanana2": "NewAPI Nano Banana 2",
+        "newapi_gpt_image2": "LocalAPI Image",
+        "newapi_nanobanana2": "LocalAPI Nano Banana 2",
     }
 
 

@@ -610,7 +610,7 @@ async def test_freezone_audio_eleven_music_resolves_the_default_audio_slot(
 
     旧的内置名 Acme-MU-1 不在任何渠道目录里，打出去就是网关那句
     ``No available channel``（503）—— 报错来自网关，用户完全无从下手。同一条理由适用于
-    ``NEWAPI_AUDIO_MODEL``：它排在面板前面时，用户换了默认音频模型、任务还跑在 env 那个名字
+    ``LOCALAPI_AUDIO_MODEL``：它排在面板前面时，用户换了默认音频模型、任务还跑在 env 那个名字
     上。现在这一位只认媒体模型映射（同类型 enabled、sortOrder 最小的一条），env 里写别的
     名字不改变路由。
     """
@@ -638,7 +638,7 @@ async def test_freezone_audio_eleven_music_resolves_the_default_audio_slot(
             }
         }
     )
-    monkeypatch.setenv("NEWAPI_AUDIO_MODEL", "env-only-audio-model")
+    monkeypatch.setenv("LOCALAPI_AUDIO_MODEL", "env-only-audio-model")
 
     result = await audio_node.generate_freezone_audio_eleven_music(
         project_dir=tmp_path,
@@ -658,7 +658,7 @@ async def test_freezone_audio_eleven_music_refuses_before_submit_when_audio_slot
     from novelvideo.model_slots import ModelSlotNotConfigured
 
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.delenv("NEWAPI_AUDIO_MODEL", raising=False)
+    monkeypatch.delenv("LOCALAPI_AUDIO_MODEL", raising=False)
     monkeypatch.setattr(audio_node, "_write_newapi_audio_speech", _fail_if_called)
 
     with pytest.raises(ModelSlotNotConfigured):

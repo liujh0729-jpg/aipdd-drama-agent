@@ -7,10 +7,10 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/relay/channel"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/constant"
+	"github.com/dramaclaw/localapi/relay/channel"
+	relaycommon "github.com/dramaclaw/localapi/relay/common"
 )
 
 const ChannelTypeStatusEnabled = 1

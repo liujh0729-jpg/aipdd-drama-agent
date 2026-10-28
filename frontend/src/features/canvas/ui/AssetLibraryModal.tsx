@@ -1260,13 +1260,17 @@ export function AssetLibraryModal({
                 : Boolean(bulkEligible && entry.id && bulkIds.includes(entry.id));
               const disabledPick =
                 pickMode && !selected && selectedCountOf(entry.media) >= maxSelectable;
-              // [aipdd fork delta] 剪映草稿不是可引用的素材（图片/视频/音频），选材
-              // 态里不给勾选入口：点卡片只看详情、下载草稿包，不参与节点选择。
-              const isDraftPick = pickMode && entry.media === 'draft';
+              // [aipdd fork delta] 剪映草稿 / 3D / 文本不是可引用的素材（图片/视频/
+              // 音频），选材态里不给勾选入口：点卡片只看详情，不参与节点选择。
+              const isDetailOnlyPick =
+                pickMode &&
+                (entry.media === 'draft' ||
+                  entry.media === 'model3d' ||
+                  entry.media === 'text');
               const openDetails = () => setPreviewEntry(entry);
               const activateCard = () => {
                 if (pickMode) {
-                  if (isDraftPick) {
+                  if (isDetailOnlyPick) {
                     openDetails();
                     return;
                   }
@@ -1287,14 +1291,14 @@ export function AssetLibraryModal({
                   } ${disabledPick ? 'cursor-default' : 'cursor-pointer'}`}
                   onClick={activateCard}
                   title={
-                    pickMode && !isDraftPick
+                    pickMode && !isDetailOnlyPick
                       ? undefined
                       : t('canvas.assetLibrary.openDetails')
                   }
                 >
                   <AssetLibraryItemMedia entry={entry} />
 
-                  {((pickMode && !isDraftPick) || bulkEligible) && (
+                  {((pickMode && !isDetailOnlyPick) || bulkEligible) && (
                     <button
                       type="button"
                       onClick={(event) => {

@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/logger"
+	"github.com/dramaclaw/localapi/relaykit/dto"
+	"github.com/dramaclaw/localapi/setting/system_setting"
 
 	"golang.org/x/net/proxy"
 )

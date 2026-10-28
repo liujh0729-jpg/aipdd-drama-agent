@@ -1,4 +1,4 @@
-"""Validated declarative parameter mapping for NewAPI media requests."""
+"""Validated declarative parameter mapping for LocalAPI media requests."""
 
 from __future__ import annotations
 
@@ -167,7 +167,7 @@ def _ensure_image_default_dimensions(result: dict[str, Any]) -> None:
 def enforce_newapi_media_geometry_contract(
     payload: dict[str, Any], *, media_type: str
 ) -> dict[str, Any]:
-    """Enforce the final mutually exclusive NewAPI geometry representation.
+    """Enforce the final mutually exclusive LocalAPI geometry representation.
 
     Fixed geometry keeps its semantic ratio and derived width/height together.
     Follow-input geometry is expressed by a canonical ratio value without
@@ -192,7 +192,7 @@ def enforce_newapi_media_geometry_contract(
     ).strip().lower()
     result.pop("ratio", None)
     result.pop("aspect_ratio", None)
-    # ``size`` is a retired merged geometry alias. Public NewAPI requests use
+    # ``size`` is a retired merged geometry alias. Public LocalAPI requests use
     # numeric width/height for fixed geometry and omit all dimensions for auto.
     result.pop("size", None)
     if ratio in {"auto", "adaptive"}:
@@ -220,7 +220,7 @@ def enforce_newapi_media_geometry_contract(
 
 
 def enforce_newapi_video_duration_contract(payload: dict[str, Any]) -> dict[str, Any]:
-    """Normalize the final generic NewAPI duration without provider aliases."""
+    """Normalize the final generic LocalAPI duration without provider aliases."""
 
     result = copy.deepcopy(payload)
     raw_duration = result.get("duration", result.get("seconds"))
@@ -354,7 +354,7 @@ def validate_media_request_schema(schema: object) -> dict[str, Any]:
         raise MediaModelSchemaError("request schema must be an object")
     endpoint = str(schema.get("endpoint") or "").strip()
     if endpoint not in {"images/generations", "video/generations", "audio/speech"}:
-        raise MediaModelSchemaError("unsupported NewAPI media endpoint")
+        raise MediaModelSchemaError("unsupported LocalAPI media endpoint")
     parameters = schema.get("parameters") or []
     if not isinstance(parameters, list) or len(parameters) > 32:
         raise MediaModelSchemaError("parameters must be a list with at most 32 items")

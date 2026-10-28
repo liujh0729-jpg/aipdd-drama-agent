@@ -87,7 +87,7 @@ PROFILE_CASES = (
     ("invalid-edition-canary", ""),
 )
 
-NEWAPI_MUTATION_CASES = (
+LOCALAPI_MUTATION_CASES = (
     (
         "/model-gateway/custom/newapi/init",
         {
@@ -209,7 +209,7 @@ def _install_newapi_side_effect_spies(
 
 
 @pytest.mark.parametrize(("edition", "dsn"), PROFILE_CASES)
-@pytest.mark.parametrize(("route", "payload"), NEWAPI_MUTATION_CASES)
+@pytest.mark.parametrize(("route", "payload"), LOCALAPI_MUTATION_CASES)
 def test_newapi_mutations_are_excluded_before_any_side_effect(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -223,7 +223,7 @@ def test_newapi_mutations_are_excluded_before_any_side_effect(
         monkeypatch.setenv("ST_CONTROL_PLANE_DSN", dsn)
     else:
         monkeypatch.delenv("ST_CONTROL_PLANE_DSN", raising=False)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
     monkeypatch.setenv("LOCALAPI_API_KEY", "newapi-admin-token-canary")
     monkeypatch.setenv("MODEL_API_KEY", "model-api-key-canary")
     calls = _install_newapi_side_effect_spies(monkeypatch)

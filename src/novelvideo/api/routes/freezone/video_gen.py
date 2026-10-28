@@ -133,6 +133,8 @@ async def freezone_video_gen(
             model_params=model_params,
             request_schema=request_schema,
             capabilities=capabilities,
+            archive_to_library=bool(body.archive_to_library),
+            source_tool=body.source_tool,
         )
     except RuntimeError as exc:
         _freezone._handle_task_start_runtime_error("failed to start freezone video gen task", exc)
@@ -253,6 +255,8 @@ async def freezone_video_i2v(
             model_params=model_params,
             request_schema=request_schema,
             capabilities=capabilities,
+            archive_to_library=bool(body.archive_to_library),
+            source_tool=body.source_tool,
         )
     except RuntimeError as exc:
         _freezone._handle_task_start_runtime_error(
@@ -393,6 +397,8 @@ async def freezone_video_keyframes(
             model_params=model_params,
             request_schema=request_schema,
             capabilities=capabilities,
+            archive_to_library=bool(body.archive_to_library),
+            source_tool=body.source_tool,
         )
     except RuntimeError as exc:
         _freezone._handle_task_start_runtime_error(
@@ -861,6 +867,8 @@ async def freezone_video_extend(
             model_params=model_params,
             request_schema=request_schema,
             capabilities=capabilities,
+            archive_to_library=bool(body.archive_to_library),
+            source_tool=body.source_tool,
         )
     except RuntimeError as exc:
         _freezone._handle_task_start_runtime_error(
@@ -988,6 +996,10 @@ async def freezone_video_upscale(
                     "resolution": body.resolution,
                     "frame_interpolation": body.frame_interpolation,
                     "denoise_strength": body.denoise_strength,
+                    # [aipdd fork delta] 超分结果是最终产物，带标记时 runner 登记
+                    # 进资产库「待分类资产」。
+                    **({"archive_to_library": True} if body.archive_to_library else {}),
+                    **({"source_tool": body.source_tool} if body.source_tool else {}),
                 },
             )
         _freezone._start_freezone_video_upscale_task(

@@ -324,15 +324,17 @@ export function videoModeRequiresPrompt(mode: VideoGenMode): boolean {
  * 后端 omni 端点强校验 prompt，而 references 为空又根本没得可发。曾经写成「要提示词
  * 的模式就只看提示词」，于是「接过图 → 又把图撤走 → 只打字」这条路上按钮看着可点、
  * 点下去却被 handleSubmit 的 `references.length === 0` 静默拦掉，表现为「点了没反应」。
- * 正常情况下 `videoNoUpstreamResetMode` 会先把模式退回文生视频，这条是兜底：上游节点
- * 还连着、里面的图却被清空时（typeCounts>0 而 counts==0）退回不触发，仍要拦住提交。
+ * 正常情况下 `videoUpstreamClearedResetMode` 会先把模式退回文生视频，这条是兜底：
+ * 上游节点还连着、里面的图却被清空时（typeCounts>0 而 counts==0）退回不触发，仍要
+ * 拦住提交。
  */
 export function videoModeRequiresMedia(mode: VideoGenMode): boolean {
   return mode !== "textToVideo";
 }
 
 /**
- * 上游素材被全部撤走后该退回哪个模式：`"textToVideo"` = 退回文生视频，null = 不动。
+ * 上游素材**刚刚被撤空**（上一刻 >0、这一刻 =0）时该退回哪个模式：
+ * `"textToVideo"` = 退回文生视频，null = 不动。
  *
  * 视频节点的模式推导原本是**单向**的：接入图片/视频/音频时有一堆 effect 把模式推进
  * 到能消费该素材的模式，却没有任何一条在素材撤空后把它推回来。于是「连一张图 → 又把
@@ -340,16 +342,20 @@ export function videoModeRequiresMedia(mode: VideoGenMode): boolean {
  * HappyHorse 那条统一状态机早就有「无上游 → 文生视频」这一档，这里把同一条规则补给
  * 其余模型。
  *
- * 素材计数要传**按节点类型**的口径（`upstreamTypeCounts`，空的图片节点也算），不能用
- * 「已解析 URL」的口径：空态 CTA（全能参考 / 图片参考 / 首尾帧）正是先铺一个还没出图
- * 的图片/上传节点、再把模式切过去，按 URL 口径这一瞬间素材数是 0，会被这条规则当场
- * 顶回文生视频，等于把三个 CTA 全废掉。
+ * 判定用**前后两次素材数**做差，而不是「当前素材数为 0 且模式非文生」：后者分不清
+ * 「用户刚把素材撤空」和「用户在空节点上主动切到全能参考」，后者切一次就被当场顶
+ * 回去，表现为点 tab 没反应。素材数取**按节点类型**的口径（`upstreamTypeCounts`，
+ * 空的图片节点也算），并把节点自身的参考链接/文档算作一个素材来源：空态 CTA（全能
+ * 参考 / 图片参考 / 首尾帧）正是先铺一个还没出图的图片/上传节点、再把模式切过去，
+ * 按「已解析 URL」口径这一瞬间素材数是 0，会被当场顶回文生视频；只挂参考链接/文档的
+ * 全能参考同理。
  */
-export function videoNoUpstreamResetMode(
+export function videoUpstreamClearedResetMode(
   mode: VideoGenMode,
-  counts: { images: number; videos: number; audios: number },
+  previousMaterialCount: number,
+  currentMaterialCount: number,
 ): VideoGenMode | null {
-  if (counts.images > 0 || counts.videos > 0 || counts.audios > 0) return null;
+  if (previousMaterialCount <= 0 || currentMaterialCount > 0) return null;
   return mode === "textToVideo" ? null : "textToVideo";
 }
 

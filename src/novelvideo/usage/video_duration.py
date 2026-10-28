@@ -29,7 +29,7 @@ def _gateway_model_from_backend(backend: str | None) -> str:
     value = str(backend or "").strip()
     lowered = value.lower()
     if lowered == "newapi":
-        # [aipdd fork delta] 默认视频模型只读设置（env ``NEWAPI_VIDEO_MODEL`` 已退出解析链）。
+        # [aipdd fork delta] 默认视频模型只读设置（env ``LOCALAPI_VIDEO_MODEL`` 已退出解析链）。
         return get_newapi_video_model()
     for prefix in ("newapi_", "huimeng_", "huimengi_"):
         if lowered.startswith(prefix):
@@ -47,10 +47,10 @@ def video_duration_bounds_for_backend(
     backend: str | None,
 ) -> tuple[int | None, int | None]:
     """Return the provider duration bounds used by the selected backend."""
-    from novelvideo.config import NEWAPI_VIDEO_DURATION_BOUNDS
+    from novelvideo.config import LOCALAPI_VIDEO_DURATION_BOUNDS
 
     model = _gateway_model_from_backend(backend)
-    configured = parse_video_duration_bounds(NEWAPI_VIDEO_DURATION_BOUNDS)
+    configured = parse_video_duration_bounds(LOCALAPI_VIDEO_DURATION_BOUNDS)
     if model:
         bounds = configured.get(model)
         if bounds:

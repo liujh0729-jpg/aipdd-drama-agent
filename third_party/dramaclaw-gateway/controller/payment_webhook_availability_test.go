@@ -3,8 +3,8 @@ package controller
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/setting"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/dramaclaw/localapi/setting"
+	"github.com/dramaclaw/localapi/setting/operation_setting"
 	"github.com/stretchr/testify/require"
 )
 

@@ -65,7 +65,7 @@ for DMG in "$@"; do
       else mark_fail "架构不符：文件名要求 ${WANT_ARCH}，主执行件实为 ${HAVE_ARCHS:-未知}——疑跨架构缓存误用"; fi
     fi
     # d2) 随包 Python 解释器架构与文件名一致——只看主执行件会漏「壳 arm64、payload x64」
-    #     这类污染（2.3.1 真机事件：arm 包里 nginx/new-api/python 全为 x86_64，用户端走
+    #     这类污染（2.3.1 真机事件：arm 包里 nginx/localapi/python 全为 x86_64，用户端走
     #     Rosetta 后因用户目录包架构不匹配崩 dlopen）。以随包解释器为 payload 代表查一道。
     PY="$APP/Contents/Resources/resources/python/bin/python3"
     [[ -f "$PY" ]] || PY="$APP/Contents/Resources/python/bin/python3"

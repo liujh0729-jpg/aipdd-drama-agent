@@ -32,7 +32,7 @@ inherits the same auth, project guards, and task queue as the web UI.
 - A running AIPDD-Agent-Claw instance (`docker compose up -d`, REST API on `:8780`).
 - A configured, funded model gateway (Settings → Models & Channels) — the agent can
   plan/script without it, but image/video/audio generation needs working models.
-  Generation can ride **AIPDD's low-cost idle compute**, any **NewAPI** channel you
+  Generation can ride **AIPDD's low-cost idle compute**, any **LocalAPI** channel you
   register, or **local ComfyUI** on your own GPU — see the
   [model guide](../../../README.md#supported-models).
 - Local checkout with [`uv`](https://docs.astral.sh/uv/) synced (`uv sync`) so the
@@ -146,12 +146,13 @@ The tools cover the full pipeline. A typical end-to-end run:
     or both; each stage's model can be left blank to use the default),
     `aipdd_drama_voice_clone`, `aipdd_drama_lip_sync`,
     `aipdd_drama_replace_person`, `aipdd_drama_video_watermark`,
-    `aipdd_drama_image_watermark` — outputs are archived into the asset library
-    (「待分类资产」/ uncategorized) by default; `aipdd_drama_douyin_copywrite`
+    `aipdd_drama_image_watermark` — generated outputs are archived into the asset
+    library (「待分类资产」/ uncategorized) by default — "generate, then archive"
+    — and pass `archive_to_library=false` to opt out; `aipdd_drama_douyin_copywrite`
     (Douyin copy extract: share link → parsed video detail → narration
     transcribed with the ASR model you pick from
     `/freezone/douyin-copywrite/models`) returns the full script in the task
-    result and does not archive its txt — the asset library has no text carrier
+    result and archives its txt into the text carrier the same way (opt-out applies too)
 16. Canvas generation tools (fully node-equivalent to the web freezone; each call
     returns a `job_id` and its description names the task type to poll):
     **image** `aipdd_drama_image_generate` (text-to-image / references),
@@ -164,12 +165,17 @@ The tools cover the full pipeline. A typical end-to-end run:
     (image-to-video, `gen_mode` is imageToVideo / imageReference),
     `aipdd_drama_video_omni_gen` (all-reference omni-gen), `aipdd_drama_video_upscale`,
     `aipdd_drama_video_edit`, `aipdd_drama_video_extend`;
+    canvas generation nodes follow the same "generate, then archive" rule — products
+    land in 「待分类资产」/ uncategorized automatically, including processing/transform
+    results (only intermediates such as frame extraction or analysis stay out);
     **audio** `aipdd_drama_audio_separate` (vocal / accompaniment split),
     `aipdd_drama_audio_music` (ElevenLabs music);
     **text/script** `aipdd_drama_text_generate`, `aipdd_drama_text_translate`,
     `aipdd_drama_story_script_generate`, `aipdd_drama_video_script_reverse`,
-    `aipdd_drama_media_copywrite` — the last two produce txt, are deliberately NOT in
-    the `/result` whitelist, read them via `aipdd_drama_get_task` (`task.result`);
+    `aipdd_drama_media_copywrite` — inline plain text does not get its own entry;
+    txt files (reverse script / media copy) are archived into the text carrier and
+    are deliberately NOT in the `/result` whitelist — read them via
+    `aipdd_drama_get_task` (`task.result`);
     **resource catalog reads** `aipdd_drama_list_assets`,
     `aipdd_drama_get_character_library`, `aipdd_drama_get_audio_references`,
     `aipdd_drama_get_models` (maps `kind` to the image / video / audio / text / vision

@@ -548,6 +548,97 @@ async def test_text_to_video_preserves_selected_ratio_and_duration(
 
 
 @pytest.mark.asyncio
+async def test_video_routes_forward_library_archive_markers(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """画布视频的 4 条生成路由把 ``archive_to_library`` / ``source_tool`` 透传进共享入队。
+
+    [aipdd fork delta] runner 侧早就支持「产物登记进资产库·待分类资产」，缺的是提交
+    时没人带标记：这 4 个请求模型没有这两字段、路由也没往入队参数里传，于是画布出的
+    视频从不进库（图片同 defect，已一并补上）。
+    """
+
+    async def _capture(route, body, capabilities) -> dict:
+        captured = await _install_route_fakes(monkeypatch, tmp_path, capabilities)
+        await route("project", body, {"username": "admin"})
+        return captured["start"]
+
+    started = [
+        await _capture(
+            freezone_routes.freezone_video_gen,
+            FreezoneVideoGenRequest(
+                prompt="rainy street",
+                model="catalog-video",
+                archive_to_library=True,
+                source_tool="canvas",
+            ),
+            _catalog("text_to_video"),
+        ),
+        await _capture(
+            freezone_routes.freezone_video_i2v,
+            FreezoneImageToVideoRequest(
+                image_urls=["https://example.com/ref.png"],
+                model="catalog-video",
+                gen_mode="imageToVideo",
+                archive_to_library=True,
+                source_tool="canvas",
+            ),
+            _catalog("image_to_video"),
+        ),
+        await _capture(
+            freezone_routes.freezone_video_keyframes,
+            FreezoneKeyframeVideoRequest(
+                first_frame_url="https://example.com/first.png",
+                model="catalog-video",
+                gen_mode="firstFrame",
+                archive_to_library=True,
+                source_tool="canvas",
+            ),
+            _catalog("first_frame"),
+        ),
+        await _capture(
+            freezone_routes.freezone_video_extend,
+            FreezoneVideoExtendRequest(
+                video_url="https://example.com/source.mp4",
+                prompt="继续生成五秒",
+                model="catalog-video",
+                archive_to_library=True,
+                source_tool="canvas",
+            ),
+            _catalog("video_extend") | {"referenceVideoMax": 1},
+        ),
+    ]
+
+    assert [item["archive_to_library"] for item in started] == [True] * 4
+    assert [item["source_tool"] for item in started] == ["canvas"] * 4
+
+
+@pytest.mark.asyncio
+async def test_text_to_video_default_archives_explicit_false_opts_out(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """[aipdd fork delta] 默认「生成就入库」：不传标记即 True；显式传 false 才关闭。"""
+    captured = await _install_route_fakes(monkeypatch, tmp_path, _catalog("text_to_video"))
+
+    await freezone_routes.freezone_video_gen(
+        "project",
+        FreezoneVideoGenRequest(prompt="rainy street", model="catalog-video"),
+        {"username": "admin"},
+    )
+    assert captured["start"]["archive_to_library"] is True
+
+    await freezone_routes.freezone_video_gen(
+        "project",
+        FreezoneVideoGenRequest(
+            prompt="rainy street", model="catalog-video", archive_to_library=False
+        ),
+        {"username": "admin"},
+    )
+    assert captured["start"]["archive_to_library"] is False
+    assert captured["start"]["source_tool"] == ""
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("first_url", "last_url", "message"),
     [

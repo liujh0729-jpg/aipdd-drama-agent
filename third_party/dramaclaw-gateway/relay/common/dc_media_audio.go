@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	rootcommon "github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
+	rootcommon "github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/relaykit/dto"
 )
 
 type DCMediaAudioKind string

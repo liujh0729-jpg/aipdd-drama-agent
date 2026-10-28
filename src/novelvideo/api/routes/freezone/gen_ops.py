@@ -142,7 +142,7 @@ async def _start_or_enqueue_freezone_video_gen(
         if not video_input_paths or input_video_duration_seconds <= 0:
             raise HTTPException(400, "video editing requires a readable source video")
         # 视频编辑的输出时长跟随主输入视频。输入和输出沿用同一套整秒
-        # 计费口径，不为视频编辑额外引入向上取整规则；发给 NewAPI 的
+        # 计费口径，不为视频编辑额外引入向上取整规则；发给 LocalAPI 的
         # 最终协议仍会强制使用 duration=auto。
         effective_duration_seconds = max(
             int(math.floor(input_video_duration_seconds)),
@@ -235,6 +235,8 @@ async def _start_or_enqueue_freezone_image_to_3gs(
     params: dict,
     canvas_id: str | None = None,
     node_id: str | None = None,
+    archive_to_library: bool = False,
+    source_tool: str = "",
 ) -> dict:
     task_type = "freezone_image_to_3gs"
     payload = {
@@ -246,6 +248,10 @@ async def _start_or_enqueue_freezone_image_to_3gs(
         "project_dir": str(project_dir),
         "canvas_id": canvas_id or "",
         "node_id": node_id or "",
+        # [aipdd fork delta req97] 默认入库（生成就入库），显式传 false 时不带键、
+        # runner 不归档。
+        **({"archive_to_library": True} if archive_to_library else {}),
+        **({"source_tool": source_tool} if source_tool else {}),
     }
     if ctx is not None:
         queued = await _freezone.get_task_backend().enqueue_project_task(

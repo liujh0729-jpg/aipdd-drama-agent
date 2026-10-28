@@ -25,7 +25,7 @@ impl ServiceId {
     pub fn display(self) -> &'static str {
         match self {
             ServiceId::Nginx => "Nginx 反代 / 前端",
-            ServiceId::Gateway => "newapi 网关 (Go)",
+            ServiceId::Gateway => "LocalAPI 网关 (Go)",
             ServiceId::Vectcut => "VectCut 剪辑 (Python)",
             ServiceId::Api => "FastAPI 主服务 (Python)",
         }

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ClaymoreLab
 // [aipdd fork delta] 画布模型选择器的渠道彩色胶囊：模型名旁必须标出该模型所属
 // 渠道（下拉每项 + 触发器已选项）。展示名与配色取自 @/lib/provider-labels：
-// aipdd→AIPDD、newapi→NewAPI、openai→OpenAI（其它额外渠道）、volcengine→
+// aipdd→AIPDD、newapi→LocalAPI、openai→OpenAI（其它额外渠道）、volcengine→
 // VolcEngine；channel 缺省回退 providerId；空串 = 明确不标注（如音频面板合成的
 // 「默认引擎」）。
 //

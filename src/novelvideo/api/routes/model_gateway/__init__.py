@@ -9,7 +9,7 @@
 - embedding:  Embedding 模型渠道写入与维度配置
 - comfyui:    本地 ComfyUI 渠道清理与工作流解析
 - plaza:      模型广场只读目录与单次最小探活
-- seedance_assets: Seedance 私域素材库 / 真人活体认证（仅支持该能力的 NewAPI）
+- seedance_assets: Seedance 私域素材库 / 真人活体认证（仅支持该能力的 LocalAPI）
 - _common:    共享层（CE 管理闸门、请求体模型、渠道载荷构建辅助）
 
 URL 与请求/响应契约和单文件时代完全一致。测试对 ``model_gateway.<name>`` 的
@@ -96,7 +96,7 @@ from .media import (  # noqa: F401
     _build_media_model_channel_specs,
 )
 
-# [aipdd fork delta] CE 多用户：网关配置含渠道密钥 + NewAPI 管理员令牌、决定全平台
+# [aipdd fork delta] CE 多用户：网关配置含渠道密钥 + LocalAPI 管理员令牌、决定全平台
 # 模型流量去向，属管理员配置面（与 env_setup 同域）。整组路由拒机器凭证
 # （agent 会话 / 统一 API 密钥），写操作再要 owner；只读留给浏览器会话（成员 UI 需
 # /model-plaza、/config 列模型）。单用户模式浏览器会话恒 local/owner，全部放行、行为不变。
@@ -113,7 +113,7 @@ router.include_router(embedding.router)
 router.include_router(comfyui.router)
 router.include_router(plaza.router)
 # [aipdd fork delta req47] Seedance 素材库/真人认证：整组路由自带能力探测闸门，
-# 不支持素材库的 NewAPI 一律 503，不做「先试一把」的假设。
+# 不支持素材库的 LocalAPI 一律 503，不做「先试一把」的假设。
 router.include_router(seedance_assets.router)
 
 # 文本模型候选缓存存放在包命名空间：connection 的 text-models 路由经

@@ -70,7 +70,7 @@ def create_video_generator(
     backend_str = _coerce_video_backend_value(backend)
     newapi_model = parse_newapi_video_backend(backend_str)
     if newapi_model:
-        # [aipdd fork delta] comfyui 渠道模型绝不走 NewAPI 桥接：直连渠道 ComfyUI。
+        # [aipdd fork delta] comfyui 渠道模型绝不走 LocalAPI 桥接：直连渠道 ComfyUI。
         if is_comfyui_channel_model(newapi_model, "video"):
             return ComfyUIVideoGenerator(model=newapi_model, **kwargs)
         return NewApiVideoGenerator(model=newapi_model, **kwargs)

@@ -98,7 +98,7 @@ def _use_authz(monkeypatch: pytest.MonkeyPatch, port: object) -> None:
 def no_real_network(monkeypatch) -> dict[str, int]:
     """兜底：本文件任何测试都不得真的出网。
 
-    RED 阶段实测（修复前）：C1-02 的**组织身份**请求真的打到了 NewAPI 网关并拿回
+    RED 阶段实测（修复前）：C1-02 的**组织身份**请求真的打到了 LocalAPI 网关并拿回
     `status_code: 401 ... new_api_error` —— 那是 fail-open 的实证，同时也意味着一次
     回归就会让 CI 发出真实的、按量计费的调用。这里做进程级拦截。
 

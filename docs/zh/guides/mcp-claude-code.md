@@ -20,7 +20,7 @@ stdio 桥：每个工具就是对你自己实例的一次 HTTP 调用，因此�
 - 一个正在运行的 AIPDD-Agent-Claw 实例（`docker compose up -d`，REST API 在 `:8780`）。
 - 已配置、可用的模型网关（设置 → 模型与渠道）—— 规划 / 写剧本不依赖模型，但
   图像 / 视频 / 音频生成需要真实可用的模型。生成可走 **AIPDD 平台的低成本闲置
-  算力**、你在 **NewAPI** 里注册的任意渠道，或**本机 ComfyUI 自持 GPU**——详见
+  算力**、你在 **LocalAPI** 里注册的任意渠道，或**本机 ComfyUI 自持 GPU**——详见
   [模型指南](../../../README.md#supported-models)。
 - 本机有仓库副本并同步过依赖（`uv sync`），使 `novelvideo` 包可导入。
 
@@ -117,11 +117,12 @@ claude mcp list        # dramaclaw → ✓ connected
     网关 ASR/文本瑕疵剪与分镜/B-roll 判定 + 生图/BGM → 直出 MP4 或 VectCut 剪映草稿，
     或两者；各阶段模型可留空走默认）、
     `aipdd_drama_voice_clone`、`aipdd_drama_lip_sync`、`aipdd_drama_replace_person`、
-    `aipdd_drama_video_watermark`、`aipdd_drama_image_watermark` —— 产物默认自动登记进
-    资产库「待分类资产」；另有 `aipdd_drama_douyin_copywrite`（抖音文案提取：分享
+    `aipdd_drama_video_watermark`、`aipdd_drama_image_watermark` —— 生成类产物默认
+    「生成就入库」，自动登记进资产库「待分类资产」（显式传 `archive_to_library=false`
+    关闭）；另有 `aipdd_drama_douyin_copywrite`（抖音文案提取：分享
     链接 → 解析视频 → 按选定 ASR 模型转写口播文案，模型候选见
-    `/freezone/douyin-copywrite/models`）——文案全文随任务结果返回，产物 txt 不
-    进资产库（素材库无文本载体）
+    `/freezone/douyin-copywrite/models`）——文案全文随任务结果返回，产物 txt 默认
+    同样归档进资产库「文本」载体（同样可显式关闭）
 16. 画布生成工具（与网页端 freezone 节点完全同源，提交后返回 `job_id`，按描述
     轮询对应任务类型）：**生图** `aipdd_drama_image_generate`（文生图 / 参考图）、
     `aipdd_drama_image_edit`（指令编辑，可带额外参考图，产物默认入库）、
@@ -132,12 +133,15 @@ claude mcp list        # dramaclaw → ✓ connected
     （图生提示词）；**生视频** `aipdd_drama_video_generate`（文生视频）、
     `aipdd_drama_video_i2v`（图生视频，`gen_mode` 取 imageToVideo / imageReference）、
     `aipdd_drama_video_omni_gen`（全参考 omni-gen）、`aipdd_drama_video_upscale`、
-    `aipdd_drama_video_edit`、`aipdd_drama_video_extend`（续写）；**音频**
+    `aipdd_drama_video_edit`、`aipdd_drama_video_extend`（续写）—— 画布生成类节点
+    默认「生成就入库」，产物完成后自动登记进「待分类资产」（处理/变换类同样登记，
+    只有抽帧、分析等中间过程不入库）；**音频**
     `aipdd_drama_audio_separate`（人声 / 伴奏分离）、`aipdd_drama_audio_music`
     （ElevenLabs 音乐）；**文本脚本** `aipdd_drama_text_generate`、
     `aipdd_drama_text_translate`、`aipdd_drama_story_script_generate`（故事转分集脚本）、
     `aipdd_drama_video_script_reverse`（视频反推脚本）、`aipdd_drama_media_copywrite`
-    （素材文案）—— 后两者产物为 txt，不进 `/result` 白名单，用
+    （素材文案）—— 内联纯文本产物不单独建条目；落成 txt 文件的反推脚本 / 文案转写
+    默认归入「文本」载体，全文不进 `/result` 白名单，用
     `aipdd_drama_get_task` 读取 `task.result`；**资源目录读** `aipdd_drama_list_assets`、
     `aipdd_drama_get_character_library`、`aipdd_drama_get_audio_references`、
     `aipdd_drama_get_models`（按 `kind` 映射 image / video / audio / text / vision 目录）。

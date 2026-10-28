@@ -1636,7 +1636,7 @@ async def test_newapi_video_seedance2_references_normalize_only_image_refs(
     assert captured[1]["image_transform"] is None
     assert captured[2]["image_transform"] is None
     assert all(
-        item["ttl"] == video_module.NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS
+        item["ttl"] == video_module.LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS
         for item in captured
     )
 

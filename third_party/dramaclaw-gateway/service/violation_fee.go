@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/model"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/logger"
+	"github.com/dramaclaw/localapi/model"
+	relaycommon "github.com/dramaclaw/localapi/relay/common"
+	"github.com/dramaclaw/localapi/relaykit/types"
+	"github.com/dramaclaw/localapi/setting/model_setting"
 
 	"github.com/shopspring/decimal"
 
@@ -102,7 +102,7 @@ func calcViolationFeeQuota(amount, groupRatio float64) int {
 // ChargeViolationFeeIfNeeded charges an additional fee after the normal flow finishes (including refund).
 // It uses Grok fee settings as the fee policy.
 func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, apiErr *types.NewAPIError) bool {
-	if ctx == nil || relayInfo == nil || apiErr == nil {
+	if common.BillingDisabled || ctx == nil || relayInfo == nil || apiErr == nil {
 		return false
 	}
 	//if relayInfo.IsPlayground {

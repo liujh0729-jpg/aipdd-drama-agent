@@ -155,7 +155,7 @@ async def test_newapi_text_model_translates_http_failure(monkeypatch) -> None:
 
 
 def _gateway_unbound_error(model_name: str) -> ModelHTTPError:
-    """本地网关（new-api distributor）的「没有可用渠道」原话。"""
+    """本地网关（localapi distributor）的「没有可用渠道」原话。"""
 
     return ModelHTTPError(
         503,

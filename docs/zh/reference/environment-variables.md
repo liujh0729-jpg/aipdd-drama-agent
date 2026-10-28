@@ -25,8 +25,8 @@ CE 的渠道选择、网关地址和 token 由网页「设置 → 模型与渠�
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `NEWAPI_TEXT_TIMEOUT_SECONDS` | `120` | 文本模型 HTTP 超时(秒)。 |
-| `NEWAPI_TEXT_TRUST_ENV` | `true` | 是否让文本客户端读系统代理;内网网关被代理拦截时设 `false`。 |
+| `LOCALAPI_TEXT_TIMEOUT_SECONDS` | `120` | 文本模型 HTTP 超时(秒)。 |
+| `LOCALAPI_TEXT_TRUST_ENV` | `true` | 是否让文本客户端读系统代理;内网网关被代理拦截时设 `false`。 |
 
 模型名**不通过环境变量配置**：每个功能位（通用文本生成、出场角色筛选、图片理解、风格分析……）
 绑哪个模型，只在网页「设置 → 模型与渠道」里选，可绑清单来自渠道目录；模板里以前那些

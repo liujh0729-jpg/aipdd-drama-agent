@@ -35,7 +35,7 @@ def test_compose_builds_all_three_from_source() -> None:
     services = _compose()["services"]
     # [aipdd fork delta] Phase 0 新增第 4 个服务 renderer（HyperFrames producer 渲染引擎），
     # 同样从源码构建（services/hyperframes-renderer/Dockerfile）、aipdd/ 前缀、unless-stopped。
-    assert set(services) == {"api", "newapi", "web", "renderer"}
+    assert set(services) == {"api", "localapi", "web", "renderer"}
     for name, service in services.items():
         assert "build" in service, f"{name} must carry a source build block"
         assert "pull_policy" not in service, f"{name} must not set pull_policy"
@@ -44,12 +44,12 @@ def test_compose_builds_all_three_from_source() -> None:
 
 
 def test_gateway_builds_from_vendored_source() -> None:
-    newapi = _compose()["services"]["newapi"]
-    assert newapi["build"] == {
+    localapi = _compose()["services"]["localapi"]
+    assert localapi["build"] == {
         "context": "${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}",
         "dockerfile": "Dockerfile",
-    }, newapi["build"]
-    assert newapi["image"] == "aipdd/gateway"
+    }, localapi["build"]
+    assert localapi["image"] == "aipdd/gateway"
 
 
 def test_ce_images_are_local_build_tags_and_zero_external() -> None:
@@ -91,21 +91,21 @@ def test_api_provisioner_env_matches_desktop_contract() -> None:
     # 这里断言的正是「不许再把某个站点地址写进默认值」。换 newapi 地址只改 .env。
     assert env["LOCALAPI_BASE_URL"] == "${LOCALAPI_BASE_URL:-}"
     # 容器网络内的结构性服务名（不是公网入口），保留。
-    assert env["LOCALAPI_ADMIN_BASE_URL"] == "http://newapi:3000"
-    assert env["NEWAPI_SQL_DSN"] == "local"
-    assert env["NEWAPI_SQLITE_PATH"] == "/newapi-data/one-api.db"
-    assert env["NEWAPI_ADMIN_USERNAME"] == "root"
-    assert env["NEWAPI_PROVISIONER_ENABLED"] == "${NEWAPI_PROVISIONER_ENABLED:-true}"
-    assert "newapi-data:/newapi-data" in api["volumes"]
-    assert api["depends_on"] == {"newapi": {"condition": "service_started"}}
+    assert env["LOCALAPI_ADMIN_BASE_URL"] == "http://localapi:3000"
+    assert env["LOCALAPI_SQL_DSN"] == "local"
+    assert env["LOCALAPI_SQLITE_PATH"] == "/localapi-data/localapi.db"
+    assert env["LOCALAPI_ADMIN_USERNAME"] == "root"
+    assert env["LOCALAPI_PROVISIONER_ENABLED"] == "${LOCALAPI_PROVISIONER_ENABLED:-true}"
+    assert "localapi-data:/localapi-data" in api["volumes"]
+    assert api["depends_on"] == {"localapi": {"condition": "service_started"}}
 
 
 def test_gateway_shares_sqlite_volume_and_has_healthcheck() -> None:
-    newapi = _compose()["services"]["newapi"]
-    assert "newapi-data:/data" in newapi["volumes"]
-    assert newapi["environment"]["SQL_DSN"] == ""
-    assert "healthcheck" in newapi
-    assert "http://localhost:3000/api/status" in " ".join(newapi["healthcheck"]["test"])
+    localapi = _compose()["services"]["localapi"]
+    assert "localapi-data:/data" in localapi["volumes"]
+    assert localapi["environment"]["SQL_DSN"] == ""
+    assert "healthcheck" in localapi
+    assert "http://localhost:3000/api/status" in " ".join(localapi["healthcheck"]["test"])
 
 
 def test_compose_pins_env_file_long_syntax_ports_and_volumes() -> None:
@@ -113,11 +113,11 @@ def test_compose_pins_env_file_long_syntax_ports_and_volumes() -> None:
     api = compose["services"]["api"]
     assert api["env_file"] == [{"path": ".env", "required": False}]
     assert api["ports"] == ["${ST_API_PORT:-8780}:8780"]
-    assert compose["services"]["newapi"]["ports"] == [
-        "${ST_NEWAPI_BIND:-127.0.0.1}:${ST_NEWAPI_PORT:-3000}:3000"
+    assert compose["services"]["localapi"]["ports"] == [
+        "${ST_LOCALAPI_BIND:-127.0.0.1}:${ST_LOCALAPI_PORT:-3000}:3000"
     ]
     assert compose["services"]["web"]["ports"] == ["${ST_WEB_PORT:-8080}:80"]
-    assert set(compose["volumes"]) == {"ce-data", "newapi-data"}
+    assert set(compose["volumes"]) == {"ce-data", "localapi-data"}
 
 
 def test_source_file_extends_release_and_builds_all_three() -> None:
@@ -125,13 +125,13 @@ def test_source_file_extends_release_and_builds_all_three() -> None:
 
     assert set(source) == {"services", "volumes"}
     services = source["services"]
-    assert set(services) == {"api", "newapi", "web", "renderer"}
+    assert set(services) == {"api", "localapi", "web", "renderer"}
     for name, service in services.items():
         assert set(service) == {"extends", "image", "build"}, f"{name} keys: {set(service)}"
         assert service["extends"] == {"file": RELEASE_FILE, "service": name}
 
     assert services["api"]["image"] == "aipdd/api"
-    assert services["newapi"]["image"] == "aipdd/gateway"
+    assert services["localapi"]["image"] == "aipdd/gateway"
     assert services["web"]["image"] == "aipdd/web"
 
     assert services["api"]["build"] == {
@@ -139,7 +139,7 @@ def test_source_file_extends_release_and_builds_all_three() -> None:
         "dockerfile": "Dockerfile",
         "args": {"INSTALL_WORLD": "${INSTALL_WORLD:-0}"},
     }
-    assert services["newapi"]["build"] == {
+    assert services["localapi"]["build"] == {
         "context": "${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}",
         "dockerfile": "Dockerfile",
     }
@@ -151,7 +151,7 @@ def test_source_file_extends_release_and_builds_all_three() -> None:
         "dockerfile": "Dockerfile",
     }
 
-    assert set(source["volumes"]) == {"ce-data", "newapi-data"}
+    assert set(source["volumes"]) == {"ce-data", "localapi-data"}
 
 
 def test_source_file_never_mentions_release_versions() -> None:

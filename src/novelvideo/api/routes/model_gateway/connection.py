@@ -592,7 +592,7 @@ async def enable_hybrid_gateway() -> dict[str, Any]:
     if not status["official"]["configured"] or not status["custom"]["configured"]:
         raise HTTPException(
             status_code=400,
-            detail="local and official NewAPI gateways must both be configured",
+            detail="local and official LocalAPI gateways must both be configured",
         )
     set_model_gateway_mode(MODE_HYBRID)
     runtime = _gateway.refresh_model_gateway_runtime()

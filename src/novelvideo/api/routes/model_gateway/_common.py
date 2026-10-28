@@ -101,7 +101,7 @@ async def require_model_gateway_access(
 ) -> dict:
     """[aipdd fork delta] 网关管理面的统一权限闸门。
 
-    网关配置含渠道上游密钥与 NewAPI 管理员令牌，并决定全平台模型流量去向，
+    网关配置含渠道上游密钥与 LocalAPI 管理员令牌，并决定全平台模型流量去向，
     属管理员配置面（与 ``env_setup`` 同域）：
     1. 机器凭证（agent 会话 / 统一 API 密钥 ``st-…``）一律拒——它们按设计只是
        「干活」凭证（调模型 / MCP），绝不能读写网关配置或拓扑（否则一把外发的
@@ -232,7 +232,7 @@ def _project_provider_channel_mappings(
             }
             if not item["ok"]:
                 item["error"] = str(
-                    result.get("newApiResponse") or "NewAPI rejected channel update"
+                    result.get("newApiResponse") or "LocalAPI rejected channel update"
                 )
         except Exception as exc:  # noqa: BLE001 - 投影失败不回滚真源
             item = {

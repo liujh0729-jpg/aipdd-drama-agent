@@ -21,7 +21,7 @@ import { AlertTriangle, ArrowUp, Camera, Loader2, Pause, Play, RotateCcw, Sparkl
 import { useTranslation } from "react-i18next";
 
 import { CANVAS_NODE_TYPES, isAudioNode, isExportImageNode, isImageEditNode, isImageGenNode, isStoryboardGenNode, isUploadNode, isVideoNode, type CanvasNode, type VideoGenCount, type VideoGenMode, type VideoNodeData } from "@/features/canvas/domain/canvasNodes";
-import { audioReferenceDurationRejection, MAX_AUDIO_REFERENCE_DURATION_MS, MAX_AUDIO_REFERENCE_TOTAL_DURATION_MS, MIN_AUDIO_REFERENCE_DURATION_MS, referenceDurationLimitsMs, isHappyHorseVideoModel, isSeedance2VideoModel, isVideoModeSupportedByModel, resolveVideoKeyframeUrls, videoEmptyStateCtaModes, videoModeForcesAutomaticAspectRatio, videoModeRequiresMedia, videoModeRequiresPrompt, videoModelDefaultGenerateAudio, videoModelSupportsGenerateAudio, videoMultiImageAutoSwitchMode, videoNoUpstreamResetMode, videoReferenceAutoSwitchAction, videoSubmitMediaRejectionReason, videoUpstreamImageDefaultMode } from "@/features/canvas/nodes/shared/videoModelCapabilities";
+import { audioReferenceDurationRejection, MAX_AUDIO_REFERENCE_DURATION_MS, MAX_AUDIO_REFERENCE_TOTAL_DURATION_MS, MIN_AUDIO_REFERENCE_DURATION_MS, referenceDurationLimitsMs, isHappyHorseVideoModel, isSeedance2VideoModel, isVideoModeSupportedByModel, resolveVideoKeyframeUrls, videoEmptyStateCtaModes, videoModeForcesAutomaticAspectRatio, videoModeRequiresMedia, videoModeRequiresPrompt, videoModelDefaultGenerateAudio, videoModelSupportsGenerateAudio, videoMultiImageAutoSwitchMode, videoReferenceAutoSwitchAction, videoSubmitMediaRejectionReason, videoUpstreamClearedResetMode, videoUpstreamImageDefaultMode } from "@/features/canvas/nodes/shared/videoModelCapabilities";
 import {
   VIDEO_GENERATION_ASPECT_RATIOS,
   resolveImageDisplayUrl,
@@ -1134,26 +1134,43 @@ export const VideoNode = memo(
     // 任何一条负责在素材撤空后把模式推回去。于是「连一张图 → 又把图撤掉」之后节点卡在
     // 全能参考上：界面看不出异常，提交却会被 handleSubmit 的 references.length === 0
     // 静默拦下，用户看到的就是「打了字、点发送没反应」。这里补上反向的那一档 ——
-    // 没有任何上游素材 = 文生视频，与 HappyHorse 统一状态机的「无上游 → 文生视频」同规则。
+    // 素材被撤空 = 文生视频，与 HappyHorse 统一状态机的「无上游 → 文生视频」同规则。
     //
-    // 用 upstreamTypeCounts（按节点类型）而非 upstreamCounts（已解析 URL）：空态 CTA
-    // 先铺一个还没出图的图片/上传节点、再切模式，按 URL 口径那一瞬间是 0 张，会被这条
-    // 当场顶回文生视频。理由同 videoNoUpstreamResetMode 的注释。
+    // 只认「上一刻 >0、这一刻 =0」这个**下降沿**，不看「当前素材数为 0」：用户在空节点
+    // 上把 tab 切到全能参考时素材数一直是 0，按后者会被当场顶回文生视频，表现就是
+    // 「点了 tab 没反应」。
+    //
+    // 素材数用 upstreamTypeCounts（按节点类型）而非 upstreamCounts（已解析 URL）：空态
+    // CTA 先铺一个还没出图的图片/上传节点、再切模式，按 URL 口径那一瞬间是 0 张，会被
+    // 这条当场顶回文生视频。参考链接/文档也是全能参考的合法素材来源，撤掉它同样该触发
+    // 复位，所以一并计入。
     //
     // recordHistory: false —— 这是用户「删掉素材」那一步的**衍生结果**，不是一次独立的
     // 用户改动。若照常压 past，⌘Z 只会撤掉模式回到「无素材 + 全能参考」，本 effect 立刻
     // 又把它改回来并清空 redo 栈，撤销看着毫无反应、也再回不到连线之前（成因见上面
     // 模型自动救场那条 effect 的注释）。不记历史则 ⌘Z 直接回到「有图 + 全能参考」，正向 effect
     // 看到素材还在便不再改写。
+    const materialSourceCount =
+      upstreamTypeCounts.images +
+      upstreamTypeCounts.videos +
+      upstreamTypeCounts.audios +
+      (data.referenceFileUrl?.trim() || data.referenceLink?.trim() ? 1 : 0);
+    const previousMaterialSourceCountRef = useRef(materialSourceCount);
     useEffect(() => {
+      const previousCount = previousMaterialSourceCountRef.current;
+      previousMaterialSourceCountRef.current = materialSourceCount;
       if (isHappyHorseModel) return;
-      const target = videoNoUpstreamResetMode(genMode, upstreamTypeCounts);
+      const target = videoUpstreamClearedResetMode(
+        genMode,
+        previousCount,
+        materialSourceCount,
+      );
       if (!target) return;
       updateNodeData(id, { genMode: target }, { recordHistory: false });
     }, [
       genMode,
       isHappyHorseModel,
-      upstreamTypeCounts,
+      materialSourceCount,
       id,
       updateNodeData,
     ]);
@@ -1681,6 +1698,9 @@ export const VideoNode = memo(
               sceneOptimize: sceneOptimize ?? null,
               canvasId,
               nodeId: targetId,
+              // [aipdd fork delta] 画布产出的视频同样登记进资产库「待分类资产」，
+              // 与图片生成节点一个口径——之前只有工具页带这个标记。
+              archiveToLibrary: true,
             });
         } else if (genMode === "imageToVideo" || genMode === "imageReference") {
           // Unified i2v endpoint: 1 image = 图生视频, 2-9 images = 图片参考视频.
@@ -1712,6 +1732,9 @@ export const VideoNode = memo(
               sceneOptimize: sceneOptimize ?? null,
               canvasId,
               nodeId: targetId,
+              // [aipdd fork delta] 画布产出的视频同样登记进资产库「待分类资产」，
+              // 与图片生成节点一个口径——之前只有工具页带这个标记。
+              archiveToLibrary: true,
             });
         } else if (genMode === "videoEdit") {
           // 视频编辑：1 个源视频，并按媒体目录上限附带参考图片和独立参考音频。
@@ -1784,6 +1807,9 @@ export const VideoNode = memo(
               humanReview: supportsHumanReview && humanReview,
               canvasId,
               nodeId: targetId,
+              // [aipdd fork delta] 画布产出的视频同样登记进资产库「待分类资产」，
+              // 与图片生成节点一个口径——之前只有工具页带这个标记。
+              archiveToLibrary: true,
             });
         } else if (genMode === "videoExtend") {
           const upstream = collectUpstream();
@@ -1813,6 +1839,9 @@ export const VideoNode = memo(
               humanReview: supportsHumanReview && humanReview,
               canvasId,
               nodeId: targetId,
+              // [aipdd fork delta] 画布产出的视频同样登记进资产库「待分类资产」，
+              // 与图片生成节点一个口径——之前只有工具页带这个标记。
+              archiveToLibrary: true,
             });
         } else if (genMode === "allReference") {
           // 全能参考是否可用以媒体目录的 supportedModes 为准。这里前置守卫给出
@@ -1963,6 +1992,9 @@ export const VideoNode = memo(
               sceneOptimize: sceneOptimize ?? null,
               canvasId,
               nodeId: targetId,
+              // [aipdd fork delta] 画布产出的视频同样登记进资产库「待分类资产」，
+              // 与图片生成节点一个口径——之前只有工具页带这个标记。
+              archiveToLibrary: true,
             });
         } else {
           // textToVideo (default).
@@ -1981,6 +2013,9 @@ export const VideoNode = memo(
               sceneOptimize: sceneOptimize ?? null,
               canvasId,
               nodeId: targetId,
+              // [aipdd fork delta] 画布产出的视频同样登记进资产库「待分类资产」，
+              // 与图片生成节点一个口径——之前只有工具页带这个标记。
+              archiveToLibrary: true,
             });
         }
 

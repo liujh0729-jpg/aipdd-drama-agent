@@ -206,13 +206,13 @@ if [[ -d "$ROOT_DIR/services/faceswap" ]]; then
 fi
 
 # ------------------------------------------------------ 5) Go 网关静态编译
-if [[ -n "${NEWAPI_BIN:-}" ]]; then
+if [[ -n "${LOCALAPI_BIN:-}" ]]; then
   # 允许用外部已编译好的 win-x64/darwin 网关二进制出包（构建机缺 Go/bun 时的逃生门，与 NGINX_BIN 同思路）。
-  [[ -f "$NEWAPI_BIN" ]] || { echo "NEWAPI_BIN 指向的文件不存在：$NEWAPI_BIN" >&2; exit 6; }
-  cp "$NEWAPI_BIN" "$RES/bin/new-api${EXE}"
-  log "5/7 使用外部网关二进制 $NEWAPI_BIN → resources/bin/new-api${EXE}（跳过 go/bun 构建）"
+  [[ -f "$LOCALAPI_BIN" ]] || { echo "LOCALAPI_BIN 指向的文件不存在：$LOCALAPI_BIN" >&2; exit 6; }
+  cp "$LOCALAPI_BIN" "$RES/bin/localapi${EXE}"
+  log "5/7 使用外部网关二进制 $LOCALAPI_BIN → resources/bin/localapi${EXE}（跳过 go/bun 构建）"
 else
-log "5/7 编译 newapi 网关（先 bun 构建内嵌 web/dist，再 CGO_ENABLED=0 go build）→ resources/bin/new-api${EXE}"
+log "5/7 编译 LocalAPI 网关（先 bun 构建内嵌 web/dist，再 CGO_ENABLED=0 go build）→ resources/bin/localapi${EXE}"
 need go
 need bun
 GW="$ROOT_DIR/third_party/dramaclaw-gateway"
@@ -224,8 +224,8 @@ GW="$ROOT_DIR/third_party/dramaclaw-gateway"
 # GOEXPERIMENT=nogreenteagc / GOWORK=off 与 Dockerfile 对齐；relaykit 为 replace 指向的本地子模块。
 # CGO_ENABLED=0 → 纯 Go 交叉编译，Windows 构建机无需 C 工具链。
 ( cd "$GW" && CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" GOEXPERIMENT=nogreenteagc GOWORK=off \
-  go build -trimpath -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION 2>/dev/null || echo dev)'" \
-  -o "$RES/bin/new-api${EXE}" . )
+  go build -trimpath -ldflags "-s -w -X 'github.com/dramaclaw/localapi/common.Version=$(cat VERSION 2>/dev/null || echo dev)'" \
+  -o "$RES/bin/localapi${EXE}" . )
 fi
 
 # ------------------------------------------------ 6) 随附二进制：nginx/ffmpeg/chromium
@@ -421,8 +421,8 @@ log "uv ${UV_VER} 已内置 resources/bin/uv${EXE}（可选引擎的运行期安
 #   暂存一份副本；从 Homebrew cellar 取的 nginx、系统 cp 的 ffmpeg/ffprobe 本就是 555（无 owner 写位），
 #   暂存副本随之不可写——下一轮增量构建的 fs::copy 覆盖只读目标会直接报
 #   「Permission denied (os error 13)」且不带路径，极难定位。把 bin 下所有独立可执行件
-#   统一为 0755，让 tauri 暂存可反复覆盖（new-api/uv 本就是 755 故从不报错，正印证此因）。
-for _b in nginx new-api uv ffmpeg ffprobe; do
+#   统一为 0755，让 tauri 暂存可反复覆盖（localapi/uv 本就是 755 故从不报错，正印证此因）。
+for _b in nginx localapi uv ffmpeg ffprobe; do
   [[ -f "$RES/bin/$_b$EXE" ]] && chmod 0755 "$RES/bin/$_b$EXE"
 done
 

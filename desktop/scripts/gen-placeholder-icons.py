@@ -59,7 +59,7 @@ placeholder_rels = [
     "python/bin/python3",
     "python/python.exe",
 ]
-for b in ["nginx", "new-api", "ffmpeg"]:
+for b in ["nginx", "localapi", "ffmpeg"]:
     placeholder_rels += [f"bin/{b}", f"bin/{b}.exe"]
 for rel in placeholder_rels:
     ensure(os.path.join(RES, rel))

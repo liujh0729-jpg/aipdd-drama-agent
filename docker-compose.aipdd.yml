@@ -51,17 +51,17 @@ services:
       # 留空 = 未配置；需要 env 兜底时在 .env 写 LOCALAPI_BASE_URL=<你的网关地址>。
       LOCALAPI_BASE_URL: "${LOCALAPI_BASE_URL:-}"
       # 以下四项供 provisioner 一键初始化 LocalAPI（compose 强制覆盖 .env 里的 127.0.0.1 地址）。
-      LOCALAPI_ADMIN_BASE_URL: http://newapi:3000
-      NEWAPI_SQL_DSN: local
-      NEWAPI_SQLITE_PATH: /newapi-data/one-api.db
-      NEWAPI_ADMIN_USERNAME: root
+      LOCALAPI_ADMIN_BASE_URL: http://localapi:3000
+      LOCALAPI_SQL_DSN: local
+      LOCALAPI_SQLITE_PATH: /localapi-data/localapi.db
+      LOCALAPI_ADMIN_USERNAME: root
       # [aipdd fork delta req41] 模型广场调用示例里对外可复制的网关地址：本编排里网关不再
-      # 暴露宿主机端口（见下面 newapi 服务的 expose），对外统一走 web 的 /gateway/v1/ 出口。
+      # 暴露宿主机端口（见下面 localapi 服务的 expose），对外统一走 web 的 /gateway/v1/ 出口。
       # 但「走哪个主机名 / 哪个端口」是部署形态数据（本机？局域网？域名反代？），编排文件
       # 不猜：留空时由请求 Host 推导（见 model_plaza.newapi_public_base_url），需要固定就在
-      # .env 里写 NEWAPI_PUBLIC_BASE_URL=https://你的域名/gateway/v1。
-      NEWAPI_PUBLIC_BASE_URL: "${NEWAPI_PUBLIC_BASE_URL:-}"
-      NEWAPI_PROVISIONER_ENABLED: "${NEWAPI_PROVISIONER_ENABLED:-true}"
+      # .env 里写 LOCALAPI_PUBLIC_BASE_URL=https://你的域名/gateway/v1。
+      LOCALAPI_PUBLIC_BASE_URL: "${LOCALAPI_PUBLIC_BASE_URL:-}"
+      LOCALAPI_PROVISIONER_ENABLED: "${LOCALAPI_PROVISIONER_ENABLED:-true}"
       # [aipdd fork delta] 这里不再有 TEXT_MODEL_FALLBACK / VISION_MODEL_FALLBACK：
       # 模型名的真源是「设置 → 模型与渠道」的槽位绑定 + 渠道目录，环境变量不参与选名。旧的两档
       # 全局兜底排在设置前面，容器里留着一个空值就等于留一条「换部署即失效」的隐式路由：
@@ -110,8 +110,8 @@ services:
       - "${ST_API_PORT:-8780}:8780"
     volumes:
       - ce-data:/data
-      # 与 newapi 容器共享同一 SQLite（网关侧挂在 /data）。
-      - newapi-data:/newapi-data
+      # 与 localapi 容器共享同一 SQLite（网关侧挂在 /data）。
+      - localapi-data:/localapi-data
       # [aipdd fork delta] MCP 栏目「本地 Agent 工具」接入：宿主 home 挂进容器
       # （读写，容器内 /host-home），用于检测安装痕迹并把 dramaclaw 条目写进
       # ~/.workbuddy/mcp.json、~/.claude.json、~/.cursor/mcp.json、
@@ -129,13 +129,13 @@ services:
       - "${HOST_APPS_DIR:-/Applications}:/host-applications:ro"
     # 只等网关容器启动，不等其健康：网关拉不到/端口冲突不应拖垮 api。
     depends_on:
-      newapi:
+      localapi:
         condition: service_started
 
   # LocalAPI（OpenAI 兼容）：源码构建自仓内 vendored 的 ./third_party/dramaclaw-gateway
   #（AGPL-3.0，见 third_party/README.md）。零外部镜像，拉下即用；网关源码可改用外部 checkout：
   #   .env 设 DRAMACLAW_GATEWAY_SRC=<路径>。
-  newapi:
+  localapi:
     build:
       context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
       dockerfile: Dockerfile
@@ -143,18 +143,18 @@ services:
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
-      # 留空 = 内置 SQLite（容器内 /data/one-api.db），与 api 侧 /newapi-data/one-api.db 同一文件。
+      # 留空 = 内置 SQLite（容器内 /data/localapi.db），与 api 侧 /localapi-data/localapi.db 同一文件。
       SQL_DSN: ""
     # [aipdd fork delta] 不再映射宿主机端口：网关只做项目内部的 OpenAI 兼容传输层，
     # 对外统一从 web(8080) 的 /gateway/v1/ 出口暴露（frontend/docker/nginx.conf.template）。
     # 网关自带后台页面因此不再对外；临时直连排查可在本服务加回一行
     #   ports: ["127.0.0.1:13000:3000"]
-    # 后 `docker-compose -f docker-compose.aipdd.yml up -d newapi`，用完删掉重启。
-    # 容器内 3000 与 healthcheck 不变，api 走容器网络 http://newapi:3000，不受影响。
+    # 后 `docker-compose -f docker-compose.aipdd.yml up -d localapi`，用完删掉重启。
+    # 容器内 3000 与 healthcheck 不变，api 走容器网络 http://localapi:3000，不受影响。
     expose:
       - "3000"
     volumes:
-      - newapi-data:/data
+      - localapi-data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/status >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -173,7 +173,7 @@ services:
       BACKEND_HOST: api
       BACKEND_PORT: "8780"
       # [aipdd fork delta] /gateway/v1/ 由 web 反代到后端统一模型入口 /api/v1/openai/；
-      # 后端校验统一密钥（设置 → API 密钥）后再转发出 newapi 网关，不再直连网关容器。
+      # 后端校验统一密钥（设置 → API 密钥）后再转发出 localapi 网关，不再直连网关容器。
     ports:
       - "${ST_WEB_PORT:-8080}:80"
     depends_on:
@@ -250,4 +250,4 @@ services:
 
 volumes:
   ce-data:
-  newapi-data:
+  localapi-data:

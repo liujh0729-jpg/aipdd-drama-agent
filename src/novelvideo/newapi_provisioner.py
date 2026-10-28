@@ -1,4 +1,4 @@
-"""Provision channels and relay tokens in a user-managed NewAPI instance."""
+"""Provision channels and relay tokens in a user-managed LocalAPI instance."""
 
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ _EMBEDDING_INTERNAL_ALIAS = "DC-cognee-embedding"
 
 # [aipdd fork delta] 渠道更新（改渠道名 / 换 Key / 全量合并回写）允许透传的字段
 # 集合；update_provider_channel_credentials / _merge_channel_payload 与本文件的
-# 渠道改名迁移共用同一口径（NewAPI 通用更新端点只认这些字段）。
+# 渠道改名迁移共用同一口径（LocalAPI 通用更新端点只认这些字段）。
 _CHANNEL_ALLOWED_UPDATE_FIELDS: frozenset[str] = frozenset(
     {
         "id",
@@ -81,17 +81,17 @@ _CHANNEL_ALLOWED_UPDATE_FIELDS: frozenset[str] = frozenset(
 )
 
 PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
-    # [aipdd fork delta] 外部 NewAPI 网关（用户自配的 OpenAI 兼容中转）。渠道
+    # [aipdd fork delta] 外部 LocalAPI 网关（用户自配的 OpenAI 兼容中转）。渠道
     # provider key 原为 openai，已全量重命名为 newapi（五渠道收敛：aipdd /
     # newapi / volcengine / comfyui / mediakit，指存储用的 provider key 集合）；
     # type=1 = OpenAI 兼容适配器。展示层只有四大渠道：mediakit（火山 AI MediaKit）
     # 归属 volcengine 渠道，凭证真源在 video-enhance 配置，不进本表。
     # base_url 留空：用户填自己的网关地址，不预填 OpenAI 官方地址。
-    "newapi": {"label": "NewAPI", "type": 1, "base_url": ""},
+    "newapi": {"label": "LocalAPI", "type": 1, "base_url": ""},
     # [aipdd fork delta #A] AIPDD 网关预设：OpenAI 兼容(type=1)，用户粘贴 API Key 并同步模型。
     # [aipdd fork delta req41 分类] base_url **可以预填**：AIPDD 是公共厂商渠道，
     # 地址由渠道类型唯一决定（与下面 volcengine / anthropic / api2d 同一类：拿到渠道就
-    # 拿到端点）。必须留空的是 newapi 那一行——外部 NewAPI 网关有无数个，地址是部署
+    # 拿到端点）。必须留空的是 newapi 那一行——外部 LocalAPI 网关有无数个，地址是部署
     # 方自己的数据，代码猜不得。
     "aipdd": {
         "label": "AIPDD",
@@ -105,7 +105,7 @@ PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
     },
     "azure": {"label": "Azure", "type": 3, "base_url": ""},
     # [aipdd fork delta req41 分类] Ollama 这一行不归入「站点地址」：11434 是 Ollama
-    # 自己文档化的默认监听端口，跟上游 NewAPI 渠道表给的建议值一致，语义是
+    # 自己文档化的默认监听端口，跟上游 LocalAPI 渠道表给的建议值一致，语义是
     # 「在你跑 Ollama 的那台机器上」——它本来就是本机服务，不随我们的部署变。而且
     # 这只是网关后台渠道表单里的**可改预填值**，不配也能跑。真正猜不得的是
     # newapi 那一行（外部网关有无数个）。
@@ -198,7 +198,7 @@ PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
     },
     # [aipdd fork delta req48] OpenAI 官方渠道。刻意**不复用** ``openai`` 这个
     # provider key：那个键在本 fork 里已经有两处既有语义——
-    #   1) 五渠道收敛时它是「外部自配 NewAPI 网关」的旧键，启动钩子
+    #   1) 五渠道收敛时它是「外部自配 LocalAPI 网关」的旧键，启动钩子
     #      ``migrate_provider_openai_to_newapi`` 会把真源里的 provider ``openai``
     #      整体改名成 ``newapi``，网关里的 ``DC-openai`` 也会被
     #      ``rename_gateway_openai_channel_to_newapi`` 改名（按名字精确匹配
@@ -208,7 +208,7 @@ PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
     # 新语义压在旧键上，这两处都会把用户配好的官方渠道改姓或劫持凭证来源，
     # 因此官方站另起 ``openai_official`` 键，展示名仍是 "OpenAI"。
     # type=1：走网关的 OpenAI 兼容适配器，协议转换（chat / images / audio /
-    # embeddings / video）全部由 NewAPI 负责，平台只跟网关说话。
+    # embeddings / video）全部由 LocalAPI 负责，平台只跟网关说话。
     "openai_official": {
         "label": "OpenAI",
         "type": 1,
@@ -312,7 +312,7 @@ class NewApiSetupStatus:
 
 
 class ServiceControlEgressDenied(PermissionError):
-    """Stable denial for an invalid NewAPI management service boundary."""
+    """Stable denial for an invalid LocalAPI management service boundary."""
 
     code = "ORG_SERVICE_EGRESS_DENIED"
 
@@ -335,7 +335,7 @@ class ServiceInvocationFailed(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class NewApiAdminServiceIdentity:
-    """Secret-free identity for the NewAPI management plane."""
+    """Secret-free identity for the LocalAPI management plane."""
 
     credential_id: str
     credential_version: int
@@ -410,7 +410,7 @@ async def run_newapi_admin_operation(
     invoke,
     context=None,
 ) -> Any:
-    """Run one claimed NewAPI management mutation under its service identity."""
+    """Run one claimed LocalAPI management mutation under its service identity."""
 
     from novelvideo.egress_context import TrustedEgressContext
     from novelvideo.ports.egress_operations import (
@@ -518,12 +518,12 @@ def env_bool(name: str, default: bool = False) -> bool:
 def provisioner_enabled() -> bool:
     from novelvideo.shared.runtime_env import is_ce_effective
 
-    return is_ce_effective() and env_bool("NEWAPI_PROVISIONER_ENABLED", True)
+    return is_ce_effective() and env_bool("LOCALAPI_PROVISIONER_ENABLED", True)
 
 
 def require_provisioner_enabled() -> None:
     if not provisioner_enabled():
-        raise PermissionError("NEWAPI_PROVISIONER_ENABLED is not enabled")
+        raise PermissionError("LOCALAPI_PROVISIONER_ENABLED is not enabled")
 
 
 def normalize_admin_base_url(value: str | None) -> str:
@@ -629,7 +629,7 @@ def resolve_models_endpoint(base_url: str, provider: str = "") -> str:
 
 
 def _upstream_models_ttl_seconds() -> float:
-    raw = str(os.environ.get("NEWAPI_UPSTREAM_MODELS_TTL_SECONDS", "")).strip()
+    raw = str(os.environ.get("LOCALAPI_UPSTREAM_MODELS_TTL_SECONDS", "")).strip()
     try:
         return max(0.0, float(raw)) if raw else DEFAULT_UPSTREAM_MODELS_TTL_SECONDS
     except ValueError:
@@ -826,7 +826,7 @@ def list_upstream_catalog(
         )
         if response.status_code >= 400:
             # [aipdd fork delta] 不能只把 HTTPStatusError 的 "Client error '401 …'" 往上
-            # 抛：NewAPI 系网关在这一步回的是 `{"error":{"message":"Invalid token …"}}`，
+            # 抛：LocalAPI 系网关在这一步回的是 `{"error":{"message":"Invalid token …"}}`，
             # 那半句才是「令牌错 / 分组没权限 / 地址不是 API 根」的唯一判据。缺了它，
             # 用户只能看到「401」这一结果，无法知道该动哪里（排查成本全压在日志上）。
             # 原文截断到 200：诊断够用，又不把大段 HTML 塞进响应与日志。
@@ -1199,7 +1199,7 @@ def _functional_text_aliases() -> list[str]:
 
 
 def _alias_health_ttl_seconds() -> float:
-    raw = str(os.environ.get("NEWAPI_ALIAS_HEALTH_TTL_SECONDS", "")).strip()
+    raw = str(os.environ.get("LOCALAPI_ALIAS_HEALTH_TTL_SECONDS", "")).strip()
     try:
         return max(0.0, float(raw)) if raw else DEFAULT_ALIAS_HEALTH_TTL_SECONDS
     except ValueError:
@@ -1341,10 +1341,18 @@ def _first_non_empty(*values: str | None) -> str:
 
 
 def _ce_sqlite_path() -> str:
-    """Return the managed CE NewAPI SQLite database path."""
+    """Return the managed CE LocalAPI SQLite database path."""
     from novelvideo.config import STATE_DIR
 
-    return str(Path(STATE_DIR) / "newapi" / "one-api.db")
+    target = Path(STATE_DIR) / "localapi" / "localapi.db"
+    legacy = Path(STATE_DIR) / "newapi" / "one-api.db"
+    if not target.exists() and legacy.exists():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            legacy.replace(target)
+        except OSError:
+            pass
+    return str(target)
 
 
 def get_provisioner_config(
@@ -1358,7 +1366,7 @@ def get_provisioner_config(
     settings = get_model_gateway_settings()
     request_sql_dsn = str(sql_dsn or "").strip()
     saved_sql_dsn = str(settings.get("custom_newapi_db_sql_dsn", "")).strip()
-    env_sql_dsn = str(os.environ.get("NEWAPI_SQL_DSN", "")).strip()
+    env_sql_dsn = str(os.environ.get("LOCALAPI_SQL_DSN", "")).strip()
     if request_sql_dsn:
         resolved_sql_dsn = request_sql_dsn
         resolved_sqlite_path = str(sqlite_path or "").strip()
@@ -1370,7 +1378,7 @@ def get_provisioner_config(
     else:
         resolved_sql_dsn = env_sql_dsn or "local"
         resolved_sqlite_path = (
-            str(os.environ.get("NEWAPI_SQLITE_PATH", "")).strip() or _ce_sqlite_path()
+            str(os.environ.get("LOCALAPI_SQLITE_PATH", "")).strip() or _ce_sqlite_path()
         )
     return NewApiProvisionerConfig(
         admin_base_url=normalize_admin_base_url(
@@ -1390,7 +1398,7 @@ def get_provisioner_config(
             _first_non_empty(
                 admin_username,
                 settings.get("custom_newapi_admin_username"),
-                os.environ.get("NEWAPI_ADMIN_USERNAME", "root"),
+                os.environ.get("LOCALAPI_ADMIN_USERNAME", "root"),
             )
             or "root"
         ),
@@ -1400,10 +1408,10 @@ def get_provisioner_config(
         init_timeout_ms=int(
             init_timeout_ms
             if init_timeout_ms is not None
-            else os.environ.get("NEWAPI_PROVISIONER_INIT_TIMEOUT_MS", "120000")
+            else os.environ.get("LOCALAPI_PROVISIONER_INIT_TIMEOUT_MS", "120000")
         ),
         relay_token_name=(
-            os.environ.get("NEWAPI_RELAY_TOKEN_NAME", "dramaclaw-ce-runtime").strip()
+            os.environ.get("LOCALAPI_RELAY_TOKEN_NAME", "dramaclaw-ce-runtime").strip()
             or "dramaclaw-ce-runtime"
         ),
     )
@@ -1413,8 +1421,8 @@ def open_newapi_db(cfg: NewApiProvisionerConfig) -> NewApiDB:
     dsn = cfg.sql_dsn.strip()
     if not dsn:
         raise RuntimeError(
-            "NEWAPI_SQL_DSN is required; set it to a Postgres/MySQL DSN, "
-            "an existing SQLite DB path, or 'local' with NEWAPI_SQLITE_PATH"
+            "LOCALAPI_SQL_DSN is required; set it to a Postgres/MySQL DSN, "
+            "an existing SQLite DB path, or 'local' with LOCALAPI_SQLITE_PATH"
         )
     if (
         dsn == "local"
@@ -1424,10 +1432,10 @@ def open_newapi_db(cfg: NewApiProvisionerConfig) -> NewApiDB:
         path = cfg.sqlite_path if dsn == "local" else dsn.removeprefix("file:")
         if not path:
             raise RuntimeError(
-                "NEWAPI_SQLITE_PATH is required when NEWAPI_SQL_DSN=local"
+                "LOCALAPI_SQLITE_PATH is required when LOCALAPI_SQL_DSN=local"
             )
         if not Path(path).expanduser().is_file():
-            raise RuntimeError(f"NewAPI SQLite database does not exist: {path}")
+            raise RuntimeError(f"LocalAPI SQLite database does not exist: {path}")
         return NewApiDB("sqlite", sqlite3.connect(path))
 
     if dsn.startswith(("postgresql://", "postgres://")):
@@ -1454,7 +1462,7 @@ def open_newapi_db(cfg: NewApiProvisionerConfig) -> NewApiDB:
         )
         return NewApiDB("mysql", conn)
 
-    raise RuntimeError(f"unsupported NEWAPI_SQL_DSN: {dsn}")
+    raise RuntimeError(f"unsupported LOCALAPI_SQL_DSN: {dsn}")
 
 
 def wait_for_db(cfg: NewApiProvisionerConfig) -> NewApiDB:
@@ -1487,7 +1495,7 @@ def wait_for_newapi(cfg: NewApiProvisionerConfig) -> None:
         except Exception as exc:
             last_error = exc
         time.sleep(1.5)
-    raise RuntimeError(f"NewAPI not ready: {last_error}")
+    raise RuntimeError(f"LocalAPI not ready: {last_error}")
 
 
 def get_newapi_setup_status(cfg: NewApiProvisionerConfig) -> NewApiSetupStatus:
@@ -1499,7 +1507,7 @@ def get_newapi_setup_status(cfg: NewApiProvisionerConfig) -> NewApiSetupStatus:
     except ValueError:
         body = res.text
     if res.status_code >= 400:
-        raise RuntimeError(f"NewAPI setup status failed: HTTP {res.status_code} {body}")
+        raise RuntimeError(f"LocalAPI setup status failed: HTTP {res.status_code} {body}")
     require_newapi_success(body, "get setup status")
     data = response_data(body)
     if not isinstance(data, dict):
@@ -1562,8 +1570,8 @@ def ensure_newapi_setup(
     except ValueError:
         body = res.text
     if res.status_code >= 400:
-        raise RuntimeError(f"NewAPI setup failed: HTTP {res.status_code} {body}")
-    require_newapi_success(body, "setup NewAPI")
+        raise RuntimeError(f"LocalAPI setup failed: HTTP {res.status_code} {body}")
+    require_newapi_success(body, "setup LocalAPI")
     final_status = get_newapi_setup_status(cfg)
     return NewApiSetupStatus(
         initialized=final_status.initialized,
@@ -1604,7 +1612,7 @@ def wait_for_admin_user(db: NewApiDB, cfg: NewApiProvisionerConfig) -> dict[str,
             return user
         time.sleep(1.5)
     raise RuntimeError(
-        "admin user not found; initialize NewAPI or create root user first"
+        "admin user not found; initialize LocalAPI or create root user first"
     )
 
 
@@ -1655,11 +1663,11 @@ def verify_admin_api(cfg: NewApiProvisionerConfig, admin: AdminToken) -> None:
         )
     if res.status_code == 401:
         raise RuntimeError(
-            "admin access token was written, but NewAPI rejected it with 401"
+            "admin access token was written, but LocalAPI rejected it with 401"
         )
     if res.status_code >= 400:
         raise RuntimeError(
-            f"NewAPI admin check failed: HTTP {res.status_code} {res.text[:300]}"
+            f"LocalAPI admin check failed: HTTP {res.status_code} {res.text[:300]}"
         )
 
 
@@ -1819,7 +1827,7 @@ def build_channel_payload(
     model_keys = validate_model_mapping(model_mapping)
     provider_label = preset["label"] if preset else f"type-{channel_type}"
     resolved_base_url = (base_url or (preset or {}).get("base_url") or "").strip()
-    # [aipdd fork delta] NewAPI relay 对上游自行拼端点路径：OpenAI 兼容类型拼
+    # [aipdd fork delta] LocalAPI relay 对上游自行拼端点路径：OpenAI 兼容类型拼
     # /v1/chat/completions，VolcEngine（type 45）适配器硬编码拼 /api/v3/...。渠道
     # base 若自带同款后缀会得到 /v1/v1/... 或 /api/v3/api/v3/...，上游回 404（火山
     # 对错误路径回空 body 404——DC-* 视觉/文本调用 404/500 的根源）。写网关前归一：
@@ -1844,9 +1852,9 @@ def build_channel_payload(
     else:
         channel_name = (name or f"DC-type-{channel_type}").strip()
     resolved_upstream_key = upstream_key.strip()
-    # NewAPI's generic channel validator rejects an empty key even for ComfyUI.
+    # LocalAPI's generic channel validator rejects an empty key even for ComfyUI.
     # ComfyUI itself may run without authentication, so keep the CE setting
-    # empty while using a non-secret sentinel only in the NewAPI channel row.
+    # empty while using a non-secret sentinel only in the LocalAPI channel row.
     if provider_key == "comfyui" and not resolved_upstream_key:
         resolved_upstream_key = "none"
     channel = {
@@ -1999,7 +2007,7 @@ def delete_channel_by_name(
     name: str,
     channel_type: int | None = None,
 ) -> bool:
-    """Delete one managed NewAPI channel; return False when it does not exist."""
+    """Delete one managed LocalAPI channel; return False when it does not exist."""
     existing = find_channel_by_name(
         cfg,
         admin,
@@ -2055,7 +2063,7 @@ def list_channel_types(
     cfg: NewApiProvisionerConfig,
     admin: AdminToken,
 ) -> list[dict[str, Any]]:
-    """Return the channel adapters exposed by the connected NewAPI instance."""
+    """Return the channel adapters exposed by the connected LocalAPI instance."""
     with httpx.Client(timeout=15) as client:
         res = client.get(
             f"{cfg.admin_base_url}/api/channel/types",
@@ -2117,7 +2125,7 @@ def update_channel(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     channel = dict(payload["channel"])
-    # NewAPI treats channel status as read-only on the general update endpoint.
+    # LocalAPI treats channel status as read-only on the general update endpoint.
     channel.pop("status", None)
     channel["id"] = channel_id
     sanitized_payload = {**payload, "channel": channel}
@@ -2221,7 +2229,7 @@ def update_provider_channel_credentials(
         channel_type=int(channel_type or preset["type"]),
     )
     if not existing:
-        raise LookupError(f"NewAPI channel {channel_name} does not exist")
+        raise LookupError(f"LocalAPI channel {channel_name} does not exist")
 
     detail = get_channel_detail(cfg, admin, existing["id"])
     allowed_fields = _CHANNEL_ALLOWED_UPDATE_FIELDS
@@ -2335,7 +2343,7 @@ def backfill_model_alias_mappings_from_gateway(
 
 
 # [aipdd fork delta] openai→newapi 渠道重命名（网关侧，一次性）：把存量
-# DC-openai 渠道（type 1，外部 NewAPI）原 id 改名为 DC-newapi —— 只改 name/remark，
+# DC-openai 渠道（type 1，外部 LocalAPI）原 id 改名为 DC-newapi —— 只改 name/remark，
 # 保留渠道 id / key / base / models / abilities，网关在跑的任务不受影响。幂等：
 # DC-newapi 已存在或无 DC-openai 时直接跳过。改名后投影链（按 DC-{provider}
 # 查找/创建）与别名反向导入（按 "DC-" 前缀推导 provider）与 newapi 语义自洽。
@@ -2361,7 +2369,7 @@ def rename_gateway_openai_channel_to_newapi(
     }
     channel["id"] = existing_old["id"]
     channel["name"] = "DC-newapi"
-    label = str((PROVIDER_PRESETS.get("newapi") or {}).get("label") or "NewAPI")
+    label = str((PROVIDER_PRESETS.get("newapi") or {}).get("label") or "LocalAPI")
     if "created by DramaClaw CE provisioner" in str(channel.get("remark") or ""):
         channel["remark"] = f"created by DramaClaw CE provisioner for {label}"
     result = update_channel(
@@ -2541,9 +2549,9 @@ def build_provisioner_status() -> dict[str, Any]:
         "adminBaseUrl": cfg.admin_base_url,
         "dbConfigured": bool(cfg.sql_dsn or cfg.sqlite_path),
         "database": build_newapi_database_status(
-            sql_dsn=os.environ.get("NEWAPI_SQL_DSN", ""),
-            sqlite_path=os.environ.get("NEWAPI_SQLITE_PATH", ""),
-            admin_username=os.environ.get("NEWAPI_ADMIN_USERNAME", "root"),
+            sql_dsn=os.environ.get("LOCALAPI_SQL_DSN", ""),
+            sqlite_path=os.environ.get("LOCALAPI_SQLITE_PATH", ""),
+            admin_username=os.environ.get("LOCALAPI_ADMIN_USERNAME", "root"),
         ),
         "adminUsername": cfg.admin_username,
         "relayTokenName": cfg.relay_token_name,

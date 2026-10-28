@@ -331,6 +331,22 @@ _TOOL_ARCHIVE_LABELS = {
     "freezone_music_generate": "音乐创作",
     # [aipdd fork delta] 口播智能剪辑：产物是剪后口播成片（或 VectCut 剪映草稿）。
     "freezone_narration_smart_edit": "口播智能剪辑",
+    # [aipdd fork delta req97] 画布时间线一键合成的完整成片。
+    "freezone_video_compose": "成片合成",
+    # [aipdd fork delta req97] 视频高清增强后的成片。
+    "freezone_video_upscale": "视频超分",
+    # [aipdd fork delta req97] 人声分离：产物=分离音频+消音视频（消音视频用 label 覆盖单独成条）。
+    "freezone_audio_separate": "人声分离",
+    # [aipdd fork delta req97] 文本生成音乐：ElevenLabs 产出的 mp3/wav 音频。
+    "freezone_audio_eleven_music": "音乐生成",
+    # [aipdd fork delta req98] 3D / 文本载体：图生 3D 产 SOG/PLY；文案类工具产 txt。
+    "freezone_image_to_3gs": "图生 3D",
+    "freezone_douyin_copywrite": "抖音文案",
+    "freezone_media_copywrite": "文案转写",
+    "freezone_oral_script": "口播稿",
+    "freezone_video_script_reverse": "视频反推剧本",
+    # [aipdd fork delta req100] 公众号文章：排版 HTML 产物落「文本」载体。
+    "freezone_article_write": "公众号文章",
 }
 
 
@@ -352,6 +368,9 @@ def _archive_tool_output_to_library(
     url: str,
     result: dict[str, Any],
     stem: str = "",
+    item_id_suffix: str = "",
+    label: str = "",
+    mark_result: bool = True,
 ) -> dict[str, Any] | None:
     """按提交方声明的标记，把工具产物登记进资产库「待分类资产」。
 
@@ -360,6 +379,8 @@ def _archive_tool_output_to_library(
     素材名 + 工具标签，如「旅行照·视频去水印」；无来源名时用任务号后缀兜底。
     归档成功时给任务 ``result`` 附加 ``archived_to_library`` / ``library_item_id``
     标记——任务记录据此证明产物已入库，前端任务列表也靠它显示提示。
+    一个任务多个产物时：副产物用 ``item_id_suffix`` 拿独立条目 id、``label``
+    区分名字，``mark_result=False`` 让任务标记仍指向主产物。
     """
     if not payload.get("archive_to_library"):
         return None
@@ -368,18 +389,18 @@ def _archive_tool_output_to_library(
         archive_generated_library_item,
     )
 
-    label = _TOOL_ARCHIVE_LABELS.get(task_type) or "工具生成"
+    item_label = label or _TOOL_ARCHIVE_LABELS.get(task_type) or "工具生成"
     clean = str(stem or "").strip()[:40]
-    name = f"{clean}·{label}" if clean else f"{label} {job_id[-6:]}"
+    name = f"{clean}·{item_label}" if clean else f"{item_label} {job_id[-6:]}"
     project_dir = Path(str(payload.get("project_dir") or ctx.output_dir))
     item = archive_generated_library_item(
         project_dir,
-        item_id=f"{TOOL_LIBRARY_ITEM_ID_PREFIX}{job_id}",
+        item_id=f"{TOOL_LIBRARY_ITEM_ID_PREFIX}{job_id}{item_id_suffix}",
         name=name,
         media=media,
         url=url,
     )
-    if item:
+    if item and mark_result:
         result["archived_to_library"] = True
         result["library_item_id"] = str(item.get("id") or "")
     return item
@@ -549,11 +570,22 @@ async def _run_freezone_mask_edit_async(
         model=str(payload.get("model") or ""),
     )
     rel = out_path.relative_to(project_dir).as_posix()
-    return {
+    result: dict[str, Any] = {
         "job_id": job_id,
         "output_path": str(out_path),
         "output_url": make_static_url_for_context(ctx, rel),
     }
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type="freezone_mask_edit",
+        job_id=job_id,
+        media="image",
+        url=str(result["output_url"]),
+        result=result,
+        stem=Path(str(payload.get("base_path") or "")).stem,
+    )
+    return result
 
 
 async def _run_freezone_extract_async(
@@ -4595,13 +4627,24 @@ async def _run_freezone_video_upscale_async(
         denoise_strength=str(payload.get("denoise_strength") or "1x"),
     )
     rel = output_path.relative_to(project_dir).as_posix()
-    return {
+    result = {
         "job_id": job_id,
         "output_format": "mp4",
         "output_path": str(output_path),
         "output_url": make_static_url_for_context(ctx, rel),
         "meta": meta,
     }
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type="freezone_video_upscale",
+        job_id=job_id,
+        media="video",
+        url=str(result["output_url"]),
+        result=result,
+        stem=Path(str(payload.get("source_path") or "")).stem,
+    )
+    return result
 
 
 async def _run_freezone_audio_separate_async(
@@ -4640,6 +4683,33 @@ async def _run_freezone_audio_separate_async(
             make_static_url_for_context(ctx, mute_rel) if mute_rel else None
         ),
     }
+    # [aipdd fork delta req97] 分离产物双入库：主产物音频标记任务，消音视频独立成条。
+    src_stem = Path(str(payload.get("source_path") or "")).stem
+    if audio_rel:
+        _archive_tool_output_to_library(
+            ctx=ctx,
+            payload=payload,
+            task_type="freezone_audio_separate",
+            job_id=job_id,
+            media="audio",
+            url=str(response["audio_url"]),
+            result=response,
+            stem=src_stem,
+        )
+    if mute_rel:
+        _archive_tool_output_to_library(
+            ctx=ctx,
+            payload=payload,
+            task_type="freezone_audio_separate",
+            job_id=job_id,
+            media="video",
+            url=str(response["mute_video_url"]),
+            result=response,
+            stem=src_stem,
+            item_id_suffix="-mute",
+            label="消音视频",
+            mark_result=False,
+        )
     target_episode = payload.get("target_episode")
     target_beat = payload.get("target_beat")
     if audio_path and target_episode and target_beat:
@@ -4682,12 +4752,23 @@ async def _run_freezone_video_compose_async(
         tracks=list(payload.get("tracks") or []),
     )
     rel = output_path.relative_to(project_dir).as_posix()
-    return {
+    result = {
         "job_id": job_id,
         "output_format": "mp4",
         "output_path": str(output_path),
         "output_url": make_static_url_for_context(ctx, rel),
     }
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type="freezone_video_compose",
+        job_id=job_id,
+        media="video",
+        url=str(result["output_url"]),
+        result=result,
+        stem=str(payload.get("title") or payload.get("canvas_id") or ""),
+    )
+    return result
 
 
 def run_freezone_video_erase(
@@ -4931,6 +5012,18 @@ async def _run_freezone_article_write_async(
     )
     if history_record:
         result["generation_history_record"] = history_record
+    # [aipdd fork delta req100] 排版好的文章 HTML 也是「生成物」：按默认口径登记
+    # 进资产库「文本」载体（显式 false 时 payload 不带键、这里不动作）。
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type="freezone_article_write",
+        job_id=job_id,
+        media="text",
+        url=str(data["html_url"]),
+        result=result,
+        stem=title,
+    )
     return result
 
 
@@ -5123,6 +5216,17 @@ async def _run_freezone_oral_script_async(
     )
     if history_record:
         result["generation_history_record"] = history_record
+    # [aipdd fork delta req98] 净台词 txt 也是生成产物，默认归档进资产库文本载体。
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type="freezone_oral_script",
+        job_id=job_id,
+        media="text",
+        url=str(data["txt_url"]),
+        result=result,
+        stem=str(parsed.recommended_title or topic or ""),
+    )
     return result
 
 
@@ -5669,7 +5773,7 @@ async def _run_freezone_audio_eleven_music_async(
     )
     rel = result.audio_path.relative_to(project_dir).as_posix()
     audio_url = make_static_url_for_context(ctx, rel)
-    return {
+    response = {
         "job_id": job_id,
         "url": audio_url,
         "audio_url": audio_url,
@@ -5678,6 +5782,17 @@ async def _run_freezone_audio_eleven_music_async(
         "mime_type": result.mime_type,
         "model": result.model,
     }
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type="freezone_audio_eleven_music",
+        job_id=job_id,
+        media="audio",
+        url=str(response["audio_url"]),
+        result=response,
+        stem=_archive_stem_from_text(payload.get("input")),
+    )
+    return response
 
 
 def run_freezone_audio_eleven_music(
@@ -5799,10 +5914,9 @@ async def _run_freezone_douyin_copywrite_async(
     )
     rel = result.text_path.relative_to(project_dir).as_posix()
     text_url = make_static_url_for_context(ctx, rel)
-    # [aipdd fork delta] 产物是文案文本（txt）而非图/视频/音频媒体：素材库三类
-    # 媒介无文本载体，故本工具不走 _archive_tool_output_to_library 归档；文案
-    # 全文随任务结果返回，前端任务记录可直接读取与打开 txt。
-    return {
+    # [aipdd fork delta req98] 资产库新增文本载体后，文案 txt 也按「生成就入库」
+    # 归档进「待分类资产」；全文仍随任务结果返回，任务记录可直接读取。
+    payload_result = {
         "job_id": job_id,
         "url": text_url,
         "text_url": text_url,
@@ -5815,6 +5929,17 @@ async def _run_freezone_douyin_copywrite_async(
         "author": result.author,
         "duration_seconds": result.duration_seconds,
     }
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type="freezone_douyin_copywrite",
+        job_id=job_id,
+        media="text",
+        url=text_url,
+        result=payload_result,
+        stem=str(result.title or ""),
+    )
+    return payload_result
 
 
 def run_freezone_douyin_copywrite(
@@ -5864,32 +5989,43 @@ async def _run_freezone_media_copywrite_async(
 
     # [aipdd fork delta] req21：下载/上传视频与分离音频自动归档进资产库（稳定 id
     # 幂等 upsert）；纯音频来源无视频、下载失败无音频时相应跳过。
-    _update(ctx, "freezone_media_copywrite", job_id, 0.9, "转写完成，归档素材…")
+    # [aipdd fork delta req98] 文案 txt 也归档（文本载体）；整体按「生成就入库」
+    # 默认开启，显式传 false 时三类素材一起不归档。
     assets: list[dict[str, Any]] = []
-    display_name = (result.title or "提取素材")[:24]
-    if result.video_path is not None and result.video_path.exists():
-        video_rel = result.video_path.relative_to(project_dir).as_posix()
+    if payload.get("archive_to_library"):
+        _update(ctx, "freezone_media_copywrite", job_id, 0.9, "转写完成，归档素材…")
+        display_name = (result.title or "提取素材")[:24]
+        if result.video_path is not None and result.video_path.exists():
+            video_rel = result.video_path.relative_to(project_dir).as_posix()
+            assets.append(
+                {
+                    "id": f"media_copywrite:{job_id}:video",
+                    "name": f"{display_name} · 视频",
+                    "media": "video",
+                    "source": "upload",
+                    "url": make_static_url_for_context(ctx, video_rel, local_path=result.video_path),
+                }
+            )
+        if result.audio_path is not None and result.audio_path.exists():
+            audio_rel = result.audio_path.relative_to(project_dir).as_posix()
+            assets.append(
+                {
+                    "id": f"media_copywrite:{job_id}:audio",
+                    "name": f"{display_name} · 音频",
+                    "media": "audio",
+                    "source": "upload",
+                    "url": make_static_url_for_context(ctx, audio_rel, local_path=result.audio_path),
+                }
+            )
         assets.append(
             {
-                "id": f"media_copywrite:{job_id}:video",
-                "name": f"{display_name} · 视频",
-                "media": "video",
+                "id": f"media_copywrite:{job_id}:text",
+                "name": f"{display_name} · 文案",
+                "media": "text",
                 "source": "upload",
-                "url": make_static_url_for_context(ctx, video_rel, local_path=result.video_path),
+                "url": text_url,
             }
         )
-    if result.audio_path is not None and result.audio_path.exists():
-        audio_rel = result.audio_path.relative_to(project_dir).as_posix()
-        assets.append(
-            {
-                "id": f"media_copywrite:{job_id}:audio",
-                "name": f"{display_name} · 音频",
-                "media": "audio",
-                "source": "upload",
-                "url": make_static_url_for_context(ctx, audio_rel, local_path=result.audio_path),
-            }
-        )
-    if assets:
         sync_mainline_assets_into_library(project_dir, assets=assets)
 
     return {
@@ -6051,6 +6187,17 @@ async def _run_freezone_video_script_reverse_async(
     )
     if history_record:
         result["generation_history_record"] = history_record
+    # [aipdd fork delta req98] 剧本 txt 默认归档进资产库文本载体。
+    _archive_tool_output_to_library(
+        ctx=ctx,
+        payload=payload,
+        task_type=_VIDEO_SCRIPT_REVERSE_TASK_TYPE,
+        job_id=job_id,
+        media="text",
+        url=str(result["output_url"]),
+        result=result,
+        stem=str(result.get("title") or ""),
+    )
     return result
 
 

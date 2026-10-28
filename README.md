@@ -337,7 +337,7 @@ No terminal commands needed. Get the code (clone or **Download ZIP**, then unzip
 
 ### Docker (source build)
 
-This fork is **source-build only** — it never pulls a published image. The DramaClaw gateway is already vendored under `third_party/dramaclaw-gateway` (AGPL-3.0; see [`third_party/README.md`](./third_party/README.md)), so you do **not** clone it separately. `docker compose up -d --build` builds all three services (`api` / `newapi` gateway / `web`) from this single checkout.
+This fork is **source-build only** — it never pulls a published image. The DramaClaw gateway is already vendored under `third_party/dramaclaw-gateway` (AGPL-3.0; see [`third_party/README.md`](./third_party/README.md)), so you do **not** clone it separately. `docker compose up -d --build` builds all three services (`api` / `localapi` gateway / `web`) from this single checkout.
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
@@ -346,10 +346,10 @@ cd aipdd-drama-agent
 cp .env.example .env
 # Edit .env — set PROMPT_EXPORT_PASSWORD to a non-default value.
 
-docker compose up -d --build   # builds and starts three services: api / newapi (LocalAPI) / web
+docker compose up -d --build   # builds and starts three services: api / localapi (LocalAPI) / web
 ```
 
-Only this repo's code changed? `docker compose up -d --build api web`. Only the vendored gateway? `docker compose up -d --build newapi`. Want to build the gateway from your own checkout instead of the vendored copy? Set `DRAMACLAW_GATEWAY_SRC` in `.env` to that path.
+Only this repo's code changed? `docker compose up -d --build api web`. Only the vendored gateway? `docker compose up -d --build localapi`. Want to build the gateway from your own checkout instead of the vendored copy? Set `DRAMACLAW_GATEWAY_SRC` in `.env` to that path.
 
 Open the app at <http://localhost:8080>; the REST API is at <http://localhost:8780>. In **Settings → Models & Channels** pick one of:
 
@@ -359,7 +359,7 @@ Open the app at <http://localhost:8080>; the REST API is at <http://localhost:87
 
 Full steps in the [Quick Start](docs/en/getting-started/quickstart.md).
 
-> LocalAPI's port binds only to `127.0.0.1` by default; set `ST_NEWAPI_BIND=0.0.0.0` in `.env` if you need remote access to it.
+> LocalAPI's port binds only to `127.0.0.1` by default; set `ST_LOCALAPI_BIND=0.0.0.0` in `.env` if you need remote access to it.
 
 ### Cloud host / VPS (Linux) — shared or public deployment
 
@@ -373,7 +373,7 @@ cp .env.example .env
 #    Edit .env: set ST_LOCAL_PASSWORD, PROMPT_EXPORT_PASSWORD and your model
 #    keys / official DC key before you start.
 
-# 2 · build & bring the stack up (api / newapi gateway / web, all from source)
+# 2 · build & bring the stack up (api / localapi gateway / web, all from source)
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
@@ -396,17 +396,17 @@ uv run novelvideo api --port 8780   # start the REST API (CE defaults to inline 
 
 Frontend in a second terminal: `cd frontend && pnpm install && pnpm dev`.
 
-**Gateway.** In **Official** mode you need nothing else. For **Custom** or **LocalAPI + Official Hybrid** the API expects a gateway on `127.0.0.1:3000` whose SQLite file is `./state/newapi/one-api.db` (that is what "Initialize" in Settings writes to; `LOCALAPI_ADMIN_BASE_URL` in `.env` already points there). Build and run the vendored gateway from source with that directory mounted:
+**Gateway.** In **Official** mode you need nothing else. For **Custom** or **LocalAPI + Official Hybrid** the API expects a gateway on `127.0.0.1:3000` whose SQLite file is `./state/localapi/localapi.db` (that is what "Initialize" in Settings writes to; `LOCALAPI_ADMIN_BASE_URL` in `.env` already points there). Build and run the vendored gateway from source with that directory mounted:
 
 ```bash
-mkdir -p state/newapi
+mkdir -p state/localapi
 docker build -t aipdd/gateway ./third_party/dramaclaw-gateway
 docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
-  -v "$PWD/state/newapi:/data" \
+  -v "$PWD/state/localapi:/data" \
   aipdd/gateway
 ```
 
-or run the gateway from source directly in `third_party/dramaclaw-gateway` (`make dev-api` / `make dev-web`, or `go build` and start the binary with `SQLITE_PATH=<path to>/state/newapi/one-api.db`).
+or run the gateway from source directly in `third_party/dramaclaw-gateway` (`make dev-api` / `make dev-web`, or `go build` and start the binary with `SQLITE_PATH=<path to>/state/localapi/localapi.db`).
 
 <br/>
 
@@ -432,15 +432,15 @@ Stay current: re-double-click the **Start** launcher to restart; check the runni
 
 ## <a name="supported-models"></a>Supported Models & Providers
 
-AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models connect through an **OpenAI-compatible gateway**, so the same pipeline can ride **AIPDD's low-cost idle compute**, the official hosted models, **any NewAPI channel you wire in**, or **your own GPU via ComfyUI local compute**. Pick the mode in **Settings → Models & Channels**:
+AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models connect through an **OpenAI-compatible gateway**, so the same pipeline can ride **AIPDD's low-cost idle compute**, the official hosted models, **any LocalAPI channel you wire in**, or **your own GPU via ComfyUI local compute**. Pick the mode in **Settings → Models & Channels**:
 
-- **Official (recommended)** — paste your DC key (get one at NewAPI), save, done. The official gateway already ships every model mapping DramaClaw needs; nothing to configure.
+- **Official (recommended)** — paste your DC key (get one at LocalAPI), save, done. The official gateway already ships every model mapping DramaClaw needs; nothing to configure.
 - **Custom** — one click initializes LocalAPI, then add your own provider channels (API keys, model IDs) in its admin UI. Every model DramaClaw calls goes through your channels.
 - **LocalAPI + Official Hybrid** — keep the official models for the main pipeline and add extra channels (for example a local ComfyUI video workflow) through LocalAPI.
 
 > 🧠 **Bring your own compute — lower cost, stay in control.** The gateway is built so *you* choose where each generation runs:
 > - **AIPDD idle compute (cut costs).** Connecting the **AIPDD** channel lets generation ride the platform's **idle compute pool**, so heavy batch drama work runs at a fraction of on-demand pricing — the single biggest lever on production cost. Register at <https://www.aipdd.work> to get an AIPDD API key, then add it as a channel in **Settings → Models & Channels**.
-> - **NewAPI, freely mixed.** The built-in **NewAPI** gateway lets you register many providers as channels and **combine them however you like** — official, AIPDD, a self-hosted box, or any OpenAI-compatible endpoint — per model, per stage. For NewAPI channels we recommend **sourcing your own providers and comparing prices**; a curated reference list is here: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
+> - **LocalAPI, freely mixed.** The built-in **LocalAPI** gateway lets you register many providers as channels and **combine them however you like** — official, AIPDD, a self-hosted box, or any OpenAI-compatible endpoint — per model, per stage. For LocalAPI channels we recommend **sourcing your own providers and comparing prices**; a curated reference list is here: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
 > - **ComfyUI, on your own GPU — the cheapest way to run canvas tasks.** A first-class **ComfyUI** adapter points canvas image / video generation at a workflow running on **your own machine**: your GPU does the rendering, so there's **no per-call cloud quota** — heavy generation costs you only electricity, far below any hosted model. Register your local ComfyUI endpoint as a channel in **Custom** or **Hybrid** mode.
 >   - **Fastest way to get ComfyUI up** — skip the manual install and just download our bundled **compute client (算力客户端)**, then run the installer — no Python or environment setup needed: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.
 >
@@ -450,7 +450,7 @@ Full walkthrough in [Configuring Models](docs/en/getting-started/configuring-mod
 
 ### LocalAPI: dramaclaw-gateway
 
-The `newapi` service in `docker-compose.yml` is [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), AIPDD-Agent-Claw's own fork of [New API](https://github.com/QuantumNous/new-api). It speaks the **DC-Media** contract AIPDD-Agent-Claw uses for image / video / audio (media roles, references, first / last frames) and converts each request into the provider's native API. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) on Docker Hub, pinned by `DRAMACLAW_GATEWAY_VERSION` in `.env`. It stays idle in Official mode and is only used once you switch to **Custom** or **LocalAPI + Official Hybrid**.
+The `localapi` service in `docker-compose.yml` is [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), AIPDD-Agent-Claw's own fork of [New API](https://github.com/QuantumNous/new-api). It speaks the **DC-Media** contract AIPDD-Agent-Claw uses for image / video / audio (media roles, references, first / last frames) and converts each request into the provider's native API. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) on Docker Hub, pinned by `DRAMACLAW_GATEWAY_VERSION` in `.env`. It stays idle in Official mode and is only used once you switch to **Custom** or **LocalAPI + Official Hybrid**.
 
 Provider adapters shipped in the gateway today (see the [channel support matrix](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md) for verification status): ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Want another provider? The gateway has a [scaffold generator and contribution guide](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
 

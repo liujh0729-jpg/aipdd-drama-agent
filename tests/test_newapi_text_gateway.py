@@ -114,7 +114,7 @@ def test_newapi_text_provider_default_trusts_env(monkeypatch):
 
     import novelvideo.config as config
 
-    monkeypatch.delenv("NEWAPI_TEXT_TRUST_ENV", raising=False)
+    monkeypatch.delenv("LOCALAPI_TEXT_TRUST_ENV", raising=False)
 
     provider = config._newapi_text_openai_provider(
         api_key="key",
@@ -136,7 +136,7 @@ def test_newapi_text_provider_can_disable_system_proxy(monkeypatch):
 
     import novelvideo.config as config
 
-    monkeypatch.setenv("NEWAPI_TEXT_TRUST_ENV", "false")
+    monkeypatch.setenv("LOCALAPI_TEXT_TRUST_ENV", "false")
 
     provider = config._newapi_text_openai_provider(
         api_key="key",

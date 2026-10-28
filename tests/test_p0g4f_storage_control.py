@@ -595,9 +595,9 @@ async def test_c1_eg22_pos_allows_only_newapi_admin_service_identity():
         identity=NewApiAdminServiceIdentity(
             credential_id="svc-newapi-admin",
             credential_version=2,
-            admin_base_url="http://new-api:3000",
+            admin_base_url="http://localapi:3000",
         ),
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         capability="gateway.provisioning.setup",
         business_task_id="setup-default",
         request={"action": "setup", "channel": "default"},
@@ -631,9 +631,9 @@ async def test_c1_eg22_org_deny_rejects_org_gateway_key_before_claim_or_network(
             identity=NewApiAdminServiceIdentity(
                 credential_id="svc-newapi-admin",
                 credential_version=2,
-                admin_base_url="http://new-api:3000",
+                admin_base_url="http://localapi:3000",
             ),
-            admin_base_url="http://new-api:3000",
+            admin_base_url="http://localapi:3000",
             capability="gateway.provisioning.setup",
             business_task_id="setup-default",
             request={"action": "setup"},
@@ -663,9 +663,9 @@ async def test_c1_eg22_facade_only_denies_every_trusted_request_context(context)
             identity=NewApiAdminServiceIdentity(
                 credential_id="svc-newapi-admin",
                 credential_version=1,
-                admin_base_url="http://new-api:3000",
+                admin_base_url="http://localapi:3000",
             ),
-            admin_base_url="http://new-api:3000",
+            admin_base_url="http://localapi:3000",
             capability="gateway.provisioning.setup",
             business_task_id="setup-default",
             request={"action": "setup"},
@@ -699,7 +699,7 @@ async def test_c1_eg22_facade_only_denies_wrong_identity_or_capability(
     with pytest.raises(ServiceControlEgressDenied):
         await run_newapi_admin_operation(
             identity=identity,
-            admin_base_url="http://new-api:3000",
+            admin_base_url="http://localapi:3000",
             capability=capability,
             business_task_id="setup-default",
             request={"action": "setup"},
@@ -725,9 +725,9 @@ async def test_c1_eg22_facade_only_denies_missing_authority_before_network():
             identity=NewApiAdminServiceIdentity(
                 credential_id="svc-newapi-admin",
                 credential_version=1,
-                admin_base_url="http://new-api:3000",
+                admin_base_url="http://localapi:3000",
             ),
-            admin_base_url="http://new-api:3000",
+            admin_base_url="http://localapi:3000",
             capability="gateway.provisioning.setup",
             business_task_id="setup-default",
             request={"action": "setup"},
@@ -773,7 +773,7 @@ def test_c1_eg22_provisioner_denies_org_context_before_network(monkeypatch):
         ),
     )
     cfg = NewApiProvisionerConfig(
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         sql_dsn="local",
         sqlite_path="/not-used",
         admin_username="root",
@@ -804,9 +804,9 @@ async def test_service_operations_never_replay_non_winning_claims(state):
             identity=NewApiAdminServiceIdentity(
                 credential_id="svc-newapi-admin",
                 credential_version=1,
-                admin_base_url="http://new-api:3000",
+                admin_base_url="http://localapi:3000",
             ),
-            admin_base_url="http://new-api:3000",
+            admin_base_url="http://localapi:3000",
             capability="gateway.provisioning.setup",
             business_task_id="setup-default",
             request={"action": "setup"},
@@ -835,9 +835,9 @@ async def test_service_operation_failure_is_stable_and_secret_free():
             identity=NewApiAdminServiceIdentity(
                 credential_id="svc-newapi-admin",
                 credential_version=1,
-                admin_base_url="http://new-api:3000",
+                admin_base_url="http://localapi:3000",
             ),
-            admin_base_url="http://new-api:3000",
+            admin_base_url="http://localapi:3000",
             capability="gateway.provisioning.setup",
             business_task_id="setup-default",
             request={"action": "setup"},

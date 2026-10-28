@@ -1398,7 +1398,7 @@ def test_gateway_detail_carries_status_and_upstream_message() -> None:
         },
     )
     detail = module._gateway_transcription_detail(exc)
-    # 以前这里只会得到一句 "NewAPI audio transcription failed"，看不出上游为什么失败。
+    # 以前这里只会得到一句 "LocalAPI audio transcription failed"，看不出上游为什么失败。
     assert "HTTP 503" in detail
     assert "No available channel for model ap-funasr" in detail
     # 最可行动的一类：网关侧没有可用渠道 → 给出渠道归属与可执行出口（导航名必须是真实栏目）。

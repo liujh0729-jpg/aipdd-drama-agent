@@ -270,6 +270,13 @@ export interface FreezoneVideoGenPayload extends FreezoneNodeContext {
    */
   humanReview?: boolean;
   sceneOptimize?: "anime" | "realistic" | null;
+  /**
+   * [aipdd fork delta] 为 true 时后端 runner 把产物登记进资产库「待分类资产」。
+   * 画布入口默认传 true，工具页按需求决定。
+   */
+  archiveToLibrary?: boolean;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）；写入 metadata.source_tool。 */
+  sourceTool?: string;
 }
 
 export async function submitFreezoneVideoGen(
@@ -303,6 +310,8 @@ export async function submitFreezoneVideoGen(
         gen_mode: payload.genMode,
         human_review: payload.humanReview ?? false,
         scene_optimize: payload.sceneOptimize ?? null,
+        ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
         ...nodeContextBody(payload),
       },
     },
@@ -362,6 +371,10 @@ export interface FreezoneVideoKeyframesPayload extends FreezoneNodeContext {
   /** See {@link FreezoneVideoGenPayload.humanReview}. */
   humanReview?: boolean;
   sceneOptimize?: "anime" | "realistic" | null;
+  /** [aipdd fork delta] 见 {@link FreezoneVideoGenPayload.archiveToLibrary}。 */
+  archiveToLibrary?: boolean;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）；写入 metadata.source_tool。 */
+  sourceTool?: string;
 }
 
 export async function submitFreezoneVideoKeyframes(
@@ -396,6 +409,8 @@ export async function submitFreezoneVideoKeyframes(
         gen_mode: payload.genMode,
         human_review: payload.humanReview ?? false,
         scene_optimize: payload.sceneOptimize ?? null,
+        ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
         ...nodeContextBody(payload),
       },
     },
@@ -424,6 +439,10 @@ export interface FreezoneVideoI2vPayload extends FreezoneNodeContext {
   /** See {@link FreezoneVideoGenPayload.humanReview}. */
   humanReview?: boolean;
   sceneOptimize?: "anime" | "realistic" | null;
+  /** [aipdd fork delta] 见 {@link FreezoneVideoGenPayload.archiveToLibrary}。 */
+  archiveToLibrary?: boolean;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）；写入 metadata.source_tool。 */
+  sourceTool?: string;
 }
 
 export async function submitFreezoneVideoI2v(
@@ -457,6 +476,8 @@ export async function submitFreezoneVideoI2v(
         gen_mode: payload.genMode,
         human_review: payload.humanReview ?? false,
         scene_optimize: payload.sceneOptimize ?? null,
+        ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
         ...nodeContextBody(payload),
       },
     },
@@ -549,6 +570,10 @@ export interface FreezoneVideoExtendPayload extends FreezoneNodeContext {
   model?: string;
   genMode: "videoExtend";
   humanReview?: boolean;
+  /** [aipdd fork delta] 见 {@link FreezoneVideoGenPayload.archiveToLibrary}。 */
+  archiveToLibrary?: boolean;
+  /** [aipdd fork delta] 工具页任务归属标识（取 def.kind）；写入 metadata.source_tool。 */
+  sourceTool?: string;
 }
 
 export async function submitFreezoneVideoExtend(
@@ -569,6 +594,8 @@ export async function submitFreezoneVideoExtend(
         ...(payload.model ? { model: payload.model, model_id: payload.model } : {}),
         gen_mode: payload.genMode,
         human_review: payload.humanReview ?? false,
+        ...(payload.archiveToLibrary ? { archive_to_library: true } : {}),
+        ...(payload.sourceTool ? { source_tool: payload.sourceTool } : {}),
         ...nodeContextBody(payload),
       },
     },
@@ -2422,7 +2449,7 @@ export async function submitFreezoneMotionRender(
         canvas_id: payload.canvasId ?? "",
         episode: normalizeNumberInput(payload.episode, 0, 0, 9999, true),
         beat_number: normalizeNumberInput(payload.beatNumber, 0, 0, 9999, true),
-        archive_to_library: payload.archiveToLibrary ?? false,
+        archive_to_library: payload.archiveToLibrary ?? true,
         source_tool: payload.sourceTool ?? "",
       },
     },
@@ -3064,7 +3091,7 @@ export async function submitFreezoneMusicCoverPreprocess(
 }
 
 // /model-gateway/text-models ---------------------------------------------- //
-// [aipdd fork delta] 画布脚本/文本节点的模型候选：后端聚合 NewAPI 渠道
+// [aipdd fork delta] 画布脚本/文本节点的模型候选：后端聚合 LocalAPI 渠道
 // model_mapping 里的文本模型名（排除媒体/embedding），默认文本模型排首项。
 // 不挂项目作用域，是全局端点。
 
@@ -4900,11 +4927,21 @@ export async function submitFreezoneAnalyzeVideoStory(
 
 /**
  * 素材媒介。前三类是可直接预览的媒体文件；"draft" 是 VectCut 跑出的剪映草稿——
- * 它不是单个文件而是一个草稿包，条目只承载 draft_id，下载走草稿包代理端点。
+ * 它不是单个文件而是一个草稿包，条目只承载 draft_id，下载走草稿包代理端点；
+ * "model3d" / "text" 只收生成产物（3D 模型 / txt 文档），同草稿一样不走上传。
  */
-export type FreezoneAssetLibraryMedia = "image" | "video" | "audio" | "draft";
-/** 可作为上传媒介的类型：剪映草稿只能由 VectCut 生成，不支持用户上传。 */
-export type FreezoneUploadableMedia = Exclude<FreezoneAssetLibraryMedia, "draft">;
+export type FreezoneAssetLibraryMedia =
+  | "image"
+  | "video"
+  | "audio"
+  | "draft"
+  | "model3d"
+  | "text";
+/** 可作为上传媒介的类型：草稿/3D/文本只能由任务产物登记，不支持用户上传。 */
+export type FreezoneUploadableMedia = Exclude<
+  FreezoneAssetLibraryMedia,
+  "draft" | "model3d" | "text"
+>;
 export type FreezoneAssetLibrarySource =
   | "upload"
   | "character"
@@ -4922,7 +4959,9 @@ export type FreezoneAssetLibraryCategory =
   | "audio"
   | "draft"
   | "topdown"
-  | "storyVersion";
+  | "storyVersion"
+  | "model3d"
+  | "text";
 
 /**
  * 用户自建的资产库文件夹。系统文件夹（主线 / 待分类资产 / 各类目同名目录）不落盘，

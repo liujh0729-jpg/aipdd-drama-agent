@@ -21,7 +21,7 @@
 | **Every model call errors** | Under Settings → Models & Channels, confirm the active channel is configured. Check the DC key for the official channel, or the service, runtime token, and upstream channels for LocalAPI. |
 | **A stage reports "model does not exist"** | LocalAPI is missing the corresponding logical model mapping, or the target channel is disabled. See [Configuring model providers](../getting-started/configuring-models.md). |
 | **Structured steps fail with `Exceeded maximum output retries`** (character extraction, script planning…) while plain text works | The upstream did not return a function/tool call. The task log (v2.0.3+) shows the retry prompt and cause. Relays that convert Chat Completions themselves (Codex2API and similar Codex-backed proxies) are known to drop `tool_calls` on `/v1/chat/completions`: in the LocalAPI admin, enable **ChatCompletions → Responses Compatibility** (`chat_completions_to_responses_policy`) for that channel so LocalAPI sends `/v1/responses` upstream. See #490. |
-| **Text model times out** | Increase `NEWAPI_TEXT_TIMEOUT_SECONDS` (default 120); if a system proxy is intercepting an internal gateway, set `NEWAPI_TEXT_TRUST_ENV=false`. |
+| **Text model times out** | Increase `LOCALAPI_TEXT_TIMEOUT_SECONDS` (default 120); if a system proxy is intercepting an internal gateway, set `LOCALAPI_TEXT_TRUST_ENV=false`. |
 | **Reference-image feature unavailable** | Requires `OSS_RELAY_AK/SK`; the plain text→video pipeline can run without it. |
 
 ## Media / ffmpeg

@@ -525,7 +525,7 @@ def _is_indextts2_model(model: str) -> bool:
     IndexTTS2 的复刻/情绪参数语义只在专用客户端里成立，命中时不走通用
     /audio/speech 分支。
 
-    [aipdd fork delta] env ``INDEXTTS2_NEWAPI_MODEL`` 已退出解析链，代码里也不再有内置
+    [aipdd fork delta] env ``INDEXTTS2_LOCALAPI_MODEL`` 已退出解析链，代码里也不再有内置
     音频模型名：命中判定只看**实际调用名本身**是否带着 IndexTTS 字样（渠道目录里就是
     这么命名的）。比较前先抹掉连字符 / 下划线，``index-tts-2`` 这类写法也能命中。
     """
@@ -589,7 +589,7 @@ async def _generate_freezone_audio_speech_via_gateway(
             response_payload=response_payload,
         )
         if not output_path.exists() or output_path.stat().st_size <= 0:
-            raise RuntimeError("NewAPI speech audio file was not created")
+            raise RuntimeError("LocalAPI speech audio file was not created")
         # [aipdd fork delta] WP-D: 预约 / 确认 / 退款随 CE 额度体系删除，
         # 成功投递后只记一次上游调用观测位（失败仍原样冒泡，语义不变）。
         await record_tts_model_call(model=requested_model)
@@ -1048,7 +1048,7 @@ async def generate_freezone_audio_speech(
 class GatewayAudioUnavailable(RuntimeError):
     """环境缺失（网关地址未配置），不是生成失败。
 
-    不参与下面「NewAPI audio generation failed」的归一化包装，直接透传，否则
+    不参与下面「LocalAPI audio generation failed」的归一化包装，直接透传，否则
     可执行的「去哪配」提示会被归成一句无信息量错误。
     """
 
@@ -1129,7 +1129,7 @@ async def _write_newapi_audio_speech(
       ``mark_unknown``，成功后 ``complete(result_ref="audio:newapi:completed")``；
     - 无受信上下文时回落平台 ``get_newapi_runtime_credentials``
       （``api_key`` / ``base_url`` 参数允许显式覆盖）；
-    - 失败最终归一化为 ``RuntimeError("NewAPI audio generation failed")``
+    - 失败最终归一化为 ``RuntimeError("LocalAPI audio generation failed")``
       （``BaseException`` 原样冒泡；网关地址未配置的 ``GatewayAudioUnavailable``
       也原样冒泡，因为那是环境缺失而不是请求失败）。
     """
@@ -1171,7 +1171,7 @@ async def _write_newapi_audio_speech(
         )
     key = str(key or "").strip()
     if not key:
-        raise RuntimeError("LOCALAPI_API_KEY is required for NewAPI audio generation")
+        raise RuntimeError("LOCALAPI_API_KEY is required for LocalAPI audio generation")
 
     body: dict[str, Any] = {
         "model": str(model or "").strip(),
@@ -1247,7 +1247,7 @@ async def _write_newapi_audio_speech(
                         output_path.write_bytes(base64.b64decode(audio_b64))
                 if not output_path.exists() and not result_url:
                     raise RuntimeError(
-                        "NewAPI audio response missing audio bytes or URL"
+                        "LocalAPI audio response missing audio bytes or URL"
                     )
                 if result_url:
                     if not await copy_archived_result(payload.get("archive"), output_path):
@@ -1266,7 +1266,7 @@ async def _write_newapi_audio_speech(
         if isinstance(exc, GatewayAudioUnavailable):
             raise
         if isinstance(exc, Exception):
-            raise RuntimeError("NewAPI audio generation failed") from None
+            raise RuntimeError("LocalAPI audio generation failed") from None
         raise
 
 
@@ -1283,7 +1283,7 @@ async def generate_freezone_audio_eleven_music(
     model: str = "",
     egress_context: TrustedEgressContext | None = None,
 ) -> FreezoneAudioSpeechResult:
-    """Generate standalone Freezone music through NewAPI's audio/speech endpoint."""
+    """Generate standalone Freezone music through LocalAPI's audio/speech endpoint."""
     from novelvideo.ports import update_current_model_call_log
 
     clean_prompt = str(prompt or "").strip()
@@ -1342,7 +1342,7 @@ async def generate_freezone_audio_eleven_music(
             response_payload=response_payload,
         )
         if not output_path.exists() or output_path.stat().st_size <= 0:
-            raise RuntimeError("NewAPI music audio file was not created")
+            raise RuntimeError("LocalAPI music audio file was not created")
         await _record_music_model_call(
             model=model_name,
             metadata={"source": "freezone_audio_music", "music_length_ms": length},

@@ -90,17 +90,17 @@ def get_pydantic_model(
     *,
     default_model: str | None = None,
 ):
-    """Return a PydanticAI model routed through the effective NewAPI gateway.
+    """Return a PydanticAI model routed through the effective LocalAPI gateway.
 
     This is the compatibility factory used by older Agent call sites. Provider
     settings still select their legacy default model when no model name is
     supplied, but they no longer select a direct-provider transport. CE reads
-    credentials from settings.db; EE reads its deployment-level NewAPI env.
+    credentials from settings.db; EE reads its deployment-level LocalAPI env.
 
     Args:
         provider_override: Select the legacy provider preset used for a default
-            model name. The request transport remains NewAPI.
-        model_name_override: Override the model name sent to NewAPI.
+            model name. The request transport remains LocalAPI.
+        model_name_override: Override the model name sent to LocalAPI.
         default_model: [aipdd fork delta req40] 兜底**槽位键**（``DC-*`` 内部功能位），
             不是模型名 —— 视觉调用方传 ``DEFAULT_FREEZONE_VISION_MODEL`` 这类别名，
             解析时还要校验它在用户设置里绑定的目标仍存在于渠道目录。
@@ -197,7 +197,7 @@ def _newapi_text_http_client_factory(
     *,
     timeout_seconds: float,
 ) -> Any:
-    trust_env = _env_bool("NEWAPI_TEXT_TRUST_ENV", True)
+    trust_env = _env_bool("LOCALAPI_TEXT_TRUST_ENV", True)
 
     def factory():
         import httpx
@@ -330,7 +330,7 @@ def get_newapi_text_pydantic_model(
         if timeout_seconds_override is not None
         else _env_float(
             f"{model_env}_TIMEOUT_SECONDS",
-            _env_float("NEWAPI_TEXT_TIMEOUT_SECONDS", 300.0),
+            _env_float("LOCALAPI_TEXT_TIMEOUT_SECONDS", 300.0),
         )
     )
     profile = _get_newapi_text_model_profile(model_name)
@@ -370,7 +370,7 @@ def get_newapi_structured_output_model_settings() -> dict:
     """Disable reasoning for PydanticAI structured output requests.
 
     DramaClaw sends opaque ``DC-*`` aliases through an OpenAI-compatible
-    NewAPI endpoint.  PydanticAI cannot infer thinking capabilities from those
+    LocalAPI endpoint.  PydanticAI cannot infer thinking capabilities from those
     aliases, so its unified ``thinking=False`` setting is silently ignored.
     Use the explicit OpenAI-compatible wire contract that existing deployments
     already send when their task-level thinking setting is ``none``.
@@ -541,7 +541,7 @@ LOCALAPI_API_KEY = os.environ.get("LOCALAPI_API_KEY", "")
 
 
 def get_effective_newapi_gateway_config():
-    """Return the selected NewAPI runtime gateway credentials."""
+    """Return the selected LocalAPI runtime gateway credentials."""
     from novelvideo.model_gateway_settings import get_effective_newapi_config
 
     return get_effective_newapi_config(
@@ -557,7 +557,7 @@ def get_newapi_runtime_credentials(
     env_api_key: str = "LOCALAPI_API_KEY",
     env_base_url: str = "LOCALAPI_BASE_URL",
 ) -> tuple[str, str]:
-    """Resolve NewAPI credentials from the edition's effective gateway.
+    """Resolve LocalAPI credentials from the edition's effective gateway.
 
     CE reads dynamic credentials from settings.db and never falls back to the
     process environment. EE's deployment-time gateway remains environment
@@ -597,7 +597,7 @@ def get_newapi_runtime_credentials(
 # 位决定（渠道目录里 kind==audio 的模型），这一项只是运维显式钉死的 env 覆盖。留空 =
 # 未配置，调用前直接报「未绑定可用模型」，不会拿一个网关注册表里不存在的名字去撞 404。
 # [aipdd fork delta] env 不再提供音频模型名：默认音频位由「设置 → 模型与渠道」决定。
-INDEXTTS2_NEWAPI_MODEL = ""
+INDEXTTS2_LOCALAPI_MODEL = ""
 INDEXTTS2_RECORD_PROVIDER = "newapi"
 
 
@@ -623,8 +623,8 @@ def get_indextts2_record_model(invoked_model: str = "") -> str:
 # get_effective_default_image_model() 从「默认生成模型」面板写入的 media mappings 解析。
 # [aipdd fork delta] 这两个 env 已退出解析链：默认图模型只由「设置 → 模型与渠道」的媒体
 # 映射决定（get_effective_default_image_model）。常量留空是为了让旧的选项表继续可导入。
-NEWAPI_IMAGE_MODEL = ""
-NEWAPI_NANOBANANA2_MODEL = ""
+LOCALAPI_IMAGE_MODEL = ""
+LOCALAPI_NANOBANANA2_MODEL = ""
 # [aipdd fork delta wave2] 「按用途钉图」的这一批 env 也退出解析链。以前设了
 # ``SCENE_MASTER_IMAGE_MODEL`` / ``PROP_REF_IMAGE_MODEL`` 就会**压过**「设置 → 模型与渠道」里配的
 # 默认图：那个值在设置页上看不见，渠道下架时也不会自动取消绑定 —— ``No available
@@ -908,16 +908,16 @@ def _csv_env(name: str, default: str) -> list[str]:
 # [aipdd fork delta req40] CE（自有渠道）下这份随包清单**不再参与候选**：可选视频模型
 # = 渠道目录（kind==video）+「设置 → 模型与渠道」里勾上的视频媒体模型（见
 # newapi_video_backend_options）。这里只保留 EE 官方网关的随包清单与 env 覆盖能力。
-NEWAPI_VIDEO_MODELS = _csv_env(
-    "NEWAPI_VIDEO_MODELS",
+LOCALAPI_VIDEO_MODELS = _csv_env(
+    "LOCALAPI_VIDEO_MODELS",
     "seedance-1.0-pro-fast,seedance-1.5-pro,seedance-2.0,seedance-2.0-fast,seedance-2.0-value,seedance-2.0-fast-value,seedance-2.0-mini,seedance-2.5",
 )
-# [aipdd fork delta] ``DEFAULT_VIDEO_MODEL`` / ``NEWAPI_VIDEO_MODEL`` env 已退出解析链：
+# [aipdd fork delta] ``DEFAULT_VIDEO_MODEL`` / ``LOCALAPI_VIDEO_MODEL`` env 已退出解析链：
 # 默认视频模型只认「设置 → 模型与渠道」的视频媒体映射（见
 # model_gateway_settings.get_effective_default_video_model）。两个常量留空只为让旧引用
 # 继续可导入，真正的解析走 get_newapi_video_model()。
 DEFAULT_VIDEO_MODEL = ""
-NEWAPI_VIDEO_MODEL = ""
+LOCALAPI_VIDEO_MODEL = ""
 
 
 def get_newapi_video_model() -> str:
@@ -935,16 +935,16 @@ def get_newapi_video_model() -> str:
         return ""
 
 
-NEWAPI_VIDEO_RESOLUTION = os.environ.get("NEWAPI_VIDEO_RESOLUTION", "720p")
+LOCALAPI_VIDEO_RESOLUTION = os.environ.get("LOCALAPI_VIDEO_RESOLUTION", "720p")
 # 「哪些视频模型能带音轨」是按**已选中的模型名**派生的运营参数（不是可调用兜底名）：
 # 目录当前不承载该能力，渠道换了名字就对不上号，因此仍走 env 覆盖。
-NEWAPI_VIDEO_AUDIO_MODELS = _csv_env(
-    "NEWAPI_VIDEO_AUDIO_MODELS",
+LOCALAPI_VIDEO_AUDIO_MODELS = _csv_env(
+    "LOCALAPI_VIDEO_AUDIO_MODELS",
     "seedance-1.5-pro,seedance-2.0,seedance-2.0-fast,seedance-2.0-value,seedance-2.0-fast-value,seedance-2.0-mini,seedance-2.5",
 )
 # 同上：时长边界是按已选中模型名派生的 UI 参数，未命中时用各后端的通用默认区间。
-NEWAPI_VIDEO_DURATION_BOUNDS = os.environ.get(
-    "NEWAPI_VIDEO_DURATION_BOUNDS",
+LOCALAPI_VIDEO_DURATION_BOUNDS = os.environ.get(
+    "LOCALAPI_VIDEO_DURATION_BOUNDS",
     "seedance-1.0-pro-fast:2-12,seedance-1.5-pro:4-12,seedance-2.0:4-15,seedance-2.0-fast:4-15,seedance-2.0-value:4-15,seedance-2.0-fast-value:4-15,seedance-2.0-mini:4-15,seedance-2.5:4-30",
 ).strip()
 
@@ -1007,9 +1007,9 @@ def get_video_generation_config() -> dict:
         "huimengi_base_url": HUIMENGI_BASE_URL,
         "huimengi_video_resolution": HUIMENGI_VIDEO_RESOLUTION,
         "newapi_base_url": LOCALAPI_BASE_URL,
-        "newapi_video_models": list(NEWAPI_VIDEO_MODELS),
+        "newapi_video_models": list(LOCALAPI_VIDEO_MODELS),
         "newapi_video_model": get_newapi_video_model(),
-        "newapi_video_resolution": NEWAPI_VIDEO_RESOLUTION,
+        "newapi_video_resolution": LOCALAPI_VIDEO_RESOLUTION,
         "comfyui_url": COMFYUI_VIDEO_URL,
         "comfyui_workflow": COMFYUI_WORKFLOW,
         "comfyui_use_ssl": COMFYUI_USE_SSL,
@@ -1116,14 +1116,14 @@ IMAGE_GENERATION_SELECTIONS: dict[str, dict[str, str]] = {
         "model": OPENROUTER_NANOBANANA2_MODEL,
     },
     "newapi_gpt_image2": {
-        "label": "NewAPI Image",
+        "label": "LocalAPI Image",
         "provider": "newapi",
-        "model": NEWAPI_IMAGE_MODEL,
+        "model": LOCALAPI_IMAGE_MODEL,
     },
     "newapi_nanobanana2": {
-        "label": "NewAPI Nano Banana 2",
+        "label": "LocalAPI Nano Banana 2",
         "provider": "newapi",
-        "model": NEWAPI_NANOBANANA2_MODEL,
+        "model": LOCALAPI_NANOBANANA2_MODEL,
     },
 }
 
@@ -1197,9 +1197,9 @@ def resolve_image_selection(selection: str) -> dict[str, str]:
         pass
     # 4) Last resort: use env-based model
     return {
-        "model": str(NEWAPI_IMAGE_MODEL or "").strip(),
+        "model": str(LOCALAPI_IMAGE_MODEL or "").strip(),
         "provider": "newapi",
-        "label": clean or NEWAPI_IMAGE_MODEL or "",
+        "label": clean or LOCALAPI_IMAGE_MODEL or "",
     }
 
 LEGACY_IMAGE_GENERATION_SELECTION_ALIASES = {
@@ -1468,8 +1468,8 @@ def _image_provider_config(
 
             _img_default_model = get_effective_default_image_model()
             if selection_key == "newapi_nanobanana2":
-                # [aipdd fork delta] 「NewAPI Nano Banana 2」这个选项不再由
-                # ``NEWAPI_NANOBANANA2_MODEL`` env 点名：它对应「默认生成模型」面板里
+                # [aipdd fork delta] 「LocalAPI Nano Banana 2」这个选项不再由
+                # ``LOCALAPI_NANOBANANA2_MODEL`` env 点名：它对应「默认生成模型」面板里
                 # 图片类的**第二张**（只配一张时与主位同名）。两个选项的差别因此落在
                 # 面板顺序上，而不是落在一个设置页看不见的 env 值上。
                 _img_default_model = (
@@ -1480,7 +1480,7 @@ def _image_provider_config(
             )
         except Exception:
             # 设置读不了 = 未配置：由调用点按「未绑定可用模型」拦住。这里绝不回落任何
-            # 常量名（``NEWAPI_IMAGE_MODEL`` 现在只是让旧选项表可导入的空占位常量）。
+            # 常量名（``LOCALAPI_IMAGE_MODEL`` 现在只是让旧选项表可导入的空占位常量）。
             _provider_override = None
             _img_default_model = ""
         if _provider_override:

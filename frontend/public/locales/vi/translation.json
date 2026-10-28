@@ -1571,7 +1571,8 @@
       "empty": "Thư viện asset chưa có tư liệu. Hãy tải lên hoặc đồng bộ trong thư viện asset trước.",
       "hint": "Kéo tư liệu vào khung chat để tham chiếu, hoặc bấm trực tiếp để thêm.",
       "addReference": "Thêm làm tư liệu tham chiếu (kéo được)",
-      "draftDisabled": "Bản nháp Jianying không thể dùng làm tư liệu tham chiếu"
+      "draftDisabled": "Bản nháp Jianying không thể dùng làm tư liệu tham chiếu",
+      "fileDisabled": "Mô hình 3D và tài liệu văn bản không thể dùng làm tư liệu tham chiếu"
     },
     "panel": {
       "plan": "Kế hoạch",
@@ -6281,7 +6282,9 @@
         "audio": "Âm thanh",
         "draft": "Bản nháp Jianying",
         "topdown": "Nhìn từ trên xuống",
-        "storyVersion": "Bảng truyện"
+        "storyVersion": "Bảng truyện",
+        "model3d": "3D",
+        "text": "Văn bản"
       },
       "source": {
         "upload": "Tải lên",
@@ -6296,13 +6299,18 @@
         "image": "Ảnh",
         "video": "Video",
         "audio": "Âm thanh",
-        "draft": "Bản nháp"
+        "draft": "Bản nháp",
+        "model3d": "Mô hình 3D",
+        "text": "Văn bản"
       },
       "preview": {
         "closeAria": "Đóng chi tiết asset",
         "dialogAria": "Chi tiết asset",
         "mainlineHint": "Asset đồng bộ từ luồng chính phải sửa ngay tại nội dung luồng chính sinh ra nó",
-        "draftHint": "Gói bản nháp do VectCut tạo — tải zip, giải nén và nhập vào Jianying/CapCut để tiếp tục chỉnh sửa"
+        "draftHint": "Gói bản nháp do VectCut tạo — tải zip, giải nén và nhập vào Jianying/CapCut để tiếp tục chỉnh sửa",
+        "model3dHint": "Tệp mô hình 3D do hệ thống tạo — tải về để tiếp tục chỉnh trong công cụ 3D",
+        "textHint": "Tài liệu văn bản (txt) do hệ thống tạo — tải về để xem toàn bộ",
+        "loading": "Đang tải…"
       },
       "cover": {
         "title": "Đổi ảnh bìa",
@@ -9213,7 +9221,7 @@
     },
     "modelConfig": {
       "title": "Cấu hình model",
-      "description": "Chọn gateway chính thức, tự cấu hình NewAPI, hoặc kết hợp LocalAPI với dịch vụ chính thức.",
+      "description": "Chọn gateway chính thức, tự cấu hình LocalAPI, hoặc kết hợp LocalAPI với dịch vụ chính thức.",
       "baseUrlHint": "Runtime CE tự động cấu hình URL của LocalAPI.",
       "effectiveBadge": "Đang dùng: {{channel}}",
       "guide": "Hướng dẫn cấu hình",
@@ -9270,7 +9278,7 @@
         "sqliteReady": "Cơ sở dữ liệu SQLite đã sẵn sàng; không cần cấu hình đường dẫn cơ sở dữ liệu.",
         "sqliteWaiting": "Đang chờ LocalAPI tạo cơ sở dữ liệu SQLite của nó.",
         "databaseTitle": "Cơ sở dữ liệu LocalAPI",
-        "databaseDescription": "Dùng để tìm tài khoản quản trị và điền access_token; với SQLite thì đặt sqlDsn=local kèm đường dẫn tuyệt đối tới file one-api.db đã có.",
+        "databaseDescription": "Dùng để tìm tài khoản quản trị và điền access_token; với SQLite thì đặt sqlDsn=local kèm đường dẫn tuyệt đối tới file localapi.db đã có.",
         "databaseConfigured": "Đã cấu hình cơ sở dữ liệu",
         "databaseNotConfigured": "Chưa cấu hình cơ sở dữ liệu"
       },
@@ -9372,7 +9380,7 @@
         "upstreamKey": "API Key phía nhà cung cấp",
         "baseUrlOverride": "Ghi đè Base URL",
         "baseUrlPlaceholder": "Thường để trống; sẽ dùng preset của nhà cung cấp",
-        "baseUrlRequiredPlaceholder": "Điền địa chỉ trang NewAPI của bạn, ví dụ https://newapi.example.com",
+        "baseUrlRequiredPlaceholder": "Điền địa chỉ trang LocalAPI của bạn, ví dụ https://newapi.example.com",
         "removeChannel": "Xoá kênh",
         "noChannelsHint": "Chưa thêm kênh nhà cung cấp nào. Hãy thêm kênh trước, rồi chọn kênh đó cho model theo tính năng.",
         "noChannels": "Hãy thêm một kênh nhà cung cấp trước.",
@@ -9524,14 +9532,14 @@
         "modelIdPlaceholder": "ID mô hình (vd. tên model workflow ComfyUI)"
       },
       "cards": {
-        "initFirst": "Hãy hoàn tất \"Khởi tạo\" ở trên trước, rồi thêm kênh AIPDD / NewAPI tại đây.",
+        "initFirst": "Hãy hoàn tất \"Khởi tạo\" ở trên trước, rồi thêm kênh AIPDD / LocalAPI tại đây.",
         "channelConnectTitle": "Kết nối kênh",
         "aipddDescription": "Cổng tương thích OpenAI; Base URL là endpoint cố định nên không cần điền — chỉ cần dán Key.",
         "volcengineDescription": "Cổng VolcEngine Ark tương thích OpenAI: Base URL là endpoint cố định nên không cần điền — chỉ cần dán API Key. Bên dưới lần lượt là danh sách model upstream chỉ đọc, thông tin xác thực Doubao Speech ASR (tùy chọn) và khối con Volcengine AI MediaKit thuộc kênh này — hai mục sau luôn đi kèm kênh này, không phải kênh nhà cung cấp riêng.",
-        "newApiExternalTitle": "NewAPI",
-        "newApiExternalDescription": "Điền URL tương thích NewAPI / OpenAI và Key của bạn.",
-        "recommendedSites": "Trang NewAPI gợi ý",
-        "recommendedSitesTip": "Mở danh sách trang NewAPI do chính thức tổng hợp và chọn một trang dùng được.",
+        "newApiExternalTitle": "LocalAPI",
+        "newApiExternalDescription": "Điền URL tương thích LocalAPI / OpenAI và Key của bạn.",
+        "recommendedSites": "Trang LocalAPI gợi ý",
+        "recommendedSitesTip": "Mở danh sách trang LocalAPI do chính thức tổng hợp và chọn một trang dùng được.",
         "noModelList": "{{title}} không trả về danh sách model (upstream có thể không hỗ trợ /models)",
         "fetchFailed": "Lấy model thất bại",
         "needApiKey": "Vui lòng nhập API Key trước",
@@ -9562,7 +9570,7 @@
         "minimaxDescription": "Trang quốc tế của MiniMax: văn bản theo chuẩn OpenAI tương thích, còn video H3 / âm thanh Speech / nhạc Music gọi trực tiếp API chính thức. Base URL mặc định là api.minimax.io/v1 (có thể sửa), API Key không dùng chung với trang Trung Quốc.",
         "minimaxCnTitle": "MiniMax (Trung Quốc)",
         "minimaxCnDescription": "Trang Trung Quốc của MiniMax: Base URL mặc định là api.minimax.cn/v1 (có thể sửa), API Key không dùng chung với trang quốc tế — hãy cấu hình kênh theo khu vực tài khoản của bạn.",
-        "openaiDescription": "Kênh OpenAI chính thức: văn bản / thị giác / nhúng / ảnh / video / âm thanh đều do adapter tương thích OpenAI của cổng tích hợp chuyển tiếp. Base URL mặc định là api.openai.com/v1 (có thể sửa), API Key riêng biệt với gateway NewAPI tự cấu hình. OpenAI không có mô hình âm nhạc nên kênh này không xuất hiện ở mục \"Nhạc\".",
+        "openaiDescription": "Kênh OpenAI chính thức: văn bản / thị giác / nhúng / ảnh / video / âm thanh đều do adapter tương thích OpenAI của cổng tích hợp chuyển tiếp. Base URL mặc định là api.openai.com/v1 (có thể sửa), API Key riêng biệt với gateway LocalAPI tự cấu hình. OpenAI không có mô hình âm nhạc nên kênh này không xuất hiện ở mục \"Nhạc\".",
         "claudeDescription": "Kênh Anthropic Claude chính thức: nhà cung cấp chỉ cung cấp mô hình văn bản và hiểu hình ảnh (không tạo ảnh / video / âm thanh / nhạc); giao thức messages được cổng tích hợp chuyển đổi sang định dạng OpenAI. Base URL mặc định là api.anthropic.com/v1 (có thể sửa).",
         "geminiDescription": "Kênh Google Gemini chính thức: văn bản / thị giác / nhúng / ảnh (Imagen) / video (Veo) / âm thanh (TTS); giao thức generateContent được cổng tích hợp chuyển đổi sang định dạng OpenAI. Base URL mặc định là generativelanguage.googleapis.com/v1beta (có thể sửa); nhạc Lyria dùng giao thức không tương thích và cổng không có tuyến nhạc, nên bản phát hành này chưa tích hợp.",
         "minimaxVoiceTitle": "Giọng mặc định MiniMax (tùy chọn)",
@@ -9899,23 +9907,23 @@
     "checkUpdateFailed": "Kiểm tra cập nhật thất bại. Vui lòng thử lại sau.",
     "seedanceAssets": {
       "title": "Thư viện tư liệu Seedance & xác thực khuôn mặt",
-      "description": "Đăng ký ảnh/video tham chiếu vào thư viện tư liệu riêng của Seedance rồi tham chiếu khi tạo video; tư liệu người thật còn cần chính người đó xác thực khuôn mặt. Thư viện chỉ có khi gateway NewAPI hỗ trợ — hãy dựa vào kết quả thăm dò bên dưới.",
+      "description": "Đăng ký ảnh/video tham chiếu vào thư viện tư liệu riêng của Seedance rồi tham chiếu khi tạo video; tư liệu người thật còn cần chính người đó xác thực khuôn mặt. Thư viện chỉ có khi gateway LocalAPI hỗ trợ — hãy dựa vào kết quả thăm dò bên dưới.",
       "probe": {
         "refresh": "Thăm dò lại",
-        "ready": "Đã xác nhận: NewAPI này hỗ trợ thư viện tư liệu",
-        "notReady": "Đã thăm dò lại: NewAPI này không dùng được thư viện tư liệu",
+        "ready": "Đã xác nhận: LocalAPI này hỗ trợ thư viện tư liệu",
+        "notReady": "Đã thăm dò lại: LocalAPI này không dùng được thư viện tư liệu",
         "failed": "Thăm dò thất bại"
       },
       "upstreamError": "上游 trả về: ",
       "warning": "Lưu ý",
       "target": "Địa chỉ gọi",
       "state": {
-        "supported": "NewAPI này hỗ trợ thư viện tư liệu",
-        "unsupported": "NewAPI này không có thư viện tư liệu",
+        "supported": "LocalAPI này hỗ trợ thư viện tư liệu",
+        "unsupported": "LocalAPI này không có thư viện tư liệu",
         "unauthorized": "Đường dẫn thư viện có tồn tại, nhưng key hiện tại bị từ chối",
-        "ambiguous": "Chưa thể xác định NewAPI này có hỗ trợ thư viện hay không",
-        "unconfigured": "Chưa cấu hình gateway NewAPI",
-        "unreachable": "Không kết nối được gateway NewAPI này"
+        "ambiguous": "Chưa thể xác định LocalAPI này có hỗ trợ thư viện hay không",
+        "unconfigured": "Chưa cấu hình gateway LocalAPI",
+        "unreachable": "Không kết nối được gateway LocalAPI này"
       },
       "groupType": {
         "AIGC": "Tư liệu ảo",

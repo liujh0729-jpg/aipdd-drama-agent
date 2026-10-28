@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	rootcommon "github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	rootcommon "github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/constant"
+	relaycommon "github.com/dramaclaw/localapi/relay/common"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

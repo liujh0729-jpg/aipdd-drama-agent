@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/QuantumNous/new-api/model"
+	"github.com/dramaclaw/localapi/model"
 )
 
 // ---------------------------------------------------------------------------

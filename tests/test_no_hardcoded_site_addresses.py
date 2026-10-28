@@ -2,7 +2,7 @@
 不许写死在代码与编排文件里。
 
 req41 的起因是用户指着 ``docker-compose.aipdd.yml`` 里的一行问：「https://susciyuan.com/v1
-是我在数据库填写的地址，NEWAPI_PUBLIC_BASE_URL 的 localhost 也是我在数据库填的，你怎么知道
+是我在数据库填写的地址，LOCALAPI_PUBLIC_BASE_URL 的 localhost 也是我在数据库填的，你怎么知道
 是 localhost？TEXT_MODEL_FALLBACK 为什么一定是 ap-glm-5.2？」——这些问题没有「代码比部署更
 早知道答案」的合法情形：
 

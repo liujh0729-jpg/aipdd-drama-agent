@@ -467,7 +467,7 @@ impl Orchestrator {
                 c
             }
             ServiceId::Gateway => {
-                let mut c = Command::new(p.bin(&exe("new-api")));
+                let mut c = Command::new(p.bin(&exe("localapi")));
                 c.current_dir(p.gateway_dir())
                     .env("PORT", "3000")
                     .env("SQL_DSN", "");

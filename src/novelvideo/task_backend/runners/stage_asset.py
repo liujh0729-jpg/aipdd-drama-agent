@@ -507,6 +507,23 @@ def run_freezone_image_to_3gs(
                     for key, value in history_record.items()
                     if key != "result"
                 }
+    # [aipdd fork delta req98] 3GS 产物（SOG/PLY 3D 模型）默认归档进资产库 3D 载体；
+    # 懒导入避免 runners 之间模块级循环依赖。
+    if result.get("url"):
+        from novelvideo.task_backend.runners.freezone import (
+            _archive_tool_output_to_library,
+        )
+
+        _archive_tool_output_to_library(
+            ctx=ctx,
+            payload=payload,
+            task_type="freezone_image_to_3gs",
+            job_id=job_id,
+            media="model3d",
+            url=str(result["url"]),
+            result=result,
+            stem=Path(source_path).stem,
+        )
     return result
 
 

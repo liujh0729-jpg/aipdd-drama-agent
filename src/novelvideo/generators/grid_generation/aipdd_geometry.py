@@ -156,7 +156,7 @@ def _map_aipdd_image_ratio(ratio: str, supported_ratios: list | None) -> str | N
 
 
 async def _apply_aipdd_image_geometry(payload: dict, *, model: str) -> dict:
-    """把 NewAPI 几何方言改写为 aipdd 平台方言（追加 size + 顶层 ratio）。
+    """把 LocalAPI 几何方言改写为 aipdd 平台方言（追加 size + 顶层 ratio）。
 
     width/height 与 metadata 刻意保留：平台实测宽容多余字段，保留让请求在
     平台后来收紧时仍有 LocalAPI 语义可退回。

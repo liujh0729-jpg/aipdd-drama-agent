@@ -26,8 +26,8 @@ address, while the local channel uses the bundled LocalAPI.
 
 | Variable | Default | Description |
 |---|---|---|
-| `NEWAPI_TEXT_TIMEOUT_SECONDS` | `120` | HTTP timeout for text models (seconds). |
-| `NEWAPI_TEXT_TRUST_ENV` | `true` | Whether the text client reads the system proxy; set `false` when an internal gateway is being blocked by a proxy. |
+| `LOCALAPI_TEXT_TIMEOUT_SECONDS` | `120` | HTTP timeout for text models (seconds). |
+| `LOCALAPI_TEXT_TRUST_ENV` | `true` | Whether the text client reads the system proxy; set `false` when an internal gateway is being blocked by a proxy. |
 
 Model names are **not configured through environment variables**: which model each feature
 slot binds to (general text generation, cast planning, image understanding, style analysis,

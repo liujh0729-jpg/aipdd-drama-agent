@@ -17,10 +17,10 @@ services:
       # 注：权重运行时下载不入镜像；slim base 为 CPU，GPU 加速需 CUDA base；Mac Docker 无 GPU。
       args:
         INSTALL_WORLD: "${INSTALL_WORLD:-0}"
-  newapi:
+  localapi:
     extends:
       file: docker-compose.release.yml
-      service: newapi
+      service: localapi
     image: aipdd/gateway
     build:
       context: ${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}
@@ -45,4 +45,4 @@ services:
 # extends 不带顶层 volumes，需在此重申（名字与 release 文件一致，数据卷共用）。
 volumes:
   ce-data:
-  newapi-data:
+  localapi-data:

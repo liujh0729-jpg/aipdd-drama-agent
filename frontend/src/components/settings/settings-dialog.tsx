@@ -230,7 +230,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               {pageStatus(modelConfigured, t("settings.pages.models"))}
             </button>
             {/* [aipdd fork delta req47] Seedance 素材库：私域素材 + 真人活体认证。
-                这一页能不能用取决于「这台 NewAPI 有没有暴露素材库接口」，探测结论在
+                这一页能不能用取决于「这台 LocalAPI 有没有暴露素材库接口」，探测结论在
                 面板内部读，不在此处加一次上游探活请求。 */}
             <button
               type="button"

@@ -568,7 +568,7 @@ def _seed_video_media_models(
 ) -> None:
     """[aipdd fork delta req40] CE 下视频候选只来自「设置 → 模型与渠道」里勾选的媒体模型
     （= 从渠道目录里挑出来的那批），随包写死的 seedance 清单不再参与。测试因此显式
-    给这份绑定，而不是去改 ``NEWAPI_VIDEO_MODELS``。
+    给这份绑定，而不是去改 ``LOCALAPI_VIDEO_MODELS``。
     """
 
     mappings = {
@@ -710,7 +710,7 @@ def test_seedance_mini_duration_fallback_with_legacy_env(monkeypatch) -> None:
 
     monkeypatch.setattr(
         config,
-        "NEWAPI_VIDEO_DURATION_BOUNDS",
+        "LOCALAPI_VIDEO_DURATION_BOUNDS",
         "seedance-1.0-pro-fast:2-12,seedance-2.0:4-15",
     )
 

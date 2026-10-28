@@ -220,7 +220,7 @@ def test_every_claim_site_declares_a_handle_kind() -> None:
 
 @pytest.mark.asyncio
 async def test_service_paths_reach_completed_through_accepted() -> None:
-    """NewAPI 服务路径必须走完 dispatching→accepted→completed，且两列都不留假值。
+    """LocalAPI 服务路径必须走完 dispatching→accepted→completed，且两列都不留假值。
 
     现在它们从 `dispatching` 直接 `mark_completed`，真库上是 P0001。
     """
@@ -235,9 +235,9 @@ async def test_service_paths_reach_completed_through_accepted() -> None:
         identity=NewApiAdminServiceIdentity(
             credential_id="svc-newapi-admin",
             credential_version=2,
-            admin_base_url="http://new-api:3000",
+            admin_base_url="http://localapi:3000",
         ),
-        admin_base_url="http://new-api:3000",
+        admin_base_url="http://localapi:3000",
         capability="gateway.provisioning.setup",
         business_task_id="setup-default",
         request={"action": "setup", "channel": "default"},

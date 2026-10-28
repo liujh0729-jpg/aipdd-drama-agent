@@ -3,7 +3,7 @@ package relay
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/model"
+	"github.com/dramaclaw/localapi/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -1136,7 +1136,7 @@ export const ImageGenNode = memo(({ id, data, selected, width, height }: ImageGe
     // [aipdd fork delta] 这里不再回查任何写死的兜底名单拿 apiModel：那份名单只会
     // 在「目录权威为空」（此时提交已被 !selectedModel 禁掉）时命中，命中后发出的
     // 就是用户在界面上从没见过的模型。apiModel 可能是空串（后端
-    // 未配置 NEWAPI_IMAGE_MODEL 时的兜底选项），空串必须退回节点上真正选中的
+    // 未配置 LOCALAPI_IMAGE_MODEL 时的兜底选项），空串必须退回节点上真正选中的
     // id，否则会把空模型名发给网关。
     const apiModel = (selectedModel?.apiModel ?? '').trim() || modelId;
     // 自身参考图（用户手动上传） + 所有上游图片/视频 URL，去重 —— 与 @图片N

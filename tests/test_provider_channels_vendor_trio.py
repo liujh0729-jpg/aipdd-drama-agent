@@ -62,7 +62,7 @@ def _isolate_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path):
         "MODEL_GATEWAY_MODE",
         "LOCALAPI_API_KEY",
         "LOCALAPI_BASE_URL",
-        "OFFICIAL_NEWAPI_BASE_URL",
+        "OFFICIAL_LOCALAPI_BASE_URL",
         "LOCALAPI_ADMIN_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
@@ -104,7 +104,7 @@ def test_vendor_channel_types_route_declares_real_capabilities(
     是设置页候选过滤的唯一依据）。
     """
     _isolate_settings_db(monkeypatch, tmp_path)
-    monkeypatch.setenv("NEWAPI_PROVISIONER_ENABLED", "true")
+    monkeypatch.setenv("LOCALAPI_PROVISIONER_ENABLED", "true")
 
     class Admin:
         admin_user_id = 1
@@ -117,7 +117,7 @@ def test_vendor_channel_types_route_declares_real_capabilities(
     monkeypatch.setattr(
         model_gateway,
         "get_provisioner_config",
-        lambda **_kwargs: type("Cfg", (), {"admin_base_url": "http://new-api:3000"})(),
+        lambda **_kwargs: type("Cfg", (), {"admin_base_url": "http://localapi:3000"})(),
     )
     monkeypatch.setattr(
         model_gateway, "ensure_admin_access_token", lambda _cfg: Admin()

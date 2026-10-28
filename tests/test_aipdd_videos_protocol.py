@@ -1,7 +1,7 @@
 """[aipdd fork delta] AIPDD 视频走 OpenAI 风格 /v1/videos 协议的回归。
 
 钉住四件事：
-1. 按渠道 host 精确判定是否启用 /videos 协议（NewAPI 的 /video/generations 在
+1. 按渠道 host 精确判定是否启用 /videos 协议（LocalAPI 的 /video/generations 在
    AIPDD 上会 404「资源不存在」，二者必须走不同路径）。
 2. create body 按 AIPDD 公布的通用视频契约组装：时长/分辨率同时给新名
    ``duration_seconds`` / ``video_resolution``（MiniMax H3 文档红线：禁止只用

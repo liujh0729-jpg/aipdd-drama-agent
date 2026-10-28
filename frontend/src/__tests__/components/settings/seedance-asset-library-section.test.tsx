@@ -2,8 +2,8 @@
 // Copyright (c) 2026 ClaymoreLab
 // [aipdd fork delta req47] 设置 → Seedance 素材库的能力门控契约。
 //
-// 这页唯一的存在理由就是用户口径：「素材库仅支持 NewAPI 支持素材库的情况，并不是所有
-// NewAPI 都支持」。所以钉死三件退化起来最便宜的事：
+// 这页唯一的存在理由就是用户口径：「素材库仅支持 LocalAPI 支持素材库的情况，并不是所有
+// LocalAPI 都支持」。所以钉死三件退化起来最便宜的事：
 // 1. 探测结论不是 supported（含未出结论的进行中态）时，整块操作区不渲染，读查询的
 //    enabled 也必须是 false —— 不能让上游根本没挂的路由变成一排「未知错误」；
 // 2. 能力不成立的原因与上游原文要照贴（「没有这组路由」和「Key 被拒」是两件事）；
@@ -85,20 +85,20 @@ describe("SeedanceAssetLibrarySection 能力门控", () => {
       screen.queryByRole("button", { name: "创建认证会话" }),
     ).not.toBeInTheDocument();
     // 没结论也要有话可说，而不是让横幅空着让人以为页面坏了。
-    expect(screen.getByText("还没有可用的 NewAPI 网关")).toBeInTheDocument();
+    expect(screen.getByText("还没有可用的 LocalAPI 网关")).toBeInTheDocument();
   });
 
-  it("这台 NewAPI 没有素材库路由时讲清成因，并整块收起操作区", () => {
+  it("这台 LocalAPI 没有素材库路由时讲清成因，并整块收起操作区", () => {
     setStatus({
       state: "unsupported",
-      reason: "这台 NewAPI 没有暴露 v2 素材库接口，素材库与真人认证不可用",
+      reason: "这台 LocalAPI 没有暴露 v2 素材库接口，素材库与真人认证不可用",
     });
     render(<SeedanceAssetLibrarySection />);
 
-    expect(screen.getByText("这台 NewAPI 没有素材库")).toBeInTheDocument();
+    expect(screen.getByText("这台 LocalAPI 没有素材库")).toBeInTheDocument();
     expect(screen.getByText(/没有暴露 v2 素材库接口/)).toBeInTheDocument();
-    // 口径本身要写在页面上：能力随网关而定，不是连了 NewAPI 就有。
-    expect(screen.getByText(/素材库只由支持该能力的 NewAPI 网关提供/)).toBeInTheDocument();
+    // 口径本身要写在页面上：能力随网关而定，不是连了 LocalAPI 就有。
+    expect(screen.getByText(/素材库只由支持该能力的 LocalAPI 网关提供/)).toBeInTheDocument();
     expect(enabledCalls.groups).toEqual([false]);
     expect(enabledCalls.assets).toEqual([false]);
     expect(screen.queryByText("素材组")).not.toBeInTheDocument();
@@ -109,7 +109,7 @@ describe("SeedanceAssetLibrarySection 能力门控", () => {
   it("Key 被拒不等于不支持：把上游原文贴出来，同样不放开写操作", () => {
     setStatus({
       state: "unauthorized",
-      reason: "这台 NewAPI 有素材库路由，但当前 Key 被它拒绝，能力尚未证实",
+      reason: "这台 LocalAPI 有素材库路由，但当前 Key 被它拒绝，能力尚未证实",
       httpStatus: 401,
       upstreamCode: "InvalidToken",
       upstreamMessage: "无效的令牌",
@@ -145,7 +145,7 @@ describe("SeedanceAssetLibrarySection 能力门控", () => {
 
     expect(refreshMutate).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith(
-      "已重新探测：这台 NewAPI 用不了素材库",
+      "已重新探测：这台 LocalAPI 用不了素材库",
     );
   });
 

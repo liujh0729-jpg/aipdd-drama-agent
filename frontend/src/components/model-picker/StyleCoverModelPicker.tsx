@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Elastic-2.0
 // Copyright (c) 2026 ClaymoreLab
 // [aipdd fork delta] 「AI 生成封面」的图片模型选择器：画布风格图墙与设置→风格管理
-// 共用。触发器与候选项都带渠道彩色胶囊（AIPDD / NewAPI / VolcEngine ...），生成前就
+// 共用。触发器与候选项都带渠道彩色胶囊（AIPDD / LocalAPI / VolcEngine ...），生成前就
 // 能看到模型出处；清单来自 /style-gallery/image-models，与生成端同一解析口径——
 // 能选到的模型就是生成时可解析执行的模型。
 import { Box } from 'lucide-react';

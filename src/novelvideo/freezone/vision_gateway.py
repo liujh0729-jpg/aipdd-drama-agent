@@ -1,4 +1,4 @@
-"""Shared NewAPI transport for Freezone vision-understanding tasks."""
+"""Shared LocalAPI transport for Freezone vision-understanding tasks."""
 
 from __future__ import annotations
 
@@ -198,7 +198,7 @@ def image_media_type(path: str) -> str:
 
 
 def resolve_freezone_vision_model(model_override: str | None = None) -> str:
-    """Return the logical NewAPI model shared by Freezone vision tasks.
+    """Return the logical LocalAPI model shared by Freezone vision tasks.
 
     [aipdd fork delta] 视觉/多模态理解绝不能被只支持文本的模型接管（否则图片请求回
     400「不支持图片能力」）。env 退出解析链后，这条隔离由登记表里
@@ -225,7 +225,7 @@ async def call_freezone_vision_model(
     transport_context: VisionTransportContext | None = None,
     frame_seconds: Sequence[float] | None = None,
 ) -> tuple[str, str]:
-    """Run a PydanticAI vision Agent through the effective NewAPI gateway.
+    """Run a PydanticAI vision Agent through the effective LocalAPI gateway.
 
     [aipdd fork delta] ``frame_seconds`` 为视频理解时序语义入口：传入与 ``images``
     等长的秒数列表时，按火山方舟「多图请求等效」格式把每一帧前面插入

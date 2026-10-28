@@ -20,7 +20,7 @@ describe("displayModelName", () => {
   it("传入渠道时精确剥「渠道::」前缀（大小写不敏感）", () => {
     expect(displayModelName("aipdd::ap-glm-5.2", "aipdd")).toBe("ap-glm-5.2");
     expect(displayModelName("aipdd::ap-glm-5.2", "AIPDD")).toBe("ap-glm-5.2");
-    expect(displayModelName("NewAPI::gpt-5", "newapi")).toBe("gpt-5");
+    expect(displayModelName("LocalAPI::gpt-5", "newapi")).toBe("gpt-5");
   });
 
   it("渠道线索对不上或缺失时退化为「取最后一段」（历史 Agent 口径）", () => {

@@ -1,6 +1,6 @@
 """Runtime model gateway settings.
 
-CE persists the selected official or bundled-NewAPI gateway in local settings,
+CE persists the selected official or bundled-LocalAPI gateway in local settings,
 which are its sole runtime credential source. EE has a control-plane DSN and
 keeps its deployment environment as the sole credential source.
 """
@@ -160,7 +160,7 @@ def normalize_relay_base_url(value: str | None) -> str:
 # [aipdd fork delta] 渠道 baseUrl 归一（与 newapi_provisioner.resolve_models_endpoint
 # 共用本实现，避免两套拼接规则漂移）：自有库里的渠道 base 约定带版本后缀——媒体
 # 直连要用 {base}/video/generations、{base}/images/generations 与 {base}/models；
-# 写本地 NewAPI 网关时再由 build_channel_payload 剥掉后缀。用户在设置页手填的
+# 写本地 LocalAPI 网关时再由 build_channel_payload 剥掉后缀。用户在设置页手填的
 # 裸域名（如 https://susciyuan.com）若不在保存 / 读取期补齐 /v1：媒体提交会打到
 # 目标站的前端 SPA 兜底（HTTP 200 HTML → submit returned invalid JSON，req08），
 # 能力发现（/v1/models）与上游清单拉取也会静默失败。
@@ -1093,7 +1093,7 @@ def videos_request_paths(model: str, use_videos_api: bool) -> tuple[str, str]:
 
     确定渠道（AIPDD）把两条路径都声明在条目里：``videos`` 与 ``videos/{taskId}``。
     调用面因此不再自己拼 URL —— 上游换名只需重拉目录。``use_videos_api`` 为假时回到
-    NewAPI 通用的 ``video/generations``；目录没端点声明（自建网关常只给名字）时也一样。
+    LocalAPI 通用的 ``video/generations``；目录没端点声明（自建网关常只给名字）时也一样。
     """
 
     if not use_videos_api:
@@ -1649,7 +1649,7 @@ def provider_rename_done() -> bool:
 def migrate_provider_openai_to_newapi() -> dict[str, Any]:
     """[aipdd fork delta] 把存量「openai」渠道标识全量重命名为「newapi」。
 
-    五渠道收敛（aipdd / newapi / volcengine / comfyui / mediakit）：外部 NewAPI
+    五渠道收敛（aipdd / newapi / volcengine / comfyui / mediakit）：外部 LocalAPI
     渠道在旧版本的 provider key 是 openai，与用户认知及前端展示（newapi）不一致。
     本迁移把 5 处存储里的 provider 引用一次性改写为 newapi，并与完成标记同事务
     写入（幂等，整个部署生命周期只跑一次）：
@@ -2074,7 +2074,7 @@ def detect_comfyui_media_type(
 def is_comfyui_channel_model(model: str | None, media_type: str | None = None) -> bool:
     """[aipdd fork delta] 判断模型是否属于 comfyui 渠道（可选媒体类型匹配）。
 
-    用于分发入口：命中的模型必须走直连渠道 ComfyUI，绝不回落 NewAPI 桥接或
+    用于分发入口：命中的模型必须走直连渠道 ComfyUI，绝不回落 LocalAPI 桥接或
     任何硬编码模板。
     """
 
@@ -2208,7 +2208,7 @@ def save_newapi_provider_channels(
         base_url = str(item.get("baseUrl") or "").strip().rstrip("/")
         # [aipdd fork delta] 保存期统一归一 baseUrl（补齐 /v1、/api/v3 版本后缀），
         # 保证存储值包含完整版本路径：媒体直连 / 拉取上游模型 / 自动发现 embedding
-        # 需要完整 URL；NewAPI 网关内部对 Ark type=45 自行拼路径，写网关 payload
+        # 需要完整 URL；LocalAPI 网关内部对 Ark type=45 自行拼路径，写网关 payload
         # 时由 build_channel_payload 统一剥后缀。
         base_url = normalize_channel_base_url(provider, base_url)
         channel_type = max(
@@ -2307,7 +2307,7 @@ def get_newapi_media_model_mappings() -> dict[str, dict[str, Any]]:
 # [aipdd fork delta] 拆解上游一体化图像模型：默认出图模型由「默认生成
 # 模型」面板写入的 media model mappings 决定（同类型里 enabled、sortOrder 最小者为
 # 默认）。scene_360 / prop / scene_ref / sketch / stage / image config 等消费点统一
-# 走这里，不再各自硬编码模型名，也不再读 ``NEWAPI_*_MODEL`` env：面板里的顺序就
+# 走这里，不再各自硬编码模型名，也不再读 ``LOCALAPI_*_MODEL`` env：面板里的顺序就
 # 是实际调用的顺序。
 def _default_media_model_from_mappings(media_type: str, *, index: int = 0) -> str:
     wanted = str(media_type or "").strip().lower()
@@ -2347,7 +2347,7 @@ def _default_media_model_from_mappings(media_type: str, *, index: int = 0) -> st
 def get_effective_default_image_model() -> str:
     """Resolve the default image model from the settings media mappings only.
 
-    [aipdd fork delta] ``NEWAPI_IMAGE_MODEL`` env 已退出解析链：面板里换了默认图模型
+    [aipdd fork delta] ``LOCALAPI_IMAGE_MODEL`` env 已退出解析链：面板里换了默认图模型
     而 env 还指着旧名字时，用户看到的和实际调用的就不是同一个模型了。
     """
 
@@ -2357,7 +2357,7 @@ def get_effective_default_image_model() -> str:
 def get_effective_default_video_model() -> str:
     """Resolve the default video model from the settings media mappings only.
 
-    [aipdd fork delta] ``NEWAPI_VIDEO_MODEL`` / ``DEFAULT_VIDEO_MODEL`` env 也退出了这
+    [aipdd fork delta] ``LOCALAPI_VIDEO_MODEL`` / ``DEFAULT_VIDEO_MODEL`` env 也退出了这
     条链：默认视频模型只认「设置 → 模型与渠道」里拖出来的那一条（同类型 enabled、
     sortOrder 最小）。
     """
@@ -2368,7 +2368,7 @@ def get_effective_default_video_model() -> str:
 def get_effective_default_nanobanana_model() -> str:
     """Resolve the secondary (nanobanana) image model from the settings mappings.
 
-    [aipdd fork delta] 以前 ``NEWAPI_NANOBANANA2_MODEL`` env 排在面板前面（一个设置页
+    [aipdd fork delta] 以前 ``LOCALAPI_NANOBANANA2_MODEL`` env 排在面板前面（一个设置页
     看不见的名字赢了用户选的默认图模型）。现在两个位同源：主位取排序后的第一条，
     副位取第二条；只配了一个默认图时两条是同一个名字（单默认覆盖两个位）。
     """
@@ -2391,7 +2391,7 @@ def get_effective_default_text_model() -> str:
     The authoritative text routing is per-feature via gateway modelMapping; this
     only surfaces a representative id for the settings UI combination summary.
 
-    [aipdd fork delta] 回显与路由必须同一口径：env ``NEWAPI_TEXT_MODEL`` 与 legacy
+    [aipdd fork delta] 回显与路由必须同一口径：env ``LOCALAPI_TEXT_MODEL`` 与 legacy
     常量都不再参与 —— 它们赢过设置页时，面板显示的是一个模型、实际跑的是另一个。
     现在只解析 ``FREEZONE_TEXT_WRITER_MODEL`` 这一位的实际落点（含同类已绑位 / 渠道
     目录首项两档自动兜底）。
@@ -3645,20 +3645,20 @@ def build_newapi_database_status(
     db_sqlite_path = str(settings.get("custom_newapi_db_sqlite_path", "")).strip()
     db_admin_username = str(settings.get("custom_newapi_admin_username", "")).strip()
     env_sql_dsn = str(
-        sql_dsn if sql_dsn is not None else os.environ.get("NEWAPI_SQL_DSN", "")
+        sql_dsn if sql_dsn is not None else os.environ.get("LOCALAPI_SQL_DSN", "")
     )
     env_sql_dsn = env_sql_dsn.strip()
     env_sqlite_path = str(
         sqlite_path
         if sqlite_path is not None
-        else os.environ.get("NEWAPI_SQLITE_PATH", "")
+        else os.environ.get("LOCALAPI_SQLITE_PATH", "")
     ).strip()
     if not db_sql_dsn and not env_sql_dsn:
         from novelvideo.config import STATE_DIR
 
         env_sql_dsn = "local"
         env_sqlite_path = env_sqlite_path or str(
-            Path(STATE_DIR) / "newapi" / "one-api.db"
+            Path(STATE_DIR) / "localapi" / "localapi.db"
         )
     effective_sql_dsn = db_sql_dsn or env_sql_dsn
     effective_sqlite_path = db_sqlite_path or env_sqlite_path

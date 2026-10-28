@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/setting/operation_setting"
 	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
 )
@@ -223,7 +223,13 @@ func ValidateUserToken(key string) (token *Token, err error) {
 	}
 	token, err = GetTokenByKey(key, false)
 	if err == nil {
-		if token.Status == common.TokenStatusExhausted ||
+		if common.BillingDisabled {
+			// 不计费时「额度用尽」不再是令牌失效原因，仅保留禁用/过期校验。
+			if token.Status == common.TokenStatusExpired ||
+				(token.Status != common.TokenStatusEnabled && token.Status != common.TokenStatusExhausted) {
+				return token, ErrTokenInvalid
+			}
+		} else if token.Status == common.TokenStatusExhausted ||
 			token.Status == common.TokenStatusExpired ||
 			token.Status != common.TokenStatusEnabled {
 			return token, ErrTokenInvalid
@@ -238,7 +244,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 			}
 			return token, ErrTokenInvalid
 		}
-		if !token.UnlimitedQuota && token.RemainQuota <= 0 {
+		if !common.BillingDisabled && !token.UnlimitedQuota && token.RemainQuota <= 0 {
 			if !common.RedisEnabled {
 				token.Status = common.TokenStatusExhausted
 				err := token.SelectUpdate()

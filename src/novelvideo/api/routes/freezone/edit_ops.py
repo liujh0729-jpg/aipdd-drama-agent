@@ -155,6 +155,8 @@ async def _start_or_enqueue_freezone_edit_path(
     provider: str | None,
     model: str | None,
     quality: str | None,
+    archive_to_library: bool = False,
+    source_tool: str = "",
 ) -> dict:
     task_type = "freezone_edit"
     if ctx is not None:
@@ -179,6 +181,10 @@ async def _start_or_enqueue_freezone_edit_path(
                 "provider": provider,
                 "model": model,
                 "quality": quality,
+                # [aipdd fork delta] 与 _start_or_enqueue_freezone_edit_job 同口径：
+                # 默认入库（生成就入库），显式传 false 时不带键、runner 不归档。
+                **({"archive_to_library": True} if archive_to_library else {}),
+                **({"source_tool": source_tool} if source_tool else {}),
             },
             queue_kind="default",
         )
@@ -202,6 +208,8 @@ async def _start_or_enqueue_freezone_mask_edit_path(
     quality: str,
     provider: str,
     model: str | None,
+    archive_to_library: bool = False,
+    source_tool: str = "",
 ) -> dict:
     task_type = "freezone_mask_edit"
     if ctx is not None:
@@ -226,6 +234,9 @@ async def _start_or_enqueue_freezone_mask_edit_path(
                 "quality": quality,
                 "provider": provider,
                 "model": model,
+                # [aipdd fork delta] 同 _start_or_enqueue_freezone_edit_path 口径。
+                **({"archive_to_library": True} if archive_to_library else {}),
+                **({"source_tool": source_tool} if source_tool else {}),
             },
             queue_kind="default",
         )

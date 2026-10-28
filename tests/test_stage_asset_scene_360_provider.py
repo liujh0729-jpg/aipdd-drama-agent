@@ -14,7 +14,7 @@ def test_scene_360_provider_defaults_to_newapi_when_env_is_empty(monkeypatch):
 
 
 def test_scene_360_model_accepts_registered_gateway_model_for_provider(monkeypatch):
-    # [aipdd fork delta] WP-D: 原来这条用例拿 config.NEWAPI_IMAGE_MODEL 当期望值，而这个
+    # [aipdd fork delta] WP-D: 原来这条用例拿 config.LOCALAPI_IMAGE_MODEL 当期望值，而这个
     # 常量在没配 env 的环境里是空串，断言退化成「空 == 空」的巧合，既守不住注册模型
     # 也守不住选择键。改成把在册选择显式注入 IMAGE_GENERATION_SELECTIONS，两种入口
     # （真实模型名 / 选择键）都必须解析到同一个上游模型。

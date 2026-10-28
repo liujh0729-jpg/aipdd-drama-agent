@@ -140,7 +140,7 @@ async def detect_freezone_mark(
     )
     chosen = (provider or FREEZONE_MARK_PROVIDER).lower()
     if chosen != "newapi":
-        raise ValueError("Freezone mark detection only supports the NewAPI gateway")
+        raise ValueError("Freezone mark detection only supports the LocalAPI gateway")
     full_image = image_path.read_bytes()
     from novelvideo.freezone.presets import (
         complete_freezone_vision_egress,

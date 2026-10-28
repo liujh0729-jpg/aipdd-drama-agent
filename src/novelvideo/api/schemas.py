@@ -525,10 +525,10 @@ class FreezoneGenRequest(BaseModel):
     gen_mode: Optional[str] = Field(default=None, description="可选：生成模式，用于还原节点时回填 genMode")
     model_params: dict[str, Any] = Field(default_factory=dict)
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
-            "「待分类资产」。画布入口默认开启。"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
         ),
     )
     source_tool: str = Field(
@@ -578,10 +578,10 @@ class FreezoneEditRequest(BaseModel):
         ),
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "[aipdd fork delta] 工具页批量任务用：为 true 时任务产出后会把结果自动"
-            "登记进资产库「待分类资产」。画布等其它入口保持默认关闭。"
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
         ),
     )
     source_tool: str = Field(
@@ -671,6 +671,21 @@ class FreezoneImageTo3GSRequest(BaseModel):
     )
     canvas_id: str = Field(default="", description="可选：来源画布 id，用于记录节点生成历史")
     node_id: str = Field(default="", description="可选：来源节点 id，用于记录节点生成历史")
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把 3D 产物自动登记进资产库"
+            "「待分类资产」（3D 载体）。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool，任务列表据此把任务只显示在产生它的"
+            "功能页。画布等其它入口保持为空。"
+        ),
+    )
 
 
 class FreezoneThreeDViewerScreenshotRequest(BaseModel):
@@ -877,6 +892,20 @@ class FreezoneCharacterMultiViewRequest(BaseModel):
         description=f"图片模型名，默认 {FREEZONE_DEFAULT_IMAGE_MODEL}",
     )
     quality: Optional[str] = Field(default="medium", description="图片画质档位，默认 medium")
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
+    )
 
 
 class FreezoneTemplateEditRequest(BaseModel):
@@ -922,6 +951,20 @@ class FreezoneTemplateEditRequest(BaseModel):
         description="媒体模型目录条目 id。前端按目录条目报价时必须一并下发，否则计费口径与报价不一致",
     )
     quality: Optional[str] = Field(default="medium", description="图片画质档位，默认 medium")
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
+    )
 
 
 class FreezoneExtractFramesRequest(BaseModel):
@@ -993,6 +1036,20 @@ class FreezoneUpscaleRequest(BaseModel):
         description="放大倍数，可选 2 / 4 / 6",
     )
     image_size: str = Field(default="2K", description="输出分辨率档位，默认 2K")
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
+    )
 
 
 class FreezoneOutpaintRequest(BaseModel):
@@ -1026,6 +1083,20 @@ class FreezoneOutpaintRequest(BaseModel):
         description=f"图片模型名，默认 {FREEZONE_DEFAULT_IMAGE_MODEL}",
     )
     quality: Optional[str] = Field(default="medium", description="图片画质档位，默认 medium")
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
+    )
 
 
 class FreezoneRedrawRequest(BaseModel):
@@ -1070,6 +1141,20 @@ class FreezoneRedrawRequest(BaseModel):
         description=f"图片模型名，默认 {FREEZONE_DEFAULT_IMAGE_MODEL}",
     )
     quality: Optional[str] = Field(default="medium", description="图片画质档位，默认 medium")
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
+    )
 
 
 class FreezoneRelightRequest(BaseModel):
@@ -1111,6 +1196,20 @@ class FreezoneRelightRequest(BaseModel):
         description=f"图片模型名，默认 {FREEZONE_DEFAULT_IMAGE_MODEL}",
     )
     quality: Optional[str] = Field(default="medium", description="图片画质档位，默认 medium")
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
+    )
 
 
 class FreezoneVideoCharacterLibraryItemRequest(BaseModel):
@@ -1235,6 +1334,21 @@ class FreezoneVideoGenRequest(BaseModel):
         description="文生视频入口的固定业务模式",
     )
     model_params: dict[str, Any] = Field(default_factory=dict)
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool，任务列表据此把任务只显示在产生它的"
+            "功能页。画布等其它入口保持为空。"
+        ),
+    )
 
 
 class FreezoneImageToVideoRequest(BaseModel):
@@ -1293,6 +1407,21 @@ class FreezoneImageToVideoRequest(BaseModel):
         )
     )
     model_params: dict[str, Any] = Field(default_factory=dict)
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool，任务列表据此把任务只显示在产生它的"
+            "功能页。画布等其它入口保持为空。"
+        ),
+    )
 
 
 class FreezoneKeyframeVideoRequest(BaseModel):
@@ -1350,6 +1479,21 @@ class FreezoneKeyframeVideoRequest(BaseModel):
         description="必填：首帧或首尾帧业务模式；不能根据实际上传的帧数推断",
     )
     model_params: dict[str, Any] = Field(default_factory=dict)
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool，任务列表据此把任务只显示在产生它的"
+            "功能页。画布等其它入口保持为空。"
+        ),
+    )
 
 
 class FreezoneVideoEditRequest(BaseModel):
@@ -1401,10 +1545,10 @@ class FreezoneVideoEditRequest(BaseModel):
     )
     model_params: dict[str, Any] = Field(default_factory=dict)
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "[aipdd fork delta] 工具页批量任务用：为 true 时任务产出后会把结果自动"
-            "登记进资产库「待分类资产」。画布等其它入口保持默认关闭。"
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
         ),
     )
     source_tool: str = Field(
@@ -1448,6 +1592,21 @@ class FreezoneVideoExtendRequest(BaseModel):
         description="视频延长入口的固定业务模式",
     )
     model_params: dict[str, Any] = Field(default_factory=dict)
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool，任务列表据此把任务只显示在产生它的"
+            "功能页。画布等其它入口保持为空。"
+        ),
+    )
 
 
 class FreezoneVideoReferenceItem(BaseModel):
@@ -1622,10 +1781,10 @@ class FreezoneVideoOmniGenRequest(BaseModel):
     )
     model_params: dict[str, Any] = Field(default_factory=dict)
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "[aipdd fork delta] 工具页批量任务用：为 true 时任务产出后会把结果自动"
-            "登记进资产库「待分类资产」。画布等其它入口保持默认关闭。"
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
         ),
     )
     source_tool: str = Field(
@@ -1729,10 +1888,10 @@ class FreezoneVideoCloneRequest(BaseModel):
     )
     model_params: dict[str, Any] = Field(default_factory=dict)
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "[aipdd fork delta] 工具页批量任务用：为 true 时任务产出后会把结果自动"
-            "登记进资产库「待分类资产」。画布等其它入口保持默认关闭。"
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
         ),
     )
     source_tool: str = Field(
@@ -1787,10 +1946,10 @@ class FreezoneVideoEraseRequest(BaseModel):
         description="框选高度，归一化 0-1",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "[aipdd fork delta] 工具页批量任务用：为 true 时任务产出后会把结果自动"
-            "登记进资产库「待分类资产」。画布等其它入口保持默认关闭。"
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
         ),
     )
     source_tool: str = Field(
@@ -1824,6 +1983,20 @@ class FreezoneVideoUpscaleRequest(BaseModel):
         default="1x",
         description="降噪强度。none 不降噪；1x 轻度降噪；2x 中等降噪",
     )
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
+    )
 
 
 class FreezoneAudioSeparateRequest(BaseModel):
@@ -1844,6 +2017,20 @@ class FreezoneAudioSeparateRequest(BaseModel):
         default=None,
         ge=1,
         description="可选：目标主线 beat。提供后，任务结果会返回 beat_audio 推送目标",
+    )
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
     )
 
 
@@ -1939,10 +2126,10 @@ class FreezoneAudioSpeechRequest(BaseModel):
         description="可选：目标主线 beat。提供后，任务结果会返回 beat_audio 推送目标",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "[aipdd fork delta] 工具页批量任务用：为 true 时任务产出后会把结果自动"
-            "登记进资产库「待分类资产」。画布等其它入口保持默认关闭。"
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
         ),
     )
     source_tool: str = Field(
@@ -2002,10 +2189,10 @@ class FreezoneVoiceReplaceRequest(BaseModel):
         description="可选：目标主线 beat。提供后，任务结果会返回 beat_audio 推送目标",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "[aipdd fork delta] 工具页批量任务用：为 true 时任务产出后会把结果自动"
-            "登记进资产库「待分类资产」。其它入口保持默认关闭。"
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
         ),
     )
     source_tool: str = Field(
@@ -2072,10 +2259,10 @@ class FreezoneVideoDubbingRequest(BaseModel):
         description="可选：目标主线 beat。提供后，任务结果会返回 beat_audio 推送目标",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "[aipdd fork delta] 工具页批量任务用：为 true 时任务产出后会把结果自动"
-            "登记进资产库「待分类资产」。其它入口保持默认关闭。"
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动"
+            "登记进资产库「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
         ),
     )
     source_tool: str = Field(
@@ -2191,7 +2378,7 @@ class FreezoneVideoMixRequest(BaseModel):
         ),
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
             "登记进资产库「待分类资产」。"
@@ -2287,7 +2474,7 @@ class FreezoneWhiteboardAnimationRequest(BaseModel):
         description="背景音乐音量 0-1；留空自动：与配音混音为 0.2",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
             "登记进资产库「待分类资产」。"
@@ -2454,7 +2641,7 @@ class FreezoneExplainerVideoRequest(BaseModel):
         description="背景音乐音量 0-1；留空自动：与配音混音为 0.2",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
             "登记进资产库「待分类资产」。"
@@ -2552,7 +2739,7 @@ class FreezoneMotionRenderRequest(BaseModel):
         description="画布发起时的画布 id；留空按 default",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "工具页任务用：为 true 时任务产出后会把成片自动登记进资产库「待分类资产」。"
         ),
@@ -2848,7 +3035,7 @@ class FreezoneArticleWriteRequest(BaseModel):
         ),
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
             "登记进资产库「待分类资产」。"
@@ -2933,6 +3120,14 @@ class FreezoneOralScriptRequest(BaseModel):
         description=(
             "[aipdd fork delta] 工具页任务归属标识：提交来自哪个功能（取工具 "
             "kind）；写入任务 metadata.source_tool。"
+        ),
+    )
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把净台词 txt 自动登记进"
+            "资产库「待分类资产」（文本载体）。默认开启（生成就入库）；"
+            "显式传 false 关闭。"
         ),
     )
 
@@ -3053,7 +3248,7 @@ class FreezoneChannelShortVideoRequest(BaseModel):
         description="背景音乐音量 0-1；留空自动：与配音混音为 0.2",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
             "登记进资产库「待分类资产」。"
@@ -3158,7 +3353,7 @@ class FreezoneNarrationSmartEditRequest(BaseModel):
         description="可选草稿/成片标题；留空自动取任务号",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时直出成片产出后会把结果自动"
             "登记进资产库「待分类资产」。"
@@ -3286,7 +3481,7 @@ class FreezoneVideoIdeaRequest(BaseModel):
         description="Seedance 2.0 Value 系列的场景风格优化参数",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
             "登记进资产库「待分类资产」。"
@@ -3327,6 +3522,14 @@ class FreezoneDouyinCopywriteRequest(BaseModel):
         description=(
             "[aipdd fork delta] 工具页任务归属标识：提交时带上功能 kind，"
             "经 payload 浮现到 task metadata.source_tool，供前端按功能过滤任务。"
+        ),
+    )
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把文案 txt 自动登记进"
+            "资产库「待分类资产」（文本载体）。默认开启（生成就入库）；"
+            "显式传 false 关闭。"
         ),
     )
 
@@ -3372,6 +3575,14 @@ class FreezoneMediaCopywriteRequest(BaseModel):
             "经 payload 浮现到 task metadata.source_tool，供前端按功能过滤任务。"
         ),
     )
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把文案 txt 与下载的"
+            "视频/音频素材自动登记进资产库（文本/视频/音频载体）。默认开启"
+            "（生成就入库）；显式传 false 关闭。"
+        ),
+    )
 
 
 class FreezoneAudioMusicRequest(BaseModel):
@@ -3406,6 +3617,20 @@ class FreezoneAudioMusicRequest(BaseModel):
     output_format: str = Field(
         default="mp3_44100_128",
         description="上游原生音频格式，例如 mp3_44100_128、opus_48000_128。",
+    )
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
     )
 
 
@@ -3485,7 +3710,7 @@ class FreezoneMusicCreateRequest(BaseModel):
         description="[aipdd fork delta] 归档条目名前缀（来源素材名），可空",
     )
     archive_to_library: bool = Field(
-        default=False,
+        default=True,
         description=(
             "[aipdd fork delta] 工具页任务用：为 true 时任务产出后会把结果自动"
             "登记进资产库「待分类资产」。"
@@ -3546,6 +3771,20 @@ class FreezoneVideoComposeRequest(BaseModel):
     keep_original_audio: bool = Field(default=True, description="是否保留视频片段自带音频")
     tracks: list[FreezoneVideoComposeTrack] = Field(
         default_factory=list, description="时间线轨道列表"
+    )
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把结果自动登记进资产库"
+            "「待分类资产」。默认开启（生成就入库）；显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool。"
+        ),
     )
 
 
@@ -3688,6 +3927,22 @@ class FreezoneVideoScriptReverseRequest(BaseModel):
         ge=0.0,
         le=1.0,
         description="ffmpeg 场景切换检测阈值",
+    )
+    archive_to_library: bool = Field(
+        default=True,
+        description=(
+            "[aipdd fork delta] 为 true 时任务产出后会把剧本 txt 自动登记进"
+            "资产库「待分类资产」（文本载体）。默认开启（生成就入库）；"
+            "显式传 false 关闭。"
+        ),
+    )
+    source_tool: str = Field(
+        default="",
+        description=(
+            "[aipdd fork delta] 任务归属标识：提交来自哪个功能（取工具 kind）；"
+            "写入任务 metadata.source_tool，任务列表据此把任务只显示在产生它的"
+            "功能页。画布等其它入口保持为空。"
+        ),
     )
 
 

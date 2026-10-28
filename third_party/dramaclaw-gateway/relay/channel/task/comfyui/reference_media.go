@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/QuantumNous/new-api/relay/common"
+	"github.com/dramaclaw/localapi/relay/common"
 	"github.com/gin-gonic/gin"
 )
 

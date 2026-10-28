@@ -2,8 +2,8 @@
 // Copyright (c) 2026 ClaymoreLab
 // 等待预算的语义：只有「服务端不再报告这个任务」才算脱离，排队和执行都不消耗
 // 预算。后端重任务（视频 / 图像 / ffmpeg / stage_asset / image-to-3gs）执行上限
-// 就有 30 分钟（generators/video_generator.py 的 NEWAPI_VIDEO_HTTP_TIMEOUT_SECONDS、
-// grid_generation.py 的 NEWAPI_IMAGE_HTTP_TIMEOUT_SECONDS、freezone/jobs.py 的
+// 就有 30 分钟（generators/video_generator.py 的 LOCALAPI_VIDEO_HTTP_TIMEOUT_SECONDS、
+// grid_generation.py 的 LOCALAPI_IMAGE_HTTP_TIMEOUT_SECONDS、freezone/jobs.py 的
 // _run_cmd(timeout=1800)），线上排队还要另算——按墙钟一刀切必然误杀。
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

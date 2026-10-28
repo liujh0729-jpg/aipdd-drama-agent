@@ -284,10 +284,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             maxSelectable={MAX_REFERENCES}
             onConfirm={(selections) =>
               mergeReferences(
-                // [aipdd fork delta] 剪映草稿不是可引用的素材（选材态本就选不中），
-                // 这里只做类型上的收口：媒体类型收窄到 image / video / audio。
+                // [aipdd fork delta] 剪映草稿 / 3D / 文本不是可引用的素材（选材态
+                // 本就选不中），这里只做类型上的收口：媒体类型收窄到 image / video / audio。
                 selections.flatMap((selection) =>
-                  selection.media === "draft"
+                  selection.media === "draft" ||
+                  selection.media === "model3d" ||
+                  selection.media === "text"
                     ? []
                     : [
                         {

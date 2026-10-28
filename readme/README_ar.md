@@ -380,12 +380,12 @@ cd dramaclaw
 cp .env.example .env
 # Edit .env — set PROMPT_EXPORT_PASSWORD to a non-default value.
 
-docker compose up -d --build   # builds and starts three services: api / newapi (LocalAPI) / web
+docker compose up -d --build   # builds and starts three services: api / localapi (LocalAPI) / web
 ```
 
 <div dir="rtl">
 
-كلا الاستنساخين مستودعا git عاديان: عدّل، و`git pull`، وأعد البناء. تغيّر كود DramaClaw فقط؟ `docker compose up -d --build api web`. البوابة فقط؟ `docker compose up -d --build newapi`. استنسخ البوابة في مكان آخر، أو تفضّل أن يجلبها Docker من git؟ اضبط `DRAMACLAW_GATEWAY_SRC` في `.env` على ذلك المسار أو على `https://github.com/dramaclaw/dramaclaw-gateway.git#main`.
+كلا الاستنساخين مستودعا git عاديان: عدّل، و`git pull`، وأعد البناء. تغيّر كود DramaClaw فقط؟ `docker compose up -d --build api web`. البوابة فقط؟ `docker compose up -d --build localapi`. استنسخ البوابة في مكان آخر، أو تفضّل أن يجلبها Docker من git؟ اضبط `DRAMACLAW_GATEWAY_SRC` في `.env` على ذلك المسار أو على `https://github.com/dramaclaw/dramaclaw-gateway.git#main`.
 
 **دون بناء** — اسحب الصور المنشورة بدلًا من ذلك (لا حاجة لاستنساخ البوابة):
 
@@ -409,7 +409,7 @@ docker compose -f docker-compose.release.yml up -d
 
 </div>
 
-> تنتقل من استنساخ أقدم؟ للبناء من المصدر، أولاً `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (تُبنى البوابة الآن من عملية الاستنساخ الشقيقة هذه؛ وبدونها يتوقّف البناء برسالة `unable to prepare context`). حُذِف `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` — استخدم `docker-compose.yml` (بناء من المصدر) / `docker-compose.release.yml` (صور). أسماء الخدمات ومجلّدا `ce-data` / `newapi-data` دون تغيّر؛ تُعاد استخدام البيانات القائمة كما هي. منفذ LocalAPI يربط الآن بـ `127.0.0.1` فقط افتراضياً؛ اضبط `ST_NEWAPI_BIND=0.0.0.0` في `.env` إن احتجت وصولاً بعيداً إليه.
+> تنتقل من استنساخ أقدم؟ للبناء من المصدر، أولاً `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (تُبنى البوابة الآن من عملية الاستنساخ الشقيقة هذه؛ وبدونها يتوقّف البناء برسالة `unable to prepare context`). حُذِف `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` — استخدم `docker-compose.yml` (بناء من المصدر) / `docker-compose.release.yml` (صور). أسماء الخدمات ومجلّدا `ce-data` / `localapi-data` دون تغيّر؛ تُعاد استخدام البيانات القائمة كما هي. منفذ LocalAPI يربط الآن بـ `127.0.0.1` فقط افتراضياً؛ اضبط `ST_LOCALAPI_BIND=0.0.0.0` في `.env` إن احتجت وصولاً بعيداً إليه.
 
 <div dir="rtl">
 
@@ -425,7 +425,7 @@ cp .env.example .env
 #    Edit .env: set ST_LOCAL_PASSWORD, PROMPT_EXPORT_PASSWORD and your model
 #    keys / official DC key before you start.
 
-# 2 · build & bring the stack up (api / newapi gateway / web, all from source)
+# 2 · build & bring the stack up (api / localapi gateway / web, all from source)
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
@@ -452,20 +452,20 @@ uv run novelvideo api --port 8780   # start the REST API (CE defaults to inline 
 
 الواجهة الأمامية في طرفية ثانية: `cd frontend && pnpm install && pnpm dev`.
 
-**البوابة.** في الوضع **الرسمي** لا تحتاج شيئاً آخر. أما في **المخصّص** أو **مزيج LocalAPI + الرسمي** فتتوقّع الواجهة بوابة على `127.0.0.1:3000` وملف SQLite الخاص بها هو `./state/newapi/one-api.db` (إلى هذا تكتب «تهيئة» في الإعدادات؛ ويشير `LOCALAPI_ADMIN_BASE_URL` في `.env` إلى هناك مسبقاً). شغّل صورة منشورة مع تركيب هذا الدليل:
+**البوابة.** في الوضع **الرسمي** لا تحتاج شيئاً آخر. أما في **المخصّص** أو **مزيج LocalAPI + الرسمي** فتتوقّع الواجهة بوابة على `127.0.0.1:3000` وملف SQLite الخاص بها هو `./state/localapi/localapi.db` (إلى هذا تكتب «تهيئة» في الإعدادات؛ ويشير `LOCALAPI_ADMIN_BASE_URL` في `.env` إلى هناك مسبقاً). شغّل صورة منشورة مع تركيب هذا الدليل:
 
 </div>
 
 ```bash
-mkdir -p state/newapi
+mkdir -p state/localapi
 docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
-  -v "$PWD/state/newapi:/data" \
+  -v "$PWD/state/localapi:/data" \
   claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
 ```
 
 <div dir="rtl">
 
-أو شغّل البوابة من المصدر في الاستنساخ الشقيق (‏`make dev-api` / `make dev-web` في [dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway#develop)، أو `go build` وشغّل الثنائي مع `SQLITE_PATH=<path to>/dramaclaw/state/newapi/one-api.db`).
+أو شغّل البوابة من المصدر في الاستنساخ الشقيق (‏`make dev-api` / `make dev-web` في [dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway#develop)، أو `go build` وشغّل الثنائي مع `SQLITE_PATH=<path to>/dramaclaw/state/localapi/localapi.db`).
 
 </div>
 
@@ -503,7 +503,7 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 > 🧠 **اختر مصدر الحوسبة بنفسك — تكلفة أقل وتحكم أكبر.** صُمّمت البوابة لتختار *أنت* أين تعمل كل عملية توليد:
 > - **طاقة AIPDD الخاملة (خفض التكلفة).** ربط قناة **AIPDD** يسمح للتوليد بالعمل على **مجموعة الحوسبة الخاملة** في المنصّة، فتُنفَّذ مهام المسلسلات الثقيلة بدُفعات بجزء يسير من التسعير عند الطلب — أكبر رافعة لخفض تكلفة الإنتاج. سجّل في <https://www.aipdd.work> للحصول على مفتاح AIPDD API، ثم أضِفَه كقناة في **Settings → Models & Channels**.
-> - **NewAPI، ادمج بحرية.** تتيح لك بوابة **NewAPI** المدمجة تسجيل مزوّدين عديدين كقنوات و**دمجها كما تشاء** — الرسمي، AIPDD، خادم تستضيفه بنفسك، أو أي نقطة نهاية متوافقة مع OpenAI — لكل نموذج ولكل مرحلة. لقنوات NewAPI نوصي **بالبحث عن مزوّديك بنفسك ومقارنة الأسعار**؛ قائمة مرجعية منتقاة هنا: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
+> - **LocalAPI، ادمج بحرية.** تتيح لك بوابة **LocalAPI** المدمجة تسجيل مزوّدين عديدين كقنوات و**دمجها كما تشاء** — الرسمي، AIPDD، خادم تستضيفه بنفسك، أو أي نقطة نهاية متوافقة مع OpenAI — لكل نموذج ولكل مرحلة. لقنوات LocalAPI نوصي **بالبحث عن مزوّديك بنفسك ومقارنة الأسعار**؛ قائمة مرجعية منتقاة هنا: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
 > - **ComfyUI على معالج رسوماتك — أرخص طريقة لتشغيل التوليد على اللوحة.** موجِّه **ComfyUI** من الدرجة الأولى يحوّل توليد الصور/الفيديو إلى سير عمل يعمل على **أجهزتك**: معالجك يقوم بالتصيير **دون استهلاك حصة سحابية لكل استدعاء** — الأعمال الثقيلة لا تكلّفك سوى الكهرباء، أقل بكثير من أي نموذج مُستضاف. سجّل نقطة نهاية ComfyUI المحلية كقناة في وضع **Custom** أو **Hybrid**.
 >   - **أسهل طريقة لتثبيت ComfyUI** — بلا تثبيت يدوي ولا بيئة Python: نزّل **عميل الحوسبة (算力客户端)** المضمّن لدينا ثم شغّل المثبّت: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.
 >
@@ -517,7 +517,7 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 <div dir="rtl">
 
-خدمة `newapi` في `docker-compose.yml` هي [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway)، تفرّع DramaClaw الخاص من [New API](https://github.com/QuantumNous/new-api). تتحدّث تعاقد **DC-Media** الذي يستخدمه DramaClaw للصور/الفيديو/الصوت (أدوار الوسائط، المراجع، الإطار الأول/الأخير) وتحوّل كل طلب إلى واجهة المورّد الأصلية. الصورة: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) على Docker Hub، مثبّتة بـ `DRAMACLAW_GATEWAY_VERSION` في `.env`. تبقى خاملة في الوضع الرسمي ولا تُستخدم إلا حين تتحوّل إلى **المخصّص** أو **مزيج LocalAPI + الرسمي**.
+خدمة `localapi` في `docker-compose.yml` هي [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway)، تفرّع DramaClaw الخاص من [New API](https://github.com/QuantumNous/new-api). تتحدّث تعاقد **DC-Media** الذي يستخدمه DramaClaw للصور/الفيديو/الصوت (أدوار الوسائط، المراجع، الإطار الأول/الأخير) وتحوّل كل طلب إلى واجهة المورّد الأصلية. الصورة: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) على Docker Hub، مثبّتة بـ `DRAMACLAW_GATEWAY_VERSION` في `.env`. تبقى خاملة في الوضع الرسمي ولا تُستخدم إلا حين تتحوّل إلى **المخصّص** أو **مزيج LocalAPI + الرسمي**.
 
 </div>
 

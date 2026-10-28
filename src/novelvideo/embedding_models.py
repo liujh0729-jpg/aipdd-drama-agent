@@ -143,7 +143,7 @@ def embedding_model_spec(
     if clean_model == COGNEE_EMBEDDING_MODEL_LEGACY:
         if not is_ce_effective():
             raise RuntimeError(
-                "DC-cognee-embedding is reserved for CE custom NewAPI projects"
+                "DC-cognee-embedding is reserved for CE custom LocalAPI projects"
             )
         if project_dimensions is None:
             saved = get_newapi_embedding_model_config()

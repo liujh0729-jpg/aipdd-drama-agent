@@ -2,7 +2,7 @@
 
 C3/A7 已把 content/story/scripts 的同步 LLM 出网调用接进 ``request_egress_scope``
 （身份/计费归因这条安全债已修毕）。剩下的是一条**可靠性**债：整轮生成在请求进程内
-没有总墙钟上限。底层单次 HTTP 调用各有 read timeout（``NEWAPI_TEXT_TIMEOUT_SECONDS``，
+没有总墙钟上限。底层单次 HTTP 调用各有 read timeout（``LOCALAPI_TEXT_TIMEOUT_SECONDS``，
 默认 300s），但一次「生成」往往是**多轮往返**——诊断→优化、agent 多步、内部重试——
 聚合时长可以把一个 worker 无限期占住，且经 HTTP 无法取消。
 

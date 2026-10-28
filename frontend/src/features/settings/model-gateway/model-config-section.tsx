@@ -54,7 +54,7 @@ function ModelConfigSection({ open }: { open: boolean }) {
     }
   }, [serverMode]);
 
-  // CE 运行环境提供本地 NewAPI 网关管理地址；初始化与下方模型映射共用该地址。
+  // CE 运行环境提供本地 LocalAPI 网关管理地址；初始化与下方模型映射共用该地址。
   // [aipdd fork delta req41] 初值为空：本机地址不写在代码里，等 /config 回填真值。
   const [customBaseUrl, setCustomBaseUrl] = useState("");
   const seededCustomBaseUrl =
@@ -70,7 +70,7 @@ function ModelConfigSection({ open }: { open: boolean }) {
     }
   }, [seededCustomBaseUrl]);
 
-  // CE owns one local SQLite-backed NewAPI instance. Database paths and the
+  // CE owns one local SQLite-backed LocalAPI instance. Database paths and the
   // root username are deployment details, not user-editable model settings.
   const customDatabase: NewApiDatabaseConfigInput | undefined = undefined;
   const selectedModeConfigured =

@@ -351,8 +351,8 @@ MODULE_CONSTANT_ALLOWLIST: dict[str, frozenset[str]] = {
             "HUIMENG_NANOBANANA2_MODEL",
             # EE 官方网关随包清单与「按已选中模型名派生」的运营参数：CE 下不参与
             # 候选（候选只来自渠道目录），仍允许运维用 env 覆盖。
-            "NEWAPI_VIDEO_MODELS",
-            "NEWAPI_VIDEO_AUDIO_MODELS",
+            "LOCALAPI_VIDEO_MODELS",
+            "LOCALAPI_VIDEO_AUDIO_MODELS",
         }
     ),
     "director_world/scene_overlap_analyzer.py": frozenset({"DEFAULT_MODEL"}),

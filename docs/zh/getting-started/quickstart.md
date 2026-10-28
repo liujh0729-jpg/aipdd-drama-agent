@@ -5,7 +5,7 @@
 
 > 本地跑起 AIPDD-Agent-Claw,产出第一个结果。
 
-AIPDD-Agent-Claw 是社区版(CE),单机运行、无需 PostgreSQL / Redis。默认 `docker compose` 起三个服务:`api`(创作后端,:8780)、`newapi`(LocalAPI,切到自定义/LocalAPI + 官方混合模式前闲置)、`web`(浏览器界面,:8080);模型默认走 **AIPDD 官方网关**,填一个 DC key 即用。
+AIPDD-Agent-Claw 是社区版(CE),单机运行、无需 PostgreSQL / Redis。默认 `docker compose` 起三个服务:`api`(创作后端,:8780)、`localapi`(LocalAPI,切到自定义/LocalAPI + 官方混合模式前闲置)、`web`(浏览器界面,:8080);模型默认走 **AIPDD 官方网关**,填一个 DC key 即用。
 
 ## 前置
 
@@ -24,11 +24,11 @@ cp .env.example .env
 #    打开 .env,至少把 PROMPT_EXPORT_PASSWORD 改成非默认值。
 #    模型渠道和 key 在下一步通过网页配置，不写入 .env。
 
-# 3. 启动 —— 起 api / newapi / web 三个服务，全部源码构建
+# 3. 启动 —— 起 api / localapi / web 三个服务，全部源码构建
 docker compose up -d --build   # 从源码构建 api、web（本仓）与网关（third_party/dramaclaw-gateway）
 
 # 4. 确认已启动
-docker compose ps   # api, newapi, web 应该都在运行
+docker compose ps   # api, localapi, web 应该都在运行
 ```
 
 ## 填入 DC key(必做一次)

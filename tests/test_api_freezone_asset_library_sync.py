@@ -39,12 +39,13 @@ def _write_png(path: Path) -> Path:
 class _Store:
     def __init__(self, characters) -> None:
         self._characters = characters
+        self.scenes: list = []
 
     def get_all_characters(self):
         return self._characters
 
     async def list_scenes(self):
-        return []
+        return list(self.scenes)
 
     async def list_props(self):
         return []
@@ -96,7 +97,7 @@ def sync_client(monkeypatch, tmp_path):
         "id": "u-alice",
         "username": "alice",
     }
-    return TestClient(app), project_dir, character
+    return TestClient(app), project_dir, character, _store
 
 
 def _synced(client: TestClient) -> dict[str, dict]:
@@ -108,7 +109,7 @@ def _synced(client: TestClient) -> dict[str, dict]:
 
 
 def test_sync_pulls_identity_face_mat_and_composite(sync_client) -> None:
-    client, project_dir, character = sync_client
+    client, project_dir, character, _store = sync_client
     _write_png(project_dir / "assets" / "characters" / "秦" / "portrait.png")
     _write_png(project_dir / "assets" / "characters" / "秦" / "identities" / "少年.png")
     _write_png(
@@ -154,7 +155,7 @@ def test_sync_pulls_identity_face_mat_and_composite(sync_client) -> None:
 
 def test_sync_skips_missing_identity_slots(sync_client) -> None:
     """只有造型三视图时，五官垫图 / 拼接图槽位不建空条目。"""
-    client, project_dir, _character = sync_client
+    client, project_dir, _character, _store = sync_client
     _write_png(project_dir / "assets" / "characters" / "秦" / "identities" / "少年.png")
 
     items = _synced(client)
@@ -166,7 +167,7 @@ def test_sync_skips_missing_identity_slots(sync_client) -> None:
 
 
 def test_sync_is_idempotent_and_busts_cache_on_replace(sync_client) -> None:
-    client, project_dir, _character = sync_client
+    client, project_dir, _character, _store = sync_client
     face_mat = _write_png(
         project_dir
         / "assets"
@@ -219,7 +220,7 @@ def _write_style_cover(tmp_path) -> None:
 def test_sync_also_projects_style_covers(sync_client, monkeypatch, tmp_path) -> None:
     """同步结果同样要带「风格」封面投影：前端打开资产库时“先读后同步”，
     若同步结果未投影，会用未投影列表覆盖刚显示的封面 → 风格封面一闪而过。"""
-    client, _project_dir, _character = sync_client
+    client, _project_dir, _character, _store = sync_client
     _patch_style_gallery(monkeypatch, tmp_path)
     _write_style_cover(tmp_path)
 
@@ -238,7 +239,7 @@ def test_sync_projection_is_readonly_and_not_persisted(
     """投影只活在响应里，不因同步落进库文件。"""
     import json
 
-    client, project_dir, _character = sync_client
+    client, project_dir, _character, _store = sync_client
     _patch_style_gallery(monkeypatch, tmp_path)
     _write_style_cover(tmp_path)
     # 先造一条真实主线资产，确保同步会写库文件（无资产时按设计不写）。
@@ -253,3 +254,33 @@ def test_sync_projection_is_readonly_and_not_persisted(
     assert all(
         not str(item.get("id") or "").startswith("style_gallery:") for item in stored
     )
+
+
+# ---------------------------------------- 场景 360 全景（aipdd fork delta req98）
+
+
+def test_sync_pulls_scene_master_and_360_pano(sync_client) -> None:
+    """scene360 提交后的 360 全景也进主线同步：与 master 各自成条、幂等。"""
+    client, project_dir, _character, store = sync_client
+    store.scenes = [SimpleNamespace(name="厨房")]
+    _write_png(project_dir / "assets" / "scenes" / "厨房" / "master.png")
+    _write_png(project_dir / "director_worlds" / "厨房" / "v1" / "pano_360.png")
+
+    items = _synced(client)
+
+    master = items["mainline:scene:厨房"]
+    pano = items["mainline:scene:厨房:pano"]
+    assert master["name"] == "厨房"
+    assert pano["name"] == "厨房 · 360 全景"
+    for item in (master, pano):
+        assert item["media"] == "image"
+        assert item["source"] == "scene"
+        assert item["category"] == "scene"
+    assert _decoded_path(pano["image_urls"][0]).endswith(
+        "/director_worlds/厨房/v1/pano_360.png"
+    )
+
+    # 重复同步只更新、不新增条目。
+    again = _synced(client)
+    scene_ids = [key for key in again if key.startswith("mainline:scene:厨房")]
+    assert sorted(scene_ids) == ["mainline:scene:厨房", "mainline:scene:厨房:pano"]

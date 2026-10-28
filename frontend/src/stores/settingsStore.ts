@@ -101,19 +101,19 @@ export interface FeatureModelEntry {
 
 export interface FeatureProviderChannel {
   provider: FeatureModelProvider;
-  /** 上游供应商 Key（写入 NewAPI 渠道时按 provider 取）。 */
+  /** 上游供应商 Key（写入 LocalAPI 渠道时按 provider 取）。 */
   upstreamKey: string;
   /** 上游 Base URL 覆盖；空表示使用后端 provider preset。 */
   baseUrl: string;
-  /** NewAPI channel priority. It only affects initial channel selection. */
+  /** LocalAPI channel priority. It only affects initial channel selection. */
   priority: number;
-  /** Provider-specific NewAPI channel settings, e.g. ComfyUI workflows. */
+  /** Provider-specific LocalAPI channel settings, e.g. ComfyUI workflows. */
   settings: Record<string, unknown>;
 }
 
 export interface MediaModelEntry {
   provider: FeatureModelProvider;
-  /** NewAPI model_mapping 的 value；空表示使用固定模型名自身。 */
+  /** LocalAPI model_mapping 的 value；空表示使用固定模型名自身。 */
   upstreamModel: string;
   // [aipdd fork delta req46] music：设置页新增的「音乐」类型（不经网关，走厂商直连）。
   mediaType?: 'image' | 'video' | 'audio' | 'music';

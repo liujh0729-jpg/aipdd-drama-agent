@@ -68,6 +68,8 @@ async def freezone_relight(
         provider=None,
         model=body.model or FREEZONE_DEFAULT_IMAGE_MODEL,
         quality=body.quality or "medium",
+        archive_to_library=body.archive_to_library,
+        source_tool=body.source_tool,
     )
 
 
@@ -121,6 +123,8 @@ async def freezone_template_edit(
         provider=execution_provider,
         model=execution_model or body.model or FREEZONE_DEFAULT_IMAGE_MODEL,
         quality=body.quality or "medium",
+        archive_to_library=body.archive_to_library,
+        source_tool=body.source_tool,
         # 画布报价时带了目录身份就必须原样传下来，否则前端按目录规则报价、
         # 后端按旧的 image_selection 规则扣费，两边价格对不上。
         # 身份以目录条目为准，不采信 body —— 它直接决定按哪条目录规则扣费。
@@ -237,6 +241,8 @@ async def freezone_image_to_3gs(
             params=params,
             canvas_id=body.canvas_id or None,
             node_id=body.node_id or None,
+            archive_to_library=body.archive_to_library,
+            source_tool=body.source_tool,
         )
     except RuntimeError as exc:
         _freezone._handle_task_start_runtime_error("failed to start image-to-3gs task", exc)
@@ -299,6 +305,8 @@ async def freezone_upscale(
             provider=provider,
             model=resolved_model,
             quality=body.quality or "medium",
+            archive_to_library=body.archive_to_library,
+            source_tool=body.source_tool,
         )
     except RuntimeError as e:
         _freezone._handle_task_start_runtime_error("failed to start upscale task", e)
@@ -367,6 +375,8 @@ async def freezone_outpaint(
             provider=provider,
             model=resolved_model,
             quality=body.quality or "medium",
+            archive_to_library=body.archive_to_library,
+            source_tool=body.source_tool,
         )
     except RuntimeError as e:
         _freezone._handle_task_start_runtime_error("failed to start outpaint task", e)
@@ -436,6 +446,8 @@ async def freezone_redraw(
                 aspect_ratio=resolved_aspect_ratio,
                 image_size=body.image_size,
                 quality=body.quality or "medium",
+                archive_to_library=body.archive_to_library,
+                source_tool=body.source_tool,
                 provider=provider,
                 model=resolved_model,
             )
@@ -461,6 +473,8 @@ async def freezone_redraw(
             provider=provider,
             model=resolved_model,
             quality=body.quality or "medium",
+            archive_to_library=body.archive_to_library,
+            source_tool=body.source_tool,
         )
     except RuntimeError as e:
         _freezone._handle_task_start_runtime_error("failed to start redraw task", e)

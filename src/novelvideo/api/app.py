@@ -173,7 +173,7 @@ def _record_resource_request(resource_key: str) -> tuple[int, int]:
 # 2) 算一次别名映射一致性自检（悬空别名 / 失效目标 / 能力错配），结果缓存供面板横幅。
 #
 # backfill 的等待窗口必须收窄：它跑在 asyncio.to_thread 里、线程不可取消，默认
-# 2 分钟（NEWAPI_PROVISIONER_INIT_TIMEOUT_MS）的 wait_for_newapi 重试循环会在
+# 2 分钟（LOCALAPI_PROVISIONER_INIT_TIMEOUT_MS）的 wait_for_newapi 重试循环会在
 # 网关未就绪（本机开发 / 首启）时拖住事件循环关闭（TestClient 退出、进程重启
 # 都卡满两分钟），所以在启动路径传 5 秒秒级预算：探测不到就放弃，标记不写，
 # 下次启动重试（同一「秒级探测预算，失败静默回退，下次再试」的约定）。

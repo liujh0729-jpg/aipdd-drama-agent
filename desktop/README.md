@@ -20,7 +20,7 @@ Applications 即可用，无需自行安装 Python/Docker/Colima/系统依赖。
 └──────────────┬───────────────────┬──────────────────┬──────────────────┘
    std::process│         std::process│        std::process│
         ┌──────▼─────┐      ┌────────▼───────┐   ┌──────▼───────┐
-        │ nginx :8080│      │ new-api(Go):3000│  │ FastAPI:8780 │  (+ VectCut:9001 可选)
+        │ nginx :8080│      │ localapi(Go):3000│  │ FastAPI:8780 │  (+ VectCut:9001 可选)
         │ 托管 dist   │      │ OpenAI 兼容网关  │  │ 便携 Python    │
         │ 反代 /api…  │      │ 内置 SQLite     │  │ torch 可选     │
         └────────────┘      └────────────────┘   └──────────────┘
@@ -89,7 +89,7 @@ desktop/
 | 服务 | 端口 | 可执行 | 说明 |
 |---|---|---|---|
 | nginx | 8080（默认） | `resources/bin/nginx` | 托管前端 dist + 反代 `/api` `/gateway/v1` `/static`；`-g "daemon off;"` 前台。**8080 被外部占用时自动往后避让到 8081…8089 并定格本次会话**（主窗口地址、nginx `listen`/CSP 同步跟随），10 个全占才报错 |
-| gateway(new-api) | 3000 | `resources/bin/new-api` | Go 静态二进制，内置 SQLite（工作目录 `app-data/gateway`）|
+| gateway(localapi) | 3000 | `resources/bin/localapi` | Go 静态二进制，内置 SQLite（工作目录 `app-data/gateway`）|
 | FastAPI | 8780 | 便携 `python` | `python -c "from novelvideo.cli import app; app()" api --host 127.0.0.1 --port 8780` |
 | VectCut（可选） | 9001 | 便携 `python` | `python aipdd_server.py`；失败降级不阻断 |
 | 换脸直播边车（可选，按需自装） | 18899 | 独立 venv 的 python + `resources/app/services/faceswap/server.py` | **不在 Rust 受管服务列表内**：由后端 `novelvideo/faceswap/faceswap_install.py` 在用户点「下载并部署」后用随包的 `resources/bin/uv` 建 `<状态目录>/faceswap/venv` 再 `Popen` 拉起；只绑 `127.0.0.1`，AGPL 隔离靠进程边界 |
@@ -201,7 +201,7 @@ Tauri 计算并注入两类目录，再派生后端既有的 env：
 
 > 更新（本机 arm64 mac 实测）：已安装 rustup/cargo 1.99 与 bun 1.4，
 > `cargo check` / `cargo build` / `cargo clippy` **全部零错误零告警**（clippy 干净）；
-> 网关 `new-api` 已实编译并本地起服（`/api/status` 正常，内置 SQLite 模式）。
+> 网关 `localapi` 已实编译并本地起服（`/api/status` 正常，内置 SQLite 模式）。
 > 仍未实跑的是「重量级 prepare-resources 全量下载（便携 Python + CE 依赖 + 前端 + nginx/ffmpeg/Chromium）」
 > 与 `cargo tauri build` 出包 / 签名 / 公证，这些仍需在干净构建机按下方步骤执行。
 
@@ -217,7 +217,7 @@ brew install go uv node                                  # 网关编译 / Python
 curl -fsSL https://bun.sh/install | bash                 # bun：网关自带后台 web/dist 的构建器（见下）
 ```
 
-> ⚠️ 网关 `new-api` 用 `//go:embed web/dist` 内嵌它自带的管理后台（rsbuild + **bun**）。
+> ⚠️ 网关 `localapi` 用 `//go:embed web/dist` 内嵌它自带的管理后台（rsbuild + **bun**）。
 > 不先产出 `web/dist`，`go build` 会直接失败：`pattern web/dist: no matching files found`。
 > `prepare-resources.sh` 第 5 步已改为「先 `bun install --frozen-lockfile && bun run build`，再 go build」。
 
@@ -247,7 +247,7 @@ pre-commit install            # 写 .git/hooks/pre-commit（仓库本地，不�
 pre-commit run --all-files    # 手动全量扫描（可选）
 ```
 > ⚠️ gitleaks 钩子是 Go 程序，**首次运行**会 `go build` 拉依赖；直连 `proxy.golang.org` 超时（国内网络）时，
-> 先切镜像再跑（与 §6.1 交叉编 `new-api` 用的是同一口径）：
+> 先切镜像再跑（与 §6.1 交叉编 `localapi` 用的是同一口径）：
 > `export GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,direct GOSUMDB=off`
 > 构建成功后环境会缓存到 `~/.cache/pre-commit`，之后日常提交不再依赖网络；只有清缓存或换机重装才需再次导出该镜像。
 
@@ -302,7 +302,7 @@ rustup target add x86_64-apple-darwin                 # Rust x86_64 标准库
 - **依赖钉版本**：`lancedb→0.25.3`、`cryptography→48.0.1`（较新版停发 macOS Intel 轮；env `LANCEDB_X64_PIN`/`CRYPTO_X64_PIN` 覆盖）
 - **nginx**：调 `scripts/build-nginx-x64.sh` 源码交叉编一个**最小 x86_64**（纯 HTTP、静态 PCRE、无 OpenSSL —— Homebrew 已停 macOS Intel 瓶，`brew install nginx` 只会给 arm64）
 - **ffmpeg/ffprobe**：取 `ffmpeg-static` 的 `ffmpeg-darwin-x64.gz` + `ffprobe-static` tarball 内 `bin/darwin/x64/ffprobe`（均只依赖系统库）
-- **new-api**：`go build GOARCH=amd64`（模块代理网络差时 `GOPROXY=https://goproxy.cn,direct GOSUMDB=off`）
+- **localapi**：`go build GOARCH=amd64`（模块代理网络差时 `GOPROXY=https://goproxy.cn,direct GOSUMDB=off`）
 - **uv**：从 PyPI 的 `macosx_*_x86_64` wheel 取
 
 出包与签名/公证与 arm 一致，只是 target 换成 `x86_64-apple-darwin`：
@@ -461,11 +461,11 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
 | M0 | 可行性 Spike（便携 Python 起 api / nginx 托管 / 网关直跑） | 🟢 **本机 arm64 全链路实跑通**：便携 Python(uv.lock 冻结)→FastAPI `/api/v1/config` 200、nginx 托管 dist + 反代、网关 `/api/status` 200 |
 | M1 | 最小可跑桌面 App（编排 + 窗口 + env + nginx 配置） | 🟢 **`.app` 真实构建 + 端到端编排冒烟通过**：`tauri build` 产出 1.53 GiB `.app`（arm64），启动后串行编排 nginx/gateway/vectcut/api 全就绪，主窗口加载 `http://127.0.0.1:8080` |
 | M2 | 面板/自愈/日志/异常提示 | 代码已落地且随 M1 一同编译通过 |
-| M3 | 三架构资源准备脚本 | 🟢 **`prepare-resources.sh mac-arm64` 全流程实跑产出真实资源**（~1.3 GiB：便携 Python/前端 dist/后端源码/new-api/nginx/ffmpeg） |
+| M3 | 三架构资源准备脚本 | 🟢 **`prepare-resources.sh mac-arm64` 全流程实跑产出真实资源**（~1.3 GiB：便携 Python/前端 dist/后端源码/localapi/nginx/ffmpeg） |
 | M4 | 模型下载器 | 代码已编译通过；**manifest 数据源待定** |
 | M5 | 打包/签名/公证脚本 | 🟢 **`.dmg` 真实产出**：`tauri build --bundles dmg` → 597 MiB `.dmg`（hdiutil 校验通过，内嵌有效 arm64 `.app`）；**签名/公证仍需 Developer ID + 真机** |
 | M6 | 合规/关于页/文档 | 义务清单 + 本 README 落地；**App 内合规页待做（前端）** |
-| M7 | Windows NSIS | 🟢 **全链路真机跑通**：`prepare-resources.sh win-x64` 真实产出 2.39GB 资源（便携 Python/前端 dist/后端源码/`new-api.exe`/nginx/ffmpeg+ffprobe/Chromium，共 28 733 个文件）→ `build-windows.ps1` 出 `AIPDD DramaClaw_2.1.7_x64-setup.exe` **668MB**（sha256 见 sidecar）→ 静默安装 58s/退出码 0 → 起服后 8080/3000 返回 200、9001/8780 探活通过 → 强杀壳零残留 → 卸载后包内只剩 1 个运行期写出的文件。详见 `scripts/build-windows.md §8.1`。**签名仍需代码签名证书** |
+| M7 | Windows NSIS | 🟢 **全链路真机跑通**：`prepare-resources.sh win-x64` 真实产出 2.39GB 资源（便携 Python/前端 dist/后端源码/`localapi.exe`/nginx/ffmpeg+ffprobe/Chromium，共 28 733 个文件）→ `build-windows.ps1` 出 `AIPDD DramaClaw_2.1.7_x64-setup.exe` **668MB**（sha256 见 sidecar）→ 静默安装 58s/退出码 0 → 起服后 8080/3000 返回 200、9001/8780 探活通过 → 强杀壳零残留 → 卸载后包内只剩 1 个运行期写出的文件。详见 `scripts/build-windows.md §8.1`。**签名仍需代码签名证书** |
 
 ---
 
@@ -509,7 +509,7 @@ status 取值：`stopped/starting/ready/crashed/restarting`。
 - **nginx 配置路径含空格**：app-data 与 `.app` 路径都含空格（`…/Application Support/…`、
   `AIPDD DramaClaw.app/…`），未加引号的 `pid`/`root`/`include`/`*_temp_path`/`access_log` 会被 nginx
   当作多参数报错。已在 `resources/nginx.conf` 模板里给所有路径值加双引号。
-- **网关工作目录未预建**：new-api 以 `app-data/gateway` 为 cwd 启动，`RuntimePaths::new` 旧版未预建
+- **网关工作目录未预建**：localapi 以 `app-data/gateway` 为 cwd 启动，`RuntimePaths::new` 旧版未预建
   该目录→`Command::current_dir` 的 spawn 直接失败→`start_all` 卡住。已在预建列表补 `gateway`。
 
 ---

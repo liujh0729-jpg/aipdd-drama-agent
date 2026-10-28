@@ -5,7 +5,7 @@
 
 > Run AIPDD-Agent-Claw locally and produce your first result.
 
-AIPDD-Agent-Claw is the Community Edition (CE): it runs on a single machine with no PostgreSQL / Redis required. By default `docker compose` brings up three services: `api` (the creation backend, :8780), `newapi` (LocalAPI, idle until you switch to Custom or LocalAPI + Official Hybrid mode), and `web` (the browser UI, :8080). Models are served through the **AIPDD official gateway** by default — paste in a DC key and you're ready to go.
+AIPDD-Agent-Claw is the Community Edition (CE): it runs on a single machine with no PostgreSQL / Redis required. By default `docker compose` brings up three services: `api` (the creation backend, :8780), `localapi` (LocalAPI, idle until you switch to Custom or LocalAPI + Official Hybrid mode), and `web` (the browser UI, :8080). Models are served through the **AIPDD official gateway** by default — paste in a DC key and you're ready to go.
 
 ## Prerequisites
 
@@ -24,11 +24,11 @@ cp .env.example .env
 #    Open .env and at minimum change PROMPT_EXPORT_PASSWORD to a non-default value.
 #    Configure the model channel and key in the web UI, not in .env.
 
-# 3. Start — brings up api / newapi / web, all built from source
+# 3. Start — brings up api / localapi / web, all built from source
 docker compose up -d --build   # builds api, web (this checkout) and the gateway (third_party/dramaclaw-gateway)
 
 # 4. Confirm it's up
-docker compose ps   # api, newapi, and web should all be running
+docker compose ps   # api, localapi, and web should all be running
 ```
 
 ## Enter your DC key (one-time, required)

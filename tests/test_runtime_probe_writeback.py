@@ -110,7 +110,7 @@ def test_writeback_does_not_bump_channel_checked_at_or_touch_siblings() -> None:
     [
         # 裸 404：没有方舟那句原话，可能是我们请求路径打错，不判死模型。
         (404, DEAD_CALL, {"message": "Not Found", "type": "Not Found", "code": ""}),
-        # 网关（new-api）的 model_not_found 是本地没绑定，直连上游可能照样能用。
+        # 网关（localapi）的 model_not_found 是本地没绑定，直连上游可能照样能用。
         (
             503,
             DEAD_CALL,

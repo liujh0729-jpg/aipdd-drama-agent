@@ -52,7 +52,7 @@ router = APIRouter()
 
 
 async def _ee_media_model_catalog(media_type: str) -> list[dict[str, Any]] | None:
-    """Use EE catalog or the CE-local catalog when custom NewAPI is active."""
+    """Use EE catalog or the CE-local catalog when custom LocalAPI is active."""
     from novelvideo.ports.registry import PortNotRegistered, get_port
 
     try:

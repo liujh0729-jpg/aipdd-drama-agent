@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/i18n"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/dramaclaw/localapi/common"
+	"github.com/dramaclaw/localapi/constant"
+	"github.com/dramaclaw/localapi/i18n"
+	"github.com/dramaclaw/localapi/model"
+	"github.com/dramaclaw/localapi/service"
+	"github.com/dramaclaw/localapi/setting"
+	"github.com/dramaclaw/localapi/setting/operation_setting"
 
 	"github.com/gin-gonic/gin"
 )

@@ -1,4 +1,4 @@
-module github.com/QuantumNous/new-api/relaykit
+module github.com/dramaclaw/localapi/relaykit
 
 go 1.25.1
 

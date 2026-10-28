@@ -27,19 +27,19 @@ import { type FeatureModelProvider } from "@/stores/settingsStore";
 
 const MODEL_CONFIGURATION_GUIDE_URL =
   "https://aiworkin.feishu.cn/wiki/QjAfwFtYbiqSAukMvU6cg5Kan2f?from=from_copylink";
-// [aipdd fork delta] 外部 NewAPI 渠道的默认站点留空：自建网关 / 反向代理 / 云厂商
+// [aipdd fork delta] 外部 LocalAPI 渠道的默认站点留空：自建网关 / 反向代理 / 云厂商
 // 中转的地址各不相同，预填任何地址都等于替用户选了一个不属于他的站点。用户点卡上的
-// 「推荐 NewAPI 站点」去官方整理的清单里自己挑（README 里给的是同一条链接）。
-const NEWAPI_DEFAULT_BASE_URL = "";
-const NEWAPI_RECOMMENDED_SITES_URL =
+// 「推荐 LocalAPI 站点」去官方整理的清单里自己挑（README 里给的是同一条链接）。
+const LOCALAPI_DEFAULT_BASE_URL = "";
+const LOCALAPI_RECOMMENDED_SITES_URL =
   "https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf";
 const COMFY_WORKFLOW_MANAGED_CONFIG_KEY = "_dcManagedByWorkflow";
 
 // [aipdd fork delta] 去掉官方中转(RelayClaw)：设置页只暴露“自定义”网关（内置 dramaclaw-gateway），
-// AIPDD / NewAPI(填 URL) / 本地 ComfyUI 作为它的上游渠道。official/hybrid 分支保留但不可达。
+// AIPDD / LocalAPI(填 URL) / 本地 ComfyUI 作为它的上游渠道。official/hybrid 分支保留但不可达。
 const GATEWAY_MODES: GatewayMode[] = ["custom"];
 
-// [aipdd fork delta req41] 不再定义 DEFAULT_CUSTOM_NEWAPI_URL = "http://127.0.0.1:3000"：
+// [aipdd fork delta req41] 不再定义 DEFAULT_CUSTOM_LOCALAPI_URL = "http://127.0.0.1:3000"：
 // 网关在哪是部署方数据（compose 里是容器服务名、反代后是域名、源码跑又不同），
 // 前端猜一个本机地址会在加载完成前把它填进表单，用户看到的是一个不属于他部署的
 // “已填好”值。现在未配置就是空，真值只从 /config（服务端生效配置）来。
@@ -518,7 +518,7 @@ function featureModelBackendSnapshotKey(
 
 // [aipdd fork delta] 供应商渠道展示名 override：品牌名 / FEATURE_PROVIDER_LABELS
 // 均来自 @/lib/provider-labels（唯一真源，模型广场与画布渠道标注同用），优先于
-// NewAPI 渠道类型名。aipdd 统一显示 AIPDD；provider=openai 是用户附加的「其它
+// LocalAPI 渠道类型名。aipdd 统一显示 AIPDD；provider=openai 是用户附加的「其它
 // 额外渠道」（非默认五家），显示 OpenAI。mediakit 按界面语言取词（zh 火山 AI
 // MediaKit / en・vi Volcengine AI MediaKit）。其余渠道仍取其自身渠道名。
 function featureProviderLabel(
@@ -681,8 +681,8 @@ export {
   normalizeProviderChannelSettings,
   COMFY_WORKFLOW_MANAGED_CONFIG_KEY,
   MODEL_CONFIGURATION_GUIDE_URL,
-  NEWAPI_DEFAULT_BASE_URL,
-  NEWAPI_RECOMMENDED_SITES_URL,
+  LOCALAPI_DEFAULT_BASE_URL,
+  LOCALAPI_RECOMMENDED_SITES_URL,
 };
 export type {
   MediaSaveKind,

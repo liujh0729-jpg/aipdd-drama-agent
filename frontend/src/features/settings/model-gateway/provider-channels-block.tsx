@@ -166,7 +166,7 @@ function ProviderChannelsBlock({
   ]);
   // [aipdd fork delta] 目录「已配置」判定 = 本地渠道行 ∩ 后端真源已配置：渠道连接
   // 卡保存的渠道即使本地行尚未 hydrate / 被清，也显示为已配置，不再出现
-  // 「NewAPI / ComfyUI 已连好却显示待添加」。
+  // 「LocalAPI / ComfyUI 已连好却显示待添加」。
   const configuredProviderSet = useMemo(() => {
     const set = new Set(configuredProviders);
     for (const channel of savedProviderChannels) {
@@ -841,7 +841,7 @@ function ProviderChannelRow({
     ? savedChannel.upstreamKeyPreview
     : "";
   const upstreamPlaceholder = savedKeyPreview || "sk-...";
-  // [aipdd fork delta] Base URL 提示按渠道分流：NewAPI 没有渠道预设（自建网关 / 反向
+  // [aipdd fork delta] Base URL 提示按渠道分流：LocalAPI 没有渠道预设（自建网关 / 反向
   // 代理 / 云厂商中转，地址属于部署方自己的数据），通用文案「通常不填，使用渠道预设」
   // 对它恰好说反了——它必须填，否则同步模型会打到空地址。
   // 顺序是先预设、后必填：aipdd / minimax 这类「有预设且必填」的渠道仍要把预设地址

@@ -8,7 +8,7 @@
 // 皮肤格格不入，还会把卡片下沿的名字挤掉。这里换成「圆形播放键 + 波形进度条 +
 // 时间」，和视频卡的播放角标视觉对齐，两种非图片素材看起来才像一套东西。
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
-import { Clapperboard, Pause, Play } from 'lucide-react';
+import { Box, Clapperboard, FileText, Pause, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { resolveImageDisplayUrl } from '@/features/canvas/application/imageData';
@@ -54,6 +54,9 @@ export interface AssetLibraryItemMediaProps {
 export function AssetLibraryItemMedia({ entry }: AssetLibraryItemMediaProps) {
   // [aipdd fork delta] 剪映草稿是草稿包（文件夹），没有可铺的资源 URL，单独画卡面。
   if (entry.media === 'draft') return <DraftThumb />;
+  // [aipdd fork delta req98] 3D / 文本载体没有可铺的画面，同草稿一样画占位卡面。
+  if (entry.media === 'model3d') return <FileKindThumb icon={Box} labelKey="canvas.assetLibrary.media.model3d" />;
+  if (entry.media === 'text') return <FileKindThumb icon={FileText} labelKey="canvas.assetLibrary.media.text" />;
   const src = resolveImageDisplayUrl(entry.url);
   if (entry.media === 'video') return <VideoThumb src={src} />;
   if (entry.media === 'audio') return <AudioThumb src={src} />;
@@ -72,12 +75,26 @@ export function AssetLibraryItemMedia({ entry }: AssetLibraryItemMediaProps) {
  * 签；下载动作在卡片点击打开的详情里（见 AssetLibraryPreviewDialog）。
  */
 function DraftThumb() {
+  return <FileKindThumb icon={Clapperboard} labelKey="canvas.assetLibrary.media.draft" />;
+}
+
+/**
+ * [aipdd fork delta req98] 无画面载体的通用占位卡面：图标 + 媒介标签。剪映草稿 /
+ * 3D 模型 / 文本文档共用，视觉上保持一套东西。
+ */
+function FileKindThumb({
+  icon: Icon,
+  labelKey,
+}: {
+  icon: typeof Clapperboard;
+  labelKey: string;
+}) {
   const { t } = useTranslation();
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center gap-2 bg-[radial-gradient(120%_100%_at_50%_0%,rgba(120,140,255,0.14),rgba(255,255,255,0.02))] pb-7">
-      <Clapperboard className="h-9 w-9 text-white/80" />
+      <Icon className="h-9 w-9 text-white/80" />
       <span className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-white/85">
-        {t('canvas.assetLibrary.media.draft')}
+        {t(labelKey)}
       </span>
     </div>
   );

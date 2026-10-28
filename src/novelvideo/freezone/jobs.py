@@ -2338,7 +2338,7 @@ async def run_freezone_analyze_shots(
 ) -> dict:
     """Send N frames to a Vision model and parse a structured JSON response.
 
-    Product requests always use the effective NewAPI gateway. ``provider`` is
+    Product requests always use the effective LocalAPI gateway. ``provider`` is
     retained only for payload compatibility with older saved canvases.
     """
     import json

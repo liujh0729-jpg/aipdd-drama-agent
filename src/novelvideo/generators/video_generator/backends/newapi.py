@@ -47,13 +47,13 @@ from novelvideo.usage.video_request_usage import (
 )
 
 from ..backend_utils import (
-    NEWAPI_VIDEO_DISPLAY_LABELS,
+    LOCALAPI_VIDEO_DISPLAY_LABELS,
     _seedance2_config_mapping,
     _seedance2_duration_from_config,
 )
 from ..egress import (
-    NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
-    NEWAPI_VIDEO_HTTP_TIMEOUT_SECONDS,
+    LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+    LOCALAPI_VIDEO_HTTP_TIMEOUT_SECONDS,
     VideoEgressError,
     _safe_video_error_code,
     _video_egress_context,
@@ -332,7 +332,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
 
     @staticmethod
     def _model_label(model: str) -> str:
-        return NEWAPI_VIDEO_DISPLAY_LABELS.get(model, model)
+        return LOCALAPI_VIDEO_DISPLAY_LABELS.get(model, model)
 
     @staticmethod
     def _parse_duration_bounds_config(raw: str) -> dict[str, tuple[int, int]]:
@@ -342,9 +342,9 @@ class NewApiVideoGenerator(VideoGeneratorBase):
 
     @classmethod
     def _default_generate_audio_for_model(cls, model: str) -> bool:
-        from novelvideo.config import NEWAPI_VIDEO_AUDIO_MODELS
+        from novelvideo.config import LOCALAPI_VIDEO_AUDIO_MODELS
 
-        return model.strip() in set(NEWAPI_VIDEO_AUDIO_MODELS)
+        return model.strip() in set(LOCALAPI_VIDEO_AUDIO_MODELS)
 
     def __init__(
         self,
@@ -358,12 +358,12 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         egress_context: object | None = None,
     ):
         from novelvideo.config import (
-            NEWAPI_VIDEO_RESOLUTION,
+            LOCALAPI_VIDEO_RESOLUTION,
             get_newapi_video_model,
         )
 
         # [aipdd fork delta] 默认视频模型只读「设置 → 模型与渠道」的视频映射：
-        # ``NEWAPI_VIDEO_MODEL`` env 已退出解析链（面板看不见的名字不能赢过用户选的默认）。
+        # ``LOCALAPI_VIDEO_MODEL`` env 已退出解析链（面板看不见的名字不能赢过用户选的默认）。
         default_video_model = get_newapi_video_model()
         self.egress_context = _video_egress_context(egress_context)
         # [aipdd fork delta req46] 生效渠道的 provider（设置页渠道卡上的那个 key）。
@@ -419,11 +419,11 @@ class NewApiVideoGenerator(VideoGeneratorBase):
                 if _provider_override:
                     self.base_url, self.api_key, self.channel_provider = _provider_override
         self.model = model or default_video_model
-        self.resolution = resolution or NEWAPI_VIDEO_RESOLUTION
+        self.resolution = resolution or LOCALAPI_VIDEO_RESOLUTION
         self.model_params = model_params or {}
         self.request_schema = request_schema or {}
         raw_generate_audio = (
-            os.environ.get("NEWAPI_VIDEO_GENERATE_AUDIO", "").strip().lower()
+            os.environ.get("LOCALAPI_VIDEO_GENERATE_AUDIO", "").strip().lower()
         )
         if generate_audio is not None:
             self.generate_audio = generate_audio
@@ -487,7 +487,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
 
     @staticmethod
     def _client_timeout() -> aiohttp.ClientTimeout:
-        return aiohttp.ClientTimeout(total=NEWAPI_VIDEO_HTTP_TIMEOUT_SECONDS)
+        return aiohttp.ClientTimeout(total=LOCALAPI_VIDEO_HTTP_TIMEOUT_SECONDS)
 
     async def _post_json(
         self,
@@ -682,7 +682,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
                 data,
                 ext=ext,
                 ttl=media_relay_ttl_seconds(
-                    minimum=NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+                    minimum=LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
                 ),
                 resource_type=resource_type,
                 image_transform=image_transform,
@@ -695,7 +695,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
             media_path.read_bytes(),
             ext=ext,
             ttl=media_relay_ttl_seconds(
-                minimum=NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
+                minimum=LOCALAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
             ),
             resource_type=resource_type,
             image_transform=image_transform,
@@ -927,14 +927,14 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         payload: dict[str, object],
         metadata: dict[str, object],
     ) -> None:
-        """Translate legacy channel-shaped fields into the generic NewAPI contract.
+        """Translate legacy channel-shaped fields into the generic LocalAPI contract.
 
         Existing model-specific branches still validate and collect their inputs
         during phase one. Only the final wire representation is normalized here.
         """
 
         # Keep the model-level semantics in metadata even after deriving the
-        # generic width/height fields. NewAPI model adapters may need the
+        # generic width/height fields. LocalAPI model adapters may need the
         # original ratio/resolution (notably for image-to-video) and cannot
         # reliably reconstruct them from an input image's exact pixel ratio.
         resolution = metadata.get("resolution", "")
@@ -1018,7 +1018,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         if ratio_text in {"auto", "adaptive"}:
             # Video follow-input geometry is expressed by ratio only. Sending
             # width/height as well would turn an automatic request back into a
-            # fixed-size request at the NewAPI adapter boundary.
+            # fixed-size request at the LocalAPI adapter boundary.
             metadata["ratio"] = "auto"
             metadata.pop("aspect_ratio", None)
             payload.pop("width", None)
@@ -1152,7 +1152,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
     def _uses_aipdd_videos_api(base_url: str, model: str = "") -> bool:
         """[aipdd fork delta] 视频是否走 OpenAI 风格 ``/v1/videos`` 异步任务协议。
 
-        与 NewAPI 的 ``/v1/video/generations`` 是不同路径（AIPDD 上后者 404）。
+        与 LocalAPI 的 ``/v1/video/generations`` 是不同路径（AIPDD 上后者 404）。
 
         [aipdd fork delta req41] 先问渠道目录：该模型的条目声明了 ``videos`` 就按
         声明走（确定渠道的端点是上游事实）；目录没写端点（自建网关清单只有名字）才
@@ -1215,7 +1215,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
         与编辑 / 延长路径未做付费探针（要再花 awcoin 需先拿到批准）；LTX 现在在
         目录里还没申报任何参考上限（caps 全 None），本闸不拦、提交形状与本轮前一致。
 
-        旧名 ``duration`` / ``resolution`` 仍然一并下发：本地 NewAPI 网关的计费与
+        旧名 ``duration`` / ``resolution`` 仍然一并下发：本地 LocalAPI 网关的计费与
         参数校验按这两个名字绑定（实测 ``duration`` 传错类型报 ``invalid_seconds``），
         AIPDD 对旧名静默忽略，所以真正生效的是 ``duration_seconds`` /
         ``video_resolution`` 这一对。
@@ -2754,7 +2754,7 @@ class NewApiVideoGenerator(VideoGeneratorBase):
                     headers=request_headers if organization_request else None,
                 )
             elif use_videos_api:
-                # [aipdd fork delta] AIPDD 只认 OpenAI 风格 /v1/videos（NewAPI 的
+                # [aipdd fork delta] AIPDD 只认 OpenAI 风格 /v1/videos（LocalAPI 的
                 # /video/generations 在 AIPDD 上 404 资源不存在）。建单体按 AIPDD
                 # 公布的通用视频契约拼装（字段与含意见 ``_build_aipdd_videos_payload``）；
                 # 画幅字段名是顶层 ratio（AIPDD 对 aspect_ratio 静默忽略）。

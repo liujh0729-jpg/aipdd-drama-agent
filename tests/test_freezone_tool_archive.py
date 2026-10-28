@@ -62,6 +62,46 @@ def test_archive_audio_item_carries_audio_tag(tmp_path: Path) -> None:
     assert item["audio_url"] == "/static/admin/58/freezone/audio/speech/a.mp3"
 
 
+def test_archive_model3d_item_carries_3d_tag(tmp_path: Path) -> None:
+    """3D 产物（图生 3D 的 SOG/PLY）落 model3d_url，带「3D」标签。"""
+
+    project_dir = tmp_path / "project"
+
+    item = archive_generated_library_item(
+        project_dir,
+        item_id="tool-job-3gs",
+        name="机械手·图生 3D",
+        media="model3d",
+        url="/static/admin/58/freezone/3d/model.sog",
+    )
+
+    assert item is not None
+    assert item["folder"] == "other"
+    assert item["category"] == "model3d"
+    assert item["model3d_url"] == "/static/admin/58/freezone/3d/model.sog"
+    assert item["image_urls"] == []
+
+
+def test_archive_text_item_carries_text_tag(tmp_path: Path) -> None:
+    """txt 产物（文案/口播稿/反推剧本）落 text_url，带「文本」标签。"""
+
+    project_dir = tmp_path / "project"
+
+    item = archive_generated_library_item(
+        project_dir,
+        item_id="tool-job-copy",
+        name="抖音文案·抖音文案",
+        media="text",
+        url="/static/admin/58/freezone/text/copy.txt",
+    )
+
+    assert item is not None
+    assert item["folder"] == "other"
+    assert item["category"] == "text"
+    assert item["text_url"] == "/static/admin/58/freezone/text/copy.txt"
+    assert item["video_url"] is None
+
+
 def test_archive_same_job_updates_instead_of_duplicating(tmp_path: Path) -> None:
     project_dir = tmp_path / "project"
 
@@ -159,6 +199,59 @@ def test_tool_archive_helper_falls_back_to_job_suffix_without_stem(tmp_path: Pat
 
     stored = load_video_character_library(project_dir)
     assert [it["name"] for it in stored] == ["生成语音 xyz789"]
+
+
+def test_tool_archive_helper_labels_new_carriers(tmp_path: Path) -> None:
+    """3D / txt 产物的工具标签：图生 3D、抖音文案、口播稿、视频反推剧本。"""
+
+    project_dir = tmp_path / "project"
+    ctx = SimpleNamespace(output_dir=str(project_dir))
+    cases = [
+        ("freezone_image_to_3gs", "model3d", "机械手", "机械手·图生 3D"),
+        ("freezone_douyin_copywrite", "text", "第一条文案", "第一条文案·抖音文案"),
+        ("freezone_media_copywrite", "text", "视频一转写", "视频一转写·文案转写"),
+        ("freezone_oral_script", "text", "标题", "标题·口播稿"),
+        ("freezone_video_script_reverse", "text", "剧名", "剧名·视频反推剧本"),
+    ]
+
+    for index, (task_type, media, stem, expected_name) in enumerate(cases):
+        _archive_tool_output_to_library(
+            ctx=ctx,
+            payload=_payload(project_dir, archive_to_library=True),
+            task_type=task_type,
+            job_id=f"job-{index}",
+            media=media,
+            url=f"/static/out-{index}",
+            result={},
+            stem=stem,
+        )
+
+    stored = load_video_character_library(project_dir)
+    assert [it["name"] for it in stored] == [case[3] for case in cases]
+    assert [it["category"] for it in stored] == [case[1] for case in cases]
+
+
+def test_generated_tool_schemas_default_archive_on() -> None:
+    """3D / txt 产物任务的请求体默认「生成就入库」，且能透传工具归属。"""
+
+    from novelvideo.api.schemas import (
+        FreezoneDouyinCopywriteRequest,
+        FreezoneImageTo3GSRequest,
+        FreezoneMediaCopywriteRequest,
+        FreezoneOralScriptRequest,
+        FreezoneVideoScriptReverseRequest,
+    )
+
+    for cls in (
+        FreezoneImageTo3GSRequest,
+        FreezoneDouyinCopywriteRequest,
+        FreezoneMediaCopywriteRequest,
+        FreezoneOralScriptRequest,
+        FreezoneVideoScriptReverseRequest,
+    ):
+        fields = cls.model_fields
+        assert fields["archive_to_library"].default is True, cls.__name__
+        assert "source_tool" in fields, cls.__name__
 
 
 def test_tool_archive_failure_keeps_task_result_clean(tmp_path: Path) -> None:

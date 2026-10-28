@@ -70,7 +70,7 @@ if ($Thumbprint) {
 $files = @()
 if ($Stage -eq 'Resources') {
     if (-not (Test-Path $ResDir)) { Die "资源目录不存在：$ResDir（先跑 prepare-resources.sh win-x64）" }
-    # 内嵌全部 PE：nginx/new-api/ffmpeg/chrome + 便携 Python 的 exe/dll/pyd。
+    # 内嵌全部 PE：nginx/localapi/ffmpeg/chrome + 便携 Python 的 exe/dll/pyd。
     # 注意：外层 installer 必须在这些内层文件签好之后再构建，否则包内仍是未签名副本。
     $files = Get-ChildItem -Path $ResDir -Recurse -File -Include '*.exe', '*.dll', '*.pyd' -ErrorAction SilentlyContinue
     # 便携 Python 里的 test 目录 / pip wheel 缓存可能有历史签名的 PE，重签无害但耗时。
