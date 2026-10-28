@@ -88,14 +88,11 @@ def test_auto_geometry_removes_conflicting_dimensions(
     )
 
     assert "size" not in result
-    # [aipdd fork delta #5] 图片网关（ap-image-2.0 等）要求 auto 比例下仍带宽高，
-    # 只有视频才剥离尺寸；上游原版断言 width/height 必删与 fork 契约冲突。
-    if media_type == "image":
-        assert result["width"] == 1920
-        assert result["height"] == 1080
-    else:
-        assert "width" not in result
-        assert "height" not in result
+    # 网关契约（dramaclaw-gateway dc_media_image.go）：ratio=auto 时不得携带宽高，
+    # 图片与视频一致——带上去会被整单拒为
+    # 「fixed dimensions cannot be combined with metadata.ratio=auto」。
+    assert "width" not in result
+    assert "height" not in result
     assert result["metadata"] == {
         "ratio": expected_ratio,
         "reference_images": ["https://example.com/reference.png"],

@@ -148,10 +148,10 @@ def normalize_media_model_mode(mode: str | None) -> str:
 
 
 def _ensure_image_default_dimensions(result: dict[str, Any]) -> None:
-    """[aipdd fork delta #5] 保证图片请求始终携带 width/height。
+    """固定比例分支：宽高缺失时回退到 IMAGE_DEFAULT_WIDTH/HEIGHT。
 
-    ap-image-2.0 等 NewAPI 图片模型在没有显式尺寸时会报错。此处仅在宽高
-    缺失时回退到 IMAGE_DEFAULT_WIDTH/HEIGHT,不覆盖调用方已设的正确值。
+    只在 ratio 为显式比例（非 auto）时使用——auto 分支携带尺寸会被网关拒单。
+    不覆盖调用方已设的正确值。
     """
 
     if result.get("width") and result.get("height"):
@@ -198,13 +198,12 @@ def enforce_newapi_media_geometry_contract(
     if ratio in {"auto", "adaptive"}:
         metadata["ratio"] = "auto"
         metadata.pop("aspect_ratio", None)
-        if media_type == "image":
-            # [aipdd fork delta #5] ap-image-2.0 等图片网关要求请求必须带尺寸:
-            # auto 比例下不剥离宽高,缺失时回退到 IMAGE_DEFAULT_WIDTH/HEIGHT。
-            _ensure_image_default_dimensions(result)
-        else:
-            result.pop("width", None)
-            result.pop("height", None)
+        # 网关契约（dramaclaw-gateway relay/helper/dc_media_image.go，与本文档
+        # 「跟随输入不带尺寸」一致）：ratio=auto 时再带 width/height/size 会被整单拒绝
+        # ——「fixed dimensions cannot be combined with metadata.ratio=auto」。
+        # 图片与视频同一处理，不再回填 IMAGE_DEFAULT_WIDTH/HEIGHT。
+        result.pop("width", None)
+        result.pop("height", None)
     else:
         if ratio:
             metadata["ratio"] = ratio

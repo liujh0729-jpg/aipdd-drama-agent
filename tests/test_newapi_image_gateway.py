@@ -496,9 +496,10 @@ def test_catalog_can_enable_arbitrary_newapi_image_quality(monkeypatch):
     assert error == ""
     assert posted["json"]["model"] == "Seedream-Custom"
     assert posted["json"]["quality"] == "ultra"
-    # [aipdd fork delta #5] 图片网关（ap-image-2.0 等）要求请求始终带尺寸：
-    # adaptive 比例不剥离宽高，缺省时回退 IMAGE_DEFAULT_WIDTH/HEIGHT。
-    assert (posted["json"]["width"], posted["json"]["height"]) == (1440, 2560)
+    # 网关契约：adaptive/auto 比例不携带宽高（否则网关以「fixed dimensions
+    # cannot be combined with metadata.ratio=auto」拒单）。
+    assert "width" not in posted["json"]
+    assert "height" not in posted["json"]
     assert posted["json"]["metadata"] == {"ratio": "auto", "resolution": "3k"}
     assert posted["json"]["watermark"] is True
     assert "extra_fields" not in posted["json"]
@@ -822,9 +823,9 @@ def test_newapi_image_auto_ratio_keeps_resolution_with_default_dimensions(monkey
 
     assert image_bytes == b"image-bytes"
     assert error == ""
-    # [aipdd fork delta #5] 图片网关（ap-image-2.0 等）要求请求必须带尺寸：
-    # auto 比例不剥离/回退 IMAGE_DEFAULT_WIDTH/HEIGHT（上游原版会删掉宽高）。
-    assert (posted["json"]["width"], posted["json"]["height"]) == (1440, 2560)
+    # 网关契约：auto 比例剥离宽高、也不下发 size。
+    assert "width" not in posted["json"]
+    assert "height" not in posted["json"]
     assert "size" not in posted["json"]
     assert posted["json"]["metadata"] == {"ratio": "auto", "resolution": "2k"}
 
