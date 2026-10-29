@@ -118,6 +118,8 @@ async function main() {
 main().then(
   (code) => process.exit(code),
   (error) => {
+    // 只认本项目 Release（media-v1）：取不到就失败，不回退上游 DramaClaw 的下载站——
+    // 那条回退会让"素材由本项目决定"这条约束失效。
     console.error(`[login-media] ${error.message}`);
     process.exit(1);
   },

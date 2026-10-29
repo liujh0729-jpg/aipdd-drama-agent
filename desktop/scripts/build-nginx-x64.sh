@@ -26,7 +26,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT="${1:-$SCRIPT_DIR/../src-tauri/resources/bin/nginx}"
 NGINX_VER="${NGINX_VER:-1.31.6}"
 PCRE_VER="${PCRE_VER:-8.45}"
-CACHE_DIR="${CACHE_DIR:-/tmp/nginx-x64-build}"
+# 构建缓存默认落在本地资源目录（与 prepare-resources.sh 的 fetch_asset 同一处），
+# 源码包留在本地就不必再联网；AIPDD_ASSET_DIR / CACHE_DIR 可覆盖。
+ASSET_DIR="${AIPDD_ASSET_DIR:-$SCRIPT_DIR/../vendor/assets}"
+CACHE_DIR="${CACHE_DIR:-$ASSET_DIR/nginx-x64-build}"
 ARCH_FLAG="-arch x86_64"
 
 log() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }

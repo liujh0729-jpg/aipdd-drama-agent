@@ -63,21 +63,12 @@ need tar
 read -r PBS_ASSET PBS_SHA <<<"$(pbs_spec "$TRIPLE")" \
   || { echo "pinned-versions.sh 里没有 ${TRIPLE} 的 PBS 条目" >&2; exit 4; }
 PBS_URL="https://github.com/astral-sh/python-build-standalone/releases/download/${PBS_RELEASE}/${PBS_ASSET}"
-log "下载 $PBS_URL"
-# GitHub release CDN（objects.githubusercontent.com）偶发「连上但不吐数据」的呆滞，--retry 3 顶不住；
-# 这里用 --retry-all-errors + speed 超时呆滞自愈，且边下边写 .part、校验通过再原子改名。
-# 关键：缓存键必须带 $TRIPLE —— 便携 Python 不可跨架构，若共用 /tmp/pbs.tar.gz，
-# 在 Apple Silicon 上跑过 mac-x64 后缓存里就是 x86_64 包，再跑 mac-arm64 会把 x86_64 解释器打进 ARM 包。
-PBS_CACHE="/tmp/pbs-${TRIPLE}-$(basename "$PBS_URL")"
-if [[ -s "$PBS_CACHE" ]] && tar -tzf "$PBS_CACHE" >/dev/null 2>&1 \
-   && verify_sha256 "$PBS_CACHE" "$PBS_SHA" "$PBS_ASSET" 2>/dev/null; then
-  log "复用已下载的 ${PBS_CACHE}（tar + sha256 校验通过）"
-else
-  curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 -o "$PBS_CACHE.part" "$PBS_URL"
-  tar -tzf "$PBS_CACHE.part" >/dev/null 2>&1 || { echo "下载的便携 Python 包 tar 校验失败：$PBS_CACHE.part" >&2; rm -f "$PBS_CACHE.part"; exit 4; }
-  mv -f "$PBS_CACHE.part" "$PBS_CACHE"
-  verify_sha256 "$PBS_CACHE" "$PBS_SHA" "$PBS_ASSET" || exit 4
-fi
+# 取值顺序：本地资源目录（desktop/vendor/assets）→ 官方外网下载（见 fetch_asset）。
+# 归档名必须带 $TRIPLE —— 便携 Python 不可跨架构，若共用同一个缓存名，
+# 在 Apple Silicon 上跑过 mac-x64 后缓存里就是 x86_64 包，再跑 mac-arm64 会把
+# x86_64 解释器打进 ARM 包。
+PBS_CACHE="$(fetch_asset "pbs-${TRIPLE}-${PBS_ASSET}" "$PBS_URL" "$PBS_SHA")" || exit 4
+log "便携 Python 归档：${PBS_CACHE}"
 tar -xzf "$PBS_CACHE" -C "$RES/python" --strip-components=1
 # 解释器位置按平台不同：install_only 包在 Unix 是 python/bin/python3，
 # Windows 没有 bin/ 这一层，是 python/python.exe + python/Lib/site-packages（env.rs::python() 同源）。
@@ -249,13 +240,9 @@ elif [[ "$GOOS" == darwin ]]; then
   log "提示：nginx 依赖的动态库如非系统自带，请 vendor 到 resources/bin/lib 并加入重签清单。"
 else
   # 版本与校验和钉在 pinned-versions.sh（nginx.org 的版本目录不可变，URL 可写死）。
-  NGINX_ZIP="/tmp/nginx-${NGINX_VER}.zip"
-  curl -fL --retry 8 --retry-all-errors --retry-delay 3 -o "$NGINX_ZIP.part" \
-    "https://nginx.org/download/nginx-${NGINX_VER}.zip"
-  unzip -tq "$NGINX_ZIP.part" >/dev/null 2>&1 || { echo "下载的 nginx zip 完整性校验失败：$NGINX_ZIP.part" >&2; rm -f "$NGINX_ZIP.part"; exit 5; }
-  mv -f "$NGINX_ZIP.part" "$NGINX_ZIP"
-  verify_sha256 "$NGINX_ZIP" "$NGINX_WIN_SHA256" "nginx-${NGINX_VER}.zip" \
-    || { echo "nginx 校验失败已删除，请检查 pinned-versions.sh 或网络" >&2; exit 5; }
+  # 本地资源目录命中就直接解包，不再联网。
+  NGINX_ZIP="$(fetch_asset "nginx-${NGINX_VER}.zip" \
+    "https://nginx.org/download/nginx-${NGINX_VER}.zip" "$NGINX_WIN_SHA256")" || exit 5
   rm -rf /tmp/nginxpkg
   unzip -oq "$NGINX_ZIP" -d /tmp/nginxpkg
   cp "/tmp/nginxpkg/nginx-${NGINX_VER}/nginx.exe" "$RES/bin/nginx.exe"
@@ -291,29 +278,15 @@ elif [[ "$IS_MAC_X64" == 1 ]]; then
   FFMPEG_X64_RELEASE="${FFMPEG_X64_RELEASE:-b6.1.1}"
   FFPROBE_STATIC_VER="${FFPROBE_STATIC_VER:-3.1.0}"
   log "mac-x64：取 ffmpeg-darwin-x64（${FFMPEG_X64_RELEASE}）+ ffprobe-static（${FFPROBE_STATIC_VER}）"
-  # 缓存文件名必须带 release/版本，且复用前先校完整性（gzip -t / tar -tzf）；下载写 .part 原子改名。
-  FF_GZ="/tmp/ffmpeg-darwin-x64-${FFMPEG_X64_RELEASE}.gz"
-  if [[ -s "$FF_GZ" ]] && gzip -t "$FF_GZ" 2>/dev/null \
-     && verify_sha256 "$FF_GZ" "$FFMPEG_X64_SHA256" "ffmpeg-darwin-x64.gz" 2>/dev/null; then
-    log "复用已下载的 ${FF_GZ}（gzip + sha256 校验通过）"
-  else
-    curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 -o "$FF_GZ.part" "https://github.com/eugeneware/ffmpeg-static/releases/download/${FFMPEG_X64_RELEASE}/ffmpeg-darwin-x64.gz"
-    gzip -t "$FF_GZ.part" >/dev/null 2>&1 || { echo "下载的 ffmpeg .gz 完整性校验失败：$FF_GZ.part" >&2; rm -f "$FF_GZ.part"; exit 8; }
-    mv -f "$FF_GZ.part" "$FF_GZ"
-    verify_sha256 "$FF_GZ" "$FFMPEG_X64_SHA256" "ffmpeg-darwin-x64.gz" || exit 8
-  fi
+  # 本地资源目录优先；未命中才外网下载并回填（见 fetch_asset）。
+  FF_GZ="$(fetch_asset "ffmpeg-darwin-x64-${FFMPEG_X64_RELEASE}.gz" \
+    "https://github.com/eugeneware/ffmpeg-static/releases/download/${FFMPEG_X64_RELEASE}/ffmpeg-darwin-x64.gz" \
+    "$FFMPEG_X64_SHA256")" || exit 8
   gunzip -kf "$FF_GZ"
   install -m 0755 "${FF_GZ%.gz}" "$RES/bin/ffmpeg"
-  FFP_TGZ="/tmp/ffprobe-static-${FFPROBE_STATIC_VER}.tgz"
-  if [[ -s "$FFP_TGZ" ]] && tar -tzf "$FFP_TGZ" >/dev/null 2>&1 \
-     && verify_sha256 "$FFP_TGZ" "$FFPROBE_STATIC_SHA256" "ffprobe-static.tgz" 2>/dev/null; then
-    log "复用已下载的 ${FFP_TGZ}（tar + sha256 校验通过）"
-  else
-    curl -fL --retry 8 --retry-all-errors --speed-limit 2000 --speed-time 60 -o "$FFP_TGZ.part" "https://registry.npmjs.org/ffprobe-static/-/ffprobe-static-${FFPROBE_STATIC_VER}.tgz"
-    tar -tzf "$FFP_TGZ.part" >/dev/null 2>&1 || { echo "下载的 ffprobe-static .tgz tar 校验失败：$FFP_TGZ.part" >&2; rm -f "$FFP_TGZ.part"; exit 8; }
-    mv -f "$FFP_TGZ.part" "$FFP_TGZ"
-    verify_sha256 "$FFP_TGZ" "$FFPROBE_STATIC_SHA256" "ffprobe-static.tgz" || exit 8
-  fi
+  FFP_TGZ="$(fetch_asset "ffprobe-static-${FFPROBE_STATIC_VER}.tgz" \
+    "https://registry.npmjs.org/ffprobe-static/-/ffprobe-static-${FFPROBE_STATIC_VER}.tgz" \
+    "$FFPROBE_STATIC_SHA256")" || exit 8
   rm -rf /tmp/ffprobe-static-extract; mkdir -p /tmp/ffprobe-static-extract
   tar -xzf "$FFP_TGZ" -C /tmp/ffprobe-static-extract package/bin/darwin/x64/ffprobe
   install -m 0755 /tmp/ffprobe-static-extract/package/bin/darwin/x64/ffprobe "$RES/bin/ffprobe"
@@ -328,17 +301,8 @@ elif [[ "$GOOS" == windows ]]; then
   # 只认 pinned-versions.sh 里的**日期标签**：BtbN 每天重发一次 autobuild，
   # 用 `releases/latest` 会让同一次构建在不同日期拿到不同的 ffmpeg。
   FFB_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/${FFMPEG_WIN_TAG}/${FFMPEG_WIN_ASSET}"
-  FFB_ZIP="/tmp/${FFMPEG_WIN_ASSET}"
-  log "下载 FFmpeg（win64 LGPL，${FFMPEG_WIN_TAG}）：$FFB_URL"
-  if [[ -s "$FFB_ZIP" ]] && unzip -tq "$FFB_ZIP" >/dev/null 2>&1 \
-     && verify_sha256 "$FFB_ZIP" "$FFMPEG_WIN_SHA256" "$FFMPEG_WIN_ASSET" 2>/dev/null; then
-    log "复用已下载的 $FFB_ZIP（zip + sha256 校验通过）"
-  else
-    curl -fL --retry 3 -o "$FFB_ZIP.part" "$FFB_URL"
-    unzip -tq "$FFB_ZIP.part" >/dev/null 2>&1 || { echo "下载的 FFmpeg zip 完整性校验失败：$FFB_ZIP.part" >&2; rm -f "$FFB_ZIP.part"; exit 8; }
-    mv -f "$FFB_ZIP.part" "$FFB_ZIP"
-    verify_sha256 "$FFB_ZIP" "$FFMPEG_WIN_SHA256" "$FFMPEG_WIN_ASSET" || exit 8
-  fi
+  log "FFmpeg（win64 LGPL，${FFMPEG_WIN_TAG}）：本地优先，未命中再下载"
+  FFB_ZIP="$(fetch_asset "$FFMPEG_WIN_ASSET" "$FFB_URL" "$FFMPEG_WIN_SHA256")" || exit 8
   rm -rf /tmp/ffpkg
   unzip -oq "$FFB_ZIP" -d /tmp/ffpkg
   FFROOT="$(find /tmp/ffpkg -maxdepth 1 -type d -name 'ffmpeg-*' | head -1)"
@@ -361,19 +325,11 @@ fi
 if [[ "${SKIP_CHROMIUM:-0}" == "1" ]]; then
   log "跳过 Chromium（SKIP_CHROMIUM=1）：抖音 CDP 提取需真实宿主 Chrome，接线见 README §12"
 else
-  # 版本钉在 pinned-versions.sh：不查 LATEST_RELEASE_STABLE，Google 发新版不会
-  # 改变我们的候选浏览器（版本目录不可变；官方不发校验和，见 pins 文件说明）。
-  # 与便携 Python/ffmpeg 同一套纪律：缓存名带 $CFT_VER（换版本不会误用旧件），
-  # 下载写 .part、unzip -t 完整性校验通过再原子改名；复用约 170MB 的大下载。
-  CFT_ZIP="/tmp/chrome-${CFT}-${CFT_VER}.zip"
-  if [[ -s "$CFT_ZIP" ]] && unzip -tq "$CFT_ZIP" >/dev/null 2>&1; then
-    log "复用已下载的 ${CFT_ZIP}（zip 校验通过，跳过重复下载）"
-  else
-    curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 \
-      -o "$CFT_ZIP.part" "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VER}/${CFT}/chrome-${CFT}.zip"
-    unzip -tq "$CFT_ZIP.part" >/dev/null 2>&1 || { echo "下载的 Chromium zip 完整性校验失败：$CFT_ZIP.part" >&2; rm -f "$CFT_ZIP.part"; exit 8; }
-    mv -f "$CFT_ZIP.part" "$CFT_ZIP"
-  fi
+  # 与便携 Python/ffmpeg 同一套纪律：本地资源目录优先，未命中才下载并回填；
+  # 资产名带 $CFT_VER，换版本不会误用旧件（官方不发校验和，见 pins 文件说明）。
+  CFT_ZIP="$(fetch_asset "chrome-${CFT}-${CFT_VER}.zip" \
+    "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VER}/${CFT}/chrome-${CFT}.zip" \
+    "-")" || exit 8
   # 包内顶层是 chrome-<平台>/ 一层，剥掉它让 exe 直接落在 bin/chrome/ 下
   # （Windows: bin/chrome/chrome.exe；mac: bin/chrome/Google Chrome for Testing.app）。
   # 直接解到 bin/ 再同级改名：Git Bash 自带 unzip 6.00 没有 --strip-components，
@@ -399,34 +355,16 @@ UV_SHA="$(uv_spec "$TRIPLE")" || { echo "pinned-versions.sh 里没有 ${TRIPLE} 
 if [[ -n "${UV_BIN:-}" ]]; then
   cp "$UV_BIN" "$RES/bin/uv$EXE"
 elif [[ "$GOOS" == windows ]]; then
-  # 缓存名带版本 + .part 原子落盘 + zip 完整性校验 + GitHub CDN 呆滞重试（同 pbs/ffmpeg 纪律）。
-  UV_ZIP="/tmp/uv-${TRIPLE}-${UV_VER}.zip"
-  if [[ -s "$UV_ZIP" ]] && unzip -tq "$UV_ZIP" >/dev/null 2>&1 \
-     && verify_sha256 "$UV_ZIP" "$UV_SHA" "uv-${UV_VER}.zip" 2>/dev/null; then
-    log "复用已下载的 ${UV_ZIP}（zip + sha256 校验通过）"
-  else
-    curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 \
-      -o "$UV_ZIP.part" "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.zip"
-    unzip -tq "$UV_ZIP.part" >/dev/null 2>&1 || { echo "下载的 uv zip 完整性校验失败：$UV_ZIP.part" >&2; rm -f "$UV_ZIP.part"; exit 8; }
-    mv -f "$UV_ZIP.part" "$UV_ZIP"
-    verify_sha256 "$UV_ZIP" "$UV_SHA" "uv-${UV_VER}.zip" || exit 8
-  fi
+  # 本地资源目录优先，未命中才下载并回填（同 pbs/ffmpeg 纪律）。
+  UV_ZIP="$(fetch_asset "uv-${TRIPLE}-${UV_VER}.zip" \
+    "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.zip" "$UV_SHA")" || exit 8
   rm -rf /tmp/uvpkg && mkdir -p /tmp/uvpkg
   unzip -oq "$UV_ZIP" -d /tmp/uvpkg
   [[ -f "/tmp/uvpkg/uv$EXE" ]] || { echo "uv 包内缺 uv${EXE}：$(ls /tmp/uvpkg)" >&2; exit 8; }
   cp "/tmp/uvpkg/uv$EXE" "$RES/bin/uv$EXE"
 else
-  UV_TGZ="/tmp/uv-${TRIPLE}-${UV_VER}.tar.gz"
-  if [[ -s "$UV_TGZ" ]] && tar -tzf "$UV_TGZ" >/dev/null 2>&1 \
-     && verify_sha256 "$UV_TGZ" "$UV_SHA" "uv-${UV_VER}.tar.gz" 2>/dev/null; then
-    log "复用已下载的 ${UV_TGZ}（tar + sha256 校验通过）"
-  else
-    curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 \
-      -o "$UV_TGZ.part" "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.tar.gz"
-    tar -tzf "$UV_TGZ.part" >/dev/null 2>&1 || { echo "下载的 uv tar.gz 完整性校验失败：$UV_TGZ.part" >&2; rm -f "$UV_TGZ.part"; exit 8; }
-    mv -f "$UV_TGZ.part" "$UV_TGZ"
-    verify_sha256 "$UV_TGZ" "$UV_SHA" "uv-${UV_VER}.tar.gz" || exit 8
-  fi
+  UV_TGZ="$(fetch_asset "uv-${TRIPLE}-${UV_VER}.tar.gz" \
+    "https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${TRIPLE}.tar.gz" "$UV_SHA")" || exit 8
   rm -rf /tmp/uvpkg && mkdir -p /tmp/uvpkg
   tar -xzf "$UV_TGZ" -C /tmp/uvpkg
   [[ -x "/tmp/uvpkg/uv-${TRIPLE}/uv" ]] || { echo "uv 包内缺 uv：$(ls /tmp/uvpkg)" >&2; exit 8; }
@@ -500,23 +438,14 @@ if [[ "${INSTALL_RENDERER:-0}" == "1" ]]; then
     NODE_ASSET="node-v${NODE_VER}-${NODE_PLATFORM}.tar.gz"
   fi
   NODE_URL="${NODE_URL:-$NODE_BASE/$NODE_ASSET}"
-  log "下载便携 Node ${NODE_VER}：$NODE_URL"
-  NODE_CACHE="/tmp/node-v${NODE_VER}-${NODE_PLATFORM}.${NODE_EXT}"
-  if [[ -s "$NODE_CACHE" ]] && verify_sha256 "$NODE_CACHE" "$NODE_SHA" "$NODE_ASSET" 2>/dev/null; then
-    log "复用已下载的 ${NODE_CACHE}（sha256 校验通过）"
-  else
-    curl -fL --retry 8 --retry-all-errors --retry-delay 3 --speed-limit 2000 --speed-time 60 -o "$NODE_CACHE.part" "$NODE_URL"
-    mv -f "$NODE_CACHE.part" "$NODE_CACHE"
-    verify_sha256 "$NODE_CACHE" "$NODE_SHA" "$NODE_ASSET" || exit 7
-  fi
+  log "便携 Node ${NODE_VER}：本地优先，未命中再下载"
+  NODE_CACHE="$(fetch_asset "$NODE_ASSET" "$NODE_URL" "$NODE_SHA")" || exit 7
   if [[ "$NODE_EXT" == zip ]]; then
-    unzip -tq "$NODE_CACHE" >/dev/null 2>&1 || { echo "下载的 node zip 完整性校验失败" >&2; exit 7; }
     rm -rf /tmp/nodepkg
     unzip -oq "$NODE_CACHE" -d /tmp/nodepkg
     mkdir -p "$RES/bin/node"
     cp -R "/tmp/nodepkg/node-v${NODE_VER}-${NODE_PLATFORM}/." "$RES/bin/node/"
   else
-    tar -tzf "$NODE_CACHE" >/dev/null 2>&1 || { echo "下载的 node tar.gz 完整性校验失败" >&2; exit 7; }
     mkdir -p "$RES/bin/node"
     tar -xzf "$NODE_CACHE" -C "$RES/bin/node" --strip-components=1
   fi

@@ -66,6 +66,13 @@ TEXT_SUFFIXES = {
 }
 
 UPSTREAM_HOST = re.compile(r"[\w.-]*cdnfg\.com", re.IGNORECASE)
+# 上游 DramaClaw 的代码/发布仓库：与它「完全隔离、没有兜底」，产物里不许出现它的
+# 下载/克隆链接。只认 URL 形态（带 .git 或 releases/archive/raw/... 路径），否则
+# Go 模块路径（github.com/dramaclaw/localapi/...）会被误伤。
+UPSTREAM_REPO = re.compile(
+    r"github\.com/dramaclaw/[\w.-]+(?:\.git\b|/(?:releases|archive|raw|blob|tree)\b)",
+    re.IGNORECASE,
+)
 
 # 只看代码行；注释里说明「曾经指向哪里」不违规。
 COMMENT_ONLY = re.compile(r"^\s*(#|//|/\*|\*|<!--)")
@@ -129,6 +136,8 @@ def check_file(path: Path) -> list[str]:
             continue
         if UPSTREAM_HOST.search(line):
             problems.append(f"{rel}:{lineno}: 引用了上游 CDN 域名：{line.strip()}")
+        if UPSTREAM_REPO.search(line):
+            problems.append(f"{rel}:{lineno}: 引用了上游 DramaClaw 仓库（本项目与它无兜底）：{line.strip()}")
         own = OWN_REPO in line
         for pattern, reason in (LATEST_PATTERNS + BUILD_ONLY_PATTERNS if is_build else LATEST_PATTERNS):
             if own:

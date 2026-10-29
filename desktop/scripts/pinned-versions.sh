@@ -93,3 +93,60 @@ verify_sha256() {
   fi
   return 0
 }
+
+# ------------------------------------------------- 下载顺序：本地资源优先，外网兜底
+# 每个构建期下载都走同一个顺序：
+#   1) 本地资源目录已有同名文件 → 校验通过就直接用，**不联网**；
+#   2) 本地没有（或已损坏）→ 从官方地址下载，校验通过后**回填**本地目录；
+#   3) 到此为止。本项目没有任何「上游 dramaClaw」回退：本地没有、官方又拿不到
+#      就明确失败，绝不拿上游 DramaClaw 的文件顶上（与它的隔离是硬约束）。
+#
+# 目录可用 AIPDD_ASSET_DIR 覆盖（CI 里挂持久缓存盘），默认 desktop/vendor/assets。
+asset_dir() {
+  local dir="${AIPDD_ASSET_DIR:-$DESKTOP_DIR/vendor/assets}"
+  mkdir -p "$dir" || { echo "无法创建本地资源目录：$dir" >&2; return 1; }
+  printf '%s\n' "$dir"
+}
+
+# _asset_integrity <文件> [资产名]：按扩展名做一次归档自检（sha256 之外的第二道）。
+# 下载中的临时文件带 .part 后缀，扩展名要按资产名判断，否则 zip/tar.gz 会被当成未知格式放行。
+_asset_integrity() {
+  local probe="$1" name="${2:-$1}"
+  case "$name" in
+    *.tar.gz|*.tgz) tar -tzf "$probe" >/dev/null 2>&1 ;;
+    *.zip)          unzip -tq "$probe" >/dev/null 2>&1 ;;
+    *.gz)           gzip -t "$probe" >/dev/null 2>&1 ;;
+    *)              return 0 ;;
+  esac
+}
+
+# fetch_asset <资产名> <官方URL> <sha256|-> → 打印本地路径
+fetch_asset() {
+  local name="$1" url="$2" want="$3" dir dest
+  dir="$(asset_dir)" || return 1
+  dest="$dir/$name"
+  if [[ -s "$dest" ]] && _asset_integrity "$dest" \
+     && verify_sha256 "$dest" "$want" "$name" 2>/dev/null; then
+    echo "本地资源命中：$dest" >&2
+    printf '%s\n' "$dest"
+    return 0
+  fi
+  if [[ -e "$dest" ]]; then
+    echo "本地资源不可用（损坏或版本不符），改走外网：$dest" >&2
+    rm -f "$dest"
+  fi
+  echo "本地无 $name，外网下载：$url" >&2
+  if ! curl -fL --retry 8 --retry-all-errors --retry-delay 3 \
+      --speed-limit 2000 --speed-time 60 -o "$dest.part" "$url"; then
+    rm -f "$dest.part"
+    echo "外网下载失败：$name（本地资源目录也没有可用副本；本项目没有上游 DramaClaw 回退）" >&2
+    return 1
+  fi
+  _asset_integrity "$dest.part" "$name" \
+    || { echo "下载内容完整性校验失败：$name" >&2; rm -f "$dest.part"; return 1; }
+  verify_sha256 "$dest.part" "$want" "$name" || { rm -f "$dest.part"; return 1; }
+  mv -f "$dest.part" "$dest" \
+    || { echo "回填本地资源目录失败：$dest" >&2; return 1; }
+  echo "已回填本地资源目录：$dest" >&2
+  printf '%s\n' "$dest"
+}

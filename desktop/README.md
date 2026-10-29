@@ -259,6 +259,12 @@ uv、便携 Node。脚本里不再有 `releases/latest`、`LATEST_RELEASE_STABLE
 `node -v` 推断版本。
 
 - 升级：只改 `pinned-versions.sh` 一处（版本 + 校验和一起换），重新出包即完成升级。
+- **取值顺序固定为「本地优先、外网兜底」**（`fetch_asset`）：先看本地资源目录
+  `desktop/vendor/assets/`（可用 `AIPDD_ASSET_DIR` 指到别的盘/CI 缓存），命中且校验
+  通过就直接用、完全不联网；没有或已损坏才去官方地址下载，校验通过后回填该目录，
+  同一台机器第二次构建不再联网。本地没有、外网也拿不到就直接失败。
+- 与 DramaClaw 的隔离是硬约束：任何资源都**没有**指向上游 DramaClaw 的回退，
+  缺件只会报错，不会拿上游文件顶上。
 - 校验失败即删除下载并 `exit`，不会把被篡改/版本钉错的包打进产物。
 - 官方不公布校验和的两个件（Chrome for Testing、eugeneware 的 ffmpeg-darwin-x64.gz）
   写 `-`：只钉版本、不做哈希校验，原因标注在 pins 文件里。

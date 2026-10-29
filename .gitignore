@@ -106,3 +106,7 @@ backups/
 /frontend/public/login-media/tianmingbukeqi/*.mp4
 /frontend/public/login-media/wulongxiantu/*.mp4
 /frontend/public/login-media/**/*.part
+
+# 构建期下载的本地资源目录（desktop/scripts/pinned-versions.sh 的 AIPDD_ASSET_DIR 默认值）：
+# 命中就不联网；外网下载成功后回填到这里。
+/desktop/vendor/assets/
