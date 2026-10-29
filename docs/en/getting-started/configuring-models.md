@@ -247,7 +247,17 @@ Routing is based on model ID. A Local ComfyUI model may appear in XiaHua as a ne
 
 ## Reference media storage
 
-Image editing, video first/last frames, reference images, and identity images require upstream services to read local files. Go to **Settings → Media Storage** and configure a publicly reachable temporary media relay.
+Image editing, video first/last frames, reference images, and identity images require upstream services to read local files. Go to **Settings → Media Storage** to pick how those files are delivered.
+
+### Local storage (default)
+
+CE defaults to **Local storage**, including when nothing has ever been configured. Generated media stays on this server's disk, and reference images are sent upstream inline as data URLs — no object storage required.
+
+Reference video and audio (replace a person/product in a video, lip sync, etc.) must be handed over as public links, which go through the AIPDD asset cloud. Credentials are taken from the connected **AIPDD channel** — if you already connected one under **Model & Channels**, you do not need to enter the key again here, and the site address also comes from that channel. Only enter them when no AIPDD channel is connected yet.
+
+### AIPDD asset cloud
+
+All reference media is uploaded to the AIPDD asset cloud first, then handed to the upstream model as a public link. It reuses the connected AIPDD channel's key and site address; the form shows a "credentials ready" notice and only renders the API Key and site-address inputs when they are missing.
 
 ### Aliyun OSS
 
@@ -280,6 +290,9 @@ Enter Cloud name, API Key, API Secret, and an optional folder. Find them under *
 | Controls do not match model capabilities | Check the media model `config`, especially resolutions, ratios, modes, and reference limits. |
 | Knowledge-graph embedding fails | Check the key, upstream model, dimensions, and batch size. HTTP 429 means upstream rate limiting. |
 | Reference media cannot be read | Verify media storage and that the upstream service can reach the temporary public URL. |
+| Video generation fails at the “calling video generator” step with `unsupported MEDIA_RELAY_PROVIDER: -` | The media storage provider is blank (older builds did not fall back to a default). Current builds treat blank as **Local storage**; if it still fails, re-save the provider under **Settings → Media Storage**. |
+| The UI reports “media storage provider unavailable” | The stored value is not one of local storage / AIPDD asset cloud / Aliyun OSS / AWS S3 / Cloudinary. Pick a supported provider and retry. |
+| Reference video/audio upload fails while on Local storage | Only affects media that needs a public link; connect an AIPDD channel, or enter the AIPDD API Key in that provider's form. |
 | Hybrid local video fails without official fallback | Expected: Hybrid mode has no automatic failure fallback. |
 | ComfyUI cannot connect to `127.0.0.1:8188` | `127.0.0.1` means the environment running the DramaClaw backend. For containers or remote deployments, use a host or LAN address reachable from that backend. |
 | A MiniMax H3 workflow reports missing nodes or models | Install the custom nodes and model files referenced by the recommended workflow, then adjust the workflow for local filenames and versions. |

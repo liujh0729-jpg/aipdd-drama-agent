@@ -646,6 +646,9 @@ function MediaStorageSection() {
   // [aipdd fork delta req44] 就绪判定收拢到后端：本地档现在也绑 AIPDD 中转，
   // 没 Key 就照旧弹黄条（参考视频/音频跑不通）。
   const hasConfiguredMediaRelay = Boolean(mediaRelay?.configured);
+  // 中转凭据已能从设置库或已连接的 AIPDD 渠道解析出来：下面不再要求手填 Key
+  // （数字资产云档的站点地址同理，自动取渠道地址的站点根）。
+  const relayCredentialsReady = Boolean(mediaRelay?.aipddChannelConfigured);
   const configuredProvider = hasConfiguredMediaRelay
     ? (mediaRelay?.provider as MediaStorageProvider)
     : provider;
@@ -662,11 +665,15 @@ function MediaStorageSection() {
         // 本地档只渲染 Key 一个字段，其余三项**根本不进 payload**：后端的合并语义
         // 是 ``None=不改动``，传空串会把「数字资产云」档存下的前缀 / 登记开关 / 站点
         // 地址抹掉（Key 因为是密钥语义才恰好不会）。
+        // 凭据已就绪时表单不渲染 Key / 站点地址：站点地址也必须整项不发（它不是密钥
+        // 语义，传空串等于清空已存值），前缀与登记开关照旧随档位保存。
         const relayFields =
           provider === "local"
             ? {}
             : {
-                aipddBaseUrl: aipddBaseUrl.trim(),
+                ...(relayCredentialsReady
+                  ? {}
+                  : { aipddBaseUrl: aipddBaseUrl.trim() }),
                 aipddPrefix: aipddPrefix.trim(),
                 registerAsset: aipddRegisterAsset,
               };
@@ -852,14 +859,15 @@ function MediaStorageSection() {
             <div className="rounded-md border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
               <p>{t("settings.mediaStorage.localHint")}</p>
             </div>
-            {/* [aipdd fork delta req44] 本地档的参考视频/音频也要中转，所以 Key 同样必填。
+            {/* [aipdd fork delta req44] 本地档的参考视频/音频也要中转；凭据能解析出来
+                （设置里存过，或已连接 AIPDD 渠道）就不再要求手填 Key。
                 站点地址 / 前缀 / 登记开关不在本地档暴露（用户口径）：本地档只关心中转
                 凭据，地址留空由后端回落已连接的 AIPDD 渠道，要自定义这些去「数字资产云」档。 */}
             <AipddRelayFields
               apiKey={aipddApiKey}
               onApiKeyChange={setAipddApiKey}
               apiKeyPreview={mediaRelay?.aipddApiKeyPreview ?? ""}
-              relayReady={Boolean(mediaRelay?.aipddChannelConfigured)}
+              relayReady={relayCredentialsReady}
             />
           </>
         ) : provider === "aipdd_cloud" ? (
@@ -869,7 +877,7 @@ function MediaStorageSection() {
             baseUrl={aipddBaseUrl}
             onBaseUrlChange={setAipddBaseUrl}
             apiKeyPreview={mediaRelay?.aipddApiKeyPreview ?? ""}
-            relayReady={Boolean(mediaRelay?.aipddChannelConfigured)}
+            relayReady={relayCredentialsReady}
             prefix={aipddPrefix}
             onPrefixChange={setAipddPrefix}
             registerAsset={aipddRegisterAsset}
@@ -946,10 +954,9 @@ function MediaStorageSection() {
 }
 
 // [aipdd fork delta req44] AIPDD 参考媒体中转表单：「本地存储」与「AIPDD 数字资产云」
-// 两档共用（本地档的参考视频/音频也靠它转公网直链）。Key 是必填项：留空 = 沿用已存
-// 值，后端再回落已连接 AIPDD 渠道自身的 Key；站点地址一般不用填（取渠道 baseUrl 的
-// 站点根），只在上传口与渠道不同源时才需要显式指定。数字资产云档额外能配前缀与
-// 「同时登记为数字资产」。
+// 两档共用（本地档的参考视频/音频也靠它转公网直链）。凭据已能解析出来（设置里存过，
+// 或已连接 AIPDD 渠道自身的 Key / baseUrl）时，Key 与站点地址都不再让用户手填——
+// 只在解析不到时渲染，此时 Key 是引导用户补凭据的唯一入口。
 function AipddRelayFields({
   apiKey,
   onApiKeyChange,
@@ -988,17 +995,23 @@ function AipddRelayFields({
           <p>{t("settings.mediaStorage.aipddRelayMissing")}</p>
         </div>
       ) : null}
-      <FieldRow
-        secret
-        name="aipdd-relay-api-key"
-        label={t("settings.mediaStorage.fields.aipddApiKey")}
-        value={apiKey}
-        onChange={onApiKeyChange}
-        placeholder={apiKeyPreview || undefined}
-        savedPreview={apiKeyPreview}
-        hint={t("settings.mediaStorage.tips.aipddApiKey")}
-      />
-      {hasBaseUrlField ? (
+      {relayReady ? (
+        <p className="rounded-md border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          {t("settings.mediaStorage.aipddRelayUsingChannel")}
+        </p>
+      ) : (
+        <FieldRow
+          secret
+          name="aipdd-relay-api-key"
+          label={t("settings.mediaStorage.fields.aipddApiKey")}
+          value={apiKey}
+          onChange={onApiKeyChange}
+          placeholder={apiKeyPreview || undefined}
+          savedPreview={apiKeyPreview}
+          hint={t("settings.mediaStorage.tips.aipddApiKey")}
+        />
+      )}
+      {hasBaseUrlField && !relayReady ? (
         <FieldRow
           label={t("settings.mediaStorage.fields.aipddBaseUrl")}
           value={baseUrl ?? ""}

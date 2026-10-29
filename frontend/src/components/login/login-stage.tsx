@@ -8,8 +8,12 @@ import LightRays from "./light-rays";
 import { GithubMark } from "@/components/platform-marks";
 import SplitText from "@/components/react-bits/split-text";
 import { useGithubStars } from "@/hooks/use-github-stars";
+import { loginMedia } from "@/lib/login-media";
 import { PRODUCT_MANUAL_URL } from "@/lib/product-manual";
 import styles from "./login.module.css";
+
+// 商务合作二维码随包（同源 login-media），不再指向上游 CDN。
+const businessWechatQrUrl = loginMedia("contact/wechat.png");
 
 // 登录页右上角 GitHub 链接目标。如需指向具体仓库/主页，改这里即可。
 const GITHUB_URL = "https://github.com/liujh0729-jpg/aipdd-drama-agent";

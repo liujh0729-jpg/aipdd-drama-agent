@@ -3374,9 +3374,12 @@ def get_effective_media_relay_config(
         # [aipdd fork delta] CE 模式但设置库该功能为空：数据库为唯一真源，
         # 绝不回退 env 密钥（OSS AK/SK、Cloudinary Key/Secret）。非密钥的
         # provider/endpoint/bucket 等部署配置仍保留下方 env 分支供非 CE 使用。
+        # provider 必须落默认档位「本地存储」：留空会让 get_media_relay() 落到
+        # unsupported 分支，新装用户第一次带参考素材出片就报错（且文案只会打出
+        # 「unsupported MEDIA_RELAY_PROVIDER: -」这种内部值）。
         return EffectiveMediaRelayConfig(
             source="unset",
-            provider="",
+            provider="local",
             ttl_seconds=1800,
             endpoint="",
             bucket="",

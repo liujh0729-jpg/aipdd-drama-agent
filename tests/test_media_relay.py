@@ -528,3 +528,48 @@ def test_get_media_relay_local_wires_aipdd_delegate(monkeypatch) -> None:
     assert delegate._origin == "https://gw.example"
     assert delegate._api_key == "sk-aipdd"
     assert delegate._prefix == "assets/x"
+
+
+def test_ce_unset_media_relay_defaults_to_local_storage(monkeypatch, tmp_path) -> None:
+    # 新装（设置库没有任何 media_relay_* 键）必须落到默认档「本地存储」：
+    # 留空会让 get_media_relay() 判成 unsupported，第一次带参考素材出片就失败。
+    monkeypatch.setattr(config, "STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setattr(config, "MEDIA_RELAY_PROVIDER", "aliyun_oss")
+    monkeypatch.setattr(config, "OSS_RELAY_ENDPOINT", "env.endpoint")
+    monkeypatch.setattr(config, "OSS_RELAY_BUCKET", "env-bucket")
+    monkeypatch.setattr(config, "OSS_RELAY_AK", "env-ak")
+    monkeypatch.setattr(config, "OSS_RELAY_SK", "env-sk")
+
+    from novelvideo.model_gateway_settings import get_effective_media_relay_config
+
+    effective = get_effective_media_relay_config()
+    assert effective.source == "unset"
+    assert effective.provider == "local"
+    # 密钥仍不回退 env。
+    assert effective.access_key_id == ""
+
+    assert media_relay.media_relay_is_local() is True
+    relay = media_relay.get_media_relay()
+    assert isinstance(relay, media_relay.LocalImageRelay)
+    assert relay.upload_bytes(b"PNG", ext="png").startswith("data:image/png;base64,")
+
+
+def test_unknown_provider_error_is_actionable(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(config, "STATE_DIR", str(tmp_path / "state"))
+    save_media_relay_config(provider="weird_relay", ttl_seconds=900)
+
+    with pytest.raises(media_relay.MediaRelayConfigError) as exc_info:
+        media_relay.get_media_relay()
+
+    message = str(exc_info.value)
+    assert "weird_relay" in message
+    assert "设置" in message
+
+
+def test_media_relay_is_local_treats_blank_provider_as_local(monkeypatch) -> None:
+    monkeypatch.setattr(
+        media_relay,
+        "_effective_media_relay_config",
+        lambda: types.SimpleNamespace(provider=""),
+    )
+    assert media_relay.media_relay_is_local() is True

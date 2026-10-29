@@ -4828,7 +4828,8 @@ def test_media_relay_ce_empty_db_does_not_fall_back_to_env(monkeypatch, tmp_path
     assert resolved.source == "unset"
     assert resolved.access_key_id == ""
     assert resolved.access_key_secret == ""
-    assert resolved.provider == ""
+    # provider 落默认档「本地存储」（env 里的 aliyun_oss 不覆盖），其余部署配置同样不回落。
+    assert resolved.provider == "local"
     assert resolved.endpoint == ""
 
 

@@ -755,7 +755,8 @@ def media_relay_is_local() -> bool:
     [aipdd fork delta req44] 「本地」从此只代表「参考图片不外传」：参考视频/音频
     仍必须经 AIPDD 数字资产云转公网直链，所以调用方不能再把本档读成「完全没有云侧出口」。
     """
-    return _effective_media_relay_config().provider == "local"
+    # 空 provider（老库/未初始化设置）与 local 同义：默认档位就是本地存储。
+    return (_effective_media_relay_config().provider or "local") == "local"
 
 
 def get_media_relay() -> (
@@ -767,7 +768,9 @@ def get_media_relay() -> (
     failed or rotated credentials are not hidden behind process-local state.
     """
     relay_config = _effective_media_relay_config()
-    provider = relay_config.provider
+    # 空值一律按默认档位「本地存储」处理：老版本设置库没有 media_relay_provider，
+    # 直接判 unsupported 会让整个参考媒体通路在新装环境里不可用。
+    provider = str(relay_config.provider or "local").strip().lower()
     aipdd_saved_base_url = str(getattr(relay_config, "aipdd_base_url", "") or "")
     aipdd_saved_api_key = str(getattr(relay_config, "aipdd_api_key", "") or "")
     aipdd_prefix = str(getattr(relay_config, "aipdd_prefix", "") or "")
@@ -812,7 +815,9 @@ def get_media_relay() -> (
         )
     if provider != "aliyun_oss":
         raise MediaRelayConfigError(
-            f"unsupported MEDIA_RELAY_PROVIDER: {provider or '-'}"
+            f"媒体存储档位「{provider or '未设置'}」不可用：请到「设置 · 图床/媒体存储」"
+            "选择一个受支持的档位（本地存储 / AIPDD 数字资产云 / 阿里云 OSS / "
+            "AWS S3 / Cloudinary）后重试。"
         )
 
     return AliyunOSSRelay(
