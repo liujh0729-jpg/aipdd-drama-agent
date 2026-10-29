@@ -151,7 +151,9 @@ foreach ($f in $installers) {
 # 清单里带上这个包自己的 sha512。不上传清单 → 登录页只能退到 Releases 页面。
 # 版本号取 tauri.conf.json（打包用的就是它），不另设一处。
 $repoRoot = Split-Path -Parent $DesktopDir
-$appVersion = (Get-Content (Join-Path $DesktopDir 'src-tauri\tauri.conf.json') -Raw | ConvertFrom-Json).version
+# 必须显式 -Encoding UTF8：文件无 BOM，PowerShell 5.1 默认按 ANSI 解，遇到 © 直接乱码，
+# ConvertFrom-Json 会抛 ArgumentException 让收尾步骤失败（包其实已经出来了）。
+$appVersion = (Get-Content (Join-Path $DesktopDir 'src-tauri\tauri.conf.json') -Raw -Encoding UTF8 | ConvertFrom-Json).version
 foreach ($f in $installers) {
     uv run --no-project python (Join-Path $repoRoot 'scripts\make_desktop_manifest.py') --installer $f.FullName --version $appVersion --platform windows
     if ($LASTEXITCODE -ne 0) { Die "生成 latest.yml 失败：$($f.Name)" }
