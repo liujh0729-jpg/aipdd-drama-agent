@@ -59,10 +59,10 @@ Pourquoi, et la FAQ : <a href="https://github.com/dramaclaw/dramaclaw/issues/475
 
 <br/>
 
-[![License](https://img.shields.io/badge/License-Elastic_2.0-blue.svg)](../LICENSES/Elastic-2.0.txt)
-[![GitHub stars](https://img.shields.io/github/stars/liujh0729-jpg/aipdd-drama-agent?style=social)](https://github.com/liujh0729-jpg/aipdd-drama-agent/stargazers)
-[![Release](https://img.shields.io/github/v/release/liujh0729-jpg/aipdd-drama-agent?include_prereleases&sort=semver)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
-[![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](#démarrage-rapide)
+[![License: Elastic 2.0](./badges/license-elastic-2.0.svg)](../LICENSES/Elastic-2.0.txt)
+[![GitHub Stars](./badges/github-stars.svg)](https://github.com/liujh0729-jpg/aipdd-drama-agent/stargazers)
+[![Latest Release](./badges/release-latest.svg)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
+[![Docker Ready](./badges/docker-ready.svg)](#démarrage-rapide)
 
 [English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; **Français** &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; [Site officiel](https://www.aipdd.work) &nbsp;|&nbsp; [Documentation](../docs/en/README.md) &nbsp;|&nbsp; [Démarrage rapide](../docs/en/getting-started/quickstart.md)
 
@@ -83,31 +83,31 @@ Pourquoi, et la FAQ : <a href="https://github.com/dramaclaw/dramaclaw/issues/475
 <table>
   <tr>
     <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-cover.png?v=2" width="185" alt="归灵司"/><br/>
+      <img src="../frontend/public/login-media/guilingsi/guilingsi-cover.png" width="185" alt="归灵司"/><br/>
       <b>归灵司</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/guilingsi/guilingsi-ep01.mp4">▶ 第 1 集</a>
+      <a href="https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/media-v1/guilingsi-ep01.mp4">▶ 第 1 集</a>
     </td>
     <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-cover.png?v=2" width="185" alt="鲁班"/><br/>
+      <img src="../frontend/public/login-media/luban/luban-cover.png" width="185" alt="鲁班"/><br/>
       <b>鲁班</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/luban/luban-ep01.mp4">▶ 第 1 集</a>
+      <a href="https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/media-v1/luban-ep01.mp4">▶ 第 1 集</a>
     </td>
     <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-cover.png?v=2" width="185" alt="师兄你怎么不舔了"/><br/>
+      <img src="../frontend/public/login-media/shixiong-butianle/shixiong-butianle-cover.png" width="185" alt="师兄你怎么不舔了"/><br/>
       <b>师兄你怎么不舔了</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/shixiong-butianle/shixiong-butianle-ep01.mp4">▶ 第 1 集</a>
+      <a href="https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/media-v1/shixiong-butianle-ep01.mp4">▶ 第 1 集</a>
     </td>
     <td align="center" width="205" valign="top">
-      <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-cover.png?v=2" width="185" alt="天命不可欺"/><br/>
+      <img src="../frontend/public/login-media/tianmingbukeqi/tianmingbukeqi-cover.png" width="185" alt="天命不可欺"/><br/>
       <b>天命不可欺</b><br/>
-      <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep02.mp4">▶ 第 02 集</a> &nbsp;·&nbsp; <a href="https://nfg-web-assets.cdnfg.com/dramaclaw/tianmingbukeqi/tianmingbukeqi-ep58.mp4">第 58 集</a>
+      <a href="https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/media-v1/tianmingbukeqi-ep02.mp4">▶ 第 02 集</a> &nbsp;·&nbsp; <a href="https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/media-v1/tianmingbukeqi-ep58.mp4">第 58 集</a>
     </td>
   </tr>
 </table>
 
 <sub>Plus de clips :
-<a href="https://nfg-web-assets.cdnfg.com/dramaclaw/3d-anime-montage-demo/3d-anime-montage-demo.mp4">démo montage animé 3D</a> &nbsp;·&nbsp;
-<a href="https://nfg-web-assets.cdnfg.com/dramaclaw/dongtai-dadou/dongtai-dadou.mp4">combats animés</a></sub>
+<a href="https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/media-v1/3d-anime-montage-demo.mp4">démo montage animé 3D</a> &nbsp;·&nbsp;
+<a href="https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/media-v1/dongtai-dadou.mp4">combats animés</a></sub>
 
 </div>
 
@@ -507,13 +507,11 @@ Pour rejoindre le groupe de discussion autour du canvas, scannez simplement le Q
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=dramaclaw%2Fdramaclaw&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=liujh0729-jpg/aipdd-drama-agent&type=date&theme=dark&legend=top-left&sealed_token=CWTXgm9EqgQmnSFWk0inuf_iZSml5r1nclyIsUyisWgYhUzFVJdI8G61vyFACIQe14weeMtjWSxpkzWdtFqyb93uV4uaRElaXWQv2kFxFFyL8KbUQBCOBUWXDtZc81J8YlaSiBVVXeOygLYZliOK4VQo4i1Ioqkxn5js-Bq0gbqVOH_wF3GCQ_EnMGLy" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=liujh0729-jpg/aipdd-drama-agent&type=date&legend=top-left&sealed_token=CWTXgm9EqgQmnSFWk0inuf_iZSml5r1nclyIsUyisWgYhUzFVJdI8G61vyFACIQe14weeMtjWSxpkzWdtFqyb93uV4uaRElaXWQv2kFxFFyL8KbUQBCOBUWXDtZc81J8YlaSiBVVXeOygLYZliOK4VQo4i1Ioqkxn5js-Bq0gbqVOH_wF3GCQ_EnMGLy" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=liujh0729-jpg/aipdd-drama-agent&type=date&legend=top-left&sealed_token=CWTXgm9EqgQmnSFWk0inuf_iZSml5r1nclyIsUyisWgYhUzFVJdI8G61vyFACIQe14weeMtjWSxpkzWdtFqyb93uV4uaRElaXWQv2kFxFFyL8KbUQBCOBUWXDtZc81J8YlaSiBVVXeOygLYZliOK4VQo4i1Ioqkxn5js-Bq0gbqVOH_wF3GCQ_EnMGLy" />
- </picture>
+<a href="https://www.star-history.com/?repos=liujh0729-jpg%2Faipdd-drama-agent&type=date&legend=top-left">
+  <img alt="Star History Chart" src="./assets/star-history.svg" width="800" />
 </a>
+
+<sub>Static snapshot committed in this repository; the live chart is on star-history.com.</sub>
 
 <br/><br/>
 

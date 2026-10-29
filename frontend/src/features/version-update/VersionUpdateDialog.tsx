@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { loginMedia } from "@/lib/login-media";
 import { subscribeOpenVersionUpdateDialog } from "@/features/version-update/version-update-events";
 import {
   ensureReleaseNotifications,
@@ -12,9 +13,8 @@ import {
   useReleaseNotifications,
 } from "@/lib/queries/release-notifications";
 
-/** 更新弹窗顶部的头图视频。走 CDN 域名（OSS 默认域名会强制下载，播不了）。 */
-const UPDATE_HERO_VIDEO_URL =
-  "https://nfg-web-assets.cdnfg.com/dramaclaw/update/version-update-2026-06-22.mp4";
+/** 更新弹窗顶部的头图视频。随包同源即可，离线装机版也能播。 */
+const UPDATE_HERO_VIDEO_URL = loginMedia("update/version-update-2026-06-22.mp4");
 
 export function VersionUpdateDialog() {
   const { t, i18n } = useTranslation();

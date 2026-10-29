@@ -251,6 +251,41 @@ pre-commit run --all-files    # 手动全量扫描（可选）
 > `export GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,direct GOSUMDB=off`
 > 构建成功后环境会缓存到 `~/.cache/pre-commit`，之后日常提交不再依赖网络；只有清缓存或换机重装才需再次导出该镜像。
 
+### 5.3 构建期下载一律钉版本（`scripts/pinned-versions.sh`）
+
+`prepare-resources.sh` 里每一次下载都只认 `desktop/scripts/pinned-versions.sh` 的
+**（版本, 资产名, sha256）**：便携 Python、nginx、ffmpeg/ffprobe、Chrome for Testing、
+uv、便携 Node。脚本里不再有 `releases/latest`、`LATEST_RELEASE_STABLE`，也不按打包机的
+`node -v` 推断版本。
+
+- 升级：只改 `pinned-versions.sh` 一处（版本 + 校验和一起换），重新出包即完成升级。
+- 校验失败即删除下载并 `exit`，不会把被篡改/版本钉错的包打进产物。
+- 官方不公布校验和的两个件（Chrome for Testing、eugeneware 的 ffmpeg-darwin-x64.gz）
+  写 `-`：只钉版本、不做哈希校验，原因标注在 pins 文件里。
+- 仓库有两条自动门禁盯着这件事：`scripts/check_external_hosts.py`（pre-commit 钩子
+  `external-hosts` + CI `.github/workflows/dependency-isolation.yml`），发现上游 CDN
+  域名、`releases/latest` 解析、未钉版本的全局安装就失败。
+
+### 5.4 登录页素材与 media-v1 预发布
+
+登录页 8 个展示成片 + 更新弹窗短片 + 客服二维码共 17 个文件，全部随包同源
+（`frontend/public/login-media/`），不再指向上游 CDN。其中 9 个 mp4 单个 20–190 MB，
+超过 Git 单文件上限，因此：
+
+- 小文件（封面、二维码、更新提示短片）直接提交进仓库；
+- 大文件放**本仓库**的预发布 `media-v1`（`prerelease: true`，永远不会变成
+  `releases/latest`，不影响安装包清单与更新检查）；
+- 构建前 `node frontend/scripts/fetch-login-media.mjs` 按 `frontend/login-media.sha256`
+  拉取缺失文件并逐个校验 sha256（桌面 `prepare-resources.sh` 第 3 步与
+  `frontend/Dockerfile` 都会调用）。`--check` 只校验不联网。
+
+素材要换时：改 tag（`media-v2`）→ 同步 `MEDIA_TAG` 与 `frontend/login-media.sha256`，
+**不要原地替换 release 资产**。
+
+README（含 8 个语种）里的图片/视频同样不留外链：徽章与星标走势图是提交进
+`readme/badges/`、`readme/assets/` 的本地文件，封面图指 `frontend/public/login-media/`，
+成片指本项目 `media-v1`，`scripts/check_external_hosts.py` 会拦住新加的外链素材。
+
 ---
 
 ## 6. 打包全流程

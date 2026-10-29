@@ -44,6 +44,10 @@ RUN set -eux; \
     [ "$ok" = "1" ]
 
 COPY . .
+# [aipdd fork delta] 登录页展示成片（单文件 20–190 MB）不随 Git 走，构建期按
+# login-media.sha256 从本项目 media-v1 预发布拉取并校验。必须在 vite build 之前：
+# public/ 是构建期原样拷进 dist 的。
+RUN node scripts/fetch-login-media.mjs
 # [aipdd fork delta] 跳过 tsc 类型检查：本 fork 前端自带未写完的孤儿文件
 # (model-source-dialog.tsx 引 8 个不存在的导出、register 类型错误)，tsc -b 会失败；
 # rollup 不打包孤儿文件、esbuild 不做类型检查，直接 vite build 可正常产出 dist。

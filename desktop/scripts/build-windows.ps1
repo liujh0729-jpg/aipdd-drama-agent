@@ -147,6 +147,16 @@ foreach ($f in $installers) {
     @{ path = $f.FullName; size_bytes = $f.Length; sha256 = $sha } | ConvertTo-Json -Compress | Set-Content -Path $sidecar -Encoding utf8
 }
 
+# 登录页从本项目 Release 的 releases/latest/download/latest.yml 解析安装包名，
+# 清单里带上这个包自己的 sha512。不上传清单 → 登录页只能退到 Releases 页面。
+# 版本号取 tauri.conf.json（打包用的就是它），不另设一处。
+$repoRoot = Split-Path -Parent $DesktopDir
+$appVersion = (Get-Content (Join-Path $DesktopDir 'src-tauri\tauri.conf.json') -Raw | ConvertFrom-Json).version
+foreach ($f in $installers) {
+    uv run --no-project python (Join-Path $repoRoot 'scripts\make_desktop_manifest.py') --installer $f.FullName --version $appVersion --platform windows
+    if ($LASTEXITCODE -ne 0) { Die "生成 latest.yml 失败：$($f.Name)" }
+}
+
 Write-Host @"
 
 下一步（对外分发前）：

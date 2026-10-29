@@ -8,10 +8,10 @@ const stage = readFileSync("src/components/login/login-stage.tsx", "utf8");
 const css = readFileSync("src/components/login/login.module.css", "utf8");
 
 describe("login modal layout contract", () => {
-  it("loops the dedicated CDN showcase video beside the account form", () => {
+  it("loops the bundled showcase video beside the account form", () => {
     expect(modal).toContain("loginModalShowcaseVideo");
     expect(modal).toContain("loop");
-    expect(media).toContain('cdn("login/login20260826-174426.mp4")');
+    expect(media).toContain('loginMedia("login/login20260826-174426.mp4")');
     expect(modal).not.toContain("/video/login-community-preview.mp4");
     expect(modal).toContain("<LoginCard onAuthenticated={onAuthenticated} />");
     expect(css).toMatch(/\.loginDialog\s*\{[\s\S]*?grid-template-columns:/);

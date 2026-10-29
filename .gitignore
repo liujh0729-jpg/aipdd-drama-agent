@@ -91,3 +91,18 @@ backups/
 # 任意层级的本地虚拟环境兜底（根 /.venv/ 只盖住了顶层）。
 .venv/
 *.local
+
+# 登录页/README 的成片单个 20–190 MB，Git 单文件上限 100 MB 装不下：
+# 封面/二维码/更新视频（小文件）随 stock 提交，成片由
+# scripts/fetch-login-media.mjs 按 frontend/login-media.sha256 从本项目
+# Release（tag media-v1）拉取并校验，构建前必须就位。
+/frontend/public/login-media/3d-anime-montage-demo/*.mp4
+/frontend/public/login-media/dongtai-dadou/*.mp4
+/frontend/public/login-media/feiyi-zhouwu/*.mp4
+/frontend/public/login-media/guilingsi/*.mp4
+/frontend/public/login-media/luban/*.mp4
+/frontend/public/login-media/login/*.mp4
+/frontend/public/login-media/shixiong-butianle/*.mp4
+/frontend/public/login-media/tianmingbukeqi/*.mp4
+/frontend/public/login-media/wulongxiantu/*.mp4
+/frontend/public/login-media/**/*.part

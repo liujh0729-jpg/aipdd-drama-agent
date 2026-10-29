@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="95" height="20" role="img" aria-label="Release: Latest">
+  <title>Release: Latest</title>
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="95" height="20" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="52" height="20" fill="#555"/>
+    <rect x="52" width="43" height="20" fill="#2ea44f"/>
+    <rect width="95" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+    <text x="26" y="15" fill="#010101" fill-opacity=".3">Release</text>
+    <text x="26" y="14">Release</text>
+    <text x="73" y="15" fill="#010101" fill-opacity=".3">Latest</text>
+    <text x="73" y="14">Latest</text>
+  </g>
+</svg>

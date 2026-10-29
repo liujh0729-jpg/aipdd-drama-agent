@@ -27,6 +27,26 @@
    `--generate-notes` 会把自动生成的 What's Changed / New Contributors / Full Changelog **追加在 body.md 内容之后**，正好构成完整标准结构（网页操作等价：贴入人工部分后点 "Generate release notes" 按钮）。front-matter 中 `version:` 可省；想让已部署旧版用户的铃铛红点亮起，需写 `attention: medium` 或 `high`，见下。
 6. 发布后 `.github/workflows/release-images.yml` 会在 `release: published` 时自动构建并推送 Docker 镜像，无需手动操作。
 
+## 发布资产契约（安装包清单与媒体预发布）
+
+登录页的「下载桌面端」不再经由任何外部下载站，直接读**本项目 Release** 的资产：
+
+- `releases/latest/download/latest.yml`（Windows）与 `latest-mac.yml`（macOS）——
+  由 `scripts/make_desktop_manifest.py` 在出包时按安装器生成
+  （`files[].url` 只写资产名，`sha512`/`size` 与安装器一致）。
+  `desktop/scripts/build-windows.ps1` 打完包会自动产出 `latest.yml`。
+- 安装器本体（`*.exe` / `*.dmg`）与上述清单挂在**同一个正式 release**上；
+  `releases/latest` 会跳过预发布，所以下面的媒体预发布不会抢走安装包指针。
+- `media-v1`（`prerelease: true`）只放登录页/README 的大体量成片，资产**不可原地替换**：
+  内容更新请开 `media-v2`，同步 `frontend/login-media.sha256` 与
+  `frontend/scripts/fetch-login-media.mjs` 里的 `MEDIA_TAG`。
+- README 自身也不引用第三方图床：徽章、星标走势图提交在 `readme/badges/`、
+  `readme/assets/`，封面图取自仓库内 `frontend/public/login-media/`，成片走上面的
+  `media-v1`。改动 README 后跑一次 `python scripts/check_external_hosts.py`。
+
+三者缺一，登录页会回退到 `releases/latest` 页面链接（不会 404），但自动识别平台的
+「直接下载」会失效，出包后请顺手核对一次。
+
 ## Release body / 包内 notes 共用模板
 
 包内 `src/novelvideo/release-notes.md` 与 GitHub Release body 用**同一解析器**，核心部分（front-matter + Highlights 两节）直接复制以下模板；GitHub Release body 在此基础上还需追加 issue/bugfix 等章节，见下节「GitHub Release 页面结构（标准）」：

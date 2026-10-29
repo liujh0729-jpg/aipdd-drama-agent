@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   detectDesktopPlatform,
   FALLBACK_DOWNLOAD_URL,
+  MANIFEST_BASE,
   parseManifestRelease,
   pickInstallerFromManifest,
   resolveDesktopRelease,
@@ -125,14 +126,14 @@ describe("resolveDesktopRelease", () => {
     stubManifest(SPACED_MANIFEST);
     const release = await resolveDesktopRelease("windows");
     expect(release.url).toBe(
-      "https://dramaclaw-dl.cdnfg.com/desktop/DramaClaw%20Setup%201.1.0.exe",
+      MANIFEST_BASE + "DramaClaw%20Setup%201.1.0.exe",
     );
   });
 
   it("carries the installer's own checksum through", async () => {
     stubManifest(MAC_MANIFEST);
     await expect(resolveDesktopRelease("mac")).resolves.toEqual({
-      url: "https://dramaclaw-dl.cdnfg.com/desktop/DramaClaw-1.1.0-arm64.dmg",
+      url: MANIFEST_BASE + "DramaClaw-1.1.0-arm64.dmg",
       resolved: true,
       version: "1.1.0",
       releaseDate: "2026-07-15",
@@ -145,7 +146,7 @@ describe("resolveDesktopRelease", () => {
     stubManifest("files:\n  - url: DramaClaw%20Setup%201.1.0.exe\n");
     const release = await resolveDesktopRelease("windows");
     expect(release.url).toBe(
-      "https://dramaclaw-dl.cdnfg.com/desktop/DramaClaw%20Setup%201.1.0.exe",
+      MANIFEST_BASE + "DramaClaw%20Setup%201.1.0.exe",
     );
   });
 

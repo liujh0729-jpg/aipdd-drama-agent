@@ -1,0 +1,25 @@
+name: dependency-isolation
+
+# 外部依赖隔离：代码里再次出现「上游 CDN 域名 / releases/latest 解析 / 未钉版本的
+# 全局安装」即失败。见 scripts/check_external_hosts.py 与 desktop/scripts/pinned-versions.sh。
+#
+# 背景：本项目的产物只应由我们自己的提交决定——上游 DramaClaw、NewAPI 或任何第三方
+# 发新版都不该改变登录页素材、安装包来源或镜像内容。
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  external-hosts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check external hosts and pinned versions
+        run: python3 scripts/check_external_hosts.py

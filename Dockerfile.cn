@@ -17,7 +17,7 @@ ARG UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 
 RUN sed -i "s|deb.debian.org|${APT_MIRROR_HOST}|g; s|security.debian.org|${APT_MIRROR_HOST}|g" /etc/apt/sources.list.d/debian.sources
 
-RUN pip install --no-cache-dir uv -i "${PIP_INDEX_URL}"
+RUN pip install --no-cache-dir uv==0.10.9 -i "${PIP_INDEX_URL}"
 
 # [aipdd fork delta req41] UV_INDEX_URL 不只是构建期参数：运行期也会被读到（设置页
 # 「下载并部署」在容器内跑 uv sync）。值由上面的 ARG 推导，不在这里另钉一个源。
@@ -69,7 +69,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
         apt-get update; \
         apt-get install -y --no-install-recommends git nodejs npm; \
         rm -rf /var/lib/apt/lists/*; \
-        npm install -g @playcanvas/splat-transform; \
+        npm install -g @playcanvas/splat-transform@3.10.3; \
         uv sync --frozen --no-dev --extra world; \
     else \
         uv sync --frozen --no-dev; \
@@ -77,7 +77,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     mkdir -p /data
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv tool install 'hermes-agent[acp]'
+    uv tool install 'hermes-agent[acp]==0.19.0'
 
 ENV PATH="/app/.venv/bin:/root/.local/bin:$PATH"
 

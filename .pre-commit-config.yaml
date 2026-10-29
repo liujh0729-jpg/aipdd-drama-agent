@@ -20,3 +20,10 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+      - id: external-hosts
+        name: 外部依赖隔离（上游 CDN / latest 解析 / 未钉版本安装 / README 外链素材）
+        entry: python3 scripts/check_external_hosts.py
+        language: system
+        pass_filenames: false
+        always_run: true

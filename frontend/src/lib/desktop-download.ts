@@ -3,15 +3,20 @@
 /**
  * Desktop installer downloads offered on the login hero.
  *
- * 安装包文件名带版本号(如 DramaClaw-Setup-1.1.0.exe),写死必随发版腐烂。
- * 发布流水线维护着一对"当前版本指针"—— electron-updater 的 latest.yml /
- * latest-mac.yml(CDN 对 *.yml 零缓存,即发即新)。这里按需解析指针拿到
- * 当前安装包的真实文件名;文件名从清单的 url: 字段取,绝不自拼版本号,
- * 将来命名模式变化时本文件无需跟改。
+ * 安装包文件名带版本号(如 AIPDD DramaClaw_2.3.1_x64-setup.exe),写死必随发版腐烂。
+ * 每个 Release 自带一对"当前版本指针"—— electron-updater 的 latest.yml /
+ * latest-mac.yml,由发版脚本随安装包一起上传。这里按需解析指针拿到当前安装包的
+ * 真实文件名;文件名从清单的 url: 字段取,绝不自拼版本号,将来命名模式变化时
+ * 本文件无需跟改。
+ *
+ * 指针只指向**本项目自己的 Release**(liujh0729-jpg/aipdd-drama-agent),不再读
+ * 上游 DramaClaw 的下载站:上游改包名、撤文件、换 CDN 都影响不到这里。
  */
 export type DesktopPlatform = "mac" | "windows";
 
-const DOWNLOAD_BASE = "https://dramaclaw-dl.cdnfg.com/desktop/";
+/** 本项目 Release 的资产下载根:`releases/latest/download/<资产名>`。 */
+export const MANIFEST_BASE =
+  "https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/latest/download/";
 
 const MANIFEST: Record<DesktopPlatform, string> = {
   mac: "latest-mac.yml",
@@ -149,7 +154,7 @@ export async function resolveDesktopRelease(
     sha512: null,
   };
   try {
-    const res = await fetch(DOWNLOAD_BASE + MANIFEST[platform], {
+    const res = await fetch(MANIFEST_BASE + MANIFEST[platform], {
       cache: "no-store",
     });
     if (!res.ok) {
@@ -161,7 +166,7 @@ export async function resolveDesktopRelease(
     if (!installer) warnUnresolved(platform, "no installer url in manifest");
     return {
       url: installer
-        ? DOWNLOAD_BASE + encodeInstallerPath(installer.file)
+        ? MANIFEST_BASE + encodeInstallerPath(installer.file)
         : FALLBACK_DOWNLOAD_URL,
       resolved: installer !== null,
       sha512: installer?.sha512 ?? null,
@@ -180,7 +185,7 @@ function warnUnresolved(platform: DesktopPlatform, cause: unknown): void {
   // i18n-exempt-start
   console.warn(
     `[desktop-download] ${platform} 版本指针解析失败,退到 GitHub Releases 兜底。` +
-      ` 若为网络错误,先查 CSP connect-src 是否放行 ${DOWNLOAD_BASE}`,
+      ` 若为网络错误,先查 CSP connect-src 是否放行 ${MANIFEST_BASE}`,
     cause,
   );
   // i18n-exempt-end

@@ -31,7 +31,8 @@ FROM python:3.12-slim
 # 项目全程用 uv 管理(与 host 一致)。Dockerfile 也用 uv,使 uv.lock 锁版本 +
 # [[tool.uv.dependency-metadata]] override(da2 的 torch==2.5.0 冲突、sharp 的 gsplat)
 # 生效——pip 不认这些 override,会在 da2/world 解析冲突时 build 失败。
-RUN pip install --no-cache-dir uv
+# 版本写死（与 desktop/scripts/pinned-versions.sh 同一版）：上游发新版不该改变镜像。
+RUN pip install --no-cache-dir uv==0.10.9
 
 ENV ST_EDITION=ce \
     ST_CONTROL_PLANE_DSN= \
@@ -86,7 +87,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git nodejs npm \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @playcanvas/splat-transform
+RUN npm install -g @playcanvas/splat-transform@3.10.3
 
 # 只装第三方依赖（--no-install-project 不装本项目本体）；下载物进
 # /root/.cache/uv 随本层持久化，供第 3 段本体安装复用。
@@ -99,12 +100,12 @@ RUN set -eux; \
         uv sync --frozen --no-dev --no-install-project; \
     fi
 
-RUN uv tool install 'hermes-agent[acp]'
+RUN uv tool install 'hermes-agent[acp]==0.19.0'
 
 # [aipdd fork delta] 内置「Chrome MCP」服务器（agent/mcp.py 第二内置项）：
 # chrome-devtools-mcp 经 CDP 连接客户自带 Chrome 的调试端口（--browserUrl，
 # 默认 host.docker.internal:9222，可用 ST_CHROME_CDP_URL 覆盖）。
-RUN npm install -g chrome-devtools-mcp
+RUN npm install -g chrome-devtools-mcp@1.12.0
 
 # [aipdd fork delta] 抖音文案提取（freezone/douyin_copywrite.py + chrome_cdp.py）
 # 经裸 CDP 连接客户本机已安装的真实 Chrome（调试端口，与上面「Chrome MCP」
