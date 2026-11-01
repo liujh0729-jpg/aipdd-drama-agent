@@ -129,7 +129,7 @@ Lý do và các câu hỏi thường gặp: <a href="https://github.com/dramacla
 DramaClaw là một **dây chuyền sản xuất phim drama AI với mã nguồn công khai (source available)** — và ngày càng mở rộng cho bất kỳ câu chuyện hình ảnh nào bạn muốn kể bằng các model sinh nội dung. Nó có hai gương mặt, dùng chung một thư viện tài sản và một agent:
 
 - **XiaHua — bảng vẽ vô hạn (infinite canvas).** Một bàn làm việc dạng node, nơi bạn tự do tạo, chỉnh sửa và kết nối hình ảnh, video, âm thanh, bối cảnh 3D và kịch bản, rồi đưa những gì ưng ý trở lại series. Đây là nơi phần lớn công việc sáng tạo của chính chúng tôi diễn ra hôm nay, và cũng là hướng DramaClaw đang tiến tới.
-- **Series (XiaJi) — pipeline.** Thả vào một bản thảo hoặc kịch bản, DramaClaw sẽ gánh phần việc nặng: cấu trúc hóa câu chuyện, lên kế hoạch từng tập, viết kịch bản, vẽ storyboard và khung hình đầu, tổng hợp lồng tiếng, và dựng thành phim hoàn chỉnh.
+- **Series — pipeline.** Thả vào một bản thảo hoặc kịch bản, DramaClaw sẽ gánh phần việc nặng: cấu trúc hóa câu chuyện, lên kế hoạch từng tập, viết kịch bản, vẽ storyboard và khung hình đầu, tổng hợp lồng tiếng, và dựng thành phim hoàn chỉnh.
 
 **Director**, agent tích hợp sẵn, đứng giữa cả hai: trả lời câu hỏi về dự án của bạn, điều khiển các tác vụ pipeline, và có thể dựng rồi chạy các đồ thị node trên canvas thay bạn.
 
@@ -196,7 +196,7 @@ Một câu: **AIPDD-Agent-Claw = canvas của DramaClaw + một agent + bề m�
 </p>
 <p align="center"><sub>Minh họa tính năng dựa trên ảnh chụp có sẵn; giao diện có thể khác phiên bản hiện tại.</sub></p>
 
-### Series (XiaJi) — pipeline
+### Series — pipeline
 
 <p align="center">
   <img src="../assets/pipeline.png" alt="Pipeline DramaClaw — Nạp vào, Lên kế hoạch, Sản xuất, Bàn giao" width="760"/>
@@ -309,7 +309,7 @@ DramaClaw chạy toàn bộ suy luận qua một **gateway tương thích OpenAI
 | **Docker** | Docker + `docker compose` |
 | **Cổng** | `8080` giao diện web · `8780` REST API · `3000` giao diện quản trị gateway đi kèm (mặc định chỉ host, có thể mở rộng) |
 | **Kho dữ liệu** | Không cần gì — không Postgres, Redis, Celery hay Ray. Tác vụ chạy trong tiến trình; trạng thái nằm trên hệ thống file cục bộ (SQLite + file) |
-| **Mạng** | Truy cập ra ngoài tới gateway chính thức `susciyuan.com`, và/hoặc tới các nhà cung cấp model bạn cấu hình trong gateway đi kèm |
+| **Mạng** | Truy cập ra ngoài tới gateway chính thức `api.aipdd.work`, và/hoặc tới các nhà cung cấp model bạn cấu hình trong gateway đi kèm |
 
 > Phát triển cục bộ (không Docker) cần thêm Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg`. Điều kiện tiên quyết đầy đủ trong [Hướng dẫn tự lưu trữ](../docs/en/guides/self-hosting.md).
 
@@ -361,9 +361,9 @@ docker compose -f docker-compose.release.yml up -d
 
 Mở ứng dụng tại <http://localhost:8080>; REST API ở <http://localhost:8780>. Trong **Settings → Models & Channels** chọn một trong:
 
-- **Official** — dán DC key của bạn (lấy tại <https://susciyuan.com>); không cần ánh xạ model. Gateway đi kèm ở trạng thái chờ.
+- **Official** — dán DC key của bạn (lấy tại <https://www.aipdd.work>); không cần ánh xạ model. Gateway đi kèm ở trạng thái chờ.
 - **Custom** — một cú bấm khởi tạo gateway `localapi` đi kèm; sau đó thêm các kênh upstream của riêng bạn.
-- **LocalAPI + Official Hybrid** — official cho pipeline chính, gateway đi kèm cho các kênh bổ sung.
+- **NewAPI + Official Hybrid** — official cho pipeline chính, gateway đi kèm cho các kênh bổ sung.
 
 Các bước đầy đủ trong [Bắt đầu nhanh](../docs/en/getting-started/quickstart.md).
 
@@ -387,7 +387,7 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **Cổng.** `8080` UI web · `8780` REST API · `3000` admin LocalAPI (mặc định chỉ bind `127.0.0.1`). Đặt một **reverse proxy kèm TLS** (Caddy / Nginx / Traefik) trước `8080` và giữ `8780` / `3000` nội bộ; chỉ mở `80` / `443` trên firewall / nhóm bảo mật.
+- **Cổng.** `8080` UI web · `8780` REST API · `3000` admin NewAPI (mặc định chỉ bind `127.0.0.1`). Đặt một **reverse proxy kèm TLS** (Caddy / Nginx / Traefik) trước `8080` và giữ `8780` / `3000` nội bộ; chỉ mở `80` / `443` trên firewall / nhóm bảo mật.
 - **Build đầu cần chỗ** — cấp cho host ≥ 8 GB RAM và ≥ 40 GB đĩa, nếu không build frontend sẽ bị OOM giết.
 - **Đăng nhập** bằng tài khoản máy đơn `local` với `ST_LOCAL_PASSWORD` (hoặc mật khẩu một lần in ra trong `docker compose -f docker-compose.aipdd.yml logs api` ở lần khởi động đầu).
 - **Nhiều người dùng?** CE thiết kế một chủ sở hữu. Để phục vụ nhiều người, bật `ST_CE_MULTI_USER` và đặt xác thức thật + HTTPS phía trước. Ghi chú production đầy đủ: [Hướng dẫn tự lưu trữ](../docs/en/guides/self-hosting.md).
@@ -406,7 +406,7 @@ uv run novelvideo api --port 8780   # khởi động REST API (CE mặc định 
 
 Frontend ở một terminal thứ hai: `cd frontend && pnpm install && pnpm dev`.
 
-**Gateway.** Ở chế độ **Official** bạn không cần gì thêm. Với **Custom** hoặc **LocalAPI + Official Hybrid**, API cần một gateway ở `127.0.0.1:3000` với file SQLite là `./state/localapi/localapi.db` (đó là nơi nút "Initialize" trong Settings ghi vào; `LOCALAPI_ADMIN_BASE_URL` trong `.env` đã trỏ sẵn tới đó). Hoặc chạy image đã phát hành với thư mục đó được mount:
+**Gateway.** Ở chế độ **Official** bạn không cần gì thêm. Với **Custom** hoặc **NewAPI + Official Hybrid**, API cần một gateway ở `127.0.0.1:3000` với file SQLite là `./state/localapi/localapi.db` (đó là nơi nút "Initialize" trong Settings ghi vào; `LOCALAPI_ADMIN_BASE_URL` trong `.env` đã trỏ sẵn tới đó). Hoặc chạy image đã phát hành với thư mục đó được mount:
 
 ```bash
 mkdir -p state/localapi
@@ -428,9 +428,9 @@ Dù bạn chọn lối cài nào, ứng dụng đều khởi lên như nhau:
    - Nếu bạn đặt `ST_LOCAL_PASSWORD` trong `.env`, đăng nhập bằng tài khoản `local` và mật khẩu đó.
    - Nếu để trống, backend **không** tạo tài khoản hộ bạn: màn hình đầu tiên là **form khởi tạo**, hãy tự đặt tên đăng nhập và mật khẩu ban đầu. Tài khoản đầu tiên là super admin, form đóng vĩnh viễn sau đó; thêm người vào **Cài đặt → Người dùng**.
 3. **Kết nối model** — vào **Cài đặt → Model & Kênh** và chọn một chế độ (chi tiết ở [Model & nhà cung cấp được hỗ trợ](#supported-models)):
-   - **Chính thức** — dán một DC key từ <https://susciyuan.com>; mọi model đã được map, LocalAPI nghỉ.
-   - **Tùy chỉnh** — một chạm khởi tạo LocalAPI, rồi thêm kênh upstream của bạn (API key + model ID) trong UI admin của nó.
-   - **Hỗn hợp LocalAPI + Chính thức** — chính thức cho pipeline chính, LocalAPI cho các kênh bổ sung.
+   - **Chính thức** — dán một DC key từ <https://www.aipdd.work>; mọi model đã được map, NewAPI nghỉ.
+   - **Tùy chỉnh** — một chạm khởi tạo NewAPI, rồi thêm kênh upstream của bạn (API key + model ID) trong UI admin của nó.
+   - **Hỗn hợp NewAPI + Chính thức** — chính thức cho pipeline chính, NewAPI cho các kênh bổ sung.
 4. **Bắt đầu sáng tạo** — hai lối vào cùng một thư viện asset:
    - **Pipeline Series**: nạp một bản thảo hoặc kịch bản (hỗ trợ Fountain), để AIPDD-Agent-Claw lên kế hoạch tập, viết kịch bản, vẽ storyboard và khung đầu, tổng hợp lồng tiếng và dựng thành phim hoàn chỉnh. Mỗi giai đoạn là một tác vụ độc lập trong **Trung tâm tác vụ** — chạy tuần tự, bỏ qua, hoặc tiếp tục từ bất kỳ checkpoint nào.
    - **Canvas**: mở canvas vô hạn và thả / nối các nút (ảnh, video, audio, kịch bản, trường quay 3D…) để khám phá tự do, rồi nâng kết quả bạn thích trở lại thành series.
@@ -443,13 +443,13 @@ Luôn cập nhật: nhấp đúp lại launcher **Start** để khởi động l
 
 DramaClaw giữ trung lập về model — mọi model text / ảnh / video / âm thanh đều kết nối qua một **gateway tương thích OpenAI**. Chọn chế độ trong **Settings → Models & Channels**:
 
-- **Official (khuyến nghị)** — dán DC key của bạn (lấy tại <https://susciyuan.com>), lưu, xong. Gateway chính thức đã có sẵn mọi ánh xạ model mà DramaClaw cần; không phải cấu hình gì.
+- **Official (khuyến nghị)** — dán DC key của bạn (lấy tại <https://www.aipdd.work>), lưu, xong. Gateway chính thức đã có sẵn mọi ánh xạ model mà DramaClaw cần; không phải cấu hình gì.
 - **Custom** — một cú bấm khởi tạo `dramaclaw-gateway` đi kèm, rồi thêm các kênh nhà cung cấp của riêng bạn (API key, model ID) trong giao diện quản trị của nó. Mọi model DramaClaw gọi đều đi qua kênh của bạn.
-- **LocalAPI + Official Hybrid** — giữ các model official cho pipeline chính và thêm các kênh bổ sung (ví dụ một workflow video ComfyUI cục bộ) qua gateway đi kèm.
+- **NewAPI + Official Hybrid** — giữ các model official cho pipeline chính và thêm các kênh bổ sung (ví dụ một workflow video ComfyUI cục bộ) qua gateway đi kèm.
 
 > 🧠 **Tự chọn nơi tính toán — rẻ hơn, chủ động hơn.** Gateway được thiết kế để *chính bạn* quyết định mỗi lượt sinh chạy ở đâu:
 > - **Năng lực tính toán nhàn rỗi của AIPDD (giảm chi phí).** Kết nối kênh **AIPDD** cho phép việc sinh chạy trên **bể tính toán nhàn rỗi** của nền tảng, nên các công đoạn short-drama nặng chỉ tốn một phần nhỏ so với giá theo yêu cầu — đòn bẩy lớn nhất để hạ chi phí sản xuất. Đăng ký tại <https://www.aipdd.work> để lấy API key AIPDD, rồi thêm nó làm một kênh trong **Cài đặt → Model & Kênh**.
-> - **LocalAPI, tự do phối hợp.** Gateway **LocalAPI** đi kèm cho phép đăng ký nhiều nhà cung cấp làm kênh và **kết hợp chúng tùy ý** — official, AIPDD, máy tự vận hành, hoặc bất kỳ endpoint tương thích OpenAI nào — theo từng model, từng công đoạn. Với kênh LocalAPI, chúng tôi khuyên **tự tìm nhà cung cấp và so giá**; danh sách tham khảo đã chọn lọc ở đây: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
+> - **NewAPI, tự do phối hợp.** Gateway **NewAPI** đi kèm cho phép đăng ký nhiều nhà cung cấp làm kênh và **kết hợp chúng tùy ý** — official, AIPDD, máy tự vận hành, hoặc bất kỳ endpoint tương thích OpenAI nào — theo từng model, từng công đoạn. Với kênh NewAPI, chúng tôi khuyên **tự tìm nhà cung cấp và so giá**; danh sách tham khảo đã chọn lọc ở đây: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
 > - **ComfyUI, trên GPU của bạn — cách rẻ nhất để chạy sinh trên canvas.** Adapter **ComfyUI** hạng nhất định hướng việc sinh ảnh / video sang một workflow chạy trên **máy của bạn**: GPU của bạn render, **không tiêu hạn mức cloud theo mỗi lần gọi** — việc nặng chỉ tốn tiền điện, rẻ hơn hẳn mọi model hosted. Đăng ký endpoint ComfyUI cục bộ làm kênh trong chế độ **Custom** hoặc **Hybrid**.
 >   - **Cách cài ComfyUI nhanh nhất** — không cần cài thủ công hay môi trường Python: chỉ cần tải **trình khách tính toán (算力客户端)** đi kèm của chúng tôi rồi chạy trình cài đặt: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.
 >
@@ -459,7 +459,7 @@ Hướng dẫn đầy đủ trong [Cấu hình model](../docs/en/getting-started
 
 ### Gateway đi kèm: dramaclaw-gateway
 
-Dịch vụ `localapi` trong `docker-compose.yml` là [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), fork riêng của DramaClaw từ [New API](https://github.com/QuantumNous/new-api). Nó hiểu giao thức **DC-Media** mà DramaClaw dùng cho ảnh / video / âm thanh (vai trò media, tham chiếu, khung hình đầu / cuối) và chuyển đổi mỗi yêu cầu sang API gốc của nhà cung cấp. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) trên Docker Hub, ghim bởi `DRAMACLAW_GATEWAY_VERSION` trong `.env`. Nó ở trạng thái chờ trong chế độ Official và chỉ được dùng khi bạn chuyển sang **Custom** hoặc **LocalAPI + Official Hybrid**.
+Dịch vụ `localapi` trong `docker-compose.yml` là [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), fork riêng của DramaClaw từ [New API](https://github.com/QuantumNous/new-api). Nó hiểu giao thức **DC-Media** mà DramaClaw dùng cho ảnh / video / âm thanh (vai trò media, tham chiếu, khung hình đầu / cuối) và chuyển đổi mỗi yêu cầu sang API gốc của nhà cung cấp. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) trên Docker Hub, ghim bởi `DRAMACLAW_GATEWAY_VERSION` trong `.env`. Nó ở trạng thái chờ trong chế độ Official và chỉ được dùng khi bạn chuyển sang **Custom** hoặc **NewAPI + Official Hybrid**.
 
 Các adapter nhà cung cấp có sẵn trong gateway hiện nay (xem [ma trận hỗ trợ kênh](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md) để biết trạng thái xác minh): ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Muốn thêm nhà cung cấp khác? Gateway có [trình tạo scaffold và hướng dẫn đóng góp](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
 

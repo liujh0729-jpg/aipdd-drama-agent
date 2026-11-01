@@ -5,12 +5,12 @@
 
 > Run AIPDD-Agent-Claw locally and produce your first result.
 
-AIPDD-Agent-Claw is the Community Edition (CE): it runs on a single machine with no PostgreSQL / Redis required. By default `docker compose` brings up three services: `api` (the creation backend, :8780), `localapi` (LocalAPI, idle until you switch to Custom or LocalAPI + Official Hybrid mode), and `web` (the browser UI, :8080). Models are served through the **AIPDD official gateway** by default — paste in a DC key and you're ready to go.
+AIPDD-Agent-Claw is the Community Edition (CE): it runs on a single machine with no PostgreSQL / Redis required. By default `docker compose` brings up three services: `api` (the creation backend, :8780), `localapi` (NewAPI, idle until you switch to Custom or NewAPI + Official Hybrid mode), and `web` (the browser UI, :8080). Models are served through the **AIPDD official gateway** by default — paste in a DC key and you're ready to go.
 
 ## Prerequisites
 
 - Docker (Desktop or Engine) with `docker compose` support.
-- A **DC key** — sign up / purchase at <https://susciyuan.com>; alternatively use the bundled LocalAPI.
+- A **DC key** — sign up / purchase at <https://www.aipdd.work>; alternatively use the bundled NewAPI.
 
 ## Steps
 
@@ -34,14 +34,14 @@ docker compose ps   # api, localapi, and web should all be running
 ## Enter your DC key (one-time, required)
 
 1. Open **`http://localhost:8080`** in your browser — this is the AIPDD-Agent-Claw UI.
-2. Go to Settings → **Models & Channels → Official**. The gateway address is already prefilled as `https://susciyuan.com/v1`.
+2. Go to Settings → **Models & Channels → Official**. The gateway address is already prefilled as `https://api.aipdd.work/v1`.
 3. **Paste your DC key** and click "Save and Enable". It works immediately, with **no model mapping required** (the official gateway has everything configured on the backend).
 
 > CE defaults to no-login, single local user (`ST_EDITION=ce`, enforced by compose). The REST API lives at `http://localhost:8780` (the browser only talks to `web`, which reverse-proxies to `api`).
 
 ## Want to use your own model channels?
 
-LocalAPI starts together with `docker compose up -d`. Initialize it and configure upstream keys and model mappings under Settings → Models & Channels → Custom. Its address and runtime token are stored in local `settings.db`, not `.env`. See [Configuring Model Providers](configuring-models.md).
+NewAPI starts together with `docker compose up -d`. Initialize it and configure upstream keys and model mappings under Settings → Models & Channels → Custom. Its address and runtime token are stored in local `settings.db`, not `.env`. See [Configuring Model Providers](configuring-models.md).
 
 ## Next steps
 

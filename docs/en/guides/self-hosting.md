@@ -5,7 +5,7 @@
 
 > Deploy, configure, upgrade, and back up DramaClaw CE with Docker.
 
-CE ships three containers: `api` + `localapi` (LocalAPI, idle until you switch to Custom or LocalAPI + Official Hybrid mode) + `web`, with **no PostgreSQL / no Redis / no Celery** (`ST_EDITION=ce`; tasks run inline within the process). Models go through the official DramaClaw gateway by default.
+CE ships three containers: `api` + `localapi` (NewAPI, idle until you switch to Custom or NewAPI + Official Hybrid mode) + `web`, with **no PostgreSQL / no Redis / no Celery** (`ST_EDITION=ce`; tasks run inline within the process). Models go through the official DramaClaw gateway by default.
 
 Two compose files ship in the repo, and **both build everything from source — no published images are ever pulled**. `docker-compose.release.yml` is the single source of the runtime definition for all three services (env / ports / volumes / healthchecks) and also carries their `build:` blocks; `docker-compose.yml` (the default entry point) simply `extends` it. The DramaClaw gateway is vendored under `third_party/dramaclaw-gateway` (AGPL-3.0), so you do **not** clone it separately. Build with `docker compose up -d --build`.
 
@@ -14,7 +14,7 @@ Two compose files ship in the repo, and **both build everything from source — 
 - Docker + `docker compose`.
 - Docker Compose ≥ 2.24 (`docker compose version`).
 - Resources: ≥ 2 vCPU / 4GB recommended (excluding model inference, which runs through an external gateway).
-- A DC key (the default official gateway, see <https://susciyuan.com>), or your own OpenAI-compatible gateway.
+- A DC key (the default official gateway, see <https://www.aipdd.work>), or your own OpenAI-compatible gateway.
 
 ## 2. Get the compose file and configuration
 
@@ -35,7 +35,7 @@ Key points shared by both (defined once in `docker-compose.release.yml`, reused 
 
 | Item | Value | Notes |
 |---|---|---|
-| Services | `api` + `localapi` + `web` | No PG/Redis; `localapi` is LocalAPI, built from the vendored `third_party/dramaclaw-gateway` |
+| Services | `api` + `localapi` + `web` | No PG/Redis; `localapi` is NewAPI, built from the vendored `third_party/dramaclaw-gateway` |
 | Build context | `api` = `.` · `localapi` = `${DRAMACLAW_GATEWAY_SRC:-./third_party/dramaclaw-gateway}` · `web` = `./frontend` | Local build tags `aipdd/api`, `aipdd/gateway`, `aipdd/web`; zero external images |
 | Gateway source | `third_party/dramaclaw-gateway` (vendored) | To build from your own checkout instead, set `DRAMACLAW_GATEWAY_SRC=<path>` in `.env` |
 | Port | `8780:8780` | REST API. Published on all interfaces; while single-owner trust is active (no `ST_CE_MULTI_USER`) every request is treated as the local owner without login — keep 8780 behind the reverse proxy / firewall, or bind it to `127.0.0.1`. Startup logs a warning when the bind is not verifiably loopback-only |
@@ -47,16 +47,16 @@ Key points shared by both (defined once in `docker-compose.release.yml`, reused 
 
 > ⚠️ **Secret-type defaults (such as `PROMPT_EXPORT_PASSWORD=change_me`) must be changed.** For the model gateway, see [Model Configuration](#model-configuration).
 
-Groups (each item is commented inline in `.env.example`): LocalAPI provisioner, reference-media OSS relay (OSS_RELAY_*), Cognee knowledge graph, text/image/video/audio models, image and video base parameters, UI, and output directories. Channel selection, gateway address, and token are saved from the web UI to `settings.db`.
+Groups (each item is commented inline in `.env.example`): NewAPI provisioner, reference-media OSS relay (OSS_RELAY_*), Cognee knowledge graph, text/image/video/audio models, image and video base parameters, UI, and output directories. Channel selection, gateway address, and token are saved from the web UI to `settings.db`.
 
 ### Model Configuration
 
 Recommended and alternative options (see [Configuring Model Providers](../getting-started/configuring-models.md) for details):
 
-- **A. DC official key (recommended)**: the default compose already uses the official gateway. After bringing the stack up, open `http://localhost:8080` → Settings → Models & Channels → Official → paste your DC key and save to start using it, **no model mapping required**. Get a key at <https://susciyuan.com>.
-- **B. LocalAPI**: LocalAPI is already running; open Settings → Models & Channels → Custom, click Initialize, then configure upstream channels and model mappings from the LocalAPI page.
+- **A. DC official key (recommended)**: the default compose already uses the official gateway. After bringing the stack up, open `http://localhost:8080` → Settings → Models & Channels → Official → paste your DC key and save to start using it, **no model mapping required**. Get a key at <https://www.aipdd.work>.
+- **B. NewAPI**: NewAPI is already running; open Settings → Models & Channels → Custom, click Initialize, then configure upstream channels and model mappings from the NewAPI page.
 
-LocalAPI must map DramaClaw's logical models to real upstream models. The reference-image feature needs `OSS_RELAY_AK/SK` (you can skip it for a text-only workflow).
+NewAPI must map DramaClaw's logical models to real upstream models. The reference-image feature needs `OSS_RELAY_AK/SK` (you can skip it for a text-only workflow).
 
 ## 4. Start / Stop
 
@@ -88,7 +88,7 @@ docker run --rm -v dramaclaw-ce_ce-data:/data -v "$PWD":/backup alpine \
 
 Then bring the stack up as usual (`docker compose up -d`). The volume backup already includes generated media; back up `.env` separately.
 
-- The `localapi-data` volume holds LocalAPI's SQLite database (upstream channels, keys, tokens) and is not regenerable — back it up the same way:
+- The `localapi-data` volume holds NewAPI's SQLite database (upstream channels, keys, tokens) and is not regenerable — back it up the same way:
 
 ```bash
 docker run --rm -v dramaclaw-ce_localapi-data:/data -v "$PWD":/backup alpine \
@@ -150,7 +150,7 @@ The script copies only missing files, never overwrites or deletes the source, an
 |---|---|
 | Container won't start | `docker compose logs api`; usually the `.env` gateway address/key was not changed or is unreachable |
 | Port 8780 already in use | Change the left-hand value of `ports` in compose, e.g. `8888:8780` |
-| Port 3000 already in use (LocalAPI fails to start) | **[aipdd fork] `docker-compose.aipdd.yml` does not map 3000**, so this only applies to the two upstream compose files. There the port is bound to `127.0.0.1` by default; set `ST_LOCALAPI_PORT=<free port>` in `.env` and restart. `api` never waits on the gateway's health, so it is not blocked. |
+| Port 3000 already in use (NewAPI fails to start) | **[aipdd fork] `docker-compose.aipdd.yml` does not map 3000**, so this only applies to the two upstream compose files. There the port is bound to `127.0.0.1` by default; set `ST_LOCALAPI_PORT=<free port>` in `.env` and restart. `api` never waits on the gateway's health, so it is not blocked. |
 | Model call errors | Confirm the gateway is reachable and that the `*_MODEL` names exist in the gateway backend |
 
 ## Related

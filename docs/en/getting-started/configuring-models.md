@@ -3,7 +3,7 @@
 
 # Configuring Models
 
-DramaClaw CE uses a LocalAPI-compatible gateway for text, vision, embedding, image, video, and audio models. Music models are the exception: the **Music** type in settings only registers the model and its site channel, and calls go straight to the vendor's music protocol instead of through the gateway. Model settings are stored in the local CE `settings.db`. Secrets are never returned to the browser; only masked saved-state previews are shown.
+DramaClaw CE uses a NewAPI-compatible gateway for text, vision, embedding, image, video, and audio models. Music models are the exception: the **Music** type in settings only registers the model and its site channel, and calls go straight to the vendor's music protocol instead of through the gateway. Model settings are stored in the local CE `settings.db`. Secrets are never returned to the browser; only masked saved-state previews are shown.
 
 After startup, open `http://localhost:8080` and go to **Settings → Models & Channels**. The “Active” badge at the top shows the actual runtime mode, not merely the tab currently being viewed.
 
@@ -12,8 +12,8 @@ After startup, open `http://localhost:8080` and go to **Settings → Models & Ch
 | Mode | Use case | What you configure |
 |---|---|---|
 | Official | Use the models provided by the official gateway | DC Key only |
-| Custom | Route every model through your LocalAPI configuration | LocalAPI initialization, providers, feature models, embedding, and media models |
-| LocalAPI + Official Hybrid | Keep official models while adding Local ComfyUI video models or overriding official models with matching IDs | Official DC Key, LocalAPI, ComfyUI URL, and workflows |
+| Custom | Route every model through your NewAPI configuration | NewAPI initialization, providers, feature models, embedding, and media models |
+| NewAPI + Official Hybrid | Keep official models while adding Local ComfyUI video models or overriding official models with matching IDs | Official DC Key, NewAPI, ComfyUI URL, and workflows |
 
 Enable the intended mode after configuring it. New jobs read the latest mode, key, and mappings. Jobs already running do not switch gateways midway.
 
@@ -31,7 +31,7 @@ The official image/video list and its resolutions, aspect ratios, durations, and
 
 ### Update the official media model catalog
 
-Official and LocalAPI + Official Hybrid modes show the current catalog version, model count, and source:
+Official and NewAPI + Official Hybrid modes show the current catalog version, model count, and source:
 
 - Click **Check for Updates** to fetch the latest catalog from DramaClaw's official publishing URL and apply it immediately.
 - **Automatically update the official model catalog** is off by default. When enabled, the backend checks every five minutes by default and also checks immediately when the corresponding settings panel opens.
@@ -51,37 +51,37 @@ The repository's `publish-official-media-catalog` workflow uploads `catalogs/<sh
 
 Keep `dramaclaw-dl` private and grant anonymous `GetObject` only for the `official-media-catalog/*` prefix. The CI identity only needs write access to that prefix. Git pull requests remain the source of truth; enabling OSS versioning is recommended for infrastructure recovery.
 
-To obtain a DC Key, visit <https://susciyuan.com>.
+To obtain a DC Key, visit <https://www.aipdd.work>.
 
 ## Custom mode
 
 ### 1. Start the local stack
 
-Use the repository compose file (LocalAPI is always part of it):
+Use the repository compose file (NewAPI is always part of it):
 
 ```bash
 docker compose up -d
 ```
 
-It starts the DramaClaw API, web frontend, and LocalAPI. DramaClaw normally reaches LocalAPI through the container network. The browser-facing host port may differ and does not need to replace the internal URL.
+It starts the DramaClaw API, web frontend, and NewAPI. DramaClaw normally reaches NewAPI through the container network. The browser-facing host port may differ and does not need to replace the internal URL.
 
-The repository compose file enables the setup and channel-management features required by the settings UI. The LocalAPI SQLite database is stored in the Compose `localapi-data` volume. Its path is `/data/localapi.db` inside the LocalAPI container, while the DramaClaw API manages it through the shared `/localapi-data/localapi.db` mount. Normally you do not enter a SQLite path or DSN manually.
+The repository compose file enables the setup and channel-management features required by the settings UI. The NewAPI SQLite database is stored in the Compose `localapi-data` volume. Its path is `/data/localapi.db` inside the NewAPI container, while the DramaClaw API manages it through the shared `/localapi-data/localapi.db` mount. Normally you do not enter a SQLite path or DSN manually.
 
-### 2. Initialize LocalAPI
+### 2. Initialize NewAPI
 
 Open **Custom**. When it shows “Initialization required”:
 
-1. Set and confirm a root account password of at least eight characters for a fresh LocalAPI instance.
-2. Click **Initialize LocalAPI**.
+1. Set and confirm a root account password of at least eight characters for a fresh NewAPI instance.
+2. Click **Initialize NewAPI**.
 
 Initialization:
 
-- Creates the first LocalAPI root account only for a fresh instance.
+- Creates the first NewAPI root account only for a fresh instance.
 - Creates or reuses the `dramaclaw-ce-runtime` token.
 - Stores the runtime URL and token in CE local settings.
 - Verifies the SQLite database and management access.
 
-DramaClaw does not store the root password. Keep it for signing in to LocalAPI. Entering a password for an already initialized instance does not reset the existing password.
+DramaClaw does not store the root password. Keep it for signing in to NewAPI. Entering a password for an already initialized instance does not reset the existing password.
 
 ### 3. Apply the recommended profile
 
@@ -94,7 +94,7 @@ After initialization, start with **Recommended**. One profile configures:
 
 Enter each provider key separately, then click **Save & Apply All**. Keys are stored separately and never written into profile JSON. Leave an already saved key blank; entering a new value replaces it.
 
-The current recommended template uses VolcEngine Ark as its only channel: text, vision, embedding, and Seedance video media models all route through VolcEngine. Speech synthesis (IndexTTS2) routes through the effective LocalAPI gateway channel.
+The current recommended template uses VolcEngine Ark as its only channel: text, vision, embedding, and Seedance video media models all route through VolcEngine. Speech synthesis (IndexTTS2) routes through the effective NewAPI gateway channel.
 
 The built-in recommended profile is read-only. Switch to **My Config** to edit and persist your own JSON. The main shape is:
 
@@ -146,12 +146,12 @@ Use Advanced Settings to adjust individual results after applying a profile.
 
 #### Provider channels
 
-Click **Manage Channels** to open the provider catalog supported by the current LocalAPI instance. Provider types and capabilities are loaded dynamically from `/api/channel/types`, and each provider can be added once. Search by provider name or filter by text, vision, embedding, image, video, audio, and music capabilities. A newly added provider appears first in the configured-channel list. If the catalog fails to load, verify LocalAPI is running and click **Reload**.
+Click **Manage Channels** to open the provider catalog supported by the current NewAPI instance. Provider types and capabilities are loaded dynamically from `/api/channel/types`, and each provider can be added once. Search by provider name or filter by text, vision, embedding, image, video, audio, and music capabilities. A newly added provider appears first in the configured-channel list. If the catalog fails to load, verify NewAPI is running and click **Reload**.
 
 Provider selectors for feature, embedding, and media models are filtered by their purpose. For example, video models list video-capable providers, while text features list text-capable providers. Existing selections and providers with temporarily unavailable capability metadata remain visible for inspection and correction instead of disappearing after an upgrade.
 
 - **Save Channels** stores CE’s local channel presets.
-- **Update LocalAPI Channel** immediately replaces the matching LocalAPI channel key and Base URL.
+- **Update NewAPI Channel** immediately replaces the matching NewAPI channel key and Base URL.
 - **Base URL Override** is normally empty. Set it only for a custom proxy or when required by the provider.
 
 Before removing a regular provider, the confirmation shows how many feature-model, media-model, and embedding mappings are affected. Removing a saved provider immediately persists the remaining provider list. If that request fails, the local configuration is retained. Removing the final regular provider persists an empty list, so it does not return after refresh. ComfyUI keeps its dedicated cleanup confirmation described below.
@@ -160,19 +160,19 @@ After a profile is saved, a channel key should show “Saved” and a masked pre
 
 #### Feature models
 
-DramaClaw uses stable logical names such as `DC-character-builder-LLM`, `DC-scene-builder-LLM` and `DC-freezone-vision-LLM`. In Custom mode, keep those internal names and map them to real upstream models in LocalAPI.
+DramaClaw uses stable logical names such as `DC-character-builder-LLM`, `DC-scene-builder-LLM` and `DC-freezone-vision-LLM`. In Custom mode, keep those internal names and map them to real upstream models in NewAPI.
 
 - Text features can use text-only models.
 - Vision features send images or video and require a suitable multimodal model.
 - Bulk fill changes drafts only; click Save Mapping afterward.
 - Hermes may use a separate model. Other `DC-*-LLM` mappings can share one upstream model or be overridden individually.
-- After an upgrade that adds a feature row (for example `DC-character-builder-LLM` in v2.0.3), the new row starts empty and is not written to LocalAPI until you pick a model and click Save Mapping, or re-apply a quick profile. Until then that feature fails with `No available channel for model DC-...`.
+- After an upgrade that adds a feature row (for example `DC-character-builder-LLM` in v2.0.3), the new row starts empty and is not written to NewAPI until you pick a model and click Save Mapping, or re-apply a quick profile. Until then that feature fails with `No available channel for model DC-...`.
 
 #### Capability slots and one-click binding
 
 `DC-*-LLM` names are the logical models inside a channel. Above them sits a layer of **capability slots**, each one bound to a concrete job (story extraction, script, characters, scenes, storyboard, visual gating, style references, and so on).
 
-- **The source of truth is this project's settings store.** Slot-to-model alias and media mappings live in settings; the LocalAPI channel is only a projection. Model names and credentials are always resolved from Settings — `.env` does not decide which model runs (the few direct-egress side paths are the exception; see the exception section in the [environment variable reference](../reference/environment-variables.md)).
+- **The source of truth is this project's settings store.** Slot-to-model alias and media mappings live in settings; the NewAPI channel is only a projection. Model names and credentials are always resolved from Settings — `.env` does not decide which model runs (the few direct-egress side paths are the exception; see the exception section in the [environment variable reference](../reference/environment-variables.md)).
 - **Pre-run settings → Chain models**: pick a model once and every slot in the chain points at it (story, script, assets, storyboard, style). Only names that actually exist in that provider's catalog get written. Slots that must read images are filled from the same channel with a vision-capable model; if none exists the slot stays empty and the reason is reported. Leaving the picker empty keeps your current bindings.
 - **Model plaza** (read-only): lists the models this project can call and which capability slots use each one. A slot with no model bound to it is called out there, along with how many capability slots are still missing an alias mapping.
 
@@ -196,7 +196,7 @@ Media model configuration controls:
 
 - Whether the model appears in XiaHua.
 - Label and ordering.
-- The upstream model sent to LocalAPI.
+- The upstream model sent to NewAPI.
 - Resolution, aspect-ratio, image-quality, and duration controls.
 - Text-to-video, first frame, first/last frame, image reference, all-reference, and video-edit modes.
 - Reference image/video/audio limits.
@@ -205,36 +205,36 @@ Media model configuration controls:
 
 Music entries only pick the model and the site channel: the gateway has no music route, so saving one never appends an `audio/speech` endpoint suffix, and the Music Studio tool calls the channel key over the vendor protocol directly. Note this is unrelated to the local ComfyUI `MiniMax-H3-local` template, which is a self-hosted video workflow name. Built-in mainline models provide the default capability baseline and cannot be removed from the configuration. My Config may add image or video models and edit custom-model capabilities. Save the complete configuration and refresh XiaHua to load the latest catalog and controls.
 
-The **Model ID** is DramaClaw’s stable identifier. **Upstream Model** is the actual model used by the LocalAPI channel; the two may differ.
+The **Model ID** is DramaClaw’s stable identifier. **Upstream Model** is the actual model used by the NewAPI channel; the two may differ.
 
 ### 5. ComfyUI Configuration
 
-In **Custom** mode, add ComfyUI through **Advanced Settings → Provider Channels**. In **LocalAPI + Official Hybrid**, add it through the separate **ComfyUI Configuration** section. Both modes use the same LocalAPI and SQLite data and the same channel editor.
+In **Custom** mode, add ComfyUI through **Advanced Settings → Provider Channels**. In **NewAPI + Official Hybrid**, add it through the separate **ComfyUI Configuration** section. Both modes use the same NewAPI and SQLite data and the same channel editor.
 
-Click **Manage Channels** and add ComfyUI from the provider catalog to reveal the **ComfyUI Workflows** area beneath that channel. **Load MiniMax H3 Template** appears only there, so users who do not add ComfyUI never see the shortcut. Loading the template adds three starter workflows and fills `http://127.0.0.1:8188` when Base URL is empty. It does not replace a non-empty URL or an existing workflow with the same ID. Save the channel and video-model configuration afterward to persist the result to LocalAPI.
+Click **Manage Channels** and add ComfyUI from the provider catalog to reveal the **ComfyUI Workflows** area beneath that channel. **Load MiniMax H3 Template** appears only there, so users who do not add ComfyUI never see the shortcut. Loading the template adds three starter workflows and fills `http://127.0.0.1:8188` when Base URL is empty. It does not replace a non-empty URL or an existing workflow with the same ID. Save the channel and video-model configuration afterward to persist the result to NewAPI.
 
 Each ComfyUI channel configuration needs:
 
-- One model name used by DramaClaw. It is registered in LocalAPI and displayed in XiaHua.
+- One model name used by DramaClaw. It is registered in NewAPI and displayed in XiaHua.
 - The ComfyUI service URL; the local default is `http://127.0.0.1:8188`.
 - One or more workflows. Each workflow has a unique **Workflow ID** and a ComfyUI **API Format Workflow JSON** export; browser workflow JSON is not accepted.
 - Media capabilities for the model, including modes, ratios, resolutions, durations, and reference-media limits.
 
 A normal local ComfyUI instance does not require an API key, so leave it empty. Authentication is relevant only when ComfyUI is placed behind an authenticated proxy.
 
-One model name can bind multiple workflows. DramaClaw saves the model name, Workflow IDs, and Workflow JSON to LocalAPI, while the official gateway selects the workflow for each request. XiaHua displays one unified model rather than one model per workflow.
+One model name can bind multiple workflows. DramaClaw saves the model name, Workflow IDs, and Workflow JSON to NewAPI, while the official gateway selects the workflow for each request. XiaHua displays one unified model rather than one model per workflow.
 
 The MiniMax H3 template uses the model name `MiniMax-H3-local` and includes text-to-video, first-frame, and all-reference workflows. Its initial media capabilities enable those three modes, resolutions `480p`, `768p`, and `1080p`, and ratios `21:9`, `16:9`, `4:3`, `1:1`, `3:4`, and `9:16`. These are starter values and remain editable in media model capabilities.
 
-Deleting one workflow removes only that route; it does not automatically delete the unified model. To remove everything, use **Clear ComfyUI configuration**, which appears only after ComfyUI is configured. After confirmation, it removes the ComfyUI channel, workflows, and related media model mappings from local settings and LocalAPI. Existing projects and generated media are preserved.
+Deleting one workflow removes only that route; it does not automatically delete the unified model. To remove everything, use **Clear ComfyUI configuration**, which appears only after ComfyUI is configured. After confirmation, it removes the ComfyUI channel, workflows, and related media model mappings from local settings and NewAPI. Existing projects and generated media are preserved.
 
-## LocalAPI + Official Hybrid mode
+## NewAPI + Official Hybrid mode
 
 Hybrid mode keeps the official gateway while generating selected video models through Local ComfyUI:
 
 1. Save the DC Key under **Official**.
-2. Initialize LocalAPI once under **Custom**; the same SQLite database is reused.
-3. Open **LocalAPI + Official Hybrid**.
+2. Initialize NewAPI once under **Custom**; the same SQLite database is reused.
+3. Open **NewAPI + Official Hybrid**.
 4. Open the separate **ComfyUI Configuration** section, click **Manage Channels**, and add ComfyUI from the catalog.
 5. Load the MiniMax H3 template from that channel's **ComfyUI Workflows** area. Alternatively, enter a local video model name and add one or more Workflow IDs with **API Format Workflow JSON**. The local default URL is `http://127.0.0.1:8188`.
 6. Save video configuration and enable Hybrid mode.
@@ -282,10 +282,10 @@ Enter Cloud name, API Key, API Secret, and an optional folder. Find them under *
 | Symptom | What to check |
 |---|---|
 | No “Saved” badge after saving a key | The value may still be a browser draft. Save/update that channel or reapply the complete profile, and ensure the running image contains the latest code. |
-| Adding a media model says its provider key is missing | The provider channel was not persisted to LocalAPI. Save/update the channel before saving media models. |
-| LocalAPI reports `No available channel for model ...` | Check the logical mapping, channel status, upstream model name, and group. |
-| Structured steps fail with `Exceeded maximum output retries` behind a Codex-backed relay (Codex2API etc.) | The relay drops `tool_calls` on `/v1/chat/completions`. Enable **ChatCompletions → Responses Compatibility** for that channel in the LocalAPI admin. See the [troubleshooting guide](../guides/troubleshooting.md#model--gateway). |
-| LocalAPI initialization fails | Check the LocalAPI service, SQLite mount, directory permissions, and `LOCALAPI_PROVISIONER_ENABLED`. |
+| Adding a media model says its provider key is missing | The provider channel was not persisted to NewAPI. Save/update the channel before saving media models. |
+| NewAPI reports `No available channel for model ...` | Check the logical mapping, channel status, upstream model name, and group. |
+| Structured steps fail with `Exceeded maximum output retries` behind a Codex-backed relay (Codex2API etc.) | The relay drops `tool_calls` on `/v1/chat/completions`. Enable **ChatCompletions → Responses Compatibility** for that channel in the NewAPI admin. See the [troubleshooting guide](../guides/troubleshooting.md#model--gateway). |
+| NewAPI initialization fails | Check the NewAPI service, SQLite mount, directory permissions, and `LOCALAPI_PROVISIONER_ENABLED`. |
 | A new model is absent from XiaHua | Verify it is enabled, has the correct media type, the complete configuration was saved, and the page was refreshed. |
 | Controls do not match model capabilities | Check the media model `config`, especially resolutions, ratios, modes, and reference limits. |
 | Knowledge-graph embedding fails | Check the key, upstream model, dimensions, and batch size. HTTP 429 means upstream rate limiting. |
@@ -301,6 +301,6 @@ Enter Cloud name, API Key, API Secret, and an optional folder. Find them under *
 
 - `src/novelvideo/official_media_models.json`: CE official media models and capabilities.
 - `.env.example`: environment variable reference.
-- `docker-compose.yml` (source build) / `docker-compose.release.yml` (images): the deployment files (api + LocalAPI + web); the gateway mode is chosen in Settings.
+- `docker-compose.yml` (source build) / `docker-compose.release.yml` (images): the deployment files (api + NewAPI + web); the gateway mode is chosen in Settings.
 - [Self-Hosting Handbook](../guides/self-hosting.md)
 - [Environment Variable Reference](../reference/environment-variables.md)

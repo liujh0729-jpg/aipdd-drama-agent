@@ -5,12 +5,12 @@
 
 > 本地跑起 AIPDD-Agent-Claw,产出第一个结果。
 
-AIPDD-Agent-Claw 是社区版(CE),单机运行、无需 PostgreSQL / Redis。默认 `docker compose` 起三个服务:`api`(创作后端,:8780)、`localapi`(LocalAPI,切到自定义/LocalAPI + 官方混合模式前闲置)、`web`(浏览器界面,:8080);模型默认走 **AIPDD 官方网关**,填一个 DC key 即用。
+AIPDD-Agent-Claw 是社区版(CE),单机运行、无需 PostgreSQL / Redis。默认 `docker compose` 起三个服务:`api`(创作后端,:8780)、`localapi`(NewAPI,切到自定义/NewAPI + 官方混合模式前闲置)、`web`(浏览器界面,:8080);模型默认走 **AIPDD 官方网关**,填一个 DC key 即用。
 
 ## 前置
 
 - Docker(Desktop 或 Engine),支持 `docker compose`。
-- 一个 **DC key** —— 到 <https://susciyuan.com> 注册 / 购买；也可以改用 CE 随附的 LocalAPI。
+- 一个 **DC key** —— 到 <https://www.aipdd.work> 注册 / 购买；也可以改用 CE 随附的 NewAPI。
 
 ## 步骤
 
@@ -34,14 +34,14 @@ docker compose ps   # api, localapi, web 应该都在运行
 ## 填入 DC key(必做一次)
 
 1. 浏览器打开 **`http://localhost:8080`** —— 这就是 AIPDD-Agent-Claw 的界面。
-2. 进入设置 → **模型与渠道 → 官方**。网关地址已预填 `https://susciyuan.com/v1`。
+2. 进入设置 → **模型与渠道 → 官方**。网关地址已预填 `https://api.aipdd.work/v1`。
 3. **粘贴你的 DC key**,点「保存并启用」。立即可用,**无需映射任何模型**(官方网关后台已配齐)。
 
 > CE 默认免登录、单本地用户(`ST_EDITION=ce`,compose 已强制)。REST API 在 `http://localhost:8780`(浏览器只与 `web` 通信,它再反代到 `api`)。
 
 ## 想使用自己的模型渠道？
 
-LocalAPI 随 `docker compose up -d` 一起启动。在「设置 → 模型与渠道 → 自定义」中初始化并填写上游 key、保存模型映射。地址和 runtime token 会写入本机 `settings.db`，不写入 `.env`。详见[配置模型供应商](configuring-models.md)。
+NewAPI 随 `docker compose up -d` 一起启动。在「设置 → 模型与渠道 → 自定义」中初始化并填写上游 key、保存模型映射。地址和 runtime token 会写入本机 `settings.db`，不写入 `.env`。详见[配置模型供应商](configuring-models.md)。
 
 ## 下一步
 

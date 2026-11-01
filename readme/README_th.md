@@ -129,7 +129,7 @@ DramaClaw ใช้สัญญาอนุญาต <a href="../LICENSES/Elasti
 DramaClaw คือ**สายการผลิตละคร AI แบบเปิดเผยซอร์สโค้ด (source available)** — และยิ่งนับวันก็ยิ่งครอบคลุมเรื่องราวภาพทุกแบบที่คุณอยากเล่าด้วย generative model มันมีสองด้านที่ใช้คลังแอสเซ็ตเดียวกันและ agent ตัวเดียวกัน:
 
 - **XiaHua — canvas ไร้ขอบเขต** เวิร์กเบนช์แบบ node ที่คุณสร้าง แก้ไข และเชื่อมต่อภาพ วิดีโอ เสียง ฉาก 3D และบทได้อย่างอิสระ แล้วส่งสิ่งที่ถูกใจกลับเข้าซีรีส์ นี่คือที่ที่งานสร้างสรรค์ส่วนใหญ่ของเราเกิดขึ้นในวันนี้ และเป็นทิศทางที่ DramaClaw กำลังมุ่งไป
-- **Series (XiaJi) — สายการผลิต** วางต้นฉบับหรือบทภาพยนตร์ลงไป แล้ว DramaClaw จะรับงานหนักทั้งหมด: จัดโครงสร้างเรื่อง วางแผนตอน เขียนบท วาดสตอรีบอร์ดและเฟรมแรก สังเคราะห์เสียงพากย์ และตัดต่อหนังให้เสร็จ
+- **Series — สายการผลิต** วางต้นฉบับหรือบทภาพยนตร์ลงไป แล้ว DramaClaw จะรับงานหนักทั้งหมด: จัดโครงสร้างเรื่อง วางแผนตอน เขียนบท วาดสตอรีบอร์ดและเฟรมแรก สังเคราะห์เสียงพากย์ และตัดต่อหนังให้เสร็จ
 
 **Director** agent ในตัว ทำงานคร่อมทั้งสองด้าน: ตอบคำถามเกี่ยวกับโปรเจกต์ของคุณ ขับเคลื่อนงานในสายการผลิต และสร้างพร้อมรัน node graph บน canvas ให้คุณได้
 
@@ -196,7 +196,7 @@ DramaClaw คือ**สายการผลิตละคร AI แบบเ�
 </p>
 <p align="center"><sub>ภาพแนะนำฟีเจอร์จากภาพหน้าจอเดิม รายละเอียดอาจแตกต่างจากเวอร์ชันปัจจุบัน</sub></p>
 
-### Series (XiaJi) — สายการผลิต
+### Series — สายการผลิต
 
 <p align="center">
   <img src="../assets/pipeline.png" alt="สายการผลิต DramaClaw — Ingest, Plan, Produce, Deliver" width="760"/>
@@ -309,7 +309,7 @@ DramaClaw รัน inference ทั้งหมดผ่าน **gateway ที
 | **Docker** | Docker + `docker compose` |
 | **พอร์ต** | `8080` เว็บ UI · `8780` REST API · `3000` admin UI ของ gateway ที่มาพร้อมกัน (ค่าเริ่มต้นเปิดเฉพาะ host ขยายได้) |
 | **Datastore** | ไม่ต้องใช้เลย — ไม่มี Postgres, Redis, Celery หรือ Ray งานรันใน process; สถานะอยู่บนระบบไฟล์ในเครื่อง (SQLite + ไฟล์) |
-| **เครือข่าย** | ต้องออกอินเทอร์เน็ตไปยัง gateway อย่างเป็นทางการ `susciyuan.com` และ/หรือผู้ให้บริการ model ที่คุณกำหนดใน gateway ที่มาพร้อมกัน |
+| **เครือข่าย** | ต้องออกอินเทอร์เน็ตไปยัง gateway อย่างเป็นทางการ `api.aipdd.work` และ/หรือผู้ให้บริการ model ที่คุณกำหนดใน gateway ที่มาพร้อมกัน |
 
 > การพัฒนาในเครื่อง (ไม่ใช้ Docker) ต้องใช้ Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg` เพิ่มเติม ดูข้อกำหนดเบื้องต้นฉบับเต็มใน [คู่มือโฮสต์เอง](../docs/en/guides/self-hosting.md)
 
@@ -342,13 +342,13 @@ DramaClaw รัน inference ทั้งหมดผ่าน **gateway ที
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # LocalAPI, built from ../dramaclaw-gateway
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # NewAPI, built from ../dramaclaw-gateway
 cd dramaclaw
 
 cp .env.example .env
 # Edit .env — set PROMPT_EXPORT_PASSWORD to a non-default value.
 
-docker compose up -d --build   # builds and starts three services: api / localapi (LocalAPI) / web
+docker compose up -d --build   # builds and starts three services: api / localapi (NewAPI) / web
 ```
 
 checkout ทั้งสองเป็น git repo ธรรมดา: แก้ไข, `git pull`, สร้างใหม่ แก้แค่โค้ด DramaClaw? `docker compose up -d --build api web` แก้แค่ gateway? `docker compose up -d --build localapi` clone gateway ไว้ที่อื่น หรืออยากให้ Docker ดึงจาก git เอง? ตั้ง `DRAMACLAW_GATEWAY_SRC` ใน `.env` เป็น path นั้น หรือเป็น `https://github.com/dramaclaw/dramaclaw-gateway.git#main`
@@ -361,9 +361,9 @@ docker compose -f docker-compose.release.yml up -d
 
 เปิดแอปที่ <http://localhost:8080>; REST API อยู่ที่ <http://localhost:8780> ใน **Settings → Models & Channels** เลือกหนึ่งอย่าง:
 
-- **Official** — วาง DC key ของคุณ (รับได้ที่ <https://susciyuan.com>); ไม่ต้อง map model gateway ที่มาพร้อมกันจะอยู่เฉย ๆ
+- **Official** — วาง DC key ของคุณ (รับได้ที่ <https://www.aipdd.work>); ไม่ต้อง map model gateway ที่มาพร้อมกันจะอยู่เฉย ๆ
 - **Custom** — คลิกเดียวเพื่อเริ่มต้น gateway `localapi` ที่มาพร้อมกัน; จากนั้นเพิ่ม upstream channel ของคุณเอง
-- **LocalAPI + Official Hybrid** — ใช้ official สำหรับสายการผลิตหลัก ใช้ gateway ที่มาพร้อมกันสำหรับ channel เพิ่มเติม
+- **NewAPI + Official Hybrid** — ใช้ official สำหรับสายการผลิตหลัก ใช้ gateway ที่มาพร้อมกันสำหรับ channel เพิ่มเติม
 
 ขั้นตอนฉบับเต็มอยู่ใน [เริ่มต้นอย่างรวดเร็ว](../docs/en/getting-started/quickstart.md)
 
@@ -387,7 +387,7 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **พอร์ต.** `8080` web UI · `8780` REST API · `3000` LocalAPI admin (bind เฉพาะ `127.0.0.1` เป็นค่าเริ่มต้น) วาง **reverse proxy พร้อม TLS** (Caddy / Nginx / Traefik) ไว้หน้า `8080` และให้ `8780` / `3000` เป็นภายใน เปิดแค่ `80` / `443` ใน firewall / security group
+- **พอร์ต.** `8080` web UI · `8780` REST API · `3000` NewAPI admin (bind เฉพาะ `127.0.0.1` เป็นค่าเริ่มต้น) วาง **reverse proxy พร้อม TLS** (Caddy / Nginx / Traefik) ไว้หน้า `8080` และให้ `8780` / `3000` เป็นภายใน เปิดแค่ `80` / `443` ใน firewall / security group
 - **build ครั้งแรกต้องการพื้นที่** — ให้ host มี RAM ≥ 8 GB และดิสก์ ≥ 40 GB ไม่งั้น build frontend จะถูก OOM ฆ่า
 - **ล็อกอิน** ด้วยบัญชีเครื่องเดียว `local` โดยใช้ `ST_LOCAL_PASSWORD` (หรือรหัสผ่านใช้ครั้งเดียวที่พิมพ์ใน `docker compose -f docker-compose.aipdd.yml logs api` ตอนเริ่มครั้งแรก)
 - **หลายผู้ใช้?** CE ถูกออกแบบมาเป็นเจ้าเดียว ถ้าจะบริการหลายผู้ใช้ ให้เปิด `ST_CE_MULTI_USER` แล้ววาง auth จริง + HTTPS ไว้ข้างหน้า หมายเหตุ production เต็ม: [คู่มือ self-hosting](../docs/en/guides/self-hosting.md)
@@ -406,7 +406,7 @@ uv run novelvideo api --port 8780   # start the REST API (CE defaults to inline 
 
 รัน frontend ในเทอร์มินัลที่สอง: `cd frontend && pnpm install && pnpm dev`
 
-**Gateway** ในโหมด **Official** คุณไม่ต้องทำอะไรเพิ่ม สำหรับ **Custom** หรือ **LocalAPI + Official Hybrid** API คาดหวัง gateway ที่ `127.0.0.1:3000` ซึ่งมีไฟล์ SQLite อยู่ที่ `./state/localapi/localapi.db` (นั่นคือสิ่งที่ปุ่ม "Initialize" ใน Settings เขียนลงไป; `LOCALAPI_ADMIN_BASE_URL` ใน `.env` ชี้ไปที่นั่นอยู่แล้ว) จะรัน image ที่เผยแพร่แล้วโดย mount ไดเรกทอรีนั้น:
+**Gateway** ในโหมด **Official** คุณไม่ต้องทำอะไรเพิ่ม สำหรับ **Custom** หรือ **NewAPI + Official Hybrid** API คาดหวัง gateway ที่ `127.0.0.1:3000` ซึ่งมีไฟล์ SQLite อยู่ที่ `./state/localapi/localapi.db` (นั่นคือสิ่งที่ปุ่ม "Initialize" ใน Settings เขียนลงไป; `LOCALAPI_ADMIN_BASE_URL` ใน `.env` ชี้ไปที่นั่นอยู่แล้ว) จะรัน image ที่เผยแพร่แล้วโดย mount ไดเรกทอรีนั้น:
 
 ```bash
 mkdir -p state/localapi
@@ -428,9 +428,9 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
    - ถ้าคุณตั้ง `ST_LOCAL_PASSWORD` ใน `.env` ให้ล็อกอินด้วยบัญชี `local` และรหัสผ่านนั้น
    - ถ้าปล่อยว่าง backend จะ**ไม่**สร้างบัญชีให้: หน้าแรกคือ**ฟอร์มเริ่มใช้งาน** ตั้งชื่อผู้ใช้และรหัสผ่านเริ่มต้นเอง บัญชีแรกจะเป็น super admin แล้วฟอร์มจะปิดถาวร เพิ่มผู้ใช้ later ที่ **การตั้งค่า → จัดการผู้ใช้**
 3. **ต่อโมเดลของคุณ** — ไปที่ **Settings → Models & Channels** แล้วเลือกโหมดหนึ่ง (รายละเอียดใน [Model และผู้ให้บริการที่รองรับ](#supported-models)):
-   - **Official** — วาง DC key จาก <https://susciyuan.com>; โมเดลทั้งหมด map ไว้แล้ว LocalAPI จะรอเฉย
-   - **Custom** — คลิกเดียวจะ init LocalAPI แล้วเพิ่ม channel upstream ของคุณเอง (API key + model ID) ใน admin UI ของมัน
-   - **LocalAPI + Official Hybrid** — ใช้ official สำหรับ pipeline หลัก และ channel เพิ่มเติมผ่าน LocalAPI
+   - **Official** — วาง DC key จาก <https://www.aipdd.work>; โมเดลทั้งหมด map ไว้แล้ว NewAPI จะรอเฉย
+   - **Custom** — คลิกเดียวจะ init NewAPI แล้วเพิ่ม channel upstream ของคุณเอง (API key + model ID) ใน admin UI ของมัน
+   - **NewAPI + Official Hybrid** — ใช้ official สำหรับ pipeline หลัก และ channel เพิ่มเติมผ่าน NewAPI
 4. **เริ่มสร้างงาน** — สองทางเข้าสู่ asset library เดียวกัน:
    - **pipeline ซีรีส์**: ใส่ต้นฉบับหรือบท (รองรับ Fountain) แล้วให้ AIPDD-Agent-Claw วางแผนตอน เขียนบท เขียน storyboard และเฟรมแรก สังเคราะห์เสียงพากย์ และตัดต่อเป็นวิดีโอฉบับสมบูรณ์ แต่ละขั้นเป็น task อิสระใน **Task Center** — รันตามลำดับ ข้าม หรือเริ่มต่อจาก checkpoint ใดก็ได้
    - **canvas**: เปิด canvas ไร้ขอบเขตแล้ววาง / เชื่อม node (ภาพ วิดีโอ เสียง บท ฉาก 3D…) เพื่อสำรวจอย่างอิสระ แล้วดันผลงานที่ชอบกลับเข้าเป็นซีรีส์
@@ -443,13 +443,13 @@ docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
 
 DramaClaw เป็นกลางเรื่อง model — model ข้อความ / ภาพ / วิดีโอ / เสียงทั้งหมดเชื่อมต่อผ่าน **gateway ที่เข้ากันได้กับ OpenAI** เลือกโหมดใน **Settings → Models & Channels**:
 
-- **Official (แนะนำ)** — วาง DC key ของคุณ (รับได้ที่ <https://susciyuan.com>) บันทึก เสร็จ gateway อย่างเป็นทางการมี model mapping ทุกตัวที่ DramaClaw ต้องการอยู่แล้ว; ไม่ต้องตั้งค่าอะไรเลย
+- **Official (แนะนำ)** — วาง DC key ของคุณ (รับได้ที่ <https://www.aipdd.work>) บันทึก เสร็จ gateway อย่างเป็นทางการมี model mapping ทุกตัวที่ DramaClaw ต้องการอยู่แล้ว; ไม่ต้องตั้งค่าอะไรเลย
 - **Custom** — คลิกเดียวเพื่อเริ่มต้น `dramaclaw-gateway` ที่มาพร้อมกัน จากนั้นเพิ่ม channel ของผู้ให้บริการของคุณเอง (API key, model ID) ใน admin UI ของมัน ทุก model ที่ DramaClaw เรียกจะผ่าน channel ของคุณ
-- **LocalAPI + Official Hybrid** — ใช้ model official สำหรับสายการผลิตหลัก และเพิ่ม channel อื่น (เช่นเวิร์กโฟลว์วิดีโอ ComfyUI ในเครื่อง) ผ่าน gateway ที่มาพร้อมกัน
+- **NewAPI + Official Hybrid** — ใช้ model official สำหรับสายการผลิตหลัก และเพิ่ม channel อื่น (เช่นเวิร์กโฟลว์วิดีโอ ComfyUI ในเครื่อง) ผ่าน gateway ที่มาพร้อมกัน
 
 > 🧠 **เลือกแหล่งกำลัง computation เอง — ถูกลงและคุมได้มากขึ้น.** gateway ถูกออกแบบให้ *คุณ* เป็นผู้ตัดสินใจว่าการสร้างแต่ละครั้งจะรันที่ไหน:
 > - **ทรัพยากร computation ที่ว่างของ AIPDD (ลดต้นทุน).** การต่อ channel **AIPDD** ทำให้การสร้างรันบน **pool ทรัพยากร computation ที่ว่าง** ของแพลตฟอร์ม งานสร้างซีรีส์แบบ batch ที่หนัก ๆ จึงเสียค่าใช้จ่ายเพียงเศษเสี้ยวของราคา on-demand — เป็นคานงัดที่ใหญ่ที่สุดในการลดต้นทุนการผลิต สมัครที่ <https://www.aipdd.work> เพื่อรับ AIPDD API key แล้วเพิ่มเป็น channel ใน **Settings → Models & Channels**
-> - **LocalAPI จับคู่อิสระ.** gateway **LocalAPI** ที่ให้มาอนุญาตให้จด provider หลายรายเป็น channel และ **จับคู่ได้ตามใจ** — official, AIPDD, เครื่องที่คุณ host เอง หรือ endpoint ที่เข้ากันได้กับ OpenAI ใด ๆ — เลือกต่อ model ต่อขั้นตอน สำหรับ channel LocalAPI เราแนะนำให้ **หา provider เองและเปรียบเทียบราคา**; รายการอ้างอิงที่คัดมาแล้วอยู่ที่นี่: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>
+> - **NewAPI จับคู่อิสระ.** gateway **NewAPI** ที่ให้มาอนุญาตให้จด provider หลายรายเป็น channel และ **จับคู่ได้ตามใจ** — official, AIPDD, เครื่องที่คุณ host เอง หรือ endpoint ที่เข้ากันได้กับ OpenAI ใด ๆ — เลือกต่อ model ต่อขั้นตอน สำหรับ channel NewAPI เราแนะนำให้ **หา provider เองและเปรียบเทียบราคา**; รายการอ้างอิงที่คัดมาแล้วอยู่ที่นี่: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>
 > - **ComfyUI บน GPU ของคุณ — วิธีถูกที่สุดในการรันการสร้างบน canvas.** adapter **ComfyUI** ชั้นหนึ่งจะ route การสร้างภาพ / วิดีโอไปยังเวิร์กโฟลว์ที่รันบน **เครื่องของคุณ**: GPU ของคุณเป็นผู้เรนเดอร์ **ไม่กินโควตา cloud ต่อการเรียก** — งานหนักเสียแค่ค่าไฟ ถูกกว่าโมเดล hosted ใดๆ มาก จด endpoint ComfyUI ในเครื่องเป็น channel ในโหมด **Custom** หรือ **Hybrid**
 >   - **วิธีลง ComfyUI ง่ายที่สุด** — ไม่ต้องลงด้วยมือหรือตั้งสภาพแวดล้อม Python แค่ดาวน์โหลด **compute client (算力客户端)** ที่เราแพ็กมาให้แล้วรันตัวติดตั้ง: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.
 >
@@ -459,7 +459,7 @@ DramaClaw เป็นกลางเรื่อง model — model ข้อ�
 
 ### gateway ที่มาพร้อมกัน: dramaclaw-gateway
 
-บริการ `localapi` ใน `docker-compose.yml` คือ [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway) fork ของ [New API](https://github.com/QuantumNous/new-api) ที่ DramaClaw ดูแลเอง มันพูดสัญญา **DC-Media** ที่ DramaClaw ใช้สำหรับภาพ / วิดีโอ / เสียง (media role, ภาพอ้างอิง, เฟรมแรก / เฟรมสุดท้าย) และแปลงแต่ละคำขอเป็น API ดั้งเดิมของผู้ให้บริการ image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) บน Docker Hub ปักหมุดด้วย `DRAMACLAW_GATEWAY_VERSION` ใน `.env` มันอยู่เฉย ๆ ในโหมด Official และจะถูกใช้ก็ต่อเมื่อคุณสลับไป **Custom** หรือ **LocalAPI + Official Hybrid**
+บริการ `localapi` ใน `docker-compose.yml` คือ [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway) fork ของ [New API](https://github.com/QuantumNous/new-api) ที่ DramaClaw ดูแลเอง มันพูดสัญญา **DC-Media** ที่ DramaClaw ใช้สำหรับภาพ / วิดีโอ / เสียง (media role, ภาพอ้างอิง, เฟรมแรก / เฟรมสุดท้าย) และแปลงแต่ละคำขอเป็น API ดั้งเดิมของผู้ให้บริการ image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) บน Docker Hub ปักหมุดด้วย `DRAMACLAW_GATEWAY_VERSION` ใน `.env` มันอยู่เฉย ๆ ในโหมด Official และจะถูกใช้ก็ต่อเมื่อคุณสลับไป **Custom** หรือ **NewAPI + Official Hybrid**
 
 adapter ของผู้ให้บริการที่มากับ gateway ในวันนี้ (ดูสถานะการตรวจสอบใน [ตารางรองรับ channel](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md)): ComfyUI · MiniMax / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno อยากได้ผู้ให้บริการอื่น? gateway มี [scaffold generator และคู่มือการมีส่วนร่วม](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md)
 
