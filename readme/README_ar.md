@@ -65,7 +65,7 @@ DramaClaw مرخّص بـ <a href="../LICENSES/Elastic-2.0.txt">رخصة Elastic
 [![Latest Release](./badges/release-latest.svg)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker Ready](./badges/docker-ready.svg)](#quick-start)
 
-[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; **العربية** &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; <a href="https://www.aipdd.work" dir="rtl">الموقع الرسمي</a> &nbsp;|&nbsp; <a href="../docs/en/README.md" dir="rtl">الوثائق</a> &nbsp;|&nbsp; <a href="../docs/en/getting-started/quickstart.md" dir="rtl">البدء السريع</a>
+[简体中文](../README.md) &nbsp;· &nbsp; [English](./README_en.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; **العربية** &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; <a href="https://www.aipdd.work" dir="rtl">الموقع الرسمي</a> &nbsp;|&nbsp; <a href="../docs/en/README.md" dir="rtl">الوثائق</a> &nbsp;|&nbsp; <a href="../docs/en/getting-started/quickstart.md" dir="rtl">البدء السريع</a>
 
 </div>
 

@@ -34,7 +34,7 @@ inherits the same auth, project guards, and task queue as the web UI.
   plan/script without it, but image/video/audio generation needs working models.
   Generation can ride **AIPDD's low-cost idle compute**, any **LocalAPI** channel you
   register, or **local ComfyUI** on your own GPU — see the
-  [model guide](../../../README.md#supported-models).
+  [model guide](../../../readme/README_en.md#supported-models).
 - Local checkout with [`uv`](https://docs.astral.sh/uv/) synced (`uv sync`) so the
   `novelvideo` package is importable.
 

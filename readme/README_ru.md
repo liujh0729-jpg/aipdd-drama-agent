@@ -64,7 +64,7 @@ DramaClaw распространяется под <a href="../LICENSES/Elastic-2
 [![Latest Release](./badges/release-latest.svg)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker Ready](./badges/docker-ready.svg)](#быстрый-старт)
 
-[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; **Русский** &nbsp;|&nbsp; [Сайт](https://www.aipdd.work) &nbsp;|&nbsp; [Документация](../docs/en/README.md) &nbsp;|&nbsp; [Быстрый старт](../docs/en/getting-started/quickstart.md)
+[简体中文](../README.md) &nbsp;· &nbsp; [English](./README_en.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; **Русский** &nbsp;|&nbsp; [Сайт](https://www.aipdd.work) &nbsp;|&nbsp; [Документация](../docs/en/README.md) &nbsp;|&nbsp; [Быстрый старт](../docs/en/getting-started/quickstart.md)
 
 </div>
 

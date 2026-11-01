@@ -1761,7 +1761,7 @@ readme/README_ja.md,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate
 readme/README_ru.md,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 readme/README_th.md,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 readme/README_vi.md,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
-readme/README_zh.md,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
+readme/README_en.md,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 sbom.spdx.json,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 scripts/_tmp_verify_req40.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 scripts/acceptance/api_coverage_report.py,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation

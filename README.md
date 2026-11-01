@@ -1,59 +1,60 @@
 <div align="center">
 
-<!-- TBD: replace with official logo assets/logo.svg -->
+<!-- TBD: 替换为正式 logo assets/logo.svg -->
 <h1>AIPDD Drama Agent</h1>
 
-### A self-contained, multi-license fork of DramaClaw
-
-<p align="center"><sub>Built to run fully from source with <b>zero external images</b> and <b>zero default outbound calls</b>; the gateway (AGPL-3.0), DA-2 (Apache-2.0) and ml-sharp (Apple) are vendored under <a href="./third_party/README.md"><code>third_party/</code></a>. Upstream project, license and attribution: <a href="https://github.com/dramaclaw/dramaclaw">DramaClaw</a>.</sub></p>
+<p align="center"><sub>Self-contained, multi-license fork of DramaClaw — zero external images, zero default outbound calls; gateway/DA-2/ml-sharp vendored under <code>third_party/</code>.</sub></p>
 
 ## Make Your Own DC.
 
 <p align="left">
 
-They say you're obsolete.<br/>
-Maybe it's the whole idea of "working for someone else" that's obsolete.<br/>
+他们说你过时了。<br/>
+也许是「打工」这件事过时了。<br/>
 <br/>
-In the age of AI, the real question isn't whether machines replace people.<br/>
-The real question is:<br/>
-Who owns the machines?<br/>
-Who owns the pipeline?<br/>
-Who owns industrialized productivity?<br/>
+AI 时代，真正的问题不是机器会不会替代人。<br/>
+真正的问题是：<br/>
+谁拥有机器？<br/>
+谁拥有流程？<br/>
+谁拥有工业化生产力？<br/>
 <br/>
-If the answer is always Big Tech,<br/>
-then AI isn't empowerment.<br/>
-It's just a new wall.<br/>
+如果答案永远是大厂，<br/>
+那 AI 就不是平权。<br/>
+那只是新的高墙。<br/>
 <br/>
-This isn't a demo.<br/>
-Not a toy.<br/>
-Not a crippled edition.<br/>
+我是 Eric。<br/>
 <br/>
-This is the industrialized drama-production line our own team runs every day.<br/>
-From script to storyboard, from assets to finished film — the whole chain.<br/>
+这不是 demo。<br/>
+不是玩具。<br/>
+不是阉割版。<br/>
 <br/>
-Because people aren't beasts of burden.<br/>
-Because creativity is humanity's last line of defense.<br/>
+这是一条我们团队自己每天在跑的漫剧工业化生产线。<br/>
+从脚本到分镜，从资产到成片，全链路。<br/>
 <br/>
-What AIPDD-Agent-Claw sets out to do is simple:<br/>
+因为人不是牛马。<br/>
+因为创造力，是人类最后的防线。<br/>
 <br/>
-<strong>Tear down the wall.</strong><br/>
+DramaClaw 要做的事很简单：<br/>
 <br/>
-Put the industrialized drama-production power that only Big Tech had<br/>
-into the hands of ordinary creators.<br/>
+<strong>拆墙。</strong><br/>
 <br/>
-The code is here.<br/>
-If this resonates, leave a ⭐.<br/>
-We'll keep tearing down walls.
+把过去只有大厂才有的漫剧工业化能力，<br/>
+交到普通创作者手里。<br/>
+<br/>
+代码已就位。<br/>
+认同的话，留下一颗 ⭐。<br/>
+我们继续拆。
 
 </p>
 
 <p align="left">
 
-AIPDD-Agent-Claw is <a href="./LICENSES/Elastic-2.0.txt">Elastic License 2.0</a>. Run it, modify it, sell what you build with it —<br/>
-the standalone version is free for commercial use, no permission needed.<br/>
-We ask for one thing: a small "Powered by AIPDD & DramaClaw" in the corner of your UI.<br/>
-The only door still closed is wrapping it up as a hosted SaaS for other people; that license isn't open yet.<br/>
-Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#475</a>.
+<strong>对，你可以拿它赚钱。</strong><br/>
+DramaClaw 采用 <a href="./LICENSES/Elastic-2.0.txt">Elastic License 2.0</a>。自己跑、自己改、自己卖，随便 ——<br/>
+单机版本可以自由商用，不用申请，不用付费。<br/>
+我们只有一个请求：在界面角落留一行小字「Powered by AIPDD & DramaClaw」。<br/>
+唯一还没开的门，是把它包成 SaaS 卖给别人；这条授权暂不开放。<br/>
+原因和常见问题：<a href="https://github.com/dramaclaw/dramaclaw/issues/475">#475</a>。
 
 </p>
 
@@ -64,22 +65,18 @@ Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#4
 [![Latest Release](./readme/badges/release-latest.svg)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker Ready](./readme/badges/docker-ready.svg)](#quick-start)
 
-**English** &nbsp;· &nbsp; [简体中文](./readme/README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./readme/README_vi.md) &nbsp;· &nbsp; [日本語](./readme/README_ja.md) &nbsp;· &nbsp; [العربية](./readme/README_ar.md) &nbsp;· &nbsp; [Français](./readme/README_fr.md) &nbsp;· &nbsp; [Español](./readme/README_es.md) &nbsp;· &nbsp; [Русский](./readme/README_ru.md) 
-
-[Website](https://www.aipdd.work) &nbsp;|&nbsp; [Docs](./docs/en/README.md) &nbsp;|&nbsp; [Quick Start](./docs/en/getting-started/quickstart.md)
+**简体中文** &nbsp;· &nbsp; [English](./readme/README_en.md) &nbsp;· &nbsp; [Tiếng Việt](./readme/README_vi.md) &nbsp;· &nbsp; [日本語](./readme/README_ja.md) &nbsp;· &nbsp; [العربية](./readme/README_ar.md) &nbsp;· &nbsp; [Français](./readme/README_fr.md) &nbsp;· &nbsp; [Español](./readme/README_es.md) &nbsp;· &nbsp; [Русский](./readme/README_ru.md) &nbsp;|&nbsp; [官网](https://www.aipdd.work) &nbsp;|&nbsp; [文档](./docs/zh/README.md) &nbsp;|&nbsp; [快速开始](./docs/zh/getting-started/quickstart.md)
 
 </div>
 
 <br/>
 
 
-
 <!--
-  Demo video — after uploading, paste the user-attachments link on its own line below.
-  How to upload: open a new Issue on github.com (don't submit it), drag the demo
-  video into the body, wait for it to finish uploading and auto-generate a
-  https://github.com/user-attachments/assets/...mp4 link, copy it here, then
-  discard the Issue. GitHub renders a URL on its own line as an inline player.
+  演示视频 —— 上传完成后，把 user-attachments 链接单独一行粘到下面。
+  上传方式：在 github.com 新建一个 Issue（别提交），把 demo 视频拖进正文，
+  等它上传完会自动生成 https://github.com/user-attachments/assets/...mp4 链接，
+  复制后粘到下面，再把 Issue 取消即可。GitHub 会把独占一行的 URL 渲染成内联播放器。
 
   https://github.com/user-attachments/assets/REPLACE-AFTER-UPLOAD
 -->
@@ -87,11 +84,11 @@ Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#4
 
 <br/>
 
-<div align="center"> 
+<div align="center">
 
-## 🎬 Made with AIPDD-Agent-Claw
+## 🎬 用 AIPDD-Agent-Claw 制作
 
-<sub>Real short dramas our team produced on this very pipeline &mdash; click a link to play.</sub>
+<sub>我们团队用这条流水线亲手制作的真实短剧 &mdash; 点击链接即可播放。</sub>
 
 <table>
   <tr>
@@ -118,7 +115,7 @@ Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#4
   </tr>
 </table>
 
-<sub>More clips:
+<sub>更多片段：
 <a href="https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/media-v1/3d-anime-montage-demo.mp4">3D 动漫混剪 demo</a> &nbsp;·&nbsp;
 <a href="https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/media-v1/dongtai-dadou.mp4">动态打斗</a></sub>
 
@@ -126,244 +123,275 @@ Why, and the FAQ: <a href="https://github.com/dramaclaw/dramaclaw/issues/475">#4
 
 <br/>
 
-## What is AIPDD-Agent-Claw?
+## AIPDD-Agent-Claw 是什么？
 
-**AIPDD-Agent-Claw is a heavily-modified fork built on [DramaClaw](https://github.com/dramaclaw/dramaclaw)'s infinite canvas.** We kept the canvas engine and rebuilt almost everything around it — a built-in **agent (Director)**, a full **MCP server** that opens the whole system to Claude Code / Codex, and a **~100-tool** surface spanning image, video, audio, script and one-tap batch jobs (see [What the AIPDD fork adds](#what-we-added)). The result is a **source-available production line for AI drama** — and, increasingly, for any visual story you want to tell with generative models. It has two faces that share one asset library and one agent:
+DramaClaw 是一条**源码可见的 AI 漫剧工业化生产线** —— 而且越来越不止于漫剧，任何想用生成模型讲的视觉故事都可以在这里做。它有两张面孔，共用一个资产库和一个智能体：
 
-- **Canvas — the infinite canvas.** A node-based workbench where you generate, edit and connect images, video, audio, 3D sets and scripts freely, then promote what you like back into the series. This is where most of our own creative work happens today, and where AIPDD-Agent-Claw is heading.
-- **Series — the pipeline.** Drop in a manuscript or screenplay and AIPDD-Agent-Claw takes over the heavy lifting: structuring the story, planning episodes, writing scripts, drawing storyboards and first frames, synthesizing voice-over, and cutting the final film.
+- **画布 —— 无限画布。** 节点式创作台，图片、视频、音频、3D 场景、剧本在画布上自由生成、编辑、连线，满意的结果再写回剧集。这是我们自己现在做创作的主战场，也是 DramaClaw 正在全力投入的方向。
+- **剧集 —— 剧集流水线。** 丢进一本原稿或剧本，DramaClaw 接管全部繁重工作：结构化故事、规划剧集、生成剧本、绘制分镜与首帧、合成配音、剪成成片。
 
-**Director**, the built-in agent, sits across both: it answers questions about your project, drives pipeline tasks, and can build and run node graphs on the canvas for you.
+内置智能体**导演**横跨两边：回答关于项目的问题、推进流水线任务，还能替你在画布上搭建并运行节点图。
 
-It's built for creators, indie studios and creative engineers — run the whole "drama factory" on your own machine, without stitching together a dozen disconnected tools or handing your material to an opaque black-box cloud service. Although it's built around drama, the same canvas and pipeline carry to short-form ads, e-commerce product videos and other visual formats.
+它为创作者、独立工作室以及创意工程师而生 —— 在自己的机器上跑完整个「漫剧智造工厂」，不必拼接十几个割裂的工具，也不必把素材交给一个看不见内部的黑盒云服务。虽然以漫剧为核心，同一套画布和流水线同样能产出短视频广告、电商带货视频等其它视觉内容。
 
 <br/>
 
-## <a name="what-we-added"></a>What the AIPDD fork adds
+## <a name="what-we-added"></a>AIPDD 分支新增了什么
 
-We started from DramaClaw's infinite canvas and rebuilt the stack around it. On top of a **self-contained, multi-license source build** (zero external images, zero default outbound calls), the fork layers in the capabilities that make this an **agent-operable drama factory**:
+我们从 DramaClaw 的无限画布出发，围绕它重建了整个技术栈。在一个**自包含、多许可的源码构建**（零外部镜像、零默认外呼）之上，分支叠加了把它变成**可被智能体操作的短剧工厂**所需的能力：
 
-**1 · A built-in agent — Director.** It reads your project, checks progress, advances script / shot tasks, audits deliverable completeness, drives pipeline jobs, and lays out and runs canvas node graphs for you — every canvas command reviewed in your browser first.
+**1 · 内置智能体 —— 导演。** 它读懂你的项目、检查进度、推进剧本 / 镜头任务、审计交付完整性、驱动流水线作业，并替你排布和运行画布节点图 —— 每条画布命令都先在浏览器里经你确认。
 
-**2 · A full MCP server — ~100 tools.** One stdio bridge (`uv run`) exposes the whole system to **Claude Code, Codex** and any MCP client — tools `aipdd_drama_*` + `vectcut_*`, loopback CE-owner or an `st-` API key. [Guide →](docs/en/guides/mcp-claude-code.md). It breaks down into:
+**2 · 完整的 MCP server —— 约 100 个工具。** 一个 stdio 桥（`uv run`）把整个系统开放给 **Claude Code、Codex** 及任意 MCP client —— 工具 `aipdd_drama_*` + `vectcut_*`，loopback CE-owner 或 `st-` API key。[指南 →](./docs/zh/guides/mcp-claude-code.md)。它细分为：
 
-- **One-tap batch tools (the "tools page")** — video clone, short-video mix, whiteboard animation, explainer motion video, idea-to-video (one line → finished film), voice clone & synth, lip-sync, person replace, product replace, video-watermark removal, image-watermark removal, video dubbing, and Douyin copy-extract.
-- **Canvas generation verbs** — *image*: generate / edit / redraw / outpaint / relight / upscale / multi-view / template-edit / reverse-prompt · *video*: text-to-video / image-to-video / omni-reference / upscale / edit / extend · *audio*: vocal-accompaniment separation / music · *text*: generate / translate / story-script / video-script reverse / media copywrite.
-- **One-click automation & orchestration** — an automated storyboard step driver (style → screenplay → episodes → boards → first frames), batch shot videos / sketches / video-prompts by beat range, and a `run_pipeline` orchestrator with `manual` / `checkpoint` / `auto` modes plus run-status / cancel / suggest-config.
-- **Jianying / CapCut draft editing** — assemble storyboards, voice-over and subtitles into a real editing draft through the VectCut service (13 `vectcut_*` tools).
+- **一键批量工具（「工具页」）** —— 视频克隆、短视频混剪、白板动画、讲解动效视频、创意成片（一句话 → 成片的影片）、声音克隆与合成、口型同步、人物替换、商品替换、视频去水印、图片去水印、视频配音，以及抖音文案提取。
+- **画布生成动词** —— *图像*：生成 / 编辑 / 重绘 / 外扩 / 重打光 / 放大 / 多视角 / 模板编辑 / 反推提示词 · *视频*：文生视频 / 图生视频 / 全能参考 / 放大 / 编辑 / 续写 · *音频*：人声伴奏分离 / 音乐 · *文本*：生成 / 翻译 / 故事剧本 / 视频脚本反推 / 媒体文案。
+- **一键自动化与编排** —— 自动分步驱动（风格 → 剧本 → 剧集 → 分镜 → 首帧）、按节拍区间批量生成镜头视频 / 草图 / 视频提示词，以及带 `manual` / `checkpoint` / `auto` 三种模式的 `run_pipeline` 编排器，含运行状态 / 取消 / 建议配置。
+- **剪映 / CapCut 草稿编辑** —— 通过 VectCut 服务把分镜、配音、字幕组装成一份真实的剪辑草稿（13 个 `vectcut_*` 工具）。
 
-**3 · Motion feature film (MG).** A 37-case gallery feeds the render contract, the model writes a self-contained animated page, the local Chrome renders it frame by frame, a **code-arranged score** (no sampled libraries) is normalized to −14 LUFS / −1 dBTP and muxed in, and the per-shot films are assembled into a **Jianying 10.2 draft by a from-scratch writer** — no VectCut service, no third-party draft library, nothing outbound. It is driven from the canvas (shot workbench), not through MCP. [Guide →](docs/en/guides/motion-feature-film.md).
+**3 · 为自托管做的深度重构。** DramaClaw 网关（AGPL-3.0）、DA-2（Apache-2.0）和 ml-sharp（Apple）被**内置打包**在 [`third_party/`](./third_party/README.md) 下；整套技术栈从源码构建，远程目录 / 发布源调用现在改为**按需开启**而非默认打开。
 
-**4 · Heavy re-engineering for self-hosting.** The DramaClaw gateway (AGPL-3.0), DA-2 (Apache-2.0) and ml-sharp (Apple) are **vendored** under [`third_party/`](./third_party/README.md); the whole stack builds from source, and remote catalog / release-feed calls are now **opt-in** instead of on by default.
-
-In one line: **AIPDD-Agent-Claw = DramaClaw's canvas + an agent + a ~100-tool MCP surface + a self-contained build** — a system you can drive by hand, by prompt, or from another AI agent.
-
+一句话：**AIPDD-Agent-Claw = DramaClaw 的画布 + 一个智能体 + 约 100 个工具的 MCP 面 + 一个自包含的构建** —— 一个你可以手动、用提示词、或从另一个 AI 智能体来驱动的系统。
 <div align="center">
 
-**Director — the built-in agent**
+**导演 —— 内置智能体**
 
-<img src="./assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="AIPDD-Agent-Claw Director agent driving a project"/>
+<img src="./assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="AIPDD-Agent-Claw 导演智能体在驱动一个项目"/>
 
-**One-tap tools page**
+**一键工具页**
 
-<img src="./assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="AIPDD-Agent-Claw one-tap tools page"/>
+<img src="./assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="AIPDD-Agent-Claw 一键工具页"/>
 
-**MCP — the whole system as ~100 tools**
+**MCP —— 把整个系统变成约 100 个工具**
 
-<img src="./assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="AIPDD-Agent-Claw MCP server exposing ~100 tools"/>
+<img src="./assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="AIPDD-Agent-Claw MCP server 暴露约 100 个工具"/>
 
 </div>
 
 <br/>
 
-## Core Capabilities
+## 核心能力
 
-### Canvas — infinite canvas
-
-<p align="center">
-  <img src="./assets/xiahua-canvas.jpg" width="900" alt="XiaHua canvas: a 17-node short-film workflow that Xia Director laid out and ran from one prompt"/>
-</p>
-<p align="center"><sub>One prompt to Xia Director (right) became this 17-node, 32-edge workflow on the canvas (left): brief → story direction → character and set references → five shot first frames → five shot videos → voice-over and score → final cut.</sub></p>
-
-- **18 node types on one canvas** &mdash; upload, image generation / edit, storyboard generation, script, beat context, video, video compose, video story, audio, style, skill, group, text annotation, 360° panorama viewer, 3D world, export and more. Connect them freely; every node keeps its own generation history.
-- **Image tools** &mdash; generate, edit, redraw, outpaint, relight, upscale, multi-view, template edit, reverse-prompt, mark detection; a **style wall of 45 short-drama looks** for image-to-image
-- **Video tools** &mdash; text / image / keyframe to video, omni-reference generation with **file, web-link and on-canvas references**, video edit, erase, upscale, audio separation, camera templates, shot analysis; Seedance 2.5 in the recommended catalog
-- **Audio** &mdash; speech synthesis with a voice library, reference voices, music generation
-- **Canvas skills** &mdash; one-click skills such as sketch-from-context, frame-from-context, set-background, scene-360, frame review and beat-graph planning
-- **Built for big canvases** &mdash; canvas tabs, element outline, minimap and viewport bookmarks, snap-align, level-of-detail rendering, multi-select and group nodes, keyboard shortcuts, revision history with restore, per-canvas locking
-- **Commit to the series** &mdash; preview the impact, then promote a single node or a whole batch into the asset library or an episode; project the series back onto a canvas from presets
-- **Director World — spatially consistent sets** &mdash; image → 3D Gaussian Splat set and scene-360 panoramas as canvas nodes: a framable virtual set that locks spatial structure, character blocking and camera placement, so the same location stays consistent across shots; frame the shot in the 3D viewer, capture it, and use it as the background for the next generation
-
-#### Director World
+### 画布 —— 无限画布
 
 <p align="center">
-  <img src="./assets/readme/director-world.jpg" width="900" alt="Director World"/>
+  <img src="./assets/xiahua-canvas.jpg" width="900" alt="画布：导演按一句话铺好并跑完的 17 节点短片工作流"/>
 </p>
-<p align="center"><sub>Screenshot-based feature illustration; interface details may differ from the current release.</sub></p>
+<p align="center"><sub>对右侧的导演说一句话，左侧画布上就长出了这张 17 个节点、32 条连线的工作流：需求 → 故事方向 → 角色与场景参考 → 五个镜头首帧 → 五段镜头视频 → 旁白与配乐 → 成片合成。</sub></p>
 
-### Series — the pipeline
+- **一张画布 18 种节点** &mdash; 上传、图片生成 / 编辑、分镜生成、剧本、节拍上下文、视频、视频合成、视频故事、音频、风格、技能、分组、文字批注、360° 全景查看、3D 世界、导出等。任意连线，每个节点保留自己的生成历史。
+- **图片工具** &mdash; 生成、编辑、重绘、扩图、重打光、放大、多视角、模板编辑、反推提示词、标记检测；图生图**风格墙内置 45 种漫剧风格**
+- **视频工具** &mdash; 文生 / 图生 / 首尾帧生视频，全能参考生成支持**文件、网页链接和画布内素材做参考**，视频编辑、擦除、放大、人声分离、运镜模板、镜头分析；推荐目录已含 Seedance 2.5
+- **音频** &mdash; 带声线库的语音合成、参考音色、音乐生成
+- **画布技能** &mdash; 一键技能：按上下文出线稿、按上下文出首帧、设置背景、场景 360、画面审校、节拍图规划
+- **为大画布而生** &mdash; 画布分页、元素大纲、小地图与视口书签、吸附对齐、分级渲染、多选与分组、快捷键、历史版本回滚、画布级锁
+- **提交回剧集** &mdash; 先预览影响，再把单个节点或整批结果写入资产库或某一集；也能按预设把剧集投影回画布
+- **导演世界 —— 空间一致的片场** &mdash; 图片 → 3D 高斯片场、场景 360 全景，都是画布上的节点：可取景的虚拟片场，锁定空间结构、人物站位与镜头机位，同一场景跨镜头保持一致；在 3D 视图里取好景、截下来，直接作为下一次生成的背景
+
+#### 导演世界 —— 3D 片场
 
 <p align="center">
-  <img src="./assets/pipeline.png" alt="DramaClaw pipeline — Ingest, Plan, Produce, Deliver" width="760"/>
+  <img src="./assets/readme/director-world.jpg" width="900" alt="导演世界 —— 3D 片场"/>
 </p>
+<p align="center"><sub>基于已有截图重新制作的功能展示图；界面细节可能与当前版本不同。</sub></p>
 
-Every step has its own interface — run them in order, skip steps, resume from any checkpoint, or even plug in your own orchestrator.
-
-- **Structured ingest** &mdash; new projects build episodes, characters and scenes straight from the manuscript or screenplay (Fountain supported), no knowledge graph or embeddings required; the Cognee story-graph path remains for legacy projects
-- **Asset library & identity consistency** &mdash; characters, scenes, props and voices organised by purpose and folder; stable identities across episodes, character portraits and per-episode variants
-- **Episode planning & script generation** &mdash; chapter segmentation, beat planning, multi-episode arcs; adaptive / literal / staged script modes with review-and-repair loops
-- **Storyboards & first frames** &mdash; beat-driven stylized generation, grid splitting, image-pool selection
-- **Voice-over, video composition & export** &mdash; emotion-aware speech, episode assembly, video + subtitle export and the full asset pack
-- **Visual Style** &mdash; upload a reference image to extract style parameters and apply them across the whole project
-- **Task Center** &mdash; status, progress, logs, cancel / retry, resume-from-checkpoint for long runs; prerequisites are validated before a job is queued
-
-#### Asset library
+### 剧集 —— 剧集流水线
 
 <p align="center">
-  <img src="./assets/readme/asset-library.jpg" width="900" alt="XiaTang — asset library"/>
+  <img src="./assets/pipeline.png" alt="DramaClaw 流水线 —— 摄取、规划、生产、交付" width="760"/>
 </p>
-<p align="center"><sub>Screenshot-based feature illustration; interface details may differ from the current release.</sub></p>
 
-#### Storyboards & first frames
+每一步都有独立的接口 —— 可以按顺序跑，可以跳过，也可以从任意检查点续跑，甚至接入你自己的编排器。
+
+- **结构化导入** &mdash; 新项目直接从原稿或剧本（支持 Fountain 格式）构建剧集、角色、场景，不需要知识图谱和向量；Cognee 故事图谱路径保留给老项目
+- **资产库与身份一致性（资产）** &mdash; 角色、场景、道具、声线按用途和文件夹管理；多集之间保持稳定身份，生成角色肖像与单集变体
+- **剧集规划与剧本生成** &mdash; 章节切分、节拍规划、多集叙事弧；改编 / 直译 / 分镜稿多种模式，带审校修复循环
+- **分镜与首帧** &mdash; 按节拍风格化生成，网格切分，图像池选优
+- **配音、合成与导出** &mdash; 带情绪的语音合成，组装剧集，导出视频 + 字幕与整套素材包
+- **风格模板（风格）** &mdash; 上传参考图自动解析风格参数，一键应用到整个项目
+- **任务中心（虾条）** &mdash; 状态、进度、日志、取消 / 重试，长任务断点续跑；入队前先校验前置条件
+
+#### 资产 —— 资产库
 
 <p align="center">
-  <img src="./assets/readme/storyboards.jpg" width="900" alt="Storyboards & first frames"/>
+  <img src="./assets/readme/asset-library.jpg" width="900" alt="资产 —— 资产库"/>
 </p>
-<p align="center"><sub>Screenshot-based feature illustration; interface details may differ from the current release.</sub></p>
+<p align="center"><sub>基于已有截图重新制作的功能展示图；界面细节可能与当前版本不同。</sub></p>
 
-### Motion feature film (MG)
+#### 分镜与首帧
 
-- **Gallery first** &mdash; 37 real motion-graphic cases with category, duration, resolution, a rewritten shot spec and **this system's render contract**; posters ship with the app, the ~0.7 GB of originals are cached on demand (or pointed at your own OSS/CDN), so the installer stays small
-- **Page → picture, on your machine** &mdash; the model writes a single-file page (`window.render(t)` / `window.DUR` / `window.EV`), a bootstrap takes over its clock, and the bundled Chrome captures it frame by frame while ffmpeg encodes the PNG stream through `image2pipe` — no frames on disk, and every pixel comes out of this system's own render engine (contract items 1&ndash;2); template-feeling transitions and stock footage are barred by the same contract (item 6)
-- **Beat grid, not vibes** &mdash; beat intervals are inferred from the page's own `window.EV` (median gap, octave-folded into 45–180 BPM, phase aligned onto the action), cuts land on the grid and sound effects land **one frame early**, because the sound must already be audible when the change is drawn (contract item 3)
-- **Score generated by code** &mdash; three arrangements (`drive` / `pulse` / `ambient`) over Am–F–C–G, additive synthesis and FFT band shaping in numpy, bit-identical for the same inputs: nothing sampled, nothing licensed, nothing downloaded
-- **Delivered at platform loudness** &mdash; two-pass `loudnorm` to **−14 LUFS / true peak ≤ −1 dBTP** (contract item 6), then `-c:v copy -c:a aac` into the film with an atomic replace; the dry stem and the measured loudness stay next to the shot
-- **A real editing draft** &mdash; per-shot films go on the main video track, each shot's beats become Jianying markers, narration and a BGM bed land on their own tracks (segments on one track may not overlap), and the embedded score ducks to 0.2 under narration or 0.35 under external BGM — never to zero. Written from scratch for Jianying 10.2: integer microseconds, root `draft_content.json` **plus** `Timelines/<uuid>/` and the mirrors, `.locked` cleared
-- **Never fails the whole job for audio** &mdash; no usable ffmpeg, or nothing to arrange, and the render still delivers a silent film and records why in the sidecar
+<p align="center">
+  <img src="./assets/readme/storyboards.jpg" width="900" alt="分镜与首帧"/>
+</p>
+<p align="center"><sub>基于已有截图重新制作的功能展示图；界面细节可能与当前版本不同。</sub></p>
 
-### Director — the agent
+### 导演 —— 智能体
+
+<div align="center">
+
+**Director —— 内置智能体**
+
+<img src="./assets/ScreenShot_2026-10-10_085349_095@2x.png" width="860" alt="AIPDD-Agent-Claw Director agent"/>
+
+**一键工具页**
+
+<img src="./assets/ScreenShot_2026-10-10_085521_058@2x.png" width="860" alt="AIPDD-Agent-Claw one-tap tools page"/>
+
+**MCP —— 整套系统约 100 个工具**
+
+<img src="./assets/ScreenShot_2026-10-10_085726_748@2x.png" width="860" alt="AIPDD-Agent-Claw MCP server"/>
+
+</div>
 
 <p align="center">
   <img src="./assets/readme/xia-director.jpg" width="900" alt="Director — project context and reviewed actions"/>
 </p>
-<p align="center"><sub>Screenshot-based feature illustration; interface details may differ from the current release.</sub></p>
+<p align="center"><sub>基于已有截图重新制作的功能展示图；界面细节可能与当前版本不同。</sub></p>
 
-**Today**
+**现在**
 
-- **Knows your project** &mdash; checks progress, advances script / shot tasks, audits deliverable completeness and suggests next steps
-- **Open to other agents** &mdash; a local MCP server exposes AIPDD-Agent-Claw to Claude Code, Codex and any MCP client (loopback-only, explicit trust flag); see [MCP for Claude Code](docs/en/guides/mcp-claude-code.md)
+- **懂你的项目** &mdash; 查询进度、推进脚本 / 镜头任务、检查交付完整性并给出下一步建议
+- **对其它 agent 开放** &mdash; 本地 MCP 服务把 DramaClaw 暴露给 Claude Code、Codex 和任何 MCP 客户端（仅本机回环，需显式信任开关），见 [MCP 接入 Claude Code](./docs/zh/guides/mcp-claude-code.md)
 
-**Next**
+**接下来**
 
-- **Works on the canvas** &mdash; the screenshot above is where this is going: describe the film, and Director creates and connects the nodes, lays them out, runs them, and reviews the results, with every canvas command approved in your browser first. Canvas + agent is the core of AIPDD-Agent-Claw from here on; see [In Development](#in-development).
+- **直接上画布干活** &mdash; 上面那张截图就是方向：你描述这部片子，导演负责创建并连接节点、排版、运行、审校结果，每条画布指令都先在你的浏览器里确认。画布 + 智能体是 DramaClaw 往后的核心，见[正在开发](#in-development)。
 
 <br/>
 
-## Why AIPDD-Agent-Claw?
+## 为什么是 AIPDD-Agent-Claw？
 
-**A canvas that understands drama, and an agent that works on it.** Generic node canvases will wire anything together but know nothing about episodes, characters or shots; series tools know the craft but lock you into a wizard. Canvas gives you the free canvas with drama-aware nodes and skills, and Director is being built to lay out, run and review those graphs for you. That combination is where AIPDD-Agent-Claw is going.
+**一张懂剧的画布，加一个在画布上干活的智能体。** 通用节点画布什么都能连，但不知道什么是剧集、角色、镜头；剧集工具懂行，却把你锁在向导里。画布给你自由画布，节点和技能都懂剧；导演正在被做成替你铺图、跑图、审图的那个人。这个组合就是 DramaClaw 要去的地方。
 
-**Built for novel-to-short-drama.** General workflow tools can wire nodes together, but they don't know what an "episode beat" is, don't understand why a character's cross-scene identity consistency matters, and won't guard a chapter's emotional arc across image + voice + editing. AIPDD-Agent-Claw builds all that judgment into the tool.
+**为小说转短剧而生。** 通用的工作流工具确实可以把节点拼起来，但它们不知道「剧集节拍」是什么，不懂为什么角色的跨场景身份一致性那么重要，也不会在图像 + 配音 + 剪辑里去守护一整章节的情绪弧。DramaClaw 把这些判断全部内建到工具里。
 
-**Canvas and pipeline, not canvas or pipeline.** Most tools give you either a free node canvas or a rigid wizard. AIPDD-Agent-Claw runs both as dual tracks over one asset library: explore on the canvas, commit what works to the series, project the series back onto a canvas. The agent works on both.
+**画布与流水线并行，而不是二选一。** 大多数工具要么给你一张自由的节点画布，要么给你一个死板的向导。DramaClaw 让两者作为双轨跑在同一个资产库上：在画布上探索，把成立的结果提交进剧集，再把剧集投影回画布。智能体在两边都能干活。
 
-**Every step is decomposable.** Each stage is an independent async task with its own interface. Run sequentially, skip steps, resume mid-way — the toolchain itself is the product, with no hidden black box.
+**每一步皆可拆解。** 每个阶段都是一个独立的异步任务，各有独立接口。你可以顺序跑、跳步跑、中途续跑，这套工具本身就是产品 —— 里面不藏黑箱。
 
-**Self-hostable, model-neutral.** Your manuscript, your characters, your models, your servers. Use closed-source frontier models when you want the best results; switch to open-weight models when you want full control. AIPDD-Agent-Claw won't lock you into any single vendor.
+**可自托管，模型中立。** 你的原稿、你的角色、你的模型、你的服务器。需要最好的效果时用闭源大模型；需要完全可控时切到开放权重模型。DramaClaw 不会把你绑死在任何一家。
 
-### How AIPDD-Agent-Claw compares
+### AIPDD-Agent-Claw 横向对比
 
-The edge isn't "more generation" — it's organizing the whole short-drama production loop (script → assets → shots → canvas → final cut) into something reusable, collaborative and scalable.
+差异化不是「更会生成」，而是把整条短剧生产链（剧本 → 资产 → 镜头 → 画布 → 成片）组织成可复用、可协作、可规模化的系统。
 
-<sub>Legend: ✅ Full · ◐ Partial · ○ Planned · ❌ None — competitor names partially masked; comparison based on publicly available product docs and positioning.</sub>
+<sub>图例：✅ 完整 · ◐ 局部 · ○ 规划中 · ❌ 无 —— 竞品名称已部分打码；对比基于各家公开文档与产品定位。</sub>
 
-| Capability | L\*TV | R\*Hub | T\*Now | S\*ko | U\*dream | O\*II | J\*/K\* | **AIPDD-Agent-Claw** |
+| 能力维度 | L\*TV | R\*Hub | T\*Now | S\*ko | U\*dream | O\*II | 即\*/可\* | **DramaClaw** |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-| Storyboard preview (script→shots, boards) | ◐ | ✅ | ◐ | ✅ | ◐ | ❌ | ❌ | ✅ |
-| Interactive series (multi-episode, branching, IP) | ◐ | ◐ | ◐ | ✅ | ◐ | ❌ | ❌ | ✅ |
-| Asset library (characters/scenes/props/voices) | ◐ | ❌ | ◐ | ✅ | ◐ | ○ | ❌ | ✅ |
-| Scene consistency (variants, 360°, multi-state) | ✅ | ◐ | ❌ | ❌ | ○ | ❌ | ❌ | ✅ |
-| Director's world (360°/3D set, camera, framing) | ✅ | ◐ | ❌ | ❌ | ◐ | ❌ | ❌ | ✅ |
-| Final delivery (multi-shot, subtitles/SRT, pack) | ✅ | ○ | ○ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Team production (sharing, roles, tasks, cost) | ✅ | ✅ | ○ | ✅ | ○ | ○ | ○ | ✅ |
-| Infinite canvas (node-based, free exploration) | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Dual-track (main pipeline + canvas exploration) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Custom style (templates, prompts, negatives) | ✅ | ◐ | ○ | ✅ | ◐ | ○ | ◐ | ✅ |
-| Built-in agent (assistant, skills, suggestions) | ✅ | ✅ | ✅ | ○ | ✅ | ○ | ✅ | ✅ |
-| Creative companion (persona, nudges, feedback) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Source-available (self-host, fork, customize) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| 分镜预览（脚本拆分镜、分镜图、故事板） | ◐ | ✅ | ◐ | ✅ | ◐ | ❌ | ❌ | ✅ |
+| 互动影游（多剧集、分支叙事、IP 连续） | ◐ | ◐ | ◐ | ✅ | ◐ | ❌ | ❌ | ✅ |
+| 资产库（角色/场景/道具/声线复用） | ◐ | ❌ | ◐ | ✅ | ◐ | ○ | ❌ | ✅ |
+| 场景一致性（变体、背面图、360、多状态） | ✅ | ◐ | ❌ | ❌ | ○ | ❌ | ❌ | ✅ |
+| 导演世界（360/3D 片场、机位、构图） | ✅ | ◐ | ❌ | ❌ | ◐ | ❌ | ❌ | ✅ |
+| 成片交付（多镜头合成、字幕/SRT、素材包） | ✅ | ○ | ○ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| 团队生产（共享、权限、任务中心、成本追踪） | ✅ | ✅ | ○ | ✅ | ○ | ○ | ○ | ✅ |
+| 无限画布（节点创作、多素材编排、自由探索） | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| 双线模式（主线生产 + 自由画布探索） | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| 自定义风格（风格模板、提示词、避免指令） | ✅ | ◐ | ○ | ✅ | ◐ | ○ | ◐ | ✅ |
+| 内置 Agent（助手、技能调用、任务建议） | ✅ | ✅ | ✅ | ○ | ✅ | ○ | ✅ | ✅ |
+| 创作搭子（陪伴形象、任务气泡、创作反馈） | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| 开放源代码（可私有化二开与深度定制） | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 <br/>
 
-## System Requirements
+## 系统要求
 
-AIPDD-Agent-Claw runs all inference through an **OpenAI-compatible gateway** — NewAPI ([dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)) routing to providers you configure. Nothing runs models on your machine, so the local footprint is light. An ordinary laptop or a small VPS is enough.
+DramaClaw 的所有模型推理都走 **OpenAI 兼容网关** —— 要么是官方 DramaClaw 网关服务，要么是 NewAPI（[dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway)）转发到你自己配置的模型供应商。本机不跑模型，所以本地占用很低，一台普通笔记本或小 VPS 就够用。
 
-| Item | Requirement |
+| 项目 | 要求 |
 |---|---|
-| **CPU / RAM** | ≥ 2 vCPU / 4 GB recommended (excludes model inference — that runs on the gateway) |
-| **GPU** | Not required for the standard pipeline. Only the optional `world` extra (voxel / panorama-to-3D) needs a GPU + CUDA image |
-| **Disk** | A few GB for images plus generated media/state under the `ce-data` volume (no hard minimum) |
-| **OS** | macOS (Apple Silicon / Intel), Windows (Docker Desktop + WSL2 backend), Linux (Docker Engine + compose plugin) |
+| **CPU / 内存** | 建议 ≥ 2 vCPU / 4 GB（不含模型推理，推理在网关侧） |
+| **GPU** | 标准流程**无需 GPU**。仅可选的 `world` 扩展（体素 / 全景转 3D）才需要 GPU + CUDA 镜像 |
+| **磁盘** | 预留几 GB 放镜像及 `ce-data` 卷中的生成媒体/状态（无硬性下限） |
+| **操作系统** | macOS（Apple Silicon / Intel）、Windows（Docker Desktop + WSL2 后端）、Linux（Docker Engine + compose 插件） |
 | **Docker** | Docker + `docker compose` |
-| **Ports** | `8080` web UI · `8780` REST API · `3000` NewAPI admin UI (host-only by default, can be widened) |
-| **Datastores** | None required — no Postgres, Redis, Celery or Ray. Tasks run in-process; state lives on the local filesystem (SQLite + files) |
-| **Network** | Outbound access to the official gateway `api.aipdd.work`, and/or to the model providers you configure in NewAPI |
+| **端口** | `8080` 网页 · `8780` REST API · `3000` NewAPI 管理页（默认仅本机，可放开） |
+| **数据库** | 全部不需要 —— 无 Postgres、Redis、Celery、Ray。任务进程内内联执行，状态存本地文件系统（SQLite + 文件） |
+| **网络** | 需能出网访问官方网关 `api.aipdd.work`，和/或你在 NewAPI 里配置的模型供应商 |
 
-> **Build-time needs more than run-time.** The first Docker build compiles the frontend and installs Python/media deps inside the container; give the Docker VM **≥ 8 GB memory** (below that the `vite` build gets OOM-killed with a `SIGKILL`) and **≥ 40 GB disk**. The one-click installers size this for you automatically.
+> **构建期比运行期更吃资源。** 首次 Docker 构建会在容器里编译前端、装 Python 与媒体依赖，给 Docker 虚拟机留 **≥ 8 GB 内存**（低于此值 `vite` 构建会被 OOM 以 `SIGKILL` 杀掉）和 **≥ 40 GB 磁盘**。一键安装脚本会自动按这个口径配好虚拟机。
 >
-> **Local development (non-Docker)** additionally needs Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg` + Node.js with `pnpm` (for the frontend). Full prerequisites in the [Self-hosting guide](docs/en/guides/self-hosting.md).
+> 本地开发（非 Docker）还需 Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg` + Node.js（前端用 `pnpm`）。完整前置条件见[自托管指南](./docs/zh/guides/self-hosting.md)。
 
 <br/>
 
-## <a name="quick-start"></a>Quick Start
+## <a name="quick-start"></a>快速开始
 
-### One-click (macOS / Windows) — recommended if you just want it running
+### 一键安装（macOS / Windows）—— 只想快速跑起来就选这个
 
-No terminal commands needed. Get the code (clone or **Download ZIP**, then unzip), then double-click the two launchers in the repo root **in order**:
+不用敲任何命令。拿到代码（`git clone` 或直接**下载 ZIP** 解压），然后按顺序**双击仓库根里的两个启动器**：
 
 | | macOS | Windows |
 |---|---|---|
-| **1 · Install** | double-click `安装环境-Setup.command` | double-click `安装环境-Setup.bat` |
-| **2 · Start** | double-click `启动系统-Start.command` | double-click `启动系统-Start.bat` |
+| **1 · 装环境** | 双击 `安装环境-Setup.command` | 双击 `安装环境-Setup.bat` |
+| **2 · 启动** | 双击 `启动系统-Start.command` | 双击 `启动系统-Start.bat` |
 
-- **The Setup launcher installs everything**: Xcode Command Line Tools → Homebrew → Colima (the Docker VM) → Docker CLI + compose on macOS, or WSL2 → Docker Desktop on Windows; then it generates `.env` from `.env.example` and builds the first `api` / `web` / gateway images from source (the gateway is vendored under `third_party/dramaclaw-gateway`, so nothing is pulled from a registry). **The Start launcher** brings the stack up, waits until the site actually answers, and opens your browser at <http://localhost:8080>.
-- **Every step is idempotent** — if something fails, fix the cause and double-click again to resume. On success the window closes by itself; a failure stays open so you can read it.
-- **macOS first launch**: Gatekeeper may block an unsigned `.command` — right-click the file → **Open** (or allow it under System Settings → Privacy & Security).
-- **Windows**: do **not** "Run as administrator" — Docker Desktop installs per-user and an elevated window would put it where the launcher can't find it. (WSL setup raises its own one-time system consent — that's expected.)
-- **Rebuild after a code change**: `bash 启动系统-Start.command --rebuild` (macOS) / `启动系统-Start.bat --rebuild` (Windows). The default double-click never rebuilds, so it stays fast.
+- **安装器把依赖全装上**：macOS 装 Xcode 命令行工具 → Homebrew → Colima（Docker 虚拟机）→ Docker CLI + compose；Windows 装 WSL2 → Docker Desktop。随后从 `.env.example` 生成 `.env`、构建首版 `api` / `web` 镜像、预拉网关镜像。**启动器**负责把服务栈拉起来、等站点真正就绪，再自动帮你打开浏览器 <http://localhost:8080>。
+- **每一步都幂等** —— 哪步失败就修好原因再双击，会从当前进度续上。成功即自动关窗；失败会停住，方便你看报错。
+- **macOS 首次打开**：未签名的 `.command` 可能被 Gatekeeper 拦下 —— 右键该文件 → **打开**（或在「系统设置 → 隐私与安全性」里放行）。
+- **Windows**：**不要**「以管理员身份运行」—— Docker Desktop 是按当前用户安装的，管理员窗口装的位置启动器反而找不到。（WSL 安装会自己弹一次系统授权，这是正常且唯一的一次。）
+- **改过代码想让页面生效**：`bash 启动系统-Start.command --rebuild`（macOS）/ `启动系统-Start.bat --rebuild`（Windows）。默认双击绝不重建，所以启动很快。
 
-> This path uses `docker-compose.aipdd.yml`: `api`, `web` and the gateway are all built from source (the gateway from the vendored `third_party/dramaclaw-gateway`), with SQLite + in-process tasks, no Postgres/Redis/Celery and **no external images pulled**. The first build can take 40–90 minutes on a slow connection (subsequent starts are seconds). See [First run](#first-run) for signing in and connecting models.
+> 这条路径用的是 `docker-compose.aipdd.yml`：`api` + `web` 源码构建，NewAPI 拉发布镜像，SQLite + 进程内任务，无需 Postgres/Redis/Celery。慢网下首次构建可能要 40–90 分钟（之后每次启动只需几秒）。登录与配模型见[首次运行](#first-run)。
 
-### Docker (source build)
+### 一键启动（macOS / Windows）—— 只想快速跑起来就选这个
 
-This fork is **source-build only** — it never pulls a published image. The DramaClaw gateway is already vendored under `third_party/dramaclaw-gateway` (AGPL-3.0; see [`third_party/README.md`](./third_party/README.md)), so you do **not** clone it separately. `docker compose up -d --build` builds all three services (`api` / `localapi` gateway / `web`) from this single checkout.
+无需终端命令。获取代码（clone 或 **下载 ZIP** 后解压），然后在仓库根目录**按顺序**双击两个启动器：
+
+| | macOS | Windows |
+|---|---|---|
+| **1 · 安装** | 双击 `安装环境-Setup.command` | 双击 `安装环境-Setup.bat` |
+| **2 · 启动** | 双击 `启动系统-Start.command` | 双击 `启动系统-Start.bat` |
+
+- **安装启动器会装好一切**：macOS 上 Xcode 命令行工具 → Homebrew → Colima（Docker 虚拟机）→ Docker CLI + compose，Windows 上 WSL2 → Docker Desktop；随后由 `.env.example` 生成 `.env`，并从源码首次构建 `api` / `web` / 网关镜像（网关内置在 `third_party/dramaclaw-gateway`，不从任何镜像仓库拉取）。**启动启动器**会把整套服务拉起，等到站点真正响应后，在浏览器打开 <http://localhost:8080>。
+- **每一步都幂等** —— 若某步失败，修好原因后再次双击即可续跑。成功时窗口会自动关闭；失败则保持打开以便查看。
+- **macOS 首次启动**：Gatekeeper 可能拦截未签名的 `.command` —— 右键该文件 → **打开**（或在 系统设置 → 隐私与安全性 中允许）。
+- **Windows**：不要「以管理员身份运行」—— Docker Desktop 按用户安装，提权窗口会把它放到启动器找不到的地方。（WSL 配置会弹出它自己的一次性系统授权 —— 属正常。）
+- **改代码后重新构建**：`bash 启动系统-Start.command --rebuild`（macOS）/ `启动系统-Start.bat --rebuild`（Windows）。默认双击不会重建，所以始终很快。
+
+> 该路径使用 `docker-compose.aipdd.yml`：`api`、`web` 与网关全部从源码构建（网关来自内置的 `third_party/dramaclaw-gateway`），使用 SQLite + 进程内任务，无 Postgres/Redis/Celery 且**不拉取任何外部镜像**。首次构建在慢速网络下可能耗时 40–90 分钟（之后启动只需数秒）。登录与连接模型见 [首次运行](#first-run)。
+
+### Docker（推荐）
+
+每次 GitHub Release 都会发布 amd64/arm64 多架构镜像到 Docker Hub。
+
+**源码构建（默认）** —— 把 DramaClaw 和内置的 [dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway) 并排 clone，`docker compose up -d --build` 用这两个 checkout 构建全部三个服务。
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-cd aipdd-drama-agent
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # NewAPI，从 ../dramaclaw-gateway 构建
+cd dramaclaw
 
 cp .env.example .env
-# Edit .env — set PROMPT_EXPORT_PASSWORD to a non-default value.
+# 编辑 .env —— 把 PROMPT_EXPORT_PASSWORD 改成非默认值。
 
-docker compose up -d --build   # builds and starts three services: api / localapi (NewAPI) / web
+docker compose up -d --build   # 构建并起三个服务：api / localapi（NewAPI）/ web
 ```
 
-Only this repo's code changed? `docker compose up -d --build api web`. Only the vendored gateway? `docker compose up -d --build localapi`. Want to build the gateway from your own checkout instead of the vendored copy? Set `DRAMACLAW_GATEWAY_SRC` in `.env` to that path.
+两个 checkout 都是普通 git 仓库：改代码、`git pull`、重建。只改了 DramaClaw 代码：`docker compose up -d --build api web`；只改了网关：`docker compose up -d --build localapi`。网关 clone 放在别处，或者想让 Docker 直接从 git 拉？在 `.env` 里把 `DRAMACLAW_GATEWAY_SRC` 设成那个路径或 `https://github.com/dramaclaw/dramaclaw-gateway.git#main`。
 
-Open the app at <http://localhost:8080>; the REST API is at <http://localhost:8780>. In **Settings → Models & Channels** pick one of:
+**免构建** —— 改拉已发布镜像（不需要 clone 网关）：
 
-- **Official** — paste your DC key (get one at <https://www.aipdd.work>); no model mapping needed. NewAPI stays idle.
-- **Custom** — one click initializes NewAPI; then add your own upstream channels.
-- **NewAPI + Official Hybrid** — official for the main pipeline, NewAPI for extra channels.
+```bash
+docker compose -f docker-compose.release.yml up -d
+```
 
-Full steps in the [Quick Start](docs/en/getting-started/quickstart.md).
+浏览器打开 <http://localhost:8080>；REST API 在 <http://localhost:8780>。到**设置 → 模型与渠道**三选一：
 
-> NewAPI's port binds only to `127.0.0.1` by default; set `ST_LOCALAPI_BIND=0.0.0.0` in `.env` if you need remote access to it.
+- **官方** —— 粘贴 DC key（到 <https://www.aipdd.work> 获取），无需映射模型，NewAPI 闲置待命。
+- **自定义** —— 一键初始化 NewAPI，再自行配上游渠道。
+- **NewAPI + 官方混合** —— 主链路走官方，额外渠道走 NewAPI。
 
-### Cloud host / VPS (Linux) — shared or public deployment
+完整步骤见 [快速开始](./docs/zh/getting-started/quickstart.md)。
 
-On a Linux server (your own VPS or a cloud instance), run the same source-build stack with Docker Engine and the `docker compose` plugin — install them via your distro's package manager or Docker's official Linux docs, then:
+版本与镜像源在 `.env` 里钉：`DRAMACLAW_VERSION`、`DRAMACLAW_GATEWAY_VERSION`、`DRAMACLAW_IMAGE_PREFIX`——仅镜像模式（`docker-compose.release.yml`）生效。国内拉取慢：设 `DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` 并同时钉两个版本（ACR 镜像只有钉 tag，没有 latest）。
+
+> 从旧版本升级？源码构建的先 `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway`（网关现在从这个并排 checkout 构建，没有它会报 `unable to prepare context`）。`docker-compose.selfhosted.yml`、`docker-compose.selfhosted.release.yml` 已移除——改用 `docker-compose.yml`（源码构建）/ `docker-compose.release.yml`（镜像）。服务名与 `ce-data` / `localapi-data` 数据卷不变，已有数据原样复用。NewAPI 端口默认只绑 `127.0.0.1`，需要远程访问时在 `.env` 设 `ST_LOCALAPI_BIND=0.0.0.0`。
+
+### 云服务器 / VPS（Linux）—— 共享或公开部署
+
+在 Linux 服务器（你自己的 VPS 或云实例）上，用 Docker Engine 和 `docker compose` 插件跑同一套源码构建 —— 通过发行版的包管理器或 Docker 官方 Linux 文档装好它们，然后：
 
 ```bash
 # 1 · get the code and configure it
@@ -377,145 +405,156 @@ cp .env.example .env
 docker compose -f docker-compose.aipdd.yml up -d --build
 ```
 
-- **Ports.** `8080` web UI · `8780` REST API · `3000` NewAPI admin (bound to `127.0.0.1` by default). Put a **reverse proxy with TLS** (Caddy / Nginx / Traefik) in front of `8080` and keep `8780` / `3000` internal; open only `80` / `443` in the firewall / security group.
-- **First build needs room** — give the host ≥ 8 GB RAM and ≥ 40 GB disk, or the frontend build gets OOM-killed.
-- **Sign in.** If you set `ST_LOCAL_PASSWORD` in `.env`, use account `local` with that password. Leave it empty and the first page you see is an **initialization form** — set your own username and initial password there (no password to dig out of the logs).
-- **Multi-user?** CE is single-owner by design: until `ST_CE_MULTI_USER` is on, every request is trusted as the local owner **without login** — keep `8780` behind the reverse proxy or bind it to `127.0.0.1` (`--host` / `NOVELVIDEO_API_HOST`); startup logs a warning when the bind is not verifiably loopback-only. To serve several users, enable `ST_CE_MULTI_USER` and put real auth + HTTPS in front. Full production notes: [Self-hosting guide](docs/en/guides/self-hosting.md).
+- **端口。** `8080` Web UI · `8780` REST API · `3000` NewAPI 管理面（默认只绑 `127.0.0.1`）。在 `8080` 前面放一个**带 TLS 的反向代理**（Caddy / Nginx / Traefik），把 `8780` / `3000` 保持为内部端口；防火墙 / 安全组只开 `80` / `443`。
+- **首次构建要留足空间** —— 给主机 ≥ 8 GB 内存和 ≥ 40 GB 磁盘，否则前端构建会被 OOM 杀掉。
+- **登录** 用单机账号 `local` + `ST_LOCAL_PASSWORD`；口令留空时后端不替你造账户，第一次打开网页会让你自己设置用户名和初始密码。
+- **多用户？** CE 按设计是单主人。要服务多个用户，请开启 `ST_CE_MULTI_USER` 并在前面放真正的鉴权 + HTTPS。完整生产须知见 [自托管指南](./docs/zh/guides/self-hosting.md)。
 
-### Local development (uv + Python 3.11+)
+### 本地开发（uv + Python 3.11+）
 
 ```bash
 git clone https://github.com/liujh0729-jpg/aipdd-drama-agent.git
-cd aipdd-drama-agent
+cd dramaclaw
 
 uv sync
 cp .env.example .env && $EDITOR .env
 
-uv run novelvideo api --port 8780   # start the REST API (CE defaults to inline tasks, no Ray/Redis)
+uv run novelvideo api --port 8780   # 启动 REST API（CE 默认 inline 任务，无需 Ray/Redis）
 ```
 
-Frontend in a second terminal: `cd frontend && pnpm install && pnpm dev`.
+另开一个终端起前端：`cd frontend && pnpm install && pnpm dev`。
 
-**Gateway.** In **Official** mode you need nothing else. For **Custom** or **NewAPI + Official Hybrid** the API expects a gateway on `127.0.0.1:3000` whose SQLite file is `./state/localapi/localapi.db` (that is what "Initialize" in Settings writes to; `LOCALAPI_ADMIN_BASE_URL` in `.env` already points there). Build and run the vendored gateway from source with that directory mounted:
+**网关。** **官方**模式什么都不用再跑。**自定义**或**NewAPI + 官方混合**模式下，API 需要一个跑在 `127.0.0.1:3000` 的网关，且它的 SQLite 文件在 `./state/localapi/localapi.db`（设置页的「初始化」写的就是这个文件；`.env` 里的 `LOCALAPI_ADMIN_BASE_URL` 默认已指向这个地址）。要么用发布镜像并把这个目录挂进去：
 
 ```bash
 mkdir -p state/localapi
-docker build -t aipdd/gateway ./third_party/dramaclaw-gateway
 docker run -d --name dramaclaw-gateway -p 127.0.0.1:3000:3000 \
   -v "$PWD/state/localapi:/data" \
-  aipdd/gateway
+  claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
 ```
 
-or run the gateway from source directly in `third_party/dramaclaw-gateway` (`make dev-api` / `make dev-web`, or `go build` and start the binary with `SQLITE_PATH=<path to>/state/localapi/localapi.db`).
+要么在旁边的 checkout 里从源码跑网关（[dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/README.zh_CN.md#开发) 的 `make dev-api` / `make dev-web`，或者 `go build` 后用 `SQLITE_PATH=<路径>/dramaclaw/state/localapi/localapi.db` 启动二进制）。
 
 <br/>
 
-## <a name="first-run"></a>First Run & How to Use
+## <a name="first-run"></a>首次运行与使用
 
-Whichever install path you chose, the app comes up the same way:
+无论你选了哪条安装路径，应用的启动方式都一样：
 
-1. **Open the UI** at <http://localhost:8080> (the one-click launchers open it for you). The REST API is at <http://localhost:8780>; the browser only talks to `web`, which reverse-proxies to `api`.
-2. **Sign in.** The `docker-compose.aipdd.yml` setup enables single-machine login.
-   - If you set `ST_LOCAL_PASSWORD` in `.env`, sign in as account `local` with that password.
-   - Otherwise the database has no account yet, so page one is the **initialization form**: set your username and initial password there. That first account becomes the super admin, the form closes for good afterwards, and more users are added under **Settings → Users**.
-3. **Connect your models** — go to **Settings → Models & Channels** and pick one mode (details in [Supported Models & Providers](#supported-models)):
-   - **Official** — paste a DC key from <https://www.aipdd.work>; every model is already mapped, NewAPI stays idle.
-   - **Custom** — one click initializes NewAPI, then add your own provider channels (API keys + model IDs) in its admin UI.
-   - **NewAPI + Official Hybrid** — official models for the main pipeline, your extra channels alongside.
-4. **Start creating** — two ways into the same asset library:
-   - **Series pipeline**: ingest a manuscript or screenplay (Fountain supported), then let AIPDD-Agent-Claw plan episodes, write scripts, draw storyboards and first frames, synthesize voice-over and cut the final film. Each stage is an independent task in the **Task Center** — run sequentially, skip, or resume from any checkpoint.
-   - **Canvas**: open the infinite canvas and drop / connect nodes (image, video, audio, script, 3D set…) to explore freely, then promote the results you like back into a series.
+1. **打开 UI** <http://localhost:8080>（一键启动器会替你打开）。REST API 在 <http://localhost:8780>；浏览器只和 `web` 通信，`web` 再反向代理到 `api`。
+2. **登录。** `docker-compose.aipdd.yml` 这套启用了单机登录。
+   - 若你在 `.env` 设了 `ST_LOCAL_PASSWORD`，就用账号 `local` 加那个密码登录。
+   - 否则库里还没有账户，第一屏就是**初始化表单**：在那里自己定用户名和初始密码。首个账户即超管，初始化完成后该表单永久关闭，之后加人走「设置 → 用户管理」。
+3. **连接你的模型** —— 进入 **设置 → 模型与渠道**，选一种模式（细节见 [支持的模型与供应商](#supported-models)）：
+   - **官方** —— 粘贴一个来自 <https://www.aipdd.work> 的 DC key；所有模型都已映射好，NewAPI 保持空闲。
+   - **自定义** —— 一键初始化 NewAPI，然后在其管理界面里加上你自己的上游渠道（API key + 模型 ID）。
+   - **NewAPI + 官方混合** —— 主流水线用官方模型，额外渠道走 NewAPI。
+4. **开始创作** —— 两种方式进入同一个资产库：
+   - **剧集流水线**：导入一份小说或剧本（支持 Fountain），让 AIPDD-Agent-Claw 规划剧集、写剧本、画分镜和首帧、合成配音、剪出成片。每个阶段都是**任务中心**里独立的任务 —— 可顺序跑、跳过，或从任意检查点续跑。
+   - **画布**：打开无限画布，拖放 / 连接节点（图像、视频、音频、脚本、3D 片场……）自由探索，再把满意的结果提升回剧集。
 
-Stay current: re-double-click the **Start** launcher to restart; check the running stack with `docker-compose -f docker-compose.aipdd.yml ps` and follow logs with `... logs -f api`. For a full walkthrough see the [product manual](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) and [Quick Start](docs/en/getting-started/quickstart.md).
+保持更新：重新双击 **启动** 启动器即可重启；用 `docker-compose -f docker-compose.aipdd.yml ps` 查看运行中的服务栈，用 `... logs -f api` 跟踪日志。完整走查见 [产品手册](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) 与 [快速开始](./docs/zh/getting-started/quickstart.md)。
 
 <br/>
 
-## <a name="supported-models"></a>Supported Models & Providers
+## <a name="supported-models"></a><a name="first-run"></a>首次运行与使用
 
-AIPDD-Agent-Claw stays model-neutral — all text / image / video / audio models connect through an **OpenAI-compatible gateway**, so the same pipeline can ride **AIPDD's low-cost idle compute**, the official hosted models, **any NewAPI channel you wire in**, or **your own GPU via ComfyUI local compute**. Pick the mode in **Settings → Models & Channels**:
+不管走哪条安装路径，起来后的用法都一样：
 
-- **Official (recommended)** — paste your DC key (get one at <https://www.aipdd.work>), save, done. The official gateway already ships every model mapping DramaClaw needs; nothing to configure.
-- **Custom** — one click initializes NewAPI, then add your own provider channels (API keys, model IDs) in its admin UI. Every model DramaClaw calls goes through your channels.
-- **NewAPI + Official Hybrid** — keep the official models for the main pipeline and add extra channels (for example a local ComfyUI video workflow) through NewAPI.
+1. **打开界面** <http://localhost:8080>（一键启动器会自动帮你打开）。REST API 在 <http://localhost:8780>；浏览器只访问 `web`，由它反代到 `api`。
+2. **登录。** `docker-compose.aipdd.yml` 这套启用了单机登录。
+   - 若你在 `.env` 里设了 `ST_LOCAL_PASSWORD`，就用账号 `local` 加那个口令登录。
+   - 否则库里还没有账户，第一屏是**初始化表单**，在那里自己定用户名和初始密码；首个账户即超管，之后加人走「设置 → 用户管理」。
+3. **配置模型** —— 进**设置 → 模型与渠道**三选一（细节见[支持的模型与服务商](#supported-models)）：
+   - **官方** —— 粘贴在 <https://www.aipdd.work> 获取的 DC key，模型已全部映射好，NewAPI 闲置待命。
+   - **自定义** —— 一键初始化 NewAPI，再在它的管理页添加你自己的供应商渠道（API key、模型 ID）。
+   - **NewAPI + 官方混合** —— 主链路用官方模型，你的额外渠道并存。
+4. **开始创作** —— 两条路共用同一个资产库：
+   - **剧集流水线**：导入原稿或剧本（支持 Fountain），DramaClaw 帮你规划剧集、生成剧本、绘制分镜与首帧、合成配音、剪成成片。每个阶段都是**任务中心**里的独立任务 —— 可顺序跑、跳步、从任意检查点续跑。
+   - **画布**：打开无限画布，自由拖拽并连接节点（图片、视频、音频、剧本、3D 场景…）探索，再把满意的结果写回某一集。
 
-> 🧠 **Bring your own compute — lower cost, stay in control.** The gateway is built so *you* choose where each generation runs:
-> - **AIPDD idle compute (cut costs).** Connecting the **AIPDD** channel lets generation ride the platform's **idle compute pool**, so heavy batch drama work runs at a fraction of on-demand pricing — the single biggest lever on production cost. Register at <https://www.aipdd.work> to get an AIPDD API key, then add it as a channel in **Settings → Models & Channels**.
-> - **NewAPI, freely mixed.** The built-in **NewAPI** gateway lets you register many providers as channels and **combine them however you like** — official, AIPDD, a self-hosted box, or any OpenAI-compatible endpoint — per model, per stage. For NewAPI channels we recommend **sourcing your own providers and comparing prices**; a curated reference list is here: <https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>.
-> - **ComfyUI, on your own GPU — the cheapest way to run canvas tasks.** A first-class **ComfyUI** adapter points canvas image / video generation at a workflow running on **your own machine**: your GPU does the rendering, so there's **no per-call cloud quota** — heavy generation costs you only electricity, far below any hosted model. Register your local ComfyUI endpoint as a channel in **Custom** or **Hybrid** mode.
->   - **Fastest way to get ComfyUI up** — skip the manual install and just download our bundled **compute client (算力客户端)**, then run the installer — no Python or environment setup needed: <https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>.
+日常维护：再双击**启动器**即可重启；用 `docker-compose -f docker-compose.aipdd.yml ps` 查看运行中的服务栈，用 `... logs -f api` 跟日志。完整操作见[产品使用手册](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth)和[快速开始](./docs/zh/getting-started/quickstart.md)。
+
+<br/>
+
+## <a name="supported-models"></a>支持的模型与服务商
+
+DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音频模型都经一个 **OpenAI 兼容网关**接入。到**设置 → 模型与渠道**三选一：
+
+- **官方（推荐）** —— 粘贴 DC key（到 <https://www.aipdd.work> 获取）保存即用。官方网关已经配好 DramaClaw 需要的全部模型映射，什么都不用调。
+- **自定义** —— 一键初始化 NewAPI，然后在它的管理页里添加你自己的供应商渠道（API key、模型 ID）。DramaClaw 调用的每一个模型都走你的渠道。
+- **NewAPI + 官方混合** —— 主链路继续用官方模型，额外渠道（比如本地 ComfyUI 视频工作流）走 NewAPI。
+
+> 🧠 **自带算力，任选其一 —— 更省钱，也更有掌控。** 网关的设计让**你自己**决定每次生成跑在哪里：
+> - **AIPDD 闲置算力（大幅降本）。** 接入 **AIPDD** 渠道后，生成可走平台的**闲置算力池**，批量重活短剧的成本只有按需价的一小部分 —— 这是压低成本最有效的一招。到 <https://www.aipdd.work> 注册获取 AIPDD API Key，再在**设置 → 模型与渠道**里把它加为一个渠道。
+> - **NewAPI，自由搭配。** 内置的 **NewAPI** 网关可以把多家供应商注册为渠道，并**按你的想法任意组合** —— 官方、AIPDD、自托管机器、或任意 OpenAI 兼容端点 —— 按模型、按环节分别选择。NewAPI 渠道建议**自行寻找供应商并比价**，这里有一份整理好的参考清单：<https://aiworkin.feishu.cn/wiki/F2WUwonOjikoDHkg1ERcDuPqnjf>。
+> - **ComfyUI，用你自己的 GPU —— 跑画布任务最省钱的一条路。** 一级 **ComfyUI** 适配器把生图 / 生视频路由到**你本机**跑的工作流：由你的 GPU 出图，**不占用按次云端额度** —— 重活只花电费，远低于任何托管模型。在**自定义**或**混合**模式里把本地 ComfyUI 端点注册为渠道即可。
+>   - **最省事的 ComfyUI 安装方式** —— 无需手动装、也不用配 Python 环境，直接下载我们打包好的**算力客户端**，装上就能用：<https://aiworkin.feishu.cn/wiki/ShOuwFDdBimuqCkz2Oqcofwdnm7>。
 >
->   <img src="./assets/Weixin%20Image_20261010102709_97_221.png" width="520" alt="AIPDD compute client — install ComfyUI and run canvas tasks on local GPU"/>
+>   <img src="./assets/Weixin%20Image_20261010102709_97_221.png" width="520" alt="AIPDD 算力客户端 —— 一键装好 ComfyUI，用本地 GPU 跑画布任务"/>
 
-Full walkthrough in [Configuring Models](docs/en/getting-started/configuring-models.md).
+完整步骤见 [配置模型供应商](./docs/zh/getting-started/configuring-models.md)。
 
-### NewAPI: dramaclaw-gateway
+### NewAPI：dramaclaw-gateway
 
-The `localapi` service in `docker-compose.yml` is [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), AIPDD-Agent-Claw's own fork of [New API](https://github.com/QuantumNous/new-api). It speaks the **DC-Media** contract AIPDD-Agent-Claw uses for image / video / audio (media roles, references, first / last frames) and converts each request into the provider's native API. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) on Docker Hub, pinned by `DRAMACLAW_GATEWAY_VERSION` in `.env`. It stays idle in Official mode and is only used once you switch to **Custom** or **NewAPI + Official Hybrid**.
+`docker-compose.yml` 里的 `localapi` 服务就是 [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway)，DramaClaw 自己维护的 [New API](https://github.com/QuantumNous/new-api) 分支。它实现了 DramaClaw 图片 / 视频 / 音频所用的 **DC-Media** 协议（媒体角色、参考图、首尾帧），并把每个请求转换成各供应商的原生接口。镜像在 Docker Hub：[`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)，版本由 `.env` 里的 `DRAMACLAW_GATEWAY_VERSION` 钉住。官方模式下它只是常驻待命，切到**自定义**或**NewAPI + 官方混合**后才会被使用。
 
-Provider adapters shipped in the gateway today (see the [channel support matrix](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md) for verification status): ComfyUI · MiniMax H3 / Hailuo · VolcEngine Doubao / Seedance · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Want another provider? The gateway has a [scaffold generator and contribution guide](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
+网关目前自带的供应商适配器（验证状态见 [渠道支持矩阵](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/README.md)）：ComfyUI · MiniMax H3 / 海螺 · 火山引擎豆包 / Seedance · 阿里 · 可灵 · 即梦 · Vertex AI · Gemini · OpenAI / Sora · Suno。想接别的供应商？网关提供了[适配器脚手架和贡献指南](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.zh_CN.md)。
 
-| Stage                | Official mode                          | Custom / Hybrid mode (NewAPI)                    |
-|----------------------|----------------------------------------------------|-----------------------------------------------------------|
-| **Text / LLM**       | `DC-*-LLM` models, no mapping needed               | any OpenAI-compatible chat channel                        |
-| **Image**            | gpt-image · nano-banana                            | any image channel registered in the gateway              |
-| **Video**            | Seedance 1.0 / 1.5 / 2.0 series · happyhorse       | any DC-Media video adapter (Seedance, MiniMax H3, Hailuo, Kling, ComfyUI, …) |
-| **Voice-over**       | IndexTTS2                                          | any audio channel registered in the gateway              |
-| **Story graph**      | Cognee (`DC-cognee-embedding`)                     | any embedding channel                                     |
-| **Task runtime**     | in-process inline (no Ray / Redis / Celery)        | same                                                      |
-| **Storage**          | local filesystem                                   | same                                                      |
-
-<br/>
-
-## <a name="in-development"></a>In Development
-
-These are being built in the open and are not in a release yet. Watch the branches, or come help.
-
-- **Director on the canvas** &mdash; the agent creates and connects nodes, updates node data, lays out and groups nodes, runs node actions and builds whole workflow graphs, with every canvas command approved in the open browser first.
-- **Workflow catalog and community skills** &mdash; a catalog of 11 workflow skills and 60 recipes (short drama, e-commerce ads, IP character ads, social campaigns, anime / Pixar / LEGO / kung-fu styles…) that lay out whole generation graphs; skills and recipes as installable, exportable, shareable bundles
-- **agent-kit** &mdash; a portable package that brings the same AIPDD-Agent-Claw workflows to Hermes, OpenClaw, WorkBuddy, Claude Code and Codex
-- **Previz stage** &mdash; an in-browser 3D blocking stage as a canvas node: multi-track timeline, character rigs and paths, real lens / sensor camera model, close-up tracking, then capture the framed shot straight into the next node. Branch: `feat/previz-canvas-node`
-- **Interactive stories** &mdash; branching choice points on the canvas, compiled to an ink story and exported as a self-contained HTML player, with playtest stats and path coverage. Branch: `feat/canvas-fmv`
-- **Interactive ads** &mdash; the ad skills and recipes above, combined with branching playback, for product videos viewers can steer
+| 环节              | 官方模式                          | 自定义 / 混合模式（NewAPI）                            |
+|-------------------|------------------------------------------------|----------------------------------------------------------|
+| **文本 / 大模型** | `DC-*-LLM` 系列，无需映射                       | 任意 OpenAI 兼容对话渠道                                  |
+| **图像**          | gpt-image · nano-banana                        | 网关里注册的任意图片渠道                                  |
+| **视频**          | Seedance 1.0 / 1.5 / 2.0 系列 · happyhorse     | 任意 DC-Media 视频适配器（Seedance、海螺、可灵、ComfyUI 等） |
+| **配音**          | IndexTTS2                                      | 网关里注册的任意音频渠道                                  |
+| **故事图谱**      | Cognee（`DC-cognee-embedding`）                | 任意 embedding 渠道                                       |
+| **任务运行时**    | 进程内 inline（无需 Ray / Redis / Celery）      | 同左                                                      |
+| **存储**          | 本地文件系统                                   | 同左                                                      |
 
 <br/>
 
-## <a name="documentation"></a>Documentation
+## <a name="in-development"></a>正在开发
 
-- [**Product user manual**](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) — full UI walkthrough (Feishu)
-- [Feature overview](./docs/en/concepts/features.md)
-- [Architecture](./docs/en/concepts/architecture.md)
-- [Quick Start](./docs/en/getting-started/quickstart.md)
-- [Self-hosting guide](./docs/en/guides/self-hosting.md)
-- [Configuring model providers](./docs/en/getting-started/configuring-models.md)
-- [More docs &rarr;](./docs/en/README.md)
+以下功能公开开发中，还没进正式版。可以盯着分支看，更欢迎来一起做。
+
+- **导演直接上画布干活** &mdash; 智能体创建并连接节点、更新节点数据、排版与分组、运行节点动作、一次搭出整张工作流图，每条画布指令都先在打开的浏览器里确认再执行
+- **工作流目录与社区技能** &mdash; 一套 11 个工作流技能 + 60 个配方（快速漫剧、电商广告、IP 角色广告、社媒内容、日漫 / 皮克斯 / 乐高 / 功夫喜剧等风格），自动铺好整张生成图；技能与配方做成可安装、可导出、可分享的 bundle
+- **agent-kit** &mdash; 便携包，把同一套 DramaClaw 工作流带给 Hermes、OpenClaw、WorkBuddy、Claude Code、Codex
+- **预演台** &mdash; 浏览器内的 3D 走位预演台，以画布节点的形式存在：多轨时间线、角色绑定与路径、真实镜头 / 传感器参数的相机模型、特写跟踪，取好的镜头直接送进下一个节点。分支：`feat/previz-canvas-node`
+- **互动剧** &mdash; 在画布上设置分支选择点，编译成 ink 故事并导出为独立 HTML 播放器，带试玩统计与路径覆盖。分支：`feat/canvas-fmv`
+- **互动广告** &mdash; 把上面的广告技能与配方和分支播放结合，做观众能自己选的产品视频
 
 <br/>
 
-## <a name="community"></a>Community
+## <a name="documentation"></a>文档
 
-To join the canvas discussion group, just scan the QR code below to add me on WeChat. Bug reports and improvement suggestions are very welcome — we'll build the good ones and publish them as source-available.
+- [**产品使用手册**](https://neo-flying.feishu.cn/docx/JGNTdsjJuo748TxJkxecoYs2nth) —— 全功能 UI 操作手册（飞书）
+- [功能总览](./docs/zh/concepts/features.md)
+- [架构](./docs/zh/concepts/architecture.md)
+- [快速开始](./docs/zh/getting-started/quickstart.md)
+- [自托管手册](./docs/zh/guides/self-hosting.md)
+- [配置模型供应商](./docs/zh/getting-started/configuring-models.md)
+- [更多文档 &rarr;](./docs/zh/README.md)
+
+<br/>
+
+## <a name="community"></a>社区
+
+加入画布讨论群，请扫下面二维码即可。欢迎发现问题和提出改进建议，好的建议我们会实现并共享源码（source-available）。
 
 <div align="center">
-  <img src="./assets/canvas-group-qr.png" width="260" alt="WeChat QR code — join the AIPDD-Agent-Claw canvas discussion group"/>
+  <img src="./assets/canvas-group-qr.png" width="260" alt="画布讨论群 · 微信群二维码"/>
 </div>
 
 <br/>
 
-## License
+## 许可证
 
-[Elastic License 2.0](./LICENSES/Elastic-2.0.txt). Free to use, modify, redistribute and sell what you build with it; keep a small "Powered by AIPDD & DramaClaw" in your UI. The only restriction is that you may not offer the software itself as a hosted service to others. See the [license explainer](./docs/en/license.md) and the [licensing statement](https://github.com/dramaclaw/dramaclaw/issues/475).
-
-This repo is **multi-licensed**. The application source is Elastic-2.0; third-party components vendored under [`third_party/`](./third_party/README.md) keep their own licenses and are aggregated at arm's length, each under its SPDX id in [`REUSE.toml`](./REUSE.toml) / [`license-inventory.csv`](./license-inventory.csv):
-
-- **`third_party/dramaclaw-gateway`** — AGPL-3.0-only (an independent service reached over HTTP; mere aggregation). [`LICENSES/AGPL-3.0-only.txt`](./LICENSES/AGPL-3.0-only.txt)
-- **`third_party/DA-2`** — Apache-2.0. [`LICENSES/Apache-2.0.txt`](./LICENSES/Apache-2.0.txt)
-- **`third_party/ml-sharp`** — Apple sample code (LicenseRef-Apple-Sample-Code) plus the **Apple ML Research Model** weights under a **non-commercial** license (LicenseRef-Apple-ML-Research-Model). [`LICENSES/`](./LICENSES/) for both notices
-
-The full bill of materials is in [`NOTICE`](./NOTICE).
+[Elastic License 2.0](./LICENSES/Elastic-2.0.txt)。源码可得（source available），允许自用、修改、再分发、拿它做的东西拿去卖；请在界面里保留一行小字「Powered by AIPDD & DramaClaw」。唯一限制是不得把本软件本身作为托管服务提供给他人。详见 [许可证说明](./docs/zh/license.md) 和 [授权说明](https://github.com/dramaclaw/dramaclaw/issues/475)。
 
 <br/>
 
-## Star History
+## 星标走势
 
 <a href="https://www.star-history.com/?repos=liujh0729-jpg%2Faipdd-drama-agent&type=date&legend=top-left">
   <img alt="Star History Chart" src="./readme/assets/star-history.svg" width="800" />
@@ -526,7 +565,7 @@ The full bill of materials is in [`NOTICE`](./NOTICE).
 <br/><br/>
 
 <div align="center">
-  <sub>Built for storytellers. Source, open to all.</sub>
+  <sub>为讲故事的人而建。源码，向所有人开放。</sub>
 </div>
 
 ## Notices

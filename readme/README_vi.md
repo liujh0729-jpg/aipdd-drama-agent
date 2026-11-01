@@ -65,7 +65,7 @@ Lý do và các câu hỏi thường gặp: <a href="https://github.com/dramacla
 [![Latest Release](./badges/release-latest.svg)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker Ready](./badges/docker-ready.svg)](#quick-start)
 
-[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; **Tiếng Việt** &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; [Website](https://www.aipdd.work) &nbsp;|&nbsp; [Tài liệu](../docs/en/README.md) &nbsp;|&nbsp; [Bắt đầu nhanh](../docs/en/getting-started/quickstart.md)
+[简体中文](../README.md) &nbsp;· &nbsp; [English](./README_en.md) &nbsp;· &nbsp; **Tiếng Việt** &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; [Français](./README_fr.md) &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; [Website](https://www.aipdd.work) &nbsp;|&nbsp; [Tài liệu](../docs/en/README.md) &nbsp;|&nbsp; [Bắt đầu nhanh](../docs/en/getting-started/quickstart.md)
 
 </div>
 

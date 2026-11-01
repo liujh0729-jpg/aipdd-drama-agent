@@ -64,7 +64,7 @@ Pourquoi, et la FAQ : <a href="https://github.com/dramaclaw/dramaclaw/issues/475
 [![Latest Release](./badges/release-latest.svg)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker Ready](./badges/docker-ready.svg)](#démarrage-rapide)
 
-[English](../README.md) &nbsp;· &nbsp; [简体中文](./README_zh.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; **Français** &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; [Site officiel](https://www.aipdd.work) &nbsp;|&nbsp; [Documentation](../docs/en/README.md) &nbsp;|&nbsp; [Démarrage rapide](../docs/en/getting-started/quickstart.md)
+[简体中文](../README.md) &nbsp;· &nbsp; [English](./README_en.md) &nbsp;· &nbsp; [Tiếng Việt](./README_vi.md) &nbsp;· &nbsp; [日本語](./README_ja.md) &nbsp;· &nbsp; [العربية](./README_ar.md) &nbsp;· &nbsp; **Français** &nbsp;· &nbsp; [Español](./README_es.md) &nbsp;· &nbsp; [Русский](./README_ru.md) &nbsp;|&nbsp; [Site officiel](https://www.aipdd.work) &nbsp;|&nbsp; [Documentation](../docs/en/README.md) &nbsp;|&nbsp; [Démarrage rapide](../docs/en/getting-started/quickstart.md)
 
 </div>
 

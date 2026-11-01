@@ -65,7 +65,7 @@ DramaClaw ใช้สัญญาอนุญาต <a href="../LICENSES/Elasti
 [![Latest Release](./badges/release-latest.svg)](https://github.com/liujh0729-jpg/aipdd-drama-agent/releases)
 [![Docker Ready](./badges/docker-ready.svg)](#quick-start)
 
-[English](../README.md) &nbsp;|&nbsp; [简体中文](./README_zh.md) &nbsp;|&nbsp; [Tiếng Việt](./README_vi.md) &nbsp;|&nbsp; **ไทย** &nbsp;|&nbsp; [เว็บไซต์](https://www.aipdd.work) &nbsp;|&nbsp; [เอกสาร](../docs/en/README.md) &nbsp;|&nbsp; [เริ่มต้นอย่างรวดเร็ว](../docs/en/getting-started/quickstart.md)
+[简体中文](../README.md) &nbsp;|&nbsp; [English](./README_en.md) &nbsp;|&nbsp; [Tiếng Việt](./README_vi.md) &nbsp;|&nbsp; **ไทย** &nbsp;|&nbsp; [เว็บไซต์](https://www.aipdd.work) &nbsp;|&nbsp; [เอกสาร](../docs/en/README.md) &nbsp;|&nbsp; [เริ่มต้นอย่างรวดเร็ว](../docs/en/getting-started/quickstart.md)
 
 </div>
 
