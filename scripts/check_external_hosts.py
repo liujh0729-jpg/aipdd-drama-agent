@@ -27,6 +27,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# 本脚本自身会写下 `releases/latest`、`cdnfg.com` 等被拦字符串（正则字面量与文档
+# 说明），扫描自己只会产生假阳性，故排除自身。
+SELF_PATH = Path(__file__).resolve().relative_to(ROOT).as_posix()
 
 # 只查「会进产物或决定产物」的路径；文档、随包的第三方源码、历史需求文档不算。
 SCAN_DIRS = ("src/novelvideo", "frontend/src", "frontend/public", "desktop/src-tauri/src", "desktop/scripts", "scripts", "services", ".github/workflows")
@@ -112,6 +115,8 @@ def tracked_files() -> list[Path]:
     picked: list[Path] = []
     for path in files:
         rel = path.relative_to(ROOT).as_posix()
+        if rel == SELF_PATH:
+            continue
         if any(part in f"/{rel}" for part in SKIP_PARTS):
             continue
         in_dir = any(rel == d or rel.startswith(d + "/") for d in SCAN_DIRS)
