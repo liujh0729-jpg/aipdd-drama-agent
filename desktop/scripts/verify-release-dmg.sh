@@ -31,6 +31,19 @@ for DMG in "$@"; do
   BAD=0
   mark_fail() { echo "  ✗ $1" >&2; BAD=1; }
   mark_ok()   { echo "  ✓ $1"; }
+  # 文件名承诺的架构（可多个，空格分隔）是否被实测 lipo 串**全部**覆盖。
+  # arm64 单独走正则：arm64e 这类派生名用 grep -w 判不准（历史同一坑，见
+  # build-macos-universal.sh 的 has_arch）。
+  archs_cover() {  # $1=实测架构串 $2=要求列表
+    local have=" $1 " w
+    for w in $2; do
+      if [[ "$w" == arm64 ]]; then
+        grep -qE '(^|[[:space:]])arm64([[:alnum:].]*|$)' <<<"$1" || return 1
+      else
+        [[ "$have" == *" $w "* ]] || return 1
+      fi
+    done
+  }
 
   [[ -f "$DMG" ]] || { mark_fail "文件不存在：$DMG"; OVERALL=21; FAILED_LIST+=("${BN}（文件不存在）"); continue; }
 
@@ -56,12 +69,17 @@ for DMG in "$@"; do
     # c) 全量 deep 校验
     if codesign --verify --deep --strict "$APP" 2>/dev/null; then mark_ok "包内 App deep 签名校验通过"
     else mark_fail "包内 App deep 签名校验未过"; fi
-    # d) 架构一致性：文件名 _aarch64/_x64 ↔ 主执行件 lipo 架构
+    # d) 架构一致性：文件名 _aarch64/_x64/_universal ↔ 主执行件 lipo 架构
+    #    _universal 必须是**两个切片都在**：只查「含 arm64」会让一个纯 arm64 包顶着
+    #    universal 的名字出厂，Intel 用户下下来装不上，而文件名就是对外唯一承诺。
     EXE="$(find "$APP/Contents/MacOS" -maxdepth 1 -type f 2>/dev/null | head -1)"
-    if [[ "$BN" =~ _aarch64\.dmg$ ]]; then WANT_ARCH=arm64; elif [[ "$BN" =~ _x64\.dmg$ ]]; then WANT_ARCH=x86_64; else WANT_ARCH=""; fi
+    if [[ "$BN" =~ _aarch64\.dmg$ ]]; then WANT_ARCH=arm64
+    elif [[ "$BN" =~ _x64\.dmg$ ]]; then WANT_ARCH=x86_64
+    elif [[ "$BN" =~ _universal\.dmg$ ]]; then WANT_ARCH="arm64 x86_64"
+    else WANT_ARCH=""; fi
     if [[ -n "$WANT_ARCH" && -n "$EXE" ]]; then
       HAVE_ARCHS="$(lipo -archs "$EXE" 2>/dev/null || true)"
-      if grep -qw "$WANT_ARCH" <<<"$HAVE_ARCHS"; then mark_ok "主执行件架构含 ${WANT_ARCH}（实测：${HAVE_ARCHS:-?}）"
+      if archs_cover "$HAVE_ARCHS" "$WANT_ARCH"; then mark_ok "主执行件架构覆盖 ${WANT_ARCH}（实测：${HAVE_ARCHS:-?}）"
       else mark_fail "架构不符：文件名要求 ${WANT_ARCH}，主执行件实为 ${HAVE_ARCHS:-未知}——疑跨架构缓存误用"; fi
     fi
     # d2) 随包 Python 解释器架构与文件名一致——只看主执行件会漏「壳 arm64、payload x64」
@@ -71,11 +89,11 @@ for DMG in "$@"; do
     [[ -f "$PY" ]] || PY="$APP/Contents/Resources/python/bin/python3"
     if [[ -n "$WANT_ARCH" && -f "$PY" ]]; then
       HAVE_PY="$(lipo -archs "$PY" 2>/dev/null || true)"
-      if grep -qw "$WANT_ARCH" <<<"$HAVE_PY"; then mark_ok "随包 Python 架构含 ${WANT_ARCH}（实测：${HAVE_PY:-?}）"
-      else mark_fail "随包 Python 架构不符：文件名要求 ${WANT_ARCH}，实为 ${HAVE_PY:-未知}——payload 跨架构污染，重跑 prepare-resources $([ "$WANT_ARCH" = arm64 ] && echo mac-arm64 || echo mac-x64)"; fi
+      if archs_cover "$HAVE_PY" "$WANT_ARCH"; then mark_ok "随包 Python 架构覆盖 ${WANT_ARCH}（实测：${HAVE_PY:-?}）"
+      else mark_fail "随包 Python 架构不符：文件名要求 ${WANT_ARCH}，实为 ${HAVE_PY:-未知}——payload 跨架构污染，重跑 prepare-resources $([[ "$WANT_ARCH" == *arm64* && "$WANT_ARCH" != *x86_64* ]] && echo mac-arm64 || echo mac-x64)"; fi
     fi
     # e) 版本一致性：文件名 _<ver>_ ↔ CFBundleShortVersionString
-    if [[ "$BN" =~ _([0-9][0-9a-zA-Z.]*)_(aarch64|x64)\.dmg$ ]]; then
+    if [[ "$BN" =~ _([0-9][0-9a-zA-Z.]*)_(aarch64|x64|universal)\.dmg$ ]]; then
       WANT_VER="${BASH_REMATCH[1]}"
       REAL_VER="$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist" 2>/dev/null || true)"
       if [[ -n "$REAL_VER" && "$REAL_VER" == "$WANT_VER" ]]; then mark_ok "版本一致（${WANT_VER}）"

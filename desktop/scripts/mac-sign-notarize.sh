@@ -102,11 +102,71 @@ find "$APP" -type f -perm -u+x ! -name '*.dylib' ! -name '*.so' ! -name '*.so.*'
 PRISTINE_CHROME="$SCRIPT_DIR/../src-tauri/resources/bin/chrome/Google Chrome for Testing.app"
 APP_CHROME="$APP/Contents/Resources/resources/bin/chrome/Google Chrome for Testing.app"
 CUR_LINK="$APP_CHROME/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/Current"
-if [[ -d "$PRISTINE_CHROME" && -d "$APP_CHROME" && ! -L "$CUR_LINK" ]]; then
+# ★ universal 包必须先排除在这步之外：pristine 副本永远是**单架构**的（prepare 只按
+#   一个 target 拉过 Chrome），拿它覆盖 App 内已经合好的双架构 Chrome，等于把
+#   build-macos-universal.sh 的 Chrome 合并默默退回去——签名、公证、终检都不会报错，
+#   但 Intel 用户一进逐帧渲染就崩。判据只看 App 内 Chrome 主件自己是否已含双切片。
+CHROME_FW="$APP_CHROME/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/Current/Google Chrome for Testing Framework"
+CHROME_ARCHS="$(lipo -archs "$CHROME_FW" 2>/dev/null || true)"
+CHROME_UNIV=0
+case "$CHROME_ARCHS" in *arm64*x86_64*|*x86_64*arm64*) CHROME_UNIV=1 ;; esac
+if [[ "$CHROME_UNIV" == "1" ]]; then
+  log "Chrome 子树已是双架构（${CHROME_ARCHS}）：跳过 pristine 还原，不让单架构副本降级 universal 合并结果"
+elif [[ -d "$PRISTINE_CHROME" && -d "$APP_CHROME" && ! -L "$CUR_LINK" ]]; then
   log "修复 Chrome deref：ditto 以 pristine resources 还原 App 内 Chrome 子树（Versions/Current → 符号链接）"
   rm -rf "$APP_CHROME"
   ditto "$PRISTINE_CHROME" "$APP_CHROME"
 fi
+#       ★ universal 链走不到 pristine 还原（还原=降级），derefs 就必须在签名前就地修好：
+#   cargo tauri build 拷资源会把 framework 的 Versions/Current 以及根上的 <Name>/Helpers/
+#   Libraries/Resources 全部 deref 成真实目录与真实文件。同一个 Versions 里既躺「Current
+#   真实目录」又躺「版本号真实目录」= bundle 格式有歧义，codesign --deep 当场报
+#   「bundle format is ambiguous (could be app or framework)」，公证根本走不到。
+#   修法是按 App **自己已有的内容**把布局改回软链，而不是从外部整棵覆盖：删掉 Current
+#   真实目录让它指向版本号目录，根上条目同理（顺带省掉一整份重复内容）。
+#   动手前做全集比对：Current 里凡是版本号目录没有的相对路径一律拒绝删除——宁可以明确
+#   报错停下，也不拿「猜测删件」换一次能通过签名。
+restore_framework_symlinks() {  # $1=*.framework；返回 1=拒修（有独有内容或版本目录不唯一）
+  local fw="$1" cur vdirs n ver only e name k
+  cur="$fw/Versions/Current"
+  [[ -d "$cur" && ! -L "$cur" ]] || return 0
+  vdirs="$(cd "$fw/Versions" && ls -1 | grep -v '^Current$' || true)"
+  n="$(printf '%s\n' "$vdirs" | grep -c '[^[:space:]]' || true)"
+  if [[ "$n" != "1" ]]; then
+    echo "  ✗ 不修：$fw 的 Versions 下有 ${n} 个非 Current 版本目录，无法判定 Current 该指向谁" >&2
+    return 1
+  fi
+  ver="$vdirs"
+  only="$(comm -23 <(cd "$cur" && find . -type f | LC_ALL=C sort) \
+                 <(cd "$fw/Versions/$ver" && find . -type f | LC_ALL=C sort) || true)"
+  if [[ -n "$only" ]]; then
+    echo "  ✗ 不修：Versions/Current 里有 ${ver} 中不存在的文件，删它会丢内容：" >&2
+    printf '    %s\n' "$only" | head -20 >&2
+    return 1
+  fi
+  rm -rf "$cur"
+  ln -s "$ver" "$cur"
+  k=0
+  while IFS= read -r -d '' e; do
+    name="${e##*/}"
+    [[ "$name" == "Versions" ]] && continue
+    [[ -e "$cur/$name" ]] || continue
+    rm -rf "$e"
+    ln -s "Versions/Current/$name" "$e"
+    k=$((k + 1))
+  done < <(find "$fw" -mindepth 1 -maxdepth 1 -print0)
+  echo "  ✓ $(basename "$fw")：Versions/Current → ${ver}，根上 ${k} 个条目改回软链" >&2
+  return 0
+}
+# 清单先落盘再逐条处：修复过程本身在删除目录，跟 find 的同一个遍历队列会打撞（找
+# 到一半的目标被上一条改删掉 → find 报假错、还可能漏处理）。一次快照完成再动手。
+FW_LIST="$(mktemp -t dramaclaw-fwlist.XXXXXX)"
+find "$APP" -type d -name '*.framework' -print0 >"$FW_LIST"
+while IFS= read -r -d '' _fw; do
+  restore_framework_symlinks "$_fw" \
+    || { rm -f "$FW_LIST"; echo "framework 符号链接布局修复被拒：$_fw（先按上面的原因处置，再出包）" >&2; exit 11; }
+done <"$FW_LIST"
+rm -f "$FW_LIST"
 while IFS= read -r -d '' chrome_root; do
   log "1c) 重签 Chrome 子树：$chrome_root"
   # 1c-ii) 就地签松散 Mach-O：framework 的松散 .dylib 与裸可执行件（非 .app）。
@@ -180,9 +240,14 @@ DMG_VER="$("$PB" -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null || 
 MAIN_BIN="$(find "$APP/Contents/MacOS" -maxdepth 1 -type f -perm -u+x 2>/dev/null | head -1)"
 MAIN_ARCH="$(lipo -archs "$MAIN_BIN" 2>/dev/null || true)"
 case "$MAIN_ARCH" in
+  # 双切片必须先判：模式写成 *arm64*x86_64*|*x86_64*arm64* 是因为 lipo -archs 的
+  # 输出顺序不保证（合并出来的 fat 基底在前的是 arm64，cargo 直接产的可能是反的）。
+  # 这个分支不能排在 *arm64*) 后面——那样 universal 会被命名成 _aarch64.dmg，
+  # 而 verify-release-dmg.sh 又按文件名反推架构，只会得到自相矛盾的判据。
+  *arm64*x86_64*|*x86_64*arm64*) ARCH_TAG=universal ;;
   *arm64*)   ARCH_TAG=aarch64 ;;
   *x86_64*)  ARCH_TAG=x64 ;;
-  *)         ARCH_TAG=universal ;;
+  *)         ARCH_TAG=unknown ;;
 esac
 [[ -n "$DMG" ]] || DMG="$DMG_OUT_DIR/${DMG_NAME}_${DMG_VER}_${ARCH_TAG}.dmg"
 mkdir -p "$(dirname "$DMG")"
@@ -268,7 +333,16 @@ if ! is_pass_status "$NOTARY_STATUS"; then
   # history 里同一份 dmg 已是 Accepted）。这时按产物名去 history 追溯本次提交，
   # 而不是重提一次——重提会让同一个包在队列里堆两条记录，还把等待时间翻倍。
   log "仍未拿到通过态，按 history 追溯本次提交：$(basename "$SUBMIT")"
-  HIST_OUT="$(xcrun notarytool history "${AUTH[@]}" --output-format json 2>/dev/null || true)"
+  # 重试而不是只打一次：实测踩过「上传已完成、Apple 侧已 Accepted，本地因一次
+  # 闪断（-1009 offline）把 --wait 和紧跟的一次 history 查询一起带走」——重跑整个脚本
+  # 等于重签 5 GB + 重传 2.5 GB，而真相只差一次重试。3 次递退（15/30/45s）。
+  HIST_OUT=""
+  for _try in 1 2 3; do
+    HIST_OUT="$(xcrun notarytool history "${AUTH[@]}" --output-format json 2>/dev/null || true)"
+    [[ -n "$HIST_OUT" ]] && break
+    log "history 查询第 ${_try} 次没拿到结果（网络抖动？），等 $((_try * 15))s 重试"
+    sleep "$((_try * 15))"
+  done
   HIST_META="$(printf '%s' "$HIST_OUT" | /usr/bin/python3 -c 'import json,sys,datetime
 raw = sys.stdin.read()
 i = raw.find("{")
@@ -306,6 +380,14 @@ if ! is_pass_status "$NOTARY_STATUS"; then
     log "自动拉取公证日志：$NOTARY_ID"
     xcrun notarytool log "$NOTARY_ID" "${AUTH[@]}" 2>/dev/null \
       || echo "（日志拉取失败；可手动重试：xcrun notarytool log ${NOTARY_ID}）" >&2
+  else
+    # 拿不到 id 也不能断定 Apple 没收：闪断就是这种情形。不要把这条当成「重跑一次就行」，
+    # 先按产物名查一次状态；已 Accepted 就只钉票，不重传、不重签。
+    log "本次没拿到 submission id——先别重跑整条链（会重传 ${SUBMIT}）。联网后手工定案："
+    echo "  xcrun notarytool history --keychain-profile <凭据名> | grep -A2 '$(basename "$SUBMIT")'" >&2
+    echo "  # 看到 status: Accepted 就只钉票（不重新签名、不重新打 dmg）：" >&2
+    echo "  xcrun stapler staple '${TARGET_FOR_NOTARY}' && xcrun stapler validate '${TARGET_FOR_NOTARY}'" >&2
+    echo "  bash ${SCRIPT_DIR}/verify-release-dmg.sh '${TARGET_FOR_NOTARY}'" >&2
   fi
   exit 13
 fi

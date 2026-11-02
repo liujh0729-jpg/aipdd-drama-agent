@@ -20,6 +20,7 @@
 | [ffmpeg 指南](guides/ffmpeg.md) | 安装 / 定位 / 许可义务 |
 | [动效大片（MG）](guides/motion-feature-film.md) | 案例图册 → 逐帧渲染 → 代码编曲（-14 LUFS）→ 剪映草稿 |
 | [换脸直播指南](guides/face-swap-live.md) | 本机边车引擎 / 虚拟摄像头 / OBS / AGPL 隔离 |
+| [macOS 双轨发布](guides/mac-app-store-release.md) | 直分发 dmg 与 Mac App Store pkg 两条链（证书/沙盒/上下架流程）|
 | [遥测说明](guides/telemetry.md) | 默认不收集数据 / 可选追踪 |
 | [排错](guides/troubleshooting.md) | 常见故障与排查 |
 | [用 AI 客户端驱动（MCP）](guides/mcp-claude-code.md) | 121 个 MCP 工具：全管线 + 画布 + 可执行工作计划 + 小说故事源与章节 / 动效大片 / 成片导出 + 剪映 / CapCut 剪辑草稿，`st-` 统一密钥接入 |

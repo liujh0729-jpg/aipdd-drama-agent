@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Mac App Store 上架用授权清单（与 entitlements.plist 平行、不共用）。
+
+  ⚠️ 与开发者直分发版（entitlements.plist）的关键差异：
+    1) 必须开启 app-sandbox —— 这是 App Review 的一票否决项。
+    2) 沙盒会强制 library validation，因此禁止再声明
+       com.apple.security.cs.disable-library-validation、
+       allow-unsigned-executable-memory、allow-dyld-environment-variables。
+       这三项在开发者直分发版里是给便携 Python 里非本 Team 签名的
+       .so / .dylib 与 Chrome for Testing 渲染进程用的；
+       MAS 版本要么把它们全部换成同 Team 重签、要么剥离对应子系统，
+       否则装得上、跑不起来（dlopen 直接 SIGKILL）。
+    3) 只保留 App Store 允许的entitlement；文件访问走 user-selected
+       + downloads + pictures/movies（视频项目要读用户素材）。
+
+  与现有打包链的关系：
+    - 本文件只被 scripts/macos-pkg-appstore.sh 消费；
+      scripts/mac-sign-notarize.sh 继续用 entitlements.plist 出 Developer ID dmg。
+    - 修改本文件不会影响直分发产物。
+
+  参考：Apple "Entitlements" 官方文档中 "App Store" 一列。
+-->
+<plist version="1.0">
+<dict>
+    <!-- 沙盒总开关：MAS 强制要求 -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- 网络：本地各服务 bind 端口 + 拉远端模型/资源 -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- 文件访问：走「用户显式选择」的合规路径 -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+    <key>com.apple.security.assets.pictures.read-write</key>
+    <true/>
+    <key>com.apple.security.assets.movies.read-write</key>
+    <true/>
+
+    <!--
+      以下若确需放开，必须在 App Review 附注里解释用途并给出替代方案；
+      默认注释掉，避免被判「不合理的 hardened-runtime 例外」直接拒。
+
+      <key>com.apple.security.cs.allow-jit</key><true/>
+      <key>com.apple.security.personal-information.location</key><true/>
+      <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+      <array><string>work.aipdd.dramaclaw.localapi</string></array>
+    -->
+</dict>
+</plist>

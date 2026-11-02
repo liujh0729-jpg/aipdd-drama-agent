@@ -55,9 +55,30 @@ log "产物目录：$BUNDLE_DIR"
 find "$BUNDLE_DIR/macos" -maxdepth 1 -name '*.app' -print
 
 cat <<'EOF'
-下一步（二选一）：
-  A. 对外分发（签名 → 由已签 App 打 dmg → 公证，dmg 由签名脚本构建）：
+下一步（三条链各自独立，产物目录互不覆盖）：
+
+  A. 对外直分发（Developer ID → dmg → 公证）：
        NOTARIZE=1 NOTARY_PROFILE=<凭据名> ./mac-sign-notarize.sh <path/to/*.app> [输出.dmg]
        （公证开关 NOTARIZE 默认关闭，不加只本地签名、不向 Apple 提交；结尾自动跑出厂终检）
-  B. 仅本机自测：直接 open 本脚本产出的 .app（未签名，仅本机能跑，勿分发）。
+       证书对：Developer ID Application + Developer ID Installer
+       授权清单：src-tauri/entitlements.plist（含 disable-library-validation，非沙盒）
+       产物目录：src-tauri/target/<triple>/release/bundle/{macos,dmg}/
+
+  B. Mac App Store 上架（3rd Party Mac Developer → pkg → Transporter）：
+       ./build-macos-mas-app.sh [arm64|x64|universal]   # 拷贝到 bundle/macos-mas/ 并剥嵌套 .app
+                                                        #   universal 需先跑 build-macos-universal.sh 合出双架构树
+       PROFILE=<.provisionprofile> ./macos-pkg-appstore.sh <bundle/macos-mas/*.app>
+       ./verify-release-pkg.sh <输出.pkg>
+       证书对：3rd Party Mac Developer Application + 3rd Party Mac Developer Installer
+                 （Apple 新命名 Apple Distribution / Apple Installer 也支持，用 SIGN_APP_IDENTITY 覆盖）
+       授权清单：src-tauri/entitlements.mas.plist（开 app-sandbox，禁沙盒冲突项）
+       产物目录：src-tauri/target/<triple>/release/bundle/macos-mas/（与 A 分道，A 的产物不受影响）
+
+  C. 仅本机自测：直接 open 本脚本产出的 .app（未签名，仅本机能跑，勿分发）。
+
+上架阻塞项（详见 docs/zh/guides/mac-app-store-release.md）：
+  · 便携 Python 子树全部 .so 需本 Team 重签（沙盒 library validation）
+  · 数据目录需容器化到 ~/Library/Containers/work.aipdd.dramaclaw/
+  · Chrome for Testing 内嵌件在 MAS 版会被自动剥除，依赖它的能力（换脸浏览器自动化）
+    在 MAS 版会失效——上架前须与产品对齐功能面收窄范围
 EOF

@@ -105,20 +105,43 @@ REQS="/tmp/aipdd-desktop-reqs.txt"
 # mac-x64：部分包在较新版本里停止了 macOS Intel（x86_64/universal2）轮，锁里的新 pin
 # 在 Intel 上既无轮、源码编译又缺本机 x86_64 原生依赖（如 cryptography 需 x86_64 OpenSSL）。
 # 把导出的 requirements 里这些包钉到「仍提供 macOS Intel 轮」的最近版本；可用同名 env 覆盖。
-if [[ "$TRIPLE" == "x86_64-apple-darwin" ]]; then
+# FORCE_X64_COMPAT_PINS=1：arm64 构建也套用同一套钉版。给 universal 合并链用的硬前提
+# ——两棵树的 Python 依赖版本必须逐包对齐，否则 lipo 合出来的包是「.py 是新版、
+# .so 是老版」的错配体，运行期 import 直接崩（见 build-macos-universal.sh）。
+if [[ "$TRIPLE" == "x86_64-apple-darwin" || "${FORCE_X64_COMPAT_PINS:-0}" == "1" ]]; then
   _x64_pin_pkg() {  # $1=包名 $2=钉到的版本 $3=备注
     sed -i.bak -E "s/^${1}==[^ ;]+/${1}==${2}/" "$REQS"
     # 断钉必须命中：若导出里没有 `${pkg}==` 这一行（改名/合并约束变化），sed 会静默无匹配，
     # 继续装会拉到无 x86_64 轮的新版→回退源码编译失败。钉后回读确认。
-    grep -qE "^${1}==${2}( |$)" "$REQS" || { echo "mac-x64：${1} 钉版本未命中（期望行 ${1}==${2}）——导出格式可能变了，请人工核对 $REQS" >&2; exit 4; }
-    log "mac-x64：${1} 钉到 ${2}（${3}）"
+    grep -qE "^${1}==${2}( |$)" "$REQS" || { echo "${TARGET}：${1} 钉版本未命中（期望行 ${1}==${2}）——导出格式可能变了，请人工核对 $REQS" >&2; exit 4; }
+    log "${TARGET}：${1} 钉到 ${2}（${3}）"
   }
   _x64_pin_pkg lancedb      "${LANCEDB_X64_PIN:-0.25.3}"  "cognee>=0.24,<1.0；0.25.3 有 macosx x86_64 轮"
   _x64_pin_pkg cryptography "${CRYPTO_X64_PIN:-48.0.1}"   "48.0.1 是仍发 universal2(含 x86_64) 的最后版本"
+  # 这两个钉版在 arm64 上同样有轮（cryptography 为 universal2；lancedb 另发 aarch64 轮），
+  # 套用不会把 arm 构拉到源码编译；真缺轮时会在安装/uv pip check 阶段直接暴露。
+  if [[ "$TRIPLE" != "x86_64-apple-darwin" ]]; then
+    log "FORCE_X64_COMPAT_PINS：arm64 侧套用 x64 兼容钉版（universal 合并链要求两棵树版本集一致）"
+  fi
 fi
-uv pip install --python "$PYBIN" --no-cache -r "$REQS"
+# 弱网下 uv 默认 30s HTTP 超时会把整轮备料打回原点（真机：2.3.2 重编时 fastuuid
+# 下载超时，十几分钟的解析+下载全白烧）。默认抬到 120s 并失败后重试一次；
+# 外部可用同名 env 覆盖。
+export UV_HTTP_TIMEOUT="${UV_HTTP_TIMEOUT:-120}"
+_uv_install() {  # $* = uv pip install 的余下参数
+  uv pip install --python "$PYBIN" "$@" && return 0
+  echo "uv pip install 失败，等 20s 重试一次（多为下载超时；当前 UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT}）" >&2
+  sleep 20
+  uv pip install --python "$PYBIN" "$@"
+}
+_uv_install --no-cache -r "$REQS"
 # 项目本体（novelvideo 入口）单独装；--no-deps 不触发版本重解。
-uv pip install --python "$PYBIN" --no-cache --no-deps "$ROOT_DIR"
+_uv_install --no-cache --no-deps "$ROOT_DIR"
+# 装完必须真的有东西：site-packages 空转（全部下载失败但返回 0 的极端情形）会把
+# 一棵残树交给 cargo，下游只会报“glob pattern resources/bin/* 不命中”，误导排查方向。
+SP_COUNT="$(find "$RES/python" -maxdepth 3 -type d -name site-packages -exec find {} -maxdepth 1 -type d -name '*.dist-info' \; 2>/dev/null | wc -l | tr -d ' ' || true)"
+[[ "${SP_COUNT:-0}" -ge 50 ]] \
+  || { echo "依赖安装异常：site-packages 只有 ${SP_COUNT} 个包（期望 ≥ 50），备料中断别往下打" >&2; exit 4; }
 # 钉完重装后跑一次一致性检查：mac-x64 钉版本可能与其他包的版本约束冲突，提前暴露避免装出坏包。
 uv pip check --python "$PYBIN" || { echo "依赖一致性检查未通过（uv pip check）——可能有钉版本引发的约束冲突" >&2; exit 4; }
 # 依赖装进 $RES/python/lib/python*/site-packages，随包只读分发。
@@ -172,6 +195,15 @@ fi
 if [[ -d "$ROOT_DIR/services/vectcut" ]]; then
   mkdir -p "$APP/services"
   cp -R "$ROOT_DIR/services/vectcut" "$APP/services/vectcut"
+  # 开发目录里的 .venv 是**打包机的宿主环境**（本机实测：bin/python 是指向
+  # /opt/anaconda3/bin/python3 的软链，site-packages 全是宿主架构 arm64 的 .so）。
+  # 随包分发它有三重害处：① 用户机上那条软链必然悬空；② 白撑 86 MB；③ 这些
+  # arm64-only 二进制会混进 universal 包，成为 ITMS-91167 的隐形来源，也会让
+  # build-macos-universal.sh 的版本对齐校验判成「对侧树拿错架构」而拒绝合并。
+  # 下面的 uv pip install 走的是便携 Python（--python "$PYBIN"），不依赖这个目录，
+  # 全仓也没有任何代码引用 services/vectcut/.venv —— 直接剪掉。
+  rm -rf "$APP/services/vectcut/.venv"
+  find "$APP/services/vectcut" -type d -name __pycache__ -prune -exec rm -rf {} +
   ( cd "$ROOT_DIR/services/vectcut" && uv pip install --python "$PYBIN" --no-cache -r requirements.txt ) || \
     log "VectCut 依赖安装失败：将作为 optional 服务在运行期优雅降级"
 fi
@@ -320,10 +352,19 @@ else
 fi
 
 # Chromium（抖音 CDP 提取用）：Chrome for Testing 对应架构预编译 zip。
-# 说明：当前 orchestrator 未将 Chromium 列为受管服务（无 :9222 CDP 服务），且
-# missing_required_bins 不校它；如需可置 SKIP_CHROMIUM=1 略过这段大下载。
+# 说明：当前 orchestrator 未将 Chromium 列为受管服务（无 :9222 CDP 服务），
+# missing_required_bins 也不校它 —— 但 tauri.conf.json 校（见下面那段警告）。
 if [[ "${SKIP_CHROMIUM:-0}" == "1" ]]; then
   log "跳过 Chromium（SKIP_CHROMIUM=1）：抖音 CDP 提取需真实宿主 Chrome，接线见 README §12"
+  # 实测坑：tauri.conf.json 的 bundle.resources 里有 "resources/bin/chrome/**/*" 这条
+  # glob，目录不存在时 cargo tauri build 直接报「glob pattern ... path not found or
+  # didn't match any files」而失败，**不是**产出一个「没有 Chrome 的包」。所以置这个
+  # 变量只在「不产 .app」时有意义；MAS 链不需要它（签名前会把 Chrome 剥掉），
+  # 而本地 vendor/assets 已有对应架构的 zip，走本地命中几乎不花时间。
+  if grep -q 'resources/bin/chrome' "$DESKTOP_DIR/src-tauri/tauri.conf.json" 2>/dev/null; then
+    log "警告：tauri.conf.json 仍要求 resources/bin/chrome/**/*，接下来 cargo tauri build 会失败。"
+    log "　　　要么去掉 SKIP_CHROMIUM，要么本次只做资源准备、不产 .app。"
+  fi
 else
   # 与便携 Python/ffmpeg 同一套纪律：本地资源目录优先，未命中才下载并回填；
   # 资产名带 $CFT_VER，换版本不会误用旧件（官方不发校验和，见 pins 文件说明）。

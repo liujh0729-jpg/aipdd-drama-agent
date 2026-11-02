@@ -135,11 +135,12 @@ fetch_asset() {
     echo "本地资源不可用（损坏或版本不符），改走外网：$dest" >&2
     rm -f "$dest"
   fi
-  echo "本地无 $name，外网下载：$url" >&2
+  # bash 3.2 会把紧跟变量的全角标点首字节吞进变量名（set -u 下直接 unbound），一律 ${VAR}。
+  echo "本地无 ${name}，外网下载：${url}" >&2
   if ! curl -fL --retry 8 --retry-all-errors --retry-delay 3 \
       --speed-limit 2000 --speed-time 60 -o "$dest.part" "$url"; then
     rm -f "$dest.part"
-    echo "外网下载失败：$name（本地资源目录也没有可用副本；本项目没有上游 DramaClaw 回退）" >&2
+    echo "外网下载失败：${name}（本地资源目录也没有可用副本；本项目没有上游 DramaClaw 回退）" >&2
     return 1
   fi
   _asset_integrity "$dest.part" "$name" \
