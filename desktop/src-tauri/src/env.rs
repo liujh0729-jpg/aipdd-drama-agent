@@ -146,10 +146,17 @@ impl RuntimePaths {
             ("NOVELVIDEO_OUTPUT_DIR".into(), self.app_data.join("output").display().to_string()),
             ("NOVELVIDEO_STATE_DIR".into(), self.app_data.join("state").display().to_string()),
             ("NOVELVIDEO_RUNTIME_DIR".into(), self.app_data.join("runtime").display().to_string()),
-            // CE 最小多用户，本地 http，不强制 Secure cookie。
+            // 桌面端是「单机单主人」形态：免登录直接可用。
+            // ST_CE_MULTI_USER=false 时后端鉴权全走旁路（FileAuthPort 直接返回
+            // local/owner），前端 /api/v1/config 的 auth_required 随之为 false，
+            // 登录页与设置里的「用户管理」「账户安全」两页自动消失。这条旁路只
+            // 对桌面壳成立：容器/web 编排（docker-compose.aipdd.yml）仍默认 true，
+            // 由编排层保持登录门控，壳侧不要替它改。
+            // 边界安全靠的是绑定地址：orchestrator 以 --host 127.0.0.1 起 API 并落
+            // NOVELVIDEO_API_HOST=127.0.0.1，后端只信任回环来的请求。
             ("ST_EDITION".into(), "ce".into()),
             ("ST_CONTROL_PLANE_DSN".into(), String::new()),
-            ("ST_CE_MULTI_USER".into(), "true".into()),
+            ("ST_CE_MULTI_USER".into(), "false".into()),
             ("ST_COOKIE_SECURE".into(), "false".into()),
             ("ST_REDIS_URL".into(), String::new()),
             ("ST_CELERY_BROKER_URL".into(), String::new()),

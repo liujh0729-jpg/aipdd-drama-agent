@@ -119,7 +119,7 @@ Tauri 计算并注入两类目录，再派生后端既有的 env：
 | `NOVELVIDEO_STATE_DIR` | `…/state` | 后端 |
 | `NOVELVIDEO_RUNTIME_DIR` | `…/runtime` | 后端 |
 | `ST_EDITION` | `ce` | 后端（CE inline 任务，无 Redis/Celery） |
-| `ST_CE_MULTI_USER` / `ST_COOKIE_SECURE` | `true` / `false` | 本地 http 登录制 |
+| `ST_CE_MULTI_USER` / `ST_COOKIE_SECURE` | `false` / `false` | 单机单主人：免登录直接进（API 只听 127.0.0.1） |
 | `ST_REDIS_URL` / `ST_CELERY_*` | 空 | 单进程内联 |
 | `LOCALAPI_BASE_URL` | `http://127.0.0.1:3000` | 后端→网关 |
 | `PYTHONPATH` | `…/app/src` | FastAPI 导入 novelvideo |
@@ -129,8 +129,10 @@ Tauri 计算并注入两类目录，再派生后端既有的 env：
 | `PYTHONUTF8` / `PYTHONIOENCODING` | `1` / `utf-8`（仅 Windows 注入） | 让 Python 子进程 stdio 统一 UTF-8，否则中文 Windows 按 cp936 输出，面板与日志会乱码、读线程会中断 |
 | `PYTHONNOUSERSITE` | `1`（全平台注入） | 禁用用户目录 site-packages：它在 sys.path 上排在随包依赖之前，会遮蔽/错配随包包（真机：Intel 版 App 捡到用户 arm64 tiktoken，dlopen 失败退出码 1） |
 
-> 引导口令：CE 多用户首次需要一个引导账户口令。可在打包时经 `.env` 的 `ST_LOCAL_PASSWORD`
-> 注入，或首启读取后端打印的随机口令。**不要把口令写进仓库**。
+> 桌面壳不开多用户模式，因此没有账户、口令和引导初始化这一说：打开就是本机主人
+> （后端旁路返回 `local` / `owner`），设置里的「用户管理」「账户安全」两页随之不出现。
+> 需要登录门控的是容器/web 部署，由 `docker-compose.aipdd.yml` 自己保持
+> `ST_CE_MULTI_USER=true`，与壳侧无关。**不要把任何口令写进仓库或随包资源**。
 
 ### 4.1 动效大片（MG）链路的取物顺序
 
