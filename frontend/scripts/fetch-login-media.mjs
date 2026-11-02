@@ -5,8 +5,16 @@
 // 装不下，放在**本仓库**的 media-v1 预发布（prerelease，永远不会被
 // releases/latest 选中）里，构建前拉下来。绝不从上游下载站取，改不到我们的产物。
 //
-//   node scripts/fetch-login-media.mjs           # 补齐缺失文件
-//   node scripts/fetch-login-media.mjs --check   # 只校验，不联网
+//   node scripts/fetch-login-media.mjs                    # 全量：补齐缺失文件
+//   node scripts/fetch-login-media.mjs --check            # 只校验，不联网
+//   node scripts/fetch-login-media.mjs --profile desktop  # 桌面档：跳过展示成片
+//
+// 档位说明（--profile 或 LOGIN_MEDIA_PROFILE，默认 full）：
+//   full     容器/web 部署用，登录 cinematic 每一屏都要能播，清单照旧全量。
+//   desktop  桌面包用。桌面壳免登录，/login 会被直接重定向走，cinematic 第 2 屏之后
+//            那些 12–181 MB 的展示成片在装机版里一行都看不到，却照样占 dmg 体积。
+//            这一档只纳入小件（封面 png、客服二维码）和 update/ 的更新弹窗短片——
+//            那个弹窗在桌面里是真能打开的。被跳过的文件不下载、也不参与校验。
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readFile, rename, rm, stat } from "node:fs/promises";
@@ -21,6 +29,18 @@ const MEDIA_TAG = "media-v1";
 const MEDIA_BASE = `https://github.com/liujh0729-jpg/aipdd-drama-agent/releases/download/${MEDIA_TAG}`;
 
 const checkOnly = process.argv.includes("--check");
+const PROFILES = new Set(["full", "desktop"]);
+
+function profileFrom(argv) {
+  const i = argv.indexOf("--profile");
+  const value = i >= 0 ? argv[i + 1] : process.env.LOGIN_MEDIA_PROFILE;
+  return value && value !== "" ? value : "full";
+}
+
+/** 桌面档要跳过的：除 update/ 短片以外的所有成片（清单里就是那 9 部）。 */
+function isShowcaseVideo(rel) {
+  return rel.endsWith(".mp4") && !rel.startsWith("update/");
+}
 
 function sha256(file) {
   return new Promise((resolve, reject) => {
@@ -67,9 +87,17 @@ async function download(url, dest) {
 }
 
 async function main() {
-  const entries = readManifest(await readFile(MANIFEST, "utf8"));
+  const profile = profileFrom(process.argv);
+  if (!PROFILES.has(profile)) {
+    console.error(`[login-media] 未知档位：${profile}（可用：full, desktop）`);
+    return 2;
+  }
+  const all = readManifest(await readFile(MANIFEST, "utf8"));
+  const entries = profile === "desktop" ? all.filter((e) => !isShowcaseVideo(e.rel)) : all;
+  const skipped = all.length - entries.length;
   const missing = [];
   const broken = [];
+  console.log(`[login-media] 档位 ${profile}：纳入 ${entries.length} 个，跳过展示成片 ${skipped} 个`);
 
   for (const { digest, rel } of entries) {
     const dest = join(MEDIA_DIR, rel);

@@ -290,6 +290,16 @@ uv、便携 Node。脚本里不再有 `releases/latest`、`LATEST_RELEASE_STABLE
 素材要换时：改 tag（`media-v2`）→ 同步 `MEDIA_TAG` 与 `frontend/login-media.sha256`，
 **不要原地替换 release 资产**。
 
+**桌面包走 `desktop` 档**（`prepare-resources.sh` 默认）：桌面壳免登录后 `/login` 会被
+直接 redirect 走，cinematic 第一屏之后的展示成片在装机版里一行都看不到，却照样占
+ dmg 体积（2.3.2 实测这 9 个 mp4 多撑 742 MB，正好顶破 GitHub 单附件 2 GB 上限）。
+所以第 3 步默认传 `--profile desktop`：纳入 7 张封面 + 客服二维码 + `update/` 的更新弹窗
+短片（那个弹窗在桌面里真能打开），跳过 9 部成片。拉取之后还要**按档再剪一次 dist**：
+打包机的 `public/login-media` 很可能早就拉过这些片子，vite 会把 `public/` 原样拷进 dist，
+单靠「不下载」拦不住胖包；剪完留闸门，残留 mp4 不为 0 就 `exit 6`。需要全量素材的
+桌面包（内部演示机）显式给 `LOGIN_MEDIA_PROFILE=full`。web 侧不受影响：
+`frontend/Dockerfile` 不传档位，走默认 `full`，登录页每一屏照常播。
+
 README（含 8 个语种）里的图片/视频同样不留外链：徽章与星标走势图是提交进
 `readme/badges/`、`readme/assets/` 的本地文件，封面图指 `frontend/public/login-media/`，
 成片指本项目 `media-v1`，`scripts/check_external_hosts.py` 会拦住新加的外链素材。

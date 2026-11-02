@@ -152,7 +152,15 @@ need node
 # 登录页/更新弹窗的大体量成片不随 Git 走：按 frontend/login-media.sha256 从
 # 本项目 media-v1 预发布拉取并校验。必须在 vite build 之前——public/ 是构建期
 # 原样拷进 dist 的，build 后再补就进不了包。
-node "$ROOT_DIR/frontend/scripts/fetch-login-media.mjs" \
+#
+# 进包档位：桌面包默认 desktop 档——只装第一屏用得到的封面 png、客服二维码和
+# update/ 的更新弹窗短片，跳过 9 部展示成片（实测合计 713 MB）。依据是桌面壳免登
+# 录后 /login 直接 redirect 到 /，cinematic 第 2 屏起根本不会渲染，这些片子在装机
+# 版里就是纯体重。要拿完整素材（web 那条链自己构前端，不走这里）显式给
+# LOGIN_MEDIA_PROFILE=full。
+LOGIN_MEDIA_PROFILE="${LOGIN_MEDIA_PROFILE:-desktop}"
+log "登录页素材档位：${LOGIN_MEDIA_PROFILE}"
+node "$ROOT_DIR/frontend/scripts/fetch-login-media.mjs" --profile "$LOGIN_MEDIA_PROFILE" \
   || { echo "登录页媒体拉取/校验失败（见 frontend/scripts/fetch-login-media.mjs）" >&2; exit 6; }
 # 前端以 pnpm 管理（见 frontend/pnpm-lock.yaml + packageManager: pnpm@11）；
 # 直接 npm ci 会因 peer 依赖（dramaclaw-spec-render↔lucide-react）冲突失败。
@@ -172,6 +180,22 @@ else
   ( cd "$ROOT_DIR/frontend" && npm ci --legacy-peer-deps && npm run build )
 fi
 cp -R "$ROOT_DIR/frontend/dist/." "$APP/dist/"
+
+# 只靠「不下载」拦不住胖包：打包机的 frontend/public/login-media 很可能早就拉过那
+# 9 部成片，vite 会把 public/ 原样拷进 dist。这里按档再剪一次 dist 里的副本（开
+# 发目录本身不动，下次要 full 档素材还在），并留道硬闸门。
+if [[ "$LOGIN_MEDIA_PROFILE" == "desktop" ]]; then
+  PRUNED_BYTES=0
+  while IFS= read -r -d '' _mf; do
+    _sz="$(wc -c < "$_mf" | tr -d ' ')"
+    PRUNED_BYTES=$((PRUNED_BYTES + ${_sz:-0}))
+    rm -f "$_mf"
+  done < <(find "$APP/dist/login-media" -type f -name '*.mp4' -not -path '*/update/*' -print0 2>/dev/null)
+  log "桌面档剔除 dist 里的展示成片：${PRUNED_BYTES} 字节"
+  LEFT="$(find "$APP/dist/login-media" -type f -name '*.mp4' -not -path '*/update/*' 2>/dev/null | wc -l | tr -d ' ')"
+  [[ "${LEFT:-0}" == "0" ]] \
+    || { echo "展示成片剔除不干净：dist/login-media 下还剩 ${LEFT} 个 mp4" >&2; exit 6; }
+fi
 
 # -------------------------------------------------------- 4) 后端源码副本
 log "4/7 拷贝后端源码 → resources/app/src（PYTHONPATH 目标）"
