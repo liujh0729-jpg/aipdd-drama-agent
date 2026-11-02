@@ -11,11 +11,17 @@
 #     EXPECTED_TEAM_ID           可选，6–10 位 Team ID；填了会比对 App 主签名的 TeamIdentifier。
 #     EXPECTED_APP_IDENTITY      默认 "3rd Party Mac Developer Application"（Apple 新命名写 "Apple Distribution"）。
 #     EXPECTED_INSTALLER_IDENTITY 默认 "3rd Party Mac Developer Installer"。
+#     VERIFY_NESTED_ENT_SAMPLE   默认 200 · m) 嵌套件签名扫描的抽样个数（全树
+#                                上万个 Mach-O 逐个 codesign -d 太慢，按步进抽样）。
 #
 #   退出码：0 全部通过；21 存在未通过项（逐项打印 ✗ 与原因）。
 #
-#   与 Transporter 三大 ITMS 报错对应的回检（构建链 fail-fast 之后的最后一道确认）：
+#   与 Transporter 报错对应的回检（构建链 fail-fast 之后的最后一道确认）：
 #     ITMS-90886 → k) profile Bundle ID / application-identifier 与签名 entitlements 同源比对；
+#     ITMS-90285 → e) 签名里不得出现 iOS 专用的平铺 application-identifier /
+#                   bundle-identifier（macOS 只认 com.apple.application-identifier）；
+#     ITMS-90885 → m) 除主执行件外的嵌套件签名里不得带 application-identifier（松散
+#                   Mach-O 装不下描述文件，带了就上不了 TestFlight）；
 #     ITMS-91167 → j) 主执行件与随包 Python 必须含 arm64（文件名 tag 为 _x64 的直接判拒）；
 #     ITMS-91109 → l) payload 内 com.apple.quarantine 扫描（best-effort，pkg 展开未必保留 xattr，
 #                    真闸门在 macos-pkg-appstore.sh 的签名前清理）。
@@ -130,6 +136,24 @@ for PKG in "$@"; do
         mark_fail "沙盒禁用项仍开启：$FORBID"
       fi
     done
+    # ITMS-90285：macOS 只认 com.apple.application-identifier。签名里出现 iOS 专用的
+    # 平铺 application-identifier / bundle-identifier，ASC 会逐字点名回「key
+    # 'application-identifier' in '…/Contents/MacOS/xxx' is not supported」（2.3.2 实测）。
+    ENT_JSON_TMP="$(mktemp)"
+    printf '%s' "$ENT" >"$ENT_JSON_TMP"
+    ENT_JSON="$(plutil -convert json -o - "$ENT_JSON_TMP" 2>/dev/null || true)"
+    rm -f "$ENT_JSON_TMP"
+    IOS_FLAT_HITS=""
+    for IOS_ONLY in application-identifier bundle-identifier; do
+      if grep -qE '(^|[,{])[[:space:]]*"'"$IOS_ONLY"'"[[:space:]]*:' <<<"$ENT_JSON"; then
+        IOS_FLAT_HITS="${IOS_FLAT_HITS}${IOS_ONLY} "
+      fi
+    done
+    if [[ -n "$IOS_FLAT_HITS" ]]; then
+      mark_fail "ITMS-90285：签名 entitlements 带 iOS 专用平铺键（${IOS_FLAT_HITS% }），macOS 只认 com.apple. 前缀版本"
+    else
+      mark_ok "签名 entitlements 无 iOS 专用平铺键（ITMS-90285）"
+    fi
   fi
 
   # f) 无嵌套 .app（App Store 硬性拒绝，Helper.app / XPC 模板除外——本项目暂无此类）
@@ -252,6 +276,34 @@ for PKG in "$@"; do
     else
       mark_ok "签名 application-identifier=${SIG_APP_ID}（profile 未声明可比对值）"
     fi
+  fi
+
+  # m) ITMS-90885 回检：嵌套件签名里不许出现 application-identifier。
+  #    松散 Mach-O（python / nginx / *.so / *.dylib）没有任何地方能放描述文件，而 ASC
+  #    的规则是「签名里有 application-identifier 的嵌套件必须自带匹配的 profile」——
+  #    2.3.2 旧链把 App 的 entitlements 原样套给所有嵌套件，几千件同时命中，上传只
+  #    能收到「Cannot be used with TestFlight … missing a provisioning profile」。
+  #    全树上万个件逐个 codesign -d 太慢，按步进抽样（两个旧链实测命中目录就在
+  #    resources/bin 与 python/bin 里，抽样能覆盖到）。
+  NESTED_SAMPLE_MAX="${VERIFY_NESTED_ENT_SAMPLE:-200}"
+  NESTED_TOTAL="$(find "$APP" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) 2>/dev/null | wc -l | tr -d ' ')"
+  STEP=$(( ${NESTED_TOTAL:-0} / NESTED_SAMPLE_MAX + 1 ))
+  IDX=0; NESTED_SCANNED=0; NESTED_LEAK=0; NESTED_LEAK_HEAD=""
+  while IFS= read -r -d '' nf; do
+    IDX=$((IDX + 1))
+    if [[ -n "${MAIN_EXE:-}" && "$nf" == "$MAIN_EXE" ]]; then continue; fi
+    [[ $(( IDX % STEP )) -eq 0 ]] || continue
+    file -b "$nf" 2>/dev/null | grep -q 'Mach-O' || continue
+    NESTED_SCANNED=$((NESTED_SCANNED + 1))
+    if codesign -d --entitlements :- "$nf" 2>/dev/null | grep -q 'application-identifier'; then
+      NESTED_LEAK=$((NESTED_LEAK + 1))
+      [[ -z "$NESTED_LEAK_HEAD" ]] && NESTED_LEAK_HEAD="$nf"
+    fi
+  done < <(find "$APP" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) -print0 2>/dev/null)
+  if [[ "$NESTED_LEAK" -gt 0 ]]; then
+    mark_fail "ITMS-90885：嵌套件签名带 application-identifier（抽样 ${NESTED_SCANNED} 个命中 ${NESTED_LEAK} 个，例：${NESTED_LEAK_HEAD}），该 pkg 上不了 TestFlight"
+  else
+    mark_ok "嵌套件签名无 application-identifier（抽样 ${NESTED_SCANNED}/${NESTED_TOTAL:-0} 个，ITMS-90885）"
   fi
 
   # l) ITMS-91109 回检（best-effort）：pkg 展开的 payload 里扫隔离属性。

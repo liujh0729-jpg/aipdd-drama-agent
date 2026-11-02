@@ -382,6 +382,43 @@ powershell -File scripts\build-windows.ps1
 powershell -File scripts\win-sign.ps1 -Stage Installer -Installer '<上一步打印的 setup.exe>'
 ```
 
+### 6.2 Mac App Store pkg（Track B，与 dmg 双轨）
+
+出货默认走 universal 合并链，pkg 与 dmg **同源同一次构建**（免登录与 `desktop` 素材档
+对两条链同样生效：2.3.2 实测 pkg 里 `dist/login-media` 同样只剩 13 MB 小件 + `update/` 短片）：
+
+```bash
+cd desktop
+UNIVERSAL_MERGE_CHROME=1 scripts/build-macos-universal.sh
+NO_BUILD=1 scripts/build-macos-mas-app.sh universal
+PROFILE=<Mac App Store 类型 .provisionprofile> scripts/macos-pkg-appstore.sh \
+  "src-tauri/target/universal2-apple-darwin/release/bundle/macos-mas/AIPDD DramaClaw.app"
+scripts/verify-release-pkg.sh "<上一步打印的 .pkg>"
+```
+
+两条 MAS 签名硬规则（2.3.2 上传 ASC 真被拒的两条，现已进脚本闸门）：
+
+- **签名里只写 `com.apple.application-identifier`**，不能再补 iOS 专用的平铺
+  `application-identifier` / `bundle-identifier`。macOS 不认这两个键，ASC 会逐字回
+  ITMS-90285「key 'application-identifier' in '…/Contents/MacOS/dramaclaw-desktop'
+  is not supported」。对照本机 App Store 装机件（Lark / WPS / Quark）的主执行件签名，
+  里面也只有带 `com.apple.` 前缀的那一个键。
+- **嵌套件不套 App 的 entitlements**：松散 Mach-O（随包 Python、nginx、几千个
+  `.so`/`.dylib`）没有任何地方能放描述文件，而 ASC 的规则是「签名里带
+  application-identifier 的嵌套件必须自带匹配的 provisioning profile」——旧链把 App
+  的 entitlements 原样套下去，几千件同时命中 ITMS-90885「Cannot be used with
+  TestFlight … missing a provisioning profile」。沙盒由父进程继承，嵌套件自己不需要
+  `app-sandbox`；确要给嵌套件单独 entitlements 时用 `MAS_NESTED_ENTITLEMENTS=<plist>`
+  显式覆盖（默认空）。
+- profile 落在 `Contents/embedded.provisionprofile`（Mac App Store 类型、显式勾选
+  `work.aipdd.dramaclaw`）。实测本机 App Store 装机件的主执行件里也不内嵌 profile
+  字节，所以「文件在 App 根」就是正确形态，不是缺陷；`codesign` 不会把 profile 塞进
+  可执行件，也不会从 profile 自动带出标识符——标识符得由 `macos-pkg-appstore.sh`
+  按 profile 注入构建期临时 entitlements（绝不回写仓库模板）。
+
+MAS 版功能面比 dmg 窄：`build-macos-mas-app.sh` 会剥掉 Chrome for Testing 与所有
+嵌套 `.app`（ASC 硬拒），依赖内嵌浏览器的换脸类能力在 MAS 版不可用。
+
 ---
 
 ## 7. 开发调试

@@ -19,7 +19,12 @@
 #                       新命名 "Apple Distribution" 也能用，把本变量覆盖即可）。
 #     SIGN_PKG_IDENTITY 默认 "3rd Party Mac Developer Installer"（同上，新命名
 #                       "Apple Installer"）。
-#     ENTITLEMENTS      默认 ../src-tauri/entitlements.mas.plist
+#     ENTITLEMENTS      默认 ../src-tauri/entitlements.mas.plist（只给 App 本体用）
+#     MAS_NESTED_ENTITLEMENTS
+#                       默认空 · 嵌套件（.so/.dylib/可执行件）签名不带任何
+#                       entitlements。这里不是偷懒：松散 Mach-O 装不下描述文件，
+#                       一旦给它们加上 application-identifier 就必中 ITMS-90885。
+#                       只有确为嵌套件准备了可内嵌描述文件的特殊件才需要覆盖。
 #     PKG_IDENTIFIER    默认读 App CFBundleIdentifier（不加 .pkg 后缀，ASC 匹配用同一入口）
 #     PKG_OUT           默认 <bundle>/macos-mas/<App名>_<版本>_<arch>.pkg
 #
@@ -29,15 +34,23 @@
 #        / allow-dyld-environment-variables → 沙盒下必拒；
 #     3) entitlements 里没有 com.apple.security.app-sandbox → 必拒；
 #     4) 便携 Python 子树里非本 Team 签名件超过 0 → 沙盒下 dlopen 会 SIGKILL，
-#        这里不做检测（Phase 2 会加，用 codesign -d 抽 Team ID 比对）。
+#        这里不做检测（Phase 2 会加，用 codesign -d 抽 Team ID 比对）；
+#     5) 签名里出现 iOS 专用的平铺 application-identifier / bundle-identifier
+#        → 必中 ITMS-90285，macOS 只认 com.apple.application-identifier；
+#     6) 除主执行件以外的嵌套件签名里带 application-identifier → 必中 ITMS-90885。
 #
-#   Transporter 校验失败的三大 ITMS 对应的前置闸门（都在签名前 fail-fast）：
+#   Transporter 校验失败的 ITMS 对应的前置闸门（都在签名前后 fail-fast）：
 #     ITMS-91109 → 步骤 -2：全量清理 com.apple.quarantine 等扩展属性。下载/解压出来的
 #                  文件（便携 Python 的 crypto.py 是实测中招点）带隔离标记，上传必被拒；
 #                  标记不在 Mach-O 签名覆盖范围里，清晚了（打完 pkg 再清）无效。
 #     ITMS-90886 → 步骤 -1：profile 的 Bundle ID / application-identifier / 队列类型
 #                  与 App 逐项比对，混进开发 / AdHoc profile 直接拒；签名后再验 App 的
-#                  签名 entitlements 里必须含 application-identifier 且前缀与 profile 一致。
+#                  签名 entitlements 里必须含 com.apple.application-identifier 且前缀与 profile 一致。
+#     ITMS-90285 → 步骤 -1 注入 + 签后回验：只写 macOS 形的 com.apple.application-identifier，
+#                  不再补写 iOS 平铺键（2.3.2 实测：写了就被回「key 'application-identifier'
+#                  in '…/Contents/MacOS/dramaclaw-desktop' is not supported」）。
+#     ITMS-90885 → 步骤 1 嵌套件不套 entitlements（根源）+ 步骤 3 全树回验：任何带
+#                  application-identifier 却没（也不可能有）描述文件的嵌套件直接拦下。
 #     ITMS-91167 → 步骤 -1：App 内全部 Mach-O 必须含 arm64 切片；仅 arm64 或双架构放行，
 #                  纯 x86_64 包拒收（ASC 已不接受无 arm64 的构建）。应急开关 REQUIRE_ARM64=0。
 #
@@ -187,10 +200,17 @@ if [[ -z "$PROF_APP_ID" ]]; then
 fi
 echo "  ✓ profile 为 Mac App Store 类型且 Bundle ID 匹配：${CF_BUNDLE_ID}（application-identifier=${PROF_APP_ID:-未声明}）"
 
-# ITMS-90886 根源修复：codesign 不会从 profile 自动注入 application-identifier，
+# ITMS-90886 / ITMS-90285 根源修复：codesign 不会从 profile 自动注入标识符，
 # entitlements 模板里没有这个键 → 签出来的包「签名缺 application-identifier 但
-# profile 里有 Bundle ID」，ASC 直接报 90886。这里从 profile 读出同源的标识符对，
+# profile 里有 Bundle ID」，ASC 直接报 90886。这里从 profile 读出同源的标识符，
 # 注入一份构建期临时 entitlements（绝不回写仓库里的模板文件）。
+#
+# ⚠️ macOS 上合法的键名**只有 com.apple.application-identifier**。早先为了「两种命名
+# 都写全」还额外写了平铺的 application-identifier / bundle-identifier，那是 iOS 专用
+# 键，实测 ASC 直接回 ITMS-90285：「key 'application-identifier' in …  is not
+# supported」；对照本机 App Store 装机件（Lark / WPS / Quark）的主执行件签名，里面
+# 也只有带 com.apple. 前缀的那一个键。所以现在只注入 macOS 认的键，并顺手把模板里
+# 可能残留的 iOS 平铺键删掉。
 if [[ -n "$PROF_APP_ID" ]]; then
   # 通配符 profile（TEAM.*）不能把星号直接签进包——签名里必须是具体标识符，
   # Xcode 的做法就是用真实 Bundle ID 拼上 profile 的 Team 前缀。
@@ -211,18 +231,15 @@ if [[ -n "$PROF_APP_ID" ]]; then
       || /usr/libexec/PlistBuddy -c "Set ${esc} string $2" "$ENT_BUILD" \
       || { echo "entitlements 注入 $1 失败" >&2; exit 10; }
   }
+  pb_del() {  # iOS 专用平铺键：不存在就当作通过
+    local esc="${1//./\\.}"
+    /usr/libexec/PlistBuddy -c "Delete ${esc}" "$ENT_BUILD" 2>/dev/null || true
+  }
+  pb_del application-identifier
+  pb_del bundle-identifier
   pb_put com.apple.application-identifier "$INJECT_APP_ID"
-  # 旧键名 application-identifier / bundle-identifier 与 profile 同源，一并写全，
-  # 不同 SDK 版本文档两对命名都见过，写全可避开各类预检口径。
-  pb_put application-identifier "$INJECT_APP_ID"
-  if [[ "${PROF_APP_ID##*.}" == "*" ]] \
-     || { [[ -n "$PROF_BUNDLE_IDS" ]] && ! grep -q -- "\"$CF_BUNDLE_ID\"" <<<"$PROF_BUNDLE_IDS"; }; then
-    # profile 是通配符 Bundle ID 时，显式声明 App 真实 Bundle ID
-    pb_put com.apple.bundle-identifier "$CF_BUNDLE_ID"
-    pb_put bundle-identifier "$CF_BUNDLE_ID"
-  fi
   ENTITLEMENTS="$ENT_BUILD"
-  echo "  ✓ 已向构建期 entitlements 注入 application-identifier=${INJECT_APP_ID}（ITMS-90886 根源）"
+  echo "  ✓ 已向构建期 entitlements 注入 com.apple.application-identifier=${INJECT_APP_ID}（ITMS-90886 根源，且不写 iOS 平铺键）"
 fi
 
 # c) ITMS-91167：App 内核验架构——ASC 拒收无 arm64 切片的构建（只编了 x86_64 的
@@ -297,19 +314,33 @@ fi
 echo "  ✓ 注入 profile 后隔离属性复核通过（ITMS-91109）"
 
 # ------------------------------------------------ 1) 由内向外签所有嵌套 Mach-O
-log "1/4 遍历并签名 App 内所有可执行文件 / .dylib / .so（用 ${SIGN_APP_IDENTITY}）"
+log "1/4 遍历并签名 App 内所有可执行文件 / .dylib / .so（用 ${SIGN_APP_IDENTITY}，嵌套件不带 entitlements）"
+# ITMS-90885 根源修复：嵌套件**不能**带 application-identifier。
+# ASC 的规则是「签名里有 application-identifier 的嵌套件必须自带匹配的 provisioning
+# profile」，而松散的 Mach-O（python / nginx / *.so / *.dylib）根本无处放描述文件——
+# 本机 App Store 装机件（Lark 等）里的 dylib / helper 也都不带 entitlements。旧做法
+# 把 App 的 entitlements 原样套给几千个嵌套件，每个都带着标识符却没 profile，上传
+# 就只能收到 90885。沙盒由父进程继承，嵌套件自己不需要 app-sandbox。
+# 确需给嵌套件单独 entitlements 时用 MAS_NESTED_ENTITLEMENTS 指文件（默认空）。
+MAS_NESTED_ENTITLEMENTS="${MAS_NESTED_ENTITLEMENTS:-}"
+if [[ -n "$MAS_NESTED_ENTITLEMENTS" && ! -f "$MAS_NESTED_ENTITLEMENTS" ]]; then
+  echo "MAS_NESTED_ENTITLEMENTS 指向的文件不存在：$MAS_NESTED_ENTITLEMENTS" >&2
+  exit 2
+fi
 NPROC="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 # 与 mac-sign-notarize.sh 同构的并行签：批量 codesign + 3 次重试消除同 bundle 竞态。
 # 注意 --options runtime（hardened runtime）在 MAS 下是必需项，不能省。
 sign_files_parallel() {
   xargs -0 -P "$NPROC" -n1 /usr/bin/env bash -c '
     file -b "$2" 2>/dev/null | grep -q "Mach-O" || exit 0
+    ent=()
+    [[ -n "${1:-}" ]] && ent=( --entitlements "$1" )   # bash 3.2 下空数组不能直接展开
     for _attempt in 1 2 3; do
-      codesign --force --options runtime --timestamp --entitlements "$0" --sign "$1" "$2" && exit 0
+      codesign --force --options runtime --timestamp "${ent[@]+"${ent[@]}"}" --sign "$0" "$2" && exit 0
       sleep "$_attempt"
     done
     echo "codesign 失败（重试 3 次后）：$2" >&2; exit 1
-  ' "$ENTITLEMENTS" "$SIGN_APP_IDENTITY"
+  ' "$SIGN_APP_IDENTITY" "$MAS_NESTED_ENTITLEMENTS"
 }
 # 动态库先签（.dylib/.so/.so.*），再签可执行件，最后 App 本体——顺序不能反。
 find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) -print0 \
@@ -328,29 +359,37 @@ codesign --force --options runtime --timestamp \
          "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 
-# ITMS-90886 回验：签完的 App entitlements 里必须带 application-identifier，
-# 且前缀（Team ID）与 profile 同源——「签名缺少 application-identifier 但配置文件
-# 里有 Bundle ID」正是该报错的成因，这里在上传前就把它拦住。
+# ITMS-90886 / ITMS-90285 回验：签完的 App entitlements 里必须带 macOS 形的
+# com.apple.application-identifier，且前缀（Team ID）与 profile 同源——「签名缺少
+# application-identifier 但配置文件里有 Bundle ID」正是 90886 的成因；反过来写了
+# iOS 专用的平铺 application-identifier / bundle-identifier 就是 90285 的成因。
 # 含点键不能用 plutil -extract 直读（会把点当路径分隔符），走临时文件 + json。
 SIGNED_ENT_TMP="$(mktemp)"
 trap 'rm -f "$PROFILE_PLIST" "$SIGNED_ENT_TMP"' EXIT
 codesign -d --entitlements :- "$APP" >"$SIGNED_ENT_TMP" 2>/dev/null || : >"$SIGNED_ENT_TMP"
 SIGNED_ENT_JSON="$(plutil -convert json -o - "$SIGNED_ENT_TMP" 2>/dev/null || true)"
 SIGNED_APP_ID="$(json_get_str "$SIGNED_ENT_JSON" 'com\.apple\.application-identifier')"
-[[ -n "$SIGNED_APP_ID" ]] || SIGNED_APP_ID="$(json_get_str "$SIGNED_ENT_JSON" 'application-identifier')"
 if [[ -z "$SIGNED_APP_ID" ]]; then
-  echo "ITMS-90886 硬拦：签名后的 entitlements 里没有 application-identifier（检查 $ENTITLEMENTS 是否漏了该键，且不得与 profile 冲突）。" >&2
+  echo "ITMS-90886 硬拦：签名后的 entitlements 里没有 com.apple.application-identifier（检查 $ENTITLEMENTS 是否漏了该键，且不得与 profile 冲突）。" >&2
   exit 10
 fi
 if [[ -n "$PROF_APP_ID" && "${SIGNED_APP_ID%%.*}" != "${PROF_APP_ID%%.*}" ]]; then
   echo "ITMS-90886 硬拦：签名 application-identifier 前缀（${SIGNED_APP_ID%%.*}）≠ profile 前缀（${PROF_APP_ID%%.*}），签名主体与描述文件不同源。" >&2
   exit 10
 fi
-echo "  ✓ 签名 application-identifier=${SIGNED_APP_ID}（与 profile 同源）"
+echo "  ✓ 签名 com.apple.application-identifier=${SIGNED_APP_ID}（与 profile 同源）"
+for IOS_ONLY in application-identifier bundle-identifier; do
+  if grep -qE '(^|[,{])[[:space:]]*"'"$IOS_ONLY"'"[[:space:]]*:' <<<"$SIGNED_ENT_JSON"; then
+    echo "ITMS-90285 硬拦：签名 entitlements 里还有 iOS 专用平铺键 $IOS_ONLY，macOS 只认 com.apple. 前缀版本，ASC 会回「key '$IOS_ONLY' … is not supported」。" >&2
+    exit 10
+  fi
+done
+echo "  ✓ 签名内无 iOS 专用平铺键（ITMS-90285）"
 
-# ------------------------------------------------ 3) 漏签预扫（对齐直分发链的质量闸门）
-log "3/4 漏签 / ad-hoc 预扫"
+# ------------------------------------------------ 3) 漏签 / ad-hoc / 嵌套件标识符预扫
+log "3/4 漏签 / ad-hoc / 嵌套件 application-identifier 预扫"
 BAD=()
+IDENT_LEAK=()
 while IFS= read -r -d '' f; do
   is_macho "$f" || continue
   if ! codesign --verify --strict "$f" 2>/dev/null; then
@@ -358,12 +397,27 @@ while IFS= read -r -d '' f; do
   elif codesign -dvv "$f" 2>&1 | grep -q 'Signature=adhoc'; then
     BAD+=("$f  （仍是 ad-hoc 签名，App Review 必拒）")
   fi
+  # ITMS-90885 闸门：除主执行件外，任何嵌套件签名里都不许出现 application-identifier。
+  # 松散 Mach-O 装不下描述文件，「带标识符却没 profile」在 ASC 预检里就是
+  # Cannot be used with TestFlight 的直接成因（实测旧链几千个嵌套件全部命中）。
+  if [[ "$f" != "$MAIN_BIN" ]]; then
+    if codesign -d --entitlements :- "$f" 2>/dev/null | grep -q 'application-identifier'; then
+      IDENT_LEAK+=("$f")
+    fi
+  fi
 done < <(find "$APP" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) -print0)
 if [[ "${#BAD[@]}" -gt 0 ]]; then
   printf '  %s\n' "${BAD[@]}" >&2
   echo "漏签预扫未通过：${#BAD[@]} 个文件。先修签名再打 pkg。" >&2
   exit 7
 fi
+if [[ "${#IDENT_LEAK[@]}" -gt 0 ]]; then
+  printf '  ✗ 嵌套件签名带 application-identifier：%s\n' "${IDENT_LEAK[@]:0:5}" >&2
+  echo "ITMS-90885 硬拦：${#IDENT_LEAK[@]} 个嵌套件带标识符却不可能自带描述文件。" >&2
+  echo "  十有八九是显式传了 MAS_NESTED_ENTITLEMENTS，或嵌套件签完后又被直分发链重签过。" >&2
+  exit 12
+fi
+echo "  ✓ 无漏签 / ad-hoc；嵌套件签名均不含 application-identifier（ITMS-90885）"
 
 # ------------------------------------------------ 4) productbuild 出 pkg
 log "4/4 productbuild → ${PKG_OUT}"
