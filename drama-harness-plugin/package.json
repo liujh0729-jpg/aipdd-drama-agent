@@ -1,0 +1,57 @@
+{
+  "name": "dsh-plugin-drama-harness",
+  "version": "0.1.0",
+  "description": "BYOK 短剧生产插件：小说→剧本→分镜→参考图→视频→配音→成片，成果全部保存在本地。",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "README.md",
+    "cordis.patch.yml",
+    "cordis.example.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "drama",
+    "short-video",
+    "byok",
+    "aipdd",
+    "newapi",
+    "volcengine"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "smoke": "node scripts/smoke.mjs",
+    "e2e:mock": "node scripts/e2e-mock.mjs",
+    "prepare": "tsc -p tsconfig.json",
+    "prepack": "pnpm build"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.5",
+    "@deepseek-ai/schemastery": "~3.18.5"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.0"
+  }
+}

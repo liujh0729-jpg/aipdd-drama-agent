@@ -1,0 +1,8 @@
+# 安装到 DSH profile 时自动插入的插件行。
+# 用户只需在 $DSH_HOME/profiles/<profile>/cordis.patch.yml 中按相同 id 覆盖 config 填 apiKey。
+- insert:
+    - id: drama-harness
+      name: dsh-plugin-drama-harness
+      config:
+        apiKey: ''
+        gateway: aipdd

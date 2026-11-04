@@ -1,11 +1,12 @@
 ---
-version: 2.3.1
+version: 2.3.2
 attention: low
 ---
-# v2.3.1
+# v2.3.2
 
 ## User-facing Highlights (zh)
 
+- **桌面版免登录，装上即用**: Windows/macOS 桌面版改为单机单主人形态，打开应用直接进入工作台，不再要求登录；设置里也不再出现「用户管理」「账户安全」两页。服务只监听本机回环地址，外部无法访问。容器/web 部署不受影响，仍保留登录门控。
 - **动效大片支持视频预览**: 工具「动效大片」与案例图册内 37 条案例新增循环预览片，悬停或选中即可看到真实动效，不再只有静态海报。
 - **启动卡不再卡 180 秒**: 本地服务按各自预算等待就绪（nginx 25s、网关/剪辑 90s、FastAPI 180s）；进程提前退出会立即报错，并附退出码与最近日志（nginx 另含本轮 `error.log` 新增内容）。nginx 端口冲突会自动换到 8081–8089 重试，失败页提供「重试启动」，不必重装。
 - **设置页「初始化 LocalAPI」不再报「管理地址尚未就绪」**: 桌面应用现在正确注入网关管理地址，本地部署场景下点击初始化即可连通，无需手动填写。
@@ -16,6 +17,7 @@ attention: low
 
 ## User-facing Highlights (en)
 
+- **No sign-in on desktop**: The Windows/macOS desktop build is now single-machine, single-owner: the app opens straight into the workspace with no login, and the User Management / Account Security settings pages are gone. Services listen only on the loopback address. Container/web deployments are unchanged and still require sign-in.
 - **Motion previews**: The Motion Feature Film tool and its gallery now include looping preview clips for 37 cases, so users can see the actual motion on hover or selection instead of a static poster.
 - **No more 180-second startup stall**: Local services now wait within per-service budgets (nginx 25s, gateway/editor 90s, FastAPI 180s). A child process that exits early fails immediately with its exit code and recent logs (including new nginx `error.log` lines from the current run). Port conflicts make nginx retry on 8081-8089, and the error screen offers a Retry startup action, so users do not have to reinstall.
 - **LocalAPI init no longer reports "admin address not ready"**: The desktop app now injects the gateway admin URL correctly, so clicking Initialize in Settings connects in local deployments without manual address entry.
@@ -26,10 +28,12 @@ attention: low
 
 ## Notes
 
-- 本轮更新包含桌面启动修复、动效预览素材、管理员初始化修复与 LocalAPI 管理地址注入修复，Windows x64 安装包已重新构建；macOS dmg 仍需在 Mac 构建机上重新出包后另行补发。
+- 桌面版（Windows exe / macOS dmg）改为免登录单机形态，容器/web 部署保持登录门控；本轮 Windows x64 安装包已重新构建，macOS dmg 仍需在 Mac 构建机上重新出包后另行补发。
+- 其余内容沿用 2.3.1：桌面启动修复、动效预览素材、管理员初始化修复与 LocalAPI 管理地址注入修复。
 
 ## Fixes
 
+- 桌面端 `ST_CE_MULTI_USER` 改为 `false`：后端鉴权走旁路（`FileAuthPort` 直接返回 local/owner），`/api/v1/config` 的 `auth_required` 为 false，登录页自动跳过，设置里的「用户管理」「账户安全」两页随多用户模式关闭而隐藏；回环绑定（`--host 127.0.0.1`）仍是对外隔离边界。
 - 修复首次初始化界面只能按回车、点击「下一步」无反应的问题。
 - 修复本地服务启动失败时固定干等 180 秒、且错误详情为空的问题：改为按服务预算等待、进程提前退出立即报错，并附带退出码与最近日志；nginx 启动失败自动换端口重试，启动卡新增「重试启动」。
 - 修复设置页「初始化 LocalAPI」报「管理地址尚未就绪」的问题：桌面应用 `env.rs` 补注入 `LOCALAPI_ADMIN_BASE_URL`，本地网关随桌面编排一并提供，无需手工填写。Windows exe 与 macOS dmg 共用同一段 Rust，两端同步修复。

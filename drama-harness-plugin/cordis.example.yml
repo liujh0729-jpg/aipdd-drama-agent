@@ -1,0 +1,19 @@
+# 本地开发挂载示例：把 name 改成本机 drama-harness-plugin 目录的绝对路径。
+# 生产安装优先使用：dsh plugin --profile web add <插件目录或 tgz>
+- insert:
+    - id: drama-harness
+      name: '/absolute/path/to/drama-harness-plugin'
+      config:
+        # 唯一必填项
+        apiKey: 'sk-xxx'
+        # aipdd（默认）| newapi | volcengine | deepseek | custom
+        gateway: aipdd
+        # newapi/custom 必填；其余可留空用预设
+        # baseUrl: 'https://your-gateway.example.com/v1'
+        # 模型名可留空自动探测；探测不理想时再手动指定
+        # textModel: ''
+        # imageModel: ''
+        # videoModel: ''
+        # ttsModel: ''
+        # ttsVoice: 'alloy'
+        # workspaceDir: '~/drama-projects'
