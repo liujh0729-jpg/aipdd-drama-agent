@@ -15,7 +15,19 @@ DeepSeek Harness 的 BYOK 短剧生产插件。配置一个 API Key，即可在�
 
 ## 安装
 
-在插件目录构建后，安装到 DSH profile：
+### 从 GitHub Release 下载（推荐）
+
+在 Release 页下载 `dsh-plugin-drama-harness-0.1.0.zip`，解压后把目录挂到 DSH：
+
+```bash
+unzip dsh-plugin-drama-harness-0.1.0.zip
+dsh plugin --profile web add link:/absolute/path/to/dsh-plugin-drama-harness-0.1.0
+dsh --profile web --dump-config   # 确认配置树里出现 drama-harness
+```
+
+zip 内已包含构建好的单文件 bundle，解压即可用，不需要执行 `pnpm install`。
+
+### 从源码安装（开发）
 
 ```bash
 cd drama-harness-plugin
@@ -23,7 +35,6 @@ pnpm install
 pnpm build
 
 dsh plugin --profile web add ./drama-harness-plugin
-dsh --profile web --dump-config   # 确认配置树里出现 drama-harness
 ```
 
 也可以先打包再安装：
@@ -40,6 +51,8 @@ dsh plugin --profile web add "github:<org>/<repo>#main"
 ```
 
 插件包内自带 `cordis.patch.yml`，DSH 安装时会自动把 `drama-harness` 插入 profile 配置树。安装后重启 `dsh web`。本地开发挂载可参考 [cordis.example.yml](cordis.example.yml)。
+
+> 运行依赖（`@deepseek-ai/dsh-tools`、`@deepseek-ai/schemastery`）在构建时打包进 `lib/index.js`。请不要把它们声明成安装到 profile 的运行依赖：DSH 会把 profile 里的 `@deepseek-ai/dsh-tools` 当作 base 的挂载项，与宿主实例产生两份注册表，工具调用会报 `Cannot read properties of undefined (reading 'prepare')`。
 
 ## 配置
 

@@ -38,20 +38,19 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=lib/index.js --log-level=warning",
     "check": "tsc -p tsconfig.json --noEmit",
     "smoke": "node scripts/smoke.mjs",
     "e2e:mock": "node scripts/e2e-mock.mjs",
-    "prepare": "tsc -p tsconfig.json",
+    "prepare": "pnpm build",
     "prepack": "pnpm build"
-  },
-  "dependencies": {
-    "@deepseek-ai/dsh-tools": "0.2.1-rc.5",
-    "@deepseek-ai/schemastery": "~3.18.5"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.5",
+    "@deepseek-ai/schemastery": "~3.18.5",
     "@types/node": "^24.0.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.7.0"
   }
 }
