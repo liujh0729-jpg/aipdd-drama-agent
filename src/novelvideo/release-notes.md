@@ -30,6 +30,7 @@ attention: low
 
 - 桌面版（Windows exe / macOS dmg）改为免登录单机形态，容器/web 部署保持登录门控；本轮 Windows x64 安装包已重新构建，macOS dmg 仍需在 Mac 构建机上重新出包后另行补发。
 - 其余内容沿用 2.3.1：桌面启动修复、动效预览素材、管理员初始化修复与 LocalAPI 管理地址注入修复。
+- 新增 `drama-harness-plugin/`：DeepSeek Harness 的 BYOK 短剧生产插件，源码随仓库发布，但不包含在本次安装包里；需要自行在 DSH 中安装挂载。
 
 ## Fixes
 
