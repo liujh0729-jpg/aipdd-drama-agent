@@ -557,7 +557,7 @@ DramaClaw 对模型侧保持中立 —— 所有文本 / 图片 / 视频 / 音�
 ## 星标走势
 
 <a href="https://www.star-history.com/?repos=liujh0729-jpg%2Faipdd-drama-agent&type=date&legend=top-left">
-  <img alt="Star History Chart" src="./readme/assets/star-history.svg" width="800" />
+  <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=liujh0729-jpg/aipdd-drama-agent&type=date&legend=top-left" width="800" />
 </a>
 
 <sub>Static snapshot committed in this repository; the live chart is on star-history.com.</sub>
